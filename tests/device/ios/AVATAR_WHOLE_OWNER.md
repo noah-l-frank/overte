@@ -70,6 +70,22 @@ changes that producer and checks its exact binding rejection. Both runs and
 their originals remain retained. This qualifies the preparation Close component,
 not full public preparation recovery, the full journey or physical deadlines.
 
+A subsequent public paired preparation case now passes in 7.867 seconds.
+Both actual UIKit Close calls complete before their local returns are lost.
+Both retries enter `prepare()`; neither invokes the Close helper directly.
+The existing scheduler admits the Actor only after Primary's untouched initial
+frame exists. Both roles reach ready/session-bound preparation with their own
+protected account proofs, reciprocal original initial-frame handoffs and both
+untouched frames preceding either normal marker baseline/camera preparation.
+Login and Close remain once-only. Original issued/before carriers and both
+account/protected journals retain their exact bytes and file identities.
+
+The case preserves all 102 original files in five actual fixture roots and
+7,664 source/launcher pins; owned processes have exited. This extends the
+qualification to public preparation recovery and marker admission. It does
+not qualify public observation, Actor checkpoint publication, SDK delivery ACK,
+input/touch worker end, cleanup, the process/SDK endpoint or the full journey.
+
 ## Untouched frames and camera ordering
 
 Both roles capture and retain their untouched initial original fenced PNG

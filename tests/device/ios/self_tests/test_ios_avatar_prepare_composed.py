@@ -234,4 +234,116 @@ class AvatarPrepareComposedTests(unittest.TestCase):
 
 
 
+    def test_both_public_prepare_retries_after_lost_actual_uikit_close_reach_paired_initial_and_marker_admission_once(self):
+        from contextlib import ExitStack
+        from adapters.normal_feature_state import PrivateFeatureState
+        from adapters.normal_ui import NativeUIError
+        from adapters.script_feature.history import unpack
+        from ios.adapters.avatar_feature import IOSAvatarFeature
+
+        d=self.domain();primary,actor=d.owners['primary'],d.owners['actor']
+        # Keep the existing normal-case worker order: the Actor establishes
+        # only its own original account before Primary session admission.
+        with actor.held():actor.initialize();actor.login()
+        lost=[];kept={}
+        with ExitStack() as callbacks:
+            for role,native in d.natives.items():
+                call=native.call
+                def request(method,path,body=None,role=role,native=native,call=call):
+                    result=call(method,path,body)
+                    if method=='POST' and path.endswith('/click') and native.input_log[-1:]==['OverteTabletClose'] and role not in lost:
+                        lost.append(role)
+                        raise OSError('Declared lost return AFTER actual owned UIKit Close')
+                    return result
+                callbacks.enter_context(patch.object(native,'call',side_effect=request))
+
+            # BOTH failures enter via public prepare(), after the real close
+            # effect, before session/initial/marker setup. No close helper is
+            # invoked directly by this vertical case.
+            for role in ('primary','actor'):
+                owner=d.owners[role];native=d.natives[role]
+                with self.assertRaises(NativeUIError):owner.prepare()
+                self.assertFalse(native.shown);self.assertTrue(native.account['loggedIn'])
+                self.assertEqual(1,native.input_log.count('login.submit'))
+                self.assertEqual(1,native.input_log.count('OverteTabletClose'))
+                with owner.held():
+                    owner.load();event=deepcopy(owner.state['preparationClose'])
+                    self.assertEqual('preparing',owner.state['phase']);self.assertEqual('issued',event['phase'])
+                    self.assertIsNone(event['after']);self.assertIsNone(owner.state['initial'])
+                    self.assertIsNone(owner.state['initialBarrier']);self.assertIsNone(owner.state['sessions'])
+                    self.assertEqual(1,owner.state['protected'])
+                    issued=deepcopy(owner.preparation_issued_original());before=deepcopy(owner.preparation_source(event['before']))
+                    self.assertTrue(before['ui']['open']);self.assertFalse(d.scenes[role].domain.running)
+                    self.assertEqual([],d.scenes[role].scope.frames)
+                    ledger=owner.snapshot_ledger();wires=ledger.entries();pins={}
+                    for field in ('before','issuedIntent'):
+                        reference=event[field];path=ledger.originals.path(wires[reference['index']-1])
+                        pins[field]=(path,self.issued_original_pin(path))
+                    login_path=owner.store.path.with_name('ios-avatar-'+role+'-login.json')
+                    login=unpack(PrivateFeatureState(login_path).read()['payload'])[0]
+                    self.assertEqual('logged-in',login['phase']);self.assertEqual(1,len(login['actions']))
+                    self.assertTrue(login['actions'][0]['complete']);self.assertEqual('login-submit',login['actions'][0]['verb'])
+                    self.assertEqual(1,len(login['protected']));self.assertEqual('complete',login['protected'][0]['phase'])
+                    self.assertIsNotNone(login['protected'][0]['probe']);self.assertIsNotNone(login['protected'][0]['released'])
+                    self.assertIsNotNone(login['protected'][0]['originAbsent'])
+                    kept[role]=dict(event=event,issued=issued,before=before,pins=pins,
+                        loginPath=login_path,loginPin=self.issued_original_pin(login_path),inputs=list(native.input_log))
+            self.assertEqual(['primary','actor'],lost)
+
+            # This is the original normal-case scheduler: first Primary's
+            # untouched frame, then the Actor's complete public preparation.
+            # The two public retries must reopen the issued effects and must
+            # not replay either login or Close.
+            sleep=primary.sleep;started=[]
+            def schedule(seconds):
+                if not started and primary.state is not None and primary.state['initial'] is not None:
+                    started.append(True);actor.prepare()
+                sleep(seconds)
+            primary.sleep=schedule
+            try:primary.prepare()
+            finally:primary.sleep=sleep
+            self.assertEqual([True],started);self.assertEqual(['primary','actor'],lost)
+
+            initial={};peer_initial={};marker_before={}
+            for role,owner in d.owners.items():
+                native=d.natives[role];saved=kept[role]
+                with owner.held(paired=True):
+                    owner.load();self.assertEqual('ready',owner.state['phase']);self.assertEqual('bound',owner.state['sessions']['phase'])
+                    self.assertEqual(1,owner.state['protected'])
+                    event=owner.state['preparationClose'];self.assertEqual('observed',event['phase'])
+                    self.assertEqual(saved['event']['before'],event['before'])
+                    self.assertEqual(saved['event']['issuedIntent'],event['issuedIntent'])
+                    self.assertTrue(saved['issued']==owner.preparation_issued_original(),'Original issued intent changed')
+                    self.assertTrue(saved['before']==owner.preparation_source(event['before']),'Original BEFORE source changed')
+                    for path,original in saved['pins'].values():
+                        self.assertTrue(original==self.issued_original_pin(path),'Original close carrier bytes or identity changed')
+                    self.assertTrue(saved['loginPin']==self.issued_original_pin(saved['loginPath']),'Original account/protected proof changed')
+                    closed=owner.preparation_closed_original();self.assertFalse(closed['ui']['open'])
+                    initial[role]=owner.initial_original()
+                    self.assertLessEqual(closed['clockJoin']['nativeAfter']['capturedEpochMs'],initial[role]['clockJoin']['nativeBefore']['capturedEpochMs'])
+                    scene=d.scenes[role];self.assertIsNotNone(scene.scope.state['baseline']);self.assertIsNotNone(scene.scope.state['webAdmission'])
+                    marker_before[role]=scene.scope.frames[0]['clockJoin']['hostBeforeMonotonic']
+                    self.assertEqual(1,len(scene.domain.vm['added']));self.assertEqual('local',scene.domain.vm['added'][0]['host'])
+                    barrier=owner.state['initialBarrier'];other='actor' if role=='primary' else 'primary'
+                    self.assertEqual(other,barrier['subject']);self.assertEqual(d.owners[other].state['initial']['reference'],barrier['reference'])
+                    peer=IOSAvatarFeature.archive(owner.runtime,owner.kept(barrier['owner']),owner.client,owner.locks)
+                    peer_initial[role]=peer.initial_original()
+                    self.assertEqual(barrier['reference'],peer.state['initial']['reference'])
+                self.assertEqual(saved['inputs'],native.input_log)
+                self.assertEqual(1,native.input_log.count('login.submit'));self.assertEqual(1,native.input_log.count('OverteTabletClose'))
+                self.assertTrue(native.account['loggedIn'])
+            for role,frame in peer_initial.items():
+                self.assertTrue(frame==initial['actor' if role=='primary' else 'primary'],'Actual retained peer initial handoff changed')
+            # Both untouched originals, across both roles, precede EITHER
+            # normal marker preparation baseline/camera change.
+            for frame in initial.values():
+                for before in marker_before.values():self.assertLessEqual(frame['clockJoin']['hostAfterMonotonic'],before)
+            authority=d.server.avatar_accounts.snapshot(RUN)
+            self.assertEqual('ready',authority['phase']);self.assertEqual(2,sum(row['accountExists'] for row in authority['accounts'].values()))
+            for owner in d.owners.values():self.assertEqual(owner.state['sessions']['input'],{key:authority['sessionBinding'][key] for key in ('sessions','domain')})
+            # observed proves the native close effect only. This case does
+            # not invent an SDK delivery ACK, release touch/input workers,
+            # close either SDK, run public observe(), or seal/end the journey.
+
+
 if __name__=='__main__':unittest.main()
