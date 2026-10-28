@@ -546,3 +546,35 @@ PASS5/39.654s; earlier Marker TIMEOUT120s/exit124 is not a qualification and
 its257 originals remain retained. No own tests/processes or staging remain.
 The final UIKit index/registry were released to Root after `a8d7dba90e` at
 06:44:48UTC. Preserve `.ios-host-tmp` and this untracked handoff.
+
+## UIKit existing-copy recovery, 2026-10-28
+
+`TabletUIKitClosedPrefix.recover_copy` now reuses the existing generic adoption
+operation. It accepts only a complete, already owned opened/saved copy at its
+original device/inode with the exact literal UIKit prefix body. Only the own
+opened-to-saved WAL transition may advance. Planned, empty, truncated, replaced
+or foreign copies remain held; recovery never creates or rewrites an original,
+queries UIKit or resends input. It is restricted to the pre-query fence and is
+forbidden during a private own-link read, after that reader expires and after
+opening an active segment. The current header, parent, DOM, lock and complete
+file inventory remain guarded. No serialized grammar or existing cap changes.
+
+All seven new cases have passing outcomes with identical runtime sources and
+test bodies. The initial seven-case batch passed its first three cases before
+the fixed 300-second outer limit interrupted the fourth fixture setup; it has
+no overall PASS. The four remaining cases pass in two groups of two, taking
+136.649 and 131.101 seconds, each with the same 300-second outer bound and
+five-second kill grace. A separate fixture-cache experiment correctly rejected
+mutable-header changes in 33.724 seconds; it was discarded and the original
+test bytes restored before those two groups. None of its cases qualifies.
+
+The positive case recovers a lost successful recovery CAS, remains idempotent,
+indexes the actual 128 originals, enforces own-reader lifetime and opens the
+empty initial 129 segment without a query. Negative cases cover unowned exact
+bytes, incomplete files, same-byte replacement with the old inode retained
+outside the unchanged inventory, foreign run/process/source and a fully owned
+foreign nested body. Every run preserves its source/launcher pins and two
+post-stop original censuses; all 6,213 files, including both failed attempts,
+are retained and no owned test process remains. This does not repeat or extend
+the earlier 332.238-second three-prefix result, qualify manifest recovery,
+execute a native SDK or complete Feature 7. The overall count remains 5/14.

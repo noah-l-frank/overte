@@ -6,6 +6,7 @@ The private reader expires before returning and cannot persist or query.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextvars import ContextVar
 import hashlib
 from pathlib import Path
 import time
@@ -19,6 +20,12 @@ from ios.adapters import tablet_web_child_rotation as children,tablet_web_uikit_
 from ios.adapters.emote_original_lease import EmoteOriginalLease
 from ios.adapters.tablet_web_packets import COMPONENTS
 from ios.adapters.tablet_web_uikit_segment import TabletUIKitSegment
+
+
+_OWN_LINK_READ=ContextVar('tablet_uikit_own_link_read',default=False)
+
+
+def own_read_active():return _OWN_LINK_READ.get()
 
 
 def forbidden(*_args,**_kwargs):need(False)
@@ -74,12 +81,12 @@ class _OriginalLinkPrefix(uikit.TabletUIKitClosedPrefix):
                 need(identity==prior and hashlib.sha256(actual).hexdigest()==sha)
         self.inventory.guard();return True
 
-    save=intent=copy=index=bind_successor=forbidden
+    save=intent=copy=index=bind_successor=recover_copy=forbidden
 
 
 def read(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotonic):
     """Return an original UIKit tail, with no exported reader or authority."""
-    prefix=object.__new__(_OriginalLinkPrefix)
+    prefix=object.__new__(_OriginalLinkPrefix);token=_OWN_LINK_READ.set(True)
     try:
         prefix.__init__(root,binding,run,role,fixture_url,pid,lock,monotonic=monotonic)
         version=prefix.state['tabletWebUIKitContinuationVersion']
@@ -99,4 +106,6 @@ def read(root,binding,run,role,fixture_url,pid,lock,*,monotonic=time.monotonic):
                 nextRaw=reader.state['nextRaw'],nativeFloor=deepcopy(packets[-1]))
         prefix.guard()
         return dict(result,component='uikit',subgraphOnly=True,peerAuthority=False)
-    finally:prefix.alive=False
+    finally:
+        try:prefix.alive=False
+        finally:_OWN_LINK_READ.reset(token)

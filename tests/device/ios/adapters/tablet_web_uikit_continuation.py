@@ -6,6 +6,7 @@ Storage closure does not prove contact release, quiescence or weak retirement.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import base64
+from contextlib import contextmanager
 from copy import deepcopy
 import hashlib
 from pathlib import Path
@@ -204,6 +205,26 @@ class TabletUIKitClosedPrefix:
 
     def copy(self):
         need(self.state['copyIntent'] is None);return self.copies.write(1,self.body())
+
+    @contextmanager
+    def _existing_storage(self):
+        # Only this pre-query UIKit copy WAL may advance. Reuse the generic
+        # adoption operation below; its exact file/body checks remain literal.
+        from ios.adapters import tablet_web_native_child_continuation as native
+        from ios.adapters.tablet_web_uikit_original_link import own_read_active
+        need(not own_read_active() and native._OWN_READ.get() is None
+            and self.state['tabletWebUIKitContinuationVersion']==FENCE_VERSION
+            and self.state.get('active') is None and self.state.get('successor') is None)
+        self.guard();lease=EmoteOriginalLease(self.root,[self.store.path])
+        try:yield
+        finally:
+            try:self.lock.assert_held()
+            finally:lease.guard()
+
+    def recover_copy(self):
+        """Adopt only complete already-owned UIKit copy bytes; never rewrite."""
+        from ios.adapters.tablet_web_native_child_continuation import TabletNativeChildClosedPrefix
+        return TabletNativeChildClosedPrefix.recover_copy(self)
 
     def index(self):
         need(self.state['copyIntent'] is not None and self.state['copyIntent']['phase']=='saved'
