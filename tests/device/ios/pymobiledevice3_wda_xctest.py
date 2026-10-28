@@ -539,6 +539,87 @@ class OriginalKeeperOperations:
             raise LaunchError('session-lifetime')
         return True
 
+    async def _selected_ipa_original(self,selector,binding,session):
+        """Independently read selected IPA bytes; input path is ONLY a selector.
+
+        No expected bundle/source revision/verdict is received. Existing IPA
+        reader hashes the complete original archive; original native bundle
+        equality is checked later by the same Source's actual file operation.
+        """
+        from copy import deepcopy
+        from pathlib import Path
+        import threading,stat
+        from ios.adapters.installed_adapter import ArtifactLease
+        from ios.adapters.bundle_identity import artifact_bundle
+        if (type(selector) is not dict or set(selector)!={'root','relative'}
+                or any(type(selector[k]) is not str or not selector[k] or len(selector[k])>4096
+                       or any(c in selector[k] for c in '\0\r\n') for k in selector)):
+            raise LaunchError('request')
+        root=Path(selector['root']);relative=Path(selector['relative']);path=root/relative
+        if (not root.is_absolute() or relative.is_absolute() or '..' in relative.parts or '.' in relative.parts
+                or root.resolve(strict=True)!=root or path.resolve(strict=True)!=path or not path.is_relative_to(root)):
+            raise LaunchError('request')
+        file_info=path.lstat()
+        # Same4GiB selected-IPA limit as existing immutable artifact verifier.
+        if not stat.S_ISREG(file_info.st_mode) or file_info.st_nlink!=1 or not 1<=file_info.st_size<=4*1024**3:raise LaunchError('request')
+        source=self.source;loop=asyncio.get_running_loop();task=asyncio.current_task();rsd=self.scope(session)
+        claim=self.session;claim_value=deepcopy(claim);creator_reference=source._creator_task;creator=creator_reference()
+        selected_function=self._selected_ipa_original.__func__;source_function=source.current.__func__
+        if (loop is not source._loop or not isinstance(task,asyncio.Task) or not isinstance(creator,asyncio.Task)
+                or creator.done() or creator.get_loop() is not loop or self.touch is not None or self.touch_resources is not None
+                or source._born or source._leases or len(source._native_queries)>=32):raise LaunchError('session-lifetime')
+        # Retain weak identity, not an alternate SDK owner. The existing Source
+        # owns this actual Task/Thread through _native_queries until true return.
+        source_ref=weakref.ref(source);rsd_ref=weakref.ref(rsd);task_ref=weakref.ref(task);creator_ref=weakref.ref(creator);owner_ref=weakref.ref(self)
+        state={'revoked':False,'returned':False};result={};finished=threading.Event()
+        def guard():
+            try:
+                actual=source_ref();owner=owner_ref();original_task=task_ref();original_creator=creator_ref()
+                if (state['revoked'] or actual is None or owner is None or original_task is None or original_creator is None
+                        or asyncio.get_running_loop() is not loop or actual._closing or owner.draining or owner.closed
+                        or owner.source is not actual or actual._loop is not loop or actual._creator_task is not creator_reference
+                        or owner._selected_ipa_original.__func__ is not selected_function or actual.current.__func__ is not source_function
+                        or owner.session is not claim or owner.session!=claim_value
+                        or owner.scope(session) is not rsd_ref() or original_creator.done()
+                        or original_task.cancelled() or original_task.get_loop() is not loop
+                        or (original_task.done() and original_task.exception() is not None)
+                        or owner.touch is not None or owner.touch_resources is not None or actual._born or actual._leases):
+                    raise LaunchError('session-lifetime')
+                if state['returned']:result['lease'].guard()
+            except BaseException:
+                state['revoked']=True;raise
+        guard();await self.fresh_touch_scope(binding);guard()
+        def read_original():
+            try:
+                lease=ArtifactLease(root);lease.guard()
+                measured=artifact_bundle(path,binding['artifactSha256']);lease.guard()
+                result.update(lease=lease,bundle=deepcopy(measured))
+            except BaseException as error:result['error']=error
+            finally:finished.set()
+        thread=threading.Thread(target=read_original,name='original-selected-ipa-read',daemon=False)
+        source._native_queries.append((task,thread,finished,loop));failure=None
+        try:
+            thread.start()
+            while thread.is_alive():
+                try:await asyncio.sleep(.01)
+                except BaseException as error:failure=failure or error
+            if thread.ident is not None:thread.join(timeout=0)
+            if failure is not None:raise failure
+            if not finished.is_set() or 'error' in result:
+                if 'error' in result:raise result['error']
+                raise LaunchError('session-lifetime')
+            state['returned']=True;guard();await self.fresh_touch_scope(binding);guard()
+            # Actual locally born closure/object is kept only in this original
+            # live journal; no JSON or persisted file can recreate its guard.
+            return (object(),guard,deepcopy(result['bundle']),state)
+        except BaseException:
+            state['revoked']=True;raise
+        finally:
+            while thread.is_alive():
+                try:await asyncio.sleep(.01)
+                except BaseException:pass
+            if thread.ident is not None:thread.join(timeout=0)
+
     async def native_query(self,args,session):
         """Own ONE diagnostic query nonce/intent; never candidate/motion authority."""
         from concurrent.futures import Future
@@ -550,9 +631,10 @@ class OriginalKeeperOperations:
         from ios.adapters.appium_adapter import AppiumAdapter
         from ios.adapters.feature_observation import send_original_command
         bundle_profile=type(args) is dict and 'nativeBundleProfileVersion' in args
-        expected={'binding','runId','resultsDirectory','origin','action'}|({'nativeBundleProfileVersion'} if bundle_profile else set())
+        selected_profile=bundle_profile and type(args.get('nativeBundleProfileVersion')) is int and args['nativeBundleProfileVersion']==2
+        expected={'binding','runId','resultsDirectory','origin','action'}|({'nativeBundleProfileVersion'} if bundle_profile else set())|({'selectedArtifact'} if selected_profile else set())
         if (type(args) is not dict or set(args)!=expected or (bundle_profile and
-                (type(args['nativeBundleProfileVersion']) is not int or args['nativeBundleProfileVersion']!=1 or args['action']!='ios-bundle-observe'))):raise LaunchError('request')
+                (type(args['nativeBundleProfileVersion']) is not int or args['nativeBundleProfileVersion'] not in (1,2) or args['action']!='ios-bundle-observe'))):raise LaunchError('request')
         binding=deepcopy(context(args['binding']));run=args['runId'];directory=args['resultsDirectory'];origin=args['origin'];action=args['action']
         if (binding['sessionId']!=session or type(run) is not str or re.fullmatch('[0-9a-f]{32}',run) is None
                 or type(directory) is not str or len(directory)>128 or re.fullmatch('[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*',directory) is None
@@ -563,9 +645,19 @@ class OriginalKeeperOperations:
         if loop is not source._loop or not isinstance(task,asyncio.Task) or self.native_query_task is not None:raise LaunchError('session-lifetime')
         acquisition=self.native_acquisition
         if acquisition is not None and acquisition[0] is not task:raise LaunchError('session-lifetime')
+        selected=None
+        if selected_profile:
+            # Reserve the EXISTING query owner before original FS/SDK awaits.
+            # Concurrent requests cannot slip a second query into this birth.
+            self.native_query_task=task
+            try:selected=await self._selected_ipa_original(args['selectedArtifact'],binding,session)
+            except BaseException:
+                if self.native_query_task is task:self.native_query_task=None
+                raise
         started=loop.time();deadline=started+1.5
-        journal=None;issued_query=None;query=None;owns_task=False
+        journal=None;issued_query=None;query=None;owns_task=selected_profile
         def current():
+            if selected is not None:selected[1]()
             if acquisition is not None:
                 if self.native_acquisition is not acquisition:raise LaunchError('session-lifetime')
                 acquisition[1]()
@@ -586,7 +678,12 @@ class OriginalKeeperOperations:
                         or loop.time()>=touch._deadline() or touch.binding!=binding):raise LaunchError('session-lifetime')
                 status=born['owner']._status()
                 if not status['workerRunning'] or not status['hostResponsibility']:raise LaunchError('session-lifetime')
-        current();self.native_query_task=task;owns_task=True;thread=None;query=None;packet=None;record=None;store=None;lock=None;outcome={}
+        try:current()
+        except BaseException:
+            if selected is not None:selected[3]['revoked']=True
+            if self.native_query_task is task:self.native_query_task=None
+            raise
+        self.native_query_task=task;owns_task=True;thread=None;query=None;packet=None;record=None;store=None;lock=None;outcome={}
         def save():
             # A lost write/readback never grants adoption or delivery permission.
             # Retain the exact attempted envelope in THIS original owner.
@@ -618,7 +715,7 @@ class OriginalKeeperOperations:
                     if store.read()!=journal['previous']:raise LaunchError('session-lifetime')
             packet=deepcopy(journal['previous']) if journal['previous'] is not None else dict(
                 originalKeeperNativeQueryOwnerVersion=1,binding=deepcopy(binding),runId=run,ownerInstance=self.instance,records=[])
-            if bundle_profile:packet['originalKeeperNativeQueryOwnerVersion']=2
+            if bundle_profile:packet['originalKeeperNativeQueryOwnerVersion']=3 if selected_profile else max(2,packet['originalKeeperNativeQueryOwnerVersion'])
             if len(packet['records'])>=32:raise LaunchError('session-lifetime')
             query=dict(schemaVersion=1,commandId='ios-'+uuid.uuid4().hex,action=action)
             if action=='feature-ios-lifecycle-world':query['runId']=run
@@ -626,6 +723,7 @@ class OriginalKeeperOperations:
             record=dict(index=len(packet['records'])+1,query=deepcopy(query),origin=origin,resultsDirectory=directory,phase='intent',
                 hostStartedMonotonic=started,hostDeadlineMonotonic=deadline)
             packet['records'].append(record);save();current()
+            if selected is not None:journal.setdefault('selectedOriginals',{})[query['commandId']]=selected
             # All SDK/source/release checks execute on the ORIGINAL loop.
             # This local bridge never serializes a callable or queries SDK in
             # the HTTP worker. No new event loop/session/endpoint is created.
@@ -659,10 +757,12 @@ class OriginalKeeperOperations:
             if failure is not None:raise failure
             if 'error' in outcome:raise outcome['error']
             current();await self.fresh_touch_scope(binding);current()
-            return dict(originalKeeperNativeQueryVersion=2 if bundle_profile else 1,ownerInstance=self.instance,index=record['index'],query=deepcopy(issued_query),
+            if selected is not None:selected[3]['queryReturned']=True
+            return dict(originalKeeperNativeQueryVersion=(3 if selected_profile else 2) if bundle_profile else 1,ownerInstance=self.instance,index=record['index'],query=deepcopy(issued_query),
                 queryIntentOwned=True,httpReturnObserved=True,nativeDeliveryAcknowledged=False,freshNativeAcquisitionEstablished=False,
                 installedCandidateBound=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
         finally:
+            if selected is not None and not selected[3].get('queryReturned'):selected[3]['revoked']=True
             if thread is not None:
                 while thread.is_alive():
                     try:await asyncio.sleep(.01)
@@ -686,7 +786,7 @@ class OriginalKeeperOperations:
         bundle_profile=type(args) is dict and 'nativeBundleProfileVersion' in args
         expected={'binding','runId','resultsDirectory','query'}|({'nativeBundleProfileVersion'} if bundle_profile else set())
         if (type(args) is not dict or set(args)!=expected or (bundle_profile and
-                (type(args['nativeBundleProfileVersion']) is not int or args['nativeBundleProfileVersion']!=1))):
+                (type(args['nativeBundleProfileVersion']) is not int or args['nativeBundleProfileVersion'] not in (1,2)))):
             raise LaunchError('request')
         binding=deepcopy(context(args['binding']));query=deepcopy(args['query']);directory=args['resultsDirectory']
         if (binding['sessionId']!=session or type(args['runId']) is not str or re.fullmatch('[0-9a-f]{32}',args['runId']) is None
@@ -712,7 +812,8 @@ class OriginalKeeperOperations:
         acquisition=self.native_acquisition
         if acquisition is not None and acquisition[0] is not task:raise LaunchError('session-lifetime')
         started=loop.time();deadline=started+1.5
-        query_journal=None;query_previous=None
+        query_journal=None;query_previous=None;selected=None
+        selected_profile=bundle_profile and args['nativeBundleProfileVersion']==2
         if bundle_profile:
             query_journal=self.native_query_journals.get(args['runId'])
             if (query_journal is None or query_journal['source'] is not original_source or query_journal['rsd'] is not rsd
@@ -720,31 +821,51 @@ class OriginalKeeperOperations:
                     or query_journal['binding']!=binding or query_journal['directory']!=directory or query_journal['pending'] is not None):
                 raise LaunchError('session-lifetime')
             query_previous=deepcopy(query_journal['previous'])
-            if (query_previous is None or query_previous['originalKeeperNativeQueryOwnerVersion']!=2
+            if (query_previous is None or query_previous['originalKeeperNativeQueryOwnerVersion'] not in (2,3)
                     or not any(row['query']==query and row['phase']=='http-returned' for row in query_previous['records'])):
                 raise LaunchError('session-lifetime')
+        if (bundle_profile and not selected_profile and query['commandId'] in query_journal.get('selectedOriginals',{})):
+            # An actual selected-IPA query cannot be downgraded to raw-only
+            # bundle profile1 by omitting the original selected guard.
+            raise LaunchError('request')
+        if selected_profile:
+            selected=query_journal.get('selectedOriginals',{}).get(query['commandId'])
+            if type(selected) is not tuple or len(selected)!=4 or not selected[3].get('queryReturned'):raise LaunchError('session-lifetime')
+            selected[1]()
         def current():
-            if query_journal is not None:
-                if (self.native_query_journals.get(args['runId']) is not query_journal or query_journal['pending'] is not None
-                        or query_journal['previous']!=query_previous):raise LaunchError('session-lifetime')
-                with query_journal['lock'].held():
-                    if query_journal['store'].read()!=query_previous:raise LaunchError('session-lifetime')
-            if acquisition is not None:
-                if self.native_acquisition is not acquisition:raise LaunchError('session-lifetime')
-                acquisition[1]()
-            if (asyncio.get_running_loop() is not loop or self.source is not original_source or original_source._closing or self.draining or self.closed
-                    or self.session is not original_claim or self.session!=claim or self.scope(session) is not rsd or self.touch is not touch
-                    or self.touch_resources is not resource or loop.time()>=deadline):raise LaunchError('session-lifetime')
-            if resource is not None and resource.version in (2,3):
-                with resource.lock.held():resource.motion_current()
-            if touch is not None:
-                born=next((row for row in self.source._born if row['lease'] is touch),None)
-                if (born is None or born['owner'] is None or born['loop'] is not loop or born['worker'] is not touch.worker
-                        or born['release'] is not touch.request_release or touch.request_release.is_set()
-                        or loop.time()>=touch._deadline() or touch.binding!=binding):raise LaunchError('session-lifetime')
-                status=born['owner']._status()
-                if not status['workerRunning'] or not status['hostResponsibility']:raise LaunchError('session-lifetime')
-        current();await self.fresh_touch_scope(binding);current()
+            try:
+                if selected is not None:
+                    if query_journal.get('selectedOriginals',{}).get(query['commandId']) is not selected:raise LaunchError('session-lifetime')
+                    selected[1]()
+                if query_journal is not None:
+                    if (self.native_query_journals.get(args['runId']) is not query_journal or query_journal['pending'] is not None
+                            or query_journal['previous']!=query_previous):raise LaunchError('session-lifetime')
+                    with query_journal['lock'].held():
+                        if query_journal['store'].read()!=query_previous:raise LaunchError('session-lifetime')
+                if acquisition is not None:
+                    if self.native_acquisition is not acquisition:raise LaunchError('session-lifetime')
+                    acquisition[1]()
+                if (asyncio.get_running_loop() is not loop or self.source is not original_source or original_source._closing or self.draining or self.closed
+                        or self.session is not original_claim or self.session!=claim or self.scope(session) is not rsd or self.touch is not touch
+                        or self.touch_resources is not resource or loop.time()>=deadline):raise LaunchError('session-lifetime')
+                if resource is not None and resource.version in (2,3):
+                    with resource.lock.held():resource.motion_current()
+                if touch is not None:
+                    born=next((row for row in self.source._born if row['lease'] is touch),None)
+                    if (born is None or born['owner'] is None or born['loop'] is not loop or born['worker'] is not touch.worker
+                            or born['release'] is not touch.request_release or touch.request_release.is_set()
+                            or loop.time()>=touch._deadline() or touch.binding!=binding):raise LaunchError('session-lifetime')
+                    status=born['owner']._status()
+                    if not status['workerRunning'] or not status['hostResponsibility']:raise LaunchError('session-lifetime')
+            except BaseException:
+                if selected is not None:selected[3]['revoked']=True
+                raise
+        async def fresh_scope():
+            try:await self.fresh_touch_scope(binding)
+            except BaseException:
+                if selected is not None:selected[3]['revoked']=True
+                raise
+        current();await fresh_scope();current()
         if len(original_source._native_reads)>=32:raise LaunchError('request')
         service=HouseArrestService(rsd,documents_only=False);close=service.aclose;closed=asyncio.Event()
         # The ORIGINAL service/task/close are retained BEFORE its first await.
@@ -766,12 +887,18 @@ class OriginalKeeperOperations:
             after=await service.stat(path);current()
             if type(raw) is not bytes or len(raw)!=before['st_size'] or before!=after:raise LaunchError('request')
             text=raw.decode('utf-8');packet=decode(text,limit=limit)
-            if bundle_profile:bundle_observation.validate(packet,query,int(binding['processIdentity']))
+            if bundle_profile:
+                bundle_observation.validate(packet,query,int(binding['processIdentity']))
+                if selected is not None:
+                    from ios.adapters.bundle_identity import compare
+                    if packet['status']!='ready':raise LaunchError('session-lifetime')
+                    compare(packet['bundle'],selected[2])
             elif action==world.ACTION:world.validate(packet,query,int(binding['processIdentity']))
             elif action=='feature-native-observe':native_packet(packet,query['commandId'],int(binding['processIdentity']),packet['capturedEpochMs'])
             else:native_geometry.validate(packet,query['commandId'],native_epoch_ms=packet['observation']['sampleEpochMs'])
             current()
         except BaseException as error:
+            if selected is not None:selected[3]['revoked']=True
             failure=error;raise
         finally:
             try:
@@ -785,14 +912,17 @@ class OriginalKeeperOperations:
                     if not await original_source._close_native_read(row):
                         raise LaunchError('session-lifetime')
             except BaseException:
+                if selected is not None:selected[3]['revoked']=True
                 if failure is None:raise
                 failure.add_note('Original native file cleanup is unresolved; original Source responsibility retained.')
-        current();await self.fresh_touch_scope(binding);current()
-        result=dict(originalKeeperNativeFileVersion=2 if bundle_profile else 1,ownerInstance=self.instance,source='original-rsd-house-arrest',
+        current();await fresh_scope();current()
+        result=dict(originalKeeperNativeFileVersion=(3 if selected_profile else 2) if bundle_profile else 1,ownerInstance=self.instance,source='original-rsd-house-arrest',
             action=action,requestId=query['commandId'],rawJson=text,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),
             queryIssuanceOwned=False,freshNativeAcquisitionEstablished=False,installedCandidateBound=False,
             physicalFileIdentityEstablished=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
-        if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:raise LaunchError('request')
+        if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:
+            if selected is not None:selected[3]['revoked']=True
+            raise LaunchError('request')
         return result
 
     def _native_motion_window_function(self):return WdaServiceClient._request_json

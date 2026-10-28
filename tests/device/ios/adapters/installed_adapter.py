@@ -97,7 +97,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 need(preflight(args) == candidate)
                 lease.guard()
 
-        def _lifecycle_owned_native_query(self,selector,run,action):
+        def _lifecycle_owned_native_query(self,selector,run,action,*,original_child_artifact=False):
             """Actual selected IPA/installed continuity around ONE owned query.
 
             Host byte admission is deliberately separate from the original
@@ -112,6 +112,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             from ios.adapters.script_runtime import IOSScriptRuntime
             from ios.adapters.tablet_web_admission import installed_forward
             identifier(run)
+            need(type(original_child_artifact) is bool and (not original_child_artifact or action=='ios-bundle-observe'))
             need(type(action) is str and action in ('feature-native-observe','feature-ios-lifecycle-world','native-geometry-snapshot','ios-bundle-observe'))
             self._candidate_guard(complete=True)
             client,session,state,target,scope=IOSScriptRuntime(self)._existing(selector)
@@ -136,7 +137,8 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             gate.verify();before=deepcopy(gate.record());installed_forward(initial,before);physical(before)
             artifact=artifact_bundle(path,artifact_sha);compare(artifact,before['observation']['bundle']);physical(before)
             bundle_profile=action=='ios-bundle-observe'
-            profile={'nativeBundleProfileVersion':1} if bundle_profile else {}
+            profile={'nativeBundleProfileVersion':2 if original_child_artifact else 1} if bundle_profile else {}
+            if original_child_artifact:profile['selectedArtifact']=dict(root=str(root),relative=relative)
             value=client.execute(session,'mobile: overteOriginalKeeperOperation',dict(operation='touch-native-query',
                 args=dict(binding=deepcopy(binding),runId=run,resultsDirectory=target['testBuild']['resultsDirectory'],
                           origin=target['testBuild']['fixtureOrigin'],action=action,**profile)))
@@ -144,7 +146,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             exact(value,{'originalKeeperNativeQueryVersion','ownerInstance','index','query','queryIntentOwned','httpReturnObserved',
                 'nativeDeliveryAcknowledged','freshNativeAcquisitionEstablished','installedCandidateBound',
                 'nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'})
-            need(type(value['originalKeeperNativeQueryVersion']) is int and value['originalKeeperNativeQueryVersion']==(2 if bundle_profile else 1)
+            need(type(value['originalKeeperNativeQueryVersion']) is int and value['originalKeeperNativeQueryVersion']==((3 if original_child_artifact else 2) if bundle_profile else 1)
                 and integer(value['index'],1,32) and value['queryIntentOwned'] is True and value['httpReturnObserved'] is True
                 and all(value[key] is False for key in ('nativeDeliveryAcknowledged','freshNativeAcquisitionEstablished',
                     'installedCandidateBound','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished')))
@@ -163,12 +165,12 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 from ios.adapters.bundle_observation import validate as validate_bundle
                 child_original=client.execute(session,'mobile: overteOriginalKeeperOperation',dict(operation='touch-native-original-read',
                     args=dict(binding=deepcopy(binding),runId=run,resultsDirectory=target['testBuild']['resultsDirectory'],
-                              query=deepcopy(query),nativeBundleProfileVersion=1)))
+                              query=deepcopy(query),nativeBundleProfileVersion=2 if original_child_artifact else 1)))
                 physical(before)
                 flags={'queryIssuanceOwned','freshNativeAcquisitionEstablished','installedCandidateBound','physicalFileIdentityEstablished',
                     'nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'}
                 exact(child_original,{'originalKeeperNativeFileVersion','ownerInstance','source','action','requestId','rawJson','bytes','sha256'}|flags)
-                need(type(child_original['originalKeeperNativeFileVersion']) is int and child_original['originalKeeperNativeFileVersion']==2
+                need(type(child_original['originalKeeperNativeFileVersion']) is int and child_original['originalKeeperNativeFileVersion']==(3 if original_child_artifact else 2)
                     and child_original['ownerInstance']==value['ownerInstance'] and child_original['source']=='original-rsd-house-arrest'
                     and child_original['action']==action and child_original['requestId']==query['commandId']
                     and type(child_original['rawJson']) is str and type(child_original['bytes']) is int
@@ -187,7 +189,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                     and child_bundle['sequence']<final['sequence'] and child_bundle['capturedEpochMs']<=final['capturedEpochMs'])
             final_artifact=artifact_bundle(path,artifact_sha);compare(final_artifact,artifact)
             compare(final_artifact,after['observation']['bundle']);physical(after)
-            result=dict(originalKeeperInstalledQueryVersion=2 if bundle_profile else 1,binding=deepcopy(binding),queryOriginal=deepcopy(value),
+            result=dict(originalKeeperInstalledQueryVersion=(3 if original_child_artifact else 2) if bundle_profile else 1,binding=deepcopy(binding),queryOriginal=deepcopy(value),
                 installedBefore=before,installedAfter=after,selectedArtifactBundle=artifact,
                 nativeAcquisitionBound=False,originalChildCandidateBound=False,nativeMotionGuardAvailable=False,
                 nativeTouchSupport=False,resourceRetirementEstablished=False)

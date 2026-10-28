@@ -186,3 +186,27 @@ thread and child censuses. Native, RSD and SDK producers remain declared
 models. The selected IPA still needs independent admission inside the original
 child before it can support motion; native/device and whole-feature gates
 remain closed.
+
+## Independent selected IPA in the original keeper
+
+The optional selected-artifact profile accepts only an artifact pathname. The
+original keeper reads and hashes the actual IPA independently on its existing
+source-owned thread, before starting the unchanged native query deadline. A
+locally retained receipt binds that read to its source, creator task, RSD,
+loop and original query. Native bundle bytes must match that measured archive;
+JSON, persisted headers and a downgraded raw-file profile cannot recreate it.
+Cancellation retains the actual file reader until its original return.
+Observed source, SDK, archive or bundle changes revoke the local receipt.
+
+Eleven new host source-model cases pass in 1.484 seconds, retaining 110 files
+in 22 genuine roots with 9,695 source/launcher/reference pins unchanged. The
+12 original bundle and 24 file/query/installed-binding cases also pass with
+the extended source. Their 126 and 94 original files, and earlier failures,
+remain retained. All successful runs pass their original FD/task/thread/child
+censuses. One earlier fixture attempted to create a task before its loop ran;
+its 84 files and failed resource census remain unqualified. The corrected
+fixture creates and cleans up the actual task on its original loop.
+
+These are host source models with declared native/RSD/SDK producers. The
+selected receipt still needs a fresh native motion cut and current movement
+admission. Native input, device and whole-lifecycle gates remain closed.
