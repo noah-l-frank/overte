@@ -56,6 +56,17 @@ def archived_sample(value,*,root,binding,run,role,lock,policy,marker_nonce,marke
 
 
 class IOSEmoteSamples:
+    SampleVersion=VERSION
+    SampleReads=READS
+    ImageCompose=staticmethod(compose)
+    ArchivedSample=staticmethod(archived_sample)
+
+    def before_capture(self):pass
+
+    def release_owner(self,owner):return owner.release()
+
+    def owner_original(self,owner):return owner.archive()
+
     def __init__(self,runtime,selector,scope,root,policy,phase,lock,*,monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000,sleep=time.sleep):
         need(isinstance(runtime,IOSScriptRuntime) and isinstance(scope,IOSEmoteMarkerScope) and isinstance(lock,ScriptSourceLock)
             and isinstance(phase,PhaseFixtureReader) and phase.area=='emotes' and phase.run==scope.run
@@ -73,12 +84,12 @@ class IOSEmoteSamples:
         if self.previous is not None:self.state=self.decode(self.previous)
 
     def envelope(self,state):
-        return dict(iosEmoteSamplesVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,
+        return dict(iosEmoteSamplesVersion=self.SampleVersion,runId=self.run,role=self.role,binding=self.binding,
             artifactRoot=str(self.root),imagePolicy=self.policy,payload=pack([state]))
 
     def decode(self,value):
         exact(value,{'iosEmoteSamplesVersion','runId','role','binding','artifactRoot','imagePolicy','payload'})
-        rows=unpack(value['payload']);need(type(value['iosEmoteSamplesVersion']) is int and value['iosEmoteSamplesVersion'] in READS
+        rows=unpack(value['payload']);need(type(value['iosEmoteSamplesVersion']) is int and value['iosEmoteSamplesVersion'] in self.SampleReads
             and len(rows)==1 and same(value,dict(self.envelope(rows[0]),iosEmoteSamplesVersion=value['iosEmoteSamplesVersion'])));state=rows[0]
         exact(state,{'phase','rows','seenFrames','cursors'});need(state['phase'] in ('ready','reading')
             and type(state['rows']) is list and len(state['rows'])<=128 and type(state['seenFrames']) is list
@@ -128,7 +139,7 @@ class IOSEmoteSamples:
     def record(self,row):
         value=self.sample_store(row).read();need(value is not None and digest(value)==row['sampleSha256'])
         exact(value,{'iosEmoteSampleVersion','runId','role','binding','requestId','ticket','avatarId','phase','payload','owner'})
-        need(type(value['iosEmoteSampleVersion']) is int and value['iosEmoteSampleVersion'] in READS and value['runId']==self.run and value['role']==self.role
+        need(type(value['iosEmoteSampleVersion']) is int and value['iosEmoteSampleVersion'] in self.SampleReads and value['runId']==self.run and value['role']==self.role
             and same(value['binding'],self.binding) and all(value[k]==row[k] for k in ('requestId','ticket','avatarId','phase')))
         frames=unpack(value['payload']);need(len(frames)==1 and type(frames[0]) is dict)
         owners=unpack(value['owner']);need(len(owners)==1 and (owners[0] is None or type(owners[0]) is dict))
@@ -140,13 +151,14 @@ class IOSEmoteSamples:
     def archive(self,row):
         self.bound();need(row['phase'] in ('observed','marker-pending'));sample=self.record(row);frame=unpack(sample['payload'])[0]
         marker=self.scope.state['admission']['marker']
-        frame,raw,result,_name=archived_sample(sample,root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock,
+        frame,raw,result,_name=self.ArchivedSample(sample,root=self.root,binding=self.binding,run=self.run,role=self.role,lock=self.lock,
             policy=self.policy,marker_nonce=self.scope.state['fileOwnership']['nonce'],marker_url=marker['sourceUrl'])
         return frame,raw,result
 
     def capture(self,ticket,*,avatar_id=None):
         identifier(ticket);self.bound();need(self.state['phase']=='ready' and self.scope.state['phase']=='ready' and len(self.state['rows'])<128)
         if avatar_id is not None:session(avatar_id)
+        self.before_capture()
         phase=self.phase.read();need(phase['ticket']==ticket)
         live=self.runtime._sources(self.selector);need(same(live['binding'],self.binding));observer=live['observer'];clock=live['clock_source']
         native=observer.bound_native_observer(clock);restore_native(native,self.state['cursors']['native'])
@@ -163,7 +175,7 @@ class IOSEmoteSamples:
             frame['capture'],raw=owner.capture(ticket)
             identity=frame['capture']['source']['renderTrace']['frameId'];need(identity not in self.state['seenFrames'])
         finally:
-            if owner.store.read() is not None and owns_slot(owner.store.read()):frame['retirement']=owner.release()
+            if owner.store.read() is not None and owns_slot(owner.store.read()):frame['retirement']=self.release_owner(owner)
         frame['renderersAfter']=renderers.read(self.run);self.remember('renderers',frame['renderersAfter'])
         frame['worldAfter']=world.read(self.run);self.remember('world',frame['worldAfter'])
         packets=originals(frame);fields=[(name,field) for name,p in packets.items() for field in ('capturedEpochMs','sampleEpochMs') if field in p]
@@ -171,13 +183,13 @@ class IOSEmoteSamples:
         status=self.phase.read();need(status['ticket']==ticket)
         marker=self.scope.state['admission']['marker'];pending=False
         try:
-            result,_subject=compose(self.run,ticket,self.binding,frame,raw,self.policy,marker_nonce=self.scope.state['fileOwnership']['nonce'],
+            result,_subject=self.ImageCompose(self.run,ticket,self.binding,frame,raw,self.policy,marker_nonce=self.scope.state['fileOwnership']['nonce'],
                 marker_url=marker['sourceUrl'],avatar_id=avatar_id)
         except MarkerNotReady:pending=True
         selected='marker-pending' if pending else 'observed'
-        sample=dict(iosEmoteSampleVersion=VERSION,runId=self.run,role=self.role,binding=self.binding,requestId=row['requestId'],
+        sample=dict(iosEmoteSampleVersion=self.SampleVersion,runId=self.run,role=self.role,binding=self.binding,requestId=row['requestId'],
             ticket=ticket,avatarId=avatar_id,phase=selected,payload=pack([frame]),owner=pack([owner.store.read()]))
-        self.sample_store(row).write(sample,None);need(same(self.sample_store(row).read(),sample) and owner.archive()==raw)
+        self.sample_store(row).write(sample,None);need(same(self.sample_store(row).read(),sample) and self.owner_original(owner)==raw)
         row.update(phase=selected,sampleSha256=digest(sample));self.state['seenFrames'].append(identity);self.state['phase']='ready';self.save()
         self.archive(row);self.bound()
         join=frame['clockJoin'];now,mono=self.epoch_ms(),self.monotonic()

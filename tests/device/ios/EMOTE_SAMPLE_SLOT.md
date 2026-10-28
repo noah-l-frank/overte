@@ -22,3 +22,22 @@ initial inspection: no native read or release occurs through capture failure,
 explicit drain or attempted recovery, and the foreign request, pixels and
 resource state remain unchanged. Native compilation and device execution remain
 unperformed.
+
+## Explicit callback-pending sample profile
+
+The separate `IOSEmoteCallbackSamples` profile writes Sample/Image version 3.
+It can return an original completed PNG after once-only release when a fresh
+inspection shows that only the original callback ticket remains. Its receipt
+retains that responsibility; it does not prove resource absence. Every new
+capture first inspects the preceding owner, and a retained callback blocks a
+new slot or nonce. Quiet and end still require actual callback drainage.
+Default Sample/Image readers keep their literal version-one/two grammar and
+cannot adopt version-three journals.
+
+Six pending-release owner cases, nine shared Frame/Trace/Window context cases
+and six connected sample cases pass, alongside the twelve original owner and
+twelve original sample/image cases. The connected sample selection retains 32
+files in six roots and 102 original producer returns. Its host producers select
+the actual shared callback context before capture; native, GPU and SDK behavior
+remain modeled. Observer/recovery integration, public activation and complete
+Emote retirement remain open.

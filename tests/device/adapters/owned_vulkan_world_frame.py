@@ -250,6 +250,54 @@ class VulkanWorldFrameOwner:
             need(same(self.store.read(),self.state) and self.guard() is not False)
             return True
 
+    def release_once(self):
+        """One persisted release, or one fresh inspect after an issued intent.
+
+        A returned callback/GPU responsibility is NOT absence. No wait, resend,
+        fresh PNG acquisition or removal is performed by this primitive.
+        """
+        try:
+            started=self.monotonic();need(number(started,0,1e15))
+            with self.lock.held():
+                self._load();need(self.state is not None and owns_slot(self.state));reader=self._reader()
+                operation='inspect' if any(row['command']['operation']=='release' for row in self.events) else 'release'
+                proof=reader.perform(self._query(operation))
+                if absent(proof):
+                    value=deepcopy(self.state)
+                    if value['phase']!='removed':value['phase']='released'
+                    self._write(value)
+                current=self.monotonic();need(number(current,started,started+20) and current-started<20)
+                return deepcopy(proof)
+        except Exception:
+            raise NativeUIError('Vulkan release remains unresolved; actual ownership is retained') from None
+
+    @classmethod
+    def archive_callback_pending_original(cls,value,root,binding,run,role,stage,request_id,lock):
+        """Read exact PNG bytes with an explicit HISTORICAL callback duty.
+
+        This accepts only an actually issued/returned release or inspect whose
+        sole outstanding selected resource is its one callback. It supplies
+        no current absence, current callback count or completed retirement.
+        The old archive_original() remains released-only and unchanged.
+        """
+        need(isinstance(lock,ScriptSourceLock));lock.assert_held();original=deepcopy(value)
+        class Archive(PrivateFeatureState):
+            def read(self):return deepcopy(original)
+            def write(self,*_args):need(False)
+            def discard(self,*_args):need(False)
+        path=lock.path.with_name('graphics-world-frame-'+role+'-'+str(stage)+'-'+request_id[4:]+'.json')
+        owner=cls(Archive(path),root,binding,run,role,stage,request_id,lambda *_:need(False),lambda:True,source_lock=lock)
+        owner._load();need(owner.state['phase']=='captured' and owner.state['absence'] is None
+            and owner.state['frame'] is not None and owns_slot(owner.state))
+        need(any(row['command']['operation']=='release' for row in owner.events) and owner.events)
+        row=owner.events[-1];need(row['command']['operation'] in ('release','inspect') and row['receipt'] is not None)
+        receipt=row['receipt'];source=receipt['source']
+        need(source['retired'] is True and source['present'] is False and source['gpuPending'] is False
+            and type(source['callbacks']) is int and source['callbacks']==1
+            and source['metadataBytes']==source['pngBytes']==source['gpuBufferBytes']==0)
+        raw=owner._read();need(same(owner.store.read(),original))
+        return raw,deepcopy(receipt)
+
     def release(self):
         """Retire native resources; preserve the original host PNG and ledger."""
         try:

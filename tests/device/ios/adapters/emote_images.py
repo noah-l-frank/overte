@@ -33,6 +33,14 @@ class EmoteImagePending(AssertionError):
 def originals(frame):return {key:frame[key] for key in frame.keys()-{'clockJoin'}}
 
 
+def callback_duty(receipt):
+    """Only an observed callback token remains; this never proves absence."""
+    value=receipt['source']
+    return (type(value['callbacks']) is int and value['callbacks']==1
+        and value['retired'] is True and value['present'] is False and value['gpuPending'] is False
+        and value['metadataBytes']==value['pngBytes']==value['gpuBufferBytes']==0)
+
+
 def within(roi,box):
     need(type(roi) is list and len(roi)==4 and box[0]<=roi[0]<roi[2]<=box[2] and box[1]<=roi[1]<roi[3]<=box[3])
 
@@ -69,8 +77,8 @@ def exclusive_subject(packet,avatar_id,policy,view,extent):
         need(max(roi[0],box[0])>=min(roi[2],box[2]) or max(roi[1],box[1])>=min(roi[3],box[3]))
 
 
-def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar_id=None,legacy=False):
-    identifier(run);identifier(ticket);context(binding);need(type(legacy) is bool)
+def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar_id=None,legacy=False,callback_only=False):
+    identifier(run);identifier(ticket);context(binding);need(type(legacy) is bool and type(callback_only) is bool and not (legacy and callback_only))
     exact(frame,FIELDS if legacy and avatar_id is None else FIELDS|REMOTE_FIELDS)
     need(type(policy) is dict and policy.get('source')=='world-render-target')
     clock=validate_join(frame['clockJoin'],originals(frame));pid=int(binding['processIdentity']);epoch=clock['nativeAfter']['capturedEpochMs']
@@ -89,7 +97,8 @@ def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar
     query=dict(schemaVersion=1,action='feature-vulkan-world-frame',operation='read',commandId=capture.get('commandId'),requestId=capture.get('requestId'))
     frame_packet(capture,query,pid,epoch);original_pixels(capture,raw)
     storage(retirement,dict(query,operation=retirement.get('operation'),commandId=retirement.get('commandId')),pid,epoch)
-    need(absent(retirement) and retirement['instance']==capture['instance'] and retirement['sequence']>capture['sequence'])
+    pending=callback_only and callback_duty(retirement)
+    need((absent(retirement) or pending) and retirement['instance']==capture['instance'] and retirement['sequence']>capture['sequence'])
     source=capture['source'];trace=source['renderTrace'];recorded=trace['recordedView']
     need(trace['forwardDrawCalls']>0 and near(recorded['position'],a['position'],.001)
         and orientation(recorded['rotation'],a['rotation']) and near(recorded['fieldOfViewDegrees'],a['fieldOfViewDegrees'],.001)
@@ -128,8 +137,9 @@ def compose(run,ticket,binding,frame,raw,policy,*,marker_nonce,marker_url,avatar
             for packet in (left,right):exclusive_subject(packet,selected,policy,recorded,source['targetExtent'])
     for bound in bounds:within(policy['subject'],avatar_box(bound,recorded,source['targetExtent']))
     image,subject=image_observation(raw,run,ticket,policy)
-    return dict(iosEmoteImageVersion=1 if legacy else VERSION,capturedEpochMs=clock['hostBeforeEpochMs'],nativeEpochMs=ordered[0],
-        frameId=trace['frameId'],image=image,markerId=markers[0]['id'],remoteSessionId=avatar_id,actualAvatarBounds=deepcopy(bounds[-1])),subject
+    return dict(iosEmoteImageVersion=1 if legacy else (3 if callback_only else VERSION),capturedEpochMs=clock['hostBeforeEpochMs'],nativeEpochMs=ordered[0],
+        frameId=trace['frameId'],image=image,markerId=markers[0]['id'],remoteSessionId=avatar_id,actualAvatarBounds=deepcopy(bounds[-1]),
+        **(dict(callbackPending=pending) if callback_only else {})),subject
 
 
 def changed(run,binding,before,raw_before,ticket_before,after,raw_after,ticket_after,policy,*,marker_nonce,marker_url,avatar_id=None):
