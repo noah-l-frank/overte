@@ -39,6 +39,12 @@ class IOSEmoteObserver:
     OwnerReads=OWNER_READS
     SampleRecovery=IOSEmoteSampleRecovery
 
+    PendingExtraFields=frozenset()
+
+    def pending_extra(self):return {}
+
+    def validate_pending_extra(self,pending):pass
+
     def __init__(self,store,sources,binding,role,root,policy,phase,lock,guard,*,peers=None,samples=None,
                  monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000):
         need(isinstance(store,PrivateFeatureState) and isinstance(sources,IOSEmoteSources) and not sources.historical
@@ -125,7 +131,8 @@ class IOSEmoteObserver:
             if state[name] is not None:self.sample(state[name],legacy=version==1)
         pending=state['pending']
         if pending is not None:
-            exact(pending,{'ticket','started','source','peer','sample','original','reference'})
+            exact(pending,{'ticket','started','source','peer','sample','original','reference'}|self.PendingExtraFields)
+            self.validate_pending_extra(pending)
             identifier(pending['ticket']);exact(pending['started'],{'hostBeforeEpochMs','hostBeforeMonotonic'})
             need(number(pending['started']['hostBeforeEpochMs'],1,1e15) and number(pending['started']['hostBeforeMonotonic'],0,1e15))
             if pending['source'] is not None:self.decoder.source(pending['source'])
@@ -139,6 +146,7 @@ class IOSEmoteObserver:
             need(len(state['records'])==512 or self.record_store(len(state['records'])+1).read() is None)
         for row in state['abandoned']:
             exact(row,{'pending','afterEpochMs','afterMonotonic','gpuRetirements'})
+            self.validate_pending_extra(row['pending'])
             need(type(row['pending']) is dict and row['pending']['original'] is row['pending']['reference'] is None
                 and number(row['afterEpochMs'],row['pending']['started']['hostBeforeEpochMs'],1e15)
                 and number(row['afterMonotonic'],row['pending']['started']['hostBeforeMonotonic'],1e15)
@@ -329,7 +337,7 @@ class IOSEmoteObserver:
                 peerBarrier=deepcopy(self.state['lastPeer']),imageBarrier=deepcopy(self.state['lastImage']));self.save()
         elif input_barrier is not None:need(same(input_barrier,self.state['phaseBarrier']))
         self.state['pending']=dict(ticket=ticket,started=dict(hostBeforeEpochMs=self.epoch_ms(),hostBeforeMonotonic=self.monotonic()),
-            source=None,peer=None,sample=None,original=None,reference=None);self.save()
+            source=None,peer=None,sample=None,original=None,reference=None,**self.pending_extra());self.save()
         self.recovery.recover();current=self.sources.read();self.recovery.follow(current)
         pending=self.state['pending'];pending['source']=self.source_reference();self.save()
         need(current['phaseAfter']['activations'][-1]['ticket']==ticket)

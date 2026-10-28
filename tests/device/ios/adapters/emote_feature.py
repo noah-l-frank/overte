@@ -387,6 +387,8 @@ class IOSEmoteFeature:
         with self.runtime.existing_input_session(self.selector):parts['scope'].cleanup()
         need(parts['scope'].state['phase']=='released');self.state['phase']='cleaned';self.save()
 
+    def retirement_sample_owners(self,parts,observation):return parts['samples'].store.read()
+
     def retirement_sample(self,parts,after_sequence=0,*,fresh_end=False):
         need(self.state['phase']=='cleaned');owner=self.native_retirement_owner(parts)
         if owner.state['pending'] is not None:
@@ -415,7 +417,7 @@ class IOSEmoteFeature:
         if self.role=='primary':inputs=dict(cleanup=raw('ios-emote-cleanup-inputs.json'),actions=raw('ios-emote-inputs.json'),background=raw('ios-emote-background.json'))
         original=dict(observation=observation,sources=parts['sources'].store.read(),
             peers=None if parts['peers'] is None else parts['peers'].store.read(),scope=parts['scope'].snapshot(),
-            fileReceipts=None if files is None else files.store.read(),entities=entities.store.read(),sampleOwners=parts['samples'].store.read(),inputOwners=inputs,pointers=pointers.store.read())
+            fileReceipts=None if files is None else files.store.read(),entities=entities.store.read(),sampleOwners=self.retirement_sample_owners(parts,observation),inputOwners=inputs,pointers=pointers.store.read())
         native_reference=owner.retain(original)
         rendered=self.rendered_retirement_owner(parts,native=owner)
         if rendered.state['pending'] is not None:

@@ -66,3 +66,34 @@ all source pins and retained originals remain unchanged. The first new fixture
 used two different clock origins; its failure remains retained. The corrected
 producer selects one domain epoch before its first capture and rewrites no
 original. Native, SDK, Rig, renderer and device execution remain unqualified.
+
+## Immutable callback-drain originals
+
+Explicit Observer4 can record a retired observation without an image only
+after fresh owner inspection and the actual marker-scope quiet cut. It stores
+the unchanged Samples3 envelope, scope snapshot and current released-owner
+transcripts in immutable OriginalFrameStore carriers. The existing Observer
+pending WAL owns every planned/opened/saved write. Compact references retain
+the complete known prefix; no second owner journal is introduced. The original
+pending Sample3 facts keep their historical callback duty.
+
+Each drain must preserve the sample's actual capture and transcript prefix,
+follow the original scope quiet cut and precede its same-process observation.
+Original host spans retain the existing 1.5-second bound. Historical reads
+reopen actual carriers and original PNGs, preserving byte/inode checks and
+read membership. Unknown carriers, changed owner files, missing originals and
+foreign or future cuts cannot clear resources. Partial opened writes remain
+explicit unresolved responsibility; this slice does not adopt or erase them.
+
+Nine connected host cases pass in 51.900 seconds, retaining 702 files and 100
+raw returns with 8,061 source pins unchanged. The existing eight callback cases
+and 22 selected regressions also pass, retaining 239 and 193 files. All original
+VM/stream/thread/process and retained-file checks pass. The initial foreign-PID
+negative case accidentally selected the model's actual PID; its failed run is
+retained, and the corrected case derives and asserts a different PID.
+
+Native4's sample-owner reader is connected and tested. Full native retention,
+rendered/keyed/scene and process/SDK terminal paths require their separate
+profiles and normal-flow qualification. The prospective Feature5 is not selected
+by public configuration. Native/SDK/GPU producers remain models; complete
+Emote capability and device qualification remain open.
