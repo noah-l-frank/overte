@@ -166,7 +166,7 @@ class _NativeMotionReference:
         journal=owner.native_acquisition_journals.get(self._run)
         need(journal is not None and journal.get('motionBirth') is self._journal_key)
         return journal
-    def _check(self):
+    def _identity(self):
         try:
             if self._selected is not None:
                 owner=self._owner();need(owner is not None)
@@ -189,7 +189,7 @@ class _NativeMotionReference:
                 and capture is not None and capture.done() and not capture.cancelled() and capture.exception() is None
                 and self._window_task.done() and not self._window_task.cancelled() and self._window_task.exception() is None
                 and not source._leases and not source._born and owner.touch is None
-                and loop.time()<self._deadline and owner.instance==self._original_journal()['previous']['ownerInstance'])
+                and owner.instance==self._original_journal()['previous']['ownerInstance'])
             target=None if self._target is None else self._target()
             need((self._target is None and owner.touch_resources is None)
                 or (target is not None and owner.touch_resources is target))
@@ -199,6 +199,11 @@ class _NativeMotionReference:
         except BaseException:
             self.revoke() # Observed unknown scope never revives by ABA.
             raise
+    def _check(self):
+        try:
+            self._identity();need(asyncio.get_running_loop().time()<self._deadline)
+        except BaseException:
+            self.revoke();raise
     def revoke(self):
         self._failed=True
         if self._selected is not None:self._selected[3]['revoked']=True
@@ -214,12 +219,19 @@ class _NativeMotionReference:
             self._selected[3]['motionTarget']=weakref.ref(resource)
         self._target=weakref.ref(resource);self._check()
     def original(self,source,resource,owner_instance):
+        return self._read(source,resource,owner_instance,self._check)
+    def anchor(self,source,resource,owner_instance):
+        # Only already-bound immutable intent, never a fresh/native verdict.
+        need(type(resource) is LifecycleTouchResourceOwner and resource.version==4
+            and resource._motion_original is self and self._target is not None and self._target() is resource)
+        return self._read(source,resource,owner_instance,self._identity)
+    def _read(self,source,resource,owner_instance,guard):
         from adapters.native_clock_join import validate_join
         from ios.adapters.lifecycle_world_attempt import source_frame_original
-        self._check();owner=self._owner();need(source is self._source() and owner.instance==owner_instance
+        guard();owner=self._owner();need(source is self._source() and owner.instance==owner_instance
             and (resource is None or self._target is not None and self._target() is resource))
-        files=owner._native_acquisition_files(self._original_journal(),self._check)
-        frame=files.read(files.expand(self._reference));self._check()
+        files=owner._native_acquisition_files(self._original_journal(),guard)
+        frame=files.read(files.expand(self._reference));guard()
         exact(frame,{'originalKeeperNativeAcquisitionFrameVersion','originals','clockJoin','reads','sdkWindow'}|({'selectedCandidate'} if self._selected is not None else set()))
         need(type(frame['originalKeeperNativeAcquisitionFrameVersion']) is int and frame['originalKeeperNativeAcquisitionFrameVersion']==(3 if self._selected is not None else 2)
             and frame['clockJoin']['hostBeforeMonotonic']==self._started)
@@ -238,7 +250,7 @@ class _NativeMotionReference:
             need(frame['selectedCandidate']['selectionQueryId']==self._selected_id
                 and frame['selectedCandidate']['selectedArtifactBundle']==self._selected[2])
             result['selectedCandidate']=deepcopy(frame['selectedCandidate'])
-        self._check();return result
+        guard();return result
 
 
 class LifecycleTouchResourceOwner:
@@ -316,6 +328,12 @@ class LifecycleTouchResourceOwner:
         except BaseException:
             self._motion_failed=True # Observed unknown scope cannot revive by ABA.
             raise
+
+    async def native_before_down(self):
+        """Actual fresh original cut; local receipt only, never Down admission."""
+        self.file_guard();need(self.version==4 and not self._motion_failed and type(self._motion_original) is _NativeMotionReference)
+        owner=self._motion_original._owner();need(owner is not None)
+        return await owner.native_before_down(self)
 
     def make_lease(self,store,rsd,local_address,*,check,options=None,admit_begin=None,on_worker_birth=None,worker_lock=False):
         """Explicit source/test seam, never canonical production admission.

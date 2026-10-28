@@ -199,6 +199,7 @@ class OriginalKeeperSource:
         self._born = []
         self._native_reads = []
         self._native_queries = []
+        self._native_current_tasks = []
         self._closing = False
 
     def current(self):
@@ -318,6 +319,14 @@ class OriginalKeeperSource:
                     await asyncio.shield(worker)
                 except BaseException as error:
                     failure = failure or error
+        for task in tuple(getattr(self,'_native_current_tasks',())):
+            if not isinstance(task,asyncio.Task) or task.get_loop() is not self._loop:raise LaunchError('session-lifetime')
+            while not task.done():
+                try:await asyncio.shield(task)
+                except BaseException as error:failure=failure or error
+            # Current acceptance already failed at its caller. Harvest the
+            # actual completed Task error, never convert it to current/end.
+            if not task.cancelled():task.exception()
         for task,thread,finished,loop in tuple(getattr(self,'_native_queries',())):
             if loop is not self._loop or task.get_loop() is not loop:raise LaunchError('session-lifetime')
             while not task.done() or thread.is_alive():
@@ -484,7 +493,7 @@ class OriginalKeeperOperations:
         self.wda=None;self.wda_stop=None;self.wda_session=None;self.wda_binding_claimed=False;self.touch=None;self.closed=False;self.draining=False
         self.issued={};self.operations=set();self.state_root=state_root;self.touch_resources=None
         self.native_query_task=None;self.native_query_journals={}
-        self.native_acquisition=None;self.native_acquisition_journals={}
+        self.native_acquisition=None;self.native_acquisition_journals={};self.native_current_cuts={}
 
     def scope(self, session):
         if self.closed or self.draining or self.session is None or session!=self.session['sessionId']:
@@ -1005,7 +1014,7 @@ class OriginalKeeperOperations:
         return OriginalFrameStore(self.state_root,journal['binding'],journal['run'],'primary',guard,intent,
             namespace='lifecycle-native-acquisition',schema_prefix='iosLifecycleNativeAcquisition')
 
-    async def native_acquire(self,args,session,*,_motion_window=False):
+    async def native_acquire(self,args,session,*,_motion_window=False,_current_resource=None):
         """Four actual owned query/file pairs; immutable raw originals, no motion."""
         from copy import deepcopy
         from adapters.native_feature_observation import decode
@@ -1026,6 +1035,15 @@ class OriginalKeeperOperations:
                 or AppiumAdapter.normalized_http_origin(origin,'original native fixture')!=origin):raise LaunchError('request')
         loop=asyncio.get_running_loop();task=asyncio.current_task()
         if self.native_acquisition is not None or not isinstance(task,asyncio.Task):raise LaunchError('session-lifetime')
+        current_cut=None
+        if _current_resource is not None:
+            from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner
+            current_cut=self.native_current_cuts.get(task)
+            if (not _motion_window or not selected_profile or type(_current_resource) is not LifecycleTouchResourceOwner
+                    or _current_resource is not self.touch_resources or _current_resource.version!=4
+                    or current_cut is None or current_cut[0] is not _current_resource
+                    or _current_resource.state['selectedQueryId']!=selected_id):raise LaunchError('session-lifetime')
+            _current_resource.file_guard()
         journal=self._native_acquisition_owner(binding,run,session);touch=self.touch;resource=self.touch_resources
         selected=None;selected_owner=None
         if selected_profile:
@@ -1041,13 +1059,17 @@ class OriginalKeeperOperations:
             selected[1]()
         if _motion_window:
             creator=journal['source']._creator_task()
-            if (touch is not None or resource is not None or journal['source']._leases or journal['source']._born
+            if (touch is not None or (resource is not None and resource is not _current_resource) or journal['source']._leases or journal['source']._born
                     or not isinstance(creator,asyncio.Task) or creator.done() or creator.get_loop() is not loop
                     or not isinstance(self.wda,asyncio.Task) or self.wda.done() or self.wda.get_loop() is not loop
                     or self.wda_session is None or not self.wda_binding_claimed):raise LaunchError('session-lifetime')
         if journal['previous']['pending'] is not None or len(journal['previous']['frames'])>=8:raise LaunchError('session-lifetime')
         started=loop.time();epoch=time.time()*1000;deadline=started+1.5;token=None
+        if current_cut is not None:started,epoch,deadline=current_cut[1:]
         def current():
+            if current_cut is not None:
+                if self.native_current_cuts.get(task) is not current_cut:raise LaunchError('session-lifetime')
+                _current_resource.file_guard()
             if selected is not None:
                 if (self.native_query_journals.get(run) is not selected_owner
                         or selected_owner.get('selectedOriginals',{}).get(selected_id) is not selected):raise LaunchError('session-lifetime')
@@ -1134,6 +1156,7 @@ class OriginalKeeperOperations:
             if _motion_window:
                 from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionReference
                 receipt=_NativeMotionReference(self,journal,reference,window_task,window_function,started,selected=selected,selected_id=selected_id)
+                if current_cut is not None:receipt._target=weakref.ref(_current_resource)
             payload=canonical(dict(binding=binding,runId=run,reference=reference)).decode('ascii')
             result=dict(originalKeeperNativeAcquisitionVersion=(3 if selected is not None else 2) if _motion_window else 1,ownerInstance=self.instance,encoding='canonical-json-ascii',
                 acquisitionJson=payload,nativeAcquisitionBound=False,installedCandidateBound=False,nativeMotionGuardAvailable=False,
@@ -1141,7 +1164,7 @@ class OriginalKeeperOperations:
             if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:raise LaunchError('request')
             current()
             if _motion_window:journal.setdefault('motionOriginals',{})[reference['sha256']]=receipt
-            return result
+            return receipt if current_cut is not None else result
         except BaseException:
             if selected is not None:selected[3]['revoked']=True
             raise
@@ -1149,6 +1172,61 @@ class OriginalKeeperOperations:
             # Nested original query/file helpers retain and await their actual
             # HTTP Thread/AFC close even on cancellation or scope/deadline loss.
             if self.native_acquisition is token:self.native_acquisition=None
+
+    async def native_before_down(self,resource):
+        """Real fresh native cut, still NO worker/input/Down permission.
+
+        Identity/historical intent survive an old preparation interval; ALL
+        current facts below are newly acquired on the original Source loop.
+        """
+        from copy import deepcopy
+        from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner,_NativeMotionReference
+        from ios.adapters.lifecycle_world_hold import coordinates
+        from ios.adapters import lifecycle_world as world
+        if (type(resource) is not LifecycleTouchResourceOwner or resource.version!=4 or self.touch_resources is not resource
+                or self.touch is not None or self.source._born or self.source._leases
+                or type(resource._motion_original) is not _NativeMotionReference
+                or resource._motion_original._owner() is not self or resource._motion_original._source() is not self.source
+                or type(getattr(self.source,'_native_current_tasks',None)) is not list
+                or len(self.source._native_current_tasks)>=8 or any(not task.done() for task in self.source._native_current_tasks)):
+            raise LaunchError('session-lifetime')
+        resource.file_guard();loop=asyncio.get_running_loop();started=loop.time();epoch=time.time()*1000;deadline=started+1.5
+        original=resource._motion_original;task=None
+        try:
+            # This is an immutable intent anchor, NOT a claim of current time.
+            anchor=original.anchor(self.source,resource,self.instance)
+            query_owner=self.native_query_journals.get(resource.run)
+            if (query_owner is None or query_owner.get('selectedOriginals',{}).get(resource.state['selectedQueryId']) is not original._selected
+                    or loop is not self.source._loop or loop.time()>=deadline):raise LaunchError('session-lifetime')
+            args=dict(binding=deepcopy(resource.binding),runId=resource.run,resultsDirectory=query_owner['directory'],
+                origin=query_owner['origin'],selectedQueryId=resource.state['selectedQueryId'])
+            async def acquire_original_current():
+                try:return await self.native_acquire(args,resource.binding['sessionId'],_motion_window=True,_current_resource=resource)
+                finally:self.native_current_cuts.pop(asyncio.current_task(),None)
+            task=asyncio.create_task(acquire_original_current(),name='original-native-before-down-cut')
+            self.native_current_cuts[task]=(resource,started,epoch,deadline)
+            # Actual ownership BEFORE first SDK await. Timeout/caller cancel is
+            # never original task/SDK completion; original Source waits later.
+            self.source._native_current_tasks.append(task);self.operations.add(task);task.add_done_callback(self.operations.discard)
+            done,_=await asyncio.wait({task},timeout=max(0.,deadline-loop.time()))
+            if task not in done:raise LaunchError('session-lifetime')
+            receipt=task.result()
+            if type(receipt) is not _NativeMotionReference:raise LaunchError('session-lifetime')
+            current=receipt.original(self.source,resource,self.instance);resource.file_guard()
+            old,new=anchor['originals']['world'],current['originals']['world']
+            if (coordinates(anchor)!=coordinates(current) or world.context(old)!=world.context(new)
+                    or old['source']['pad'] is None or new['source']['pad'] is None):raise LaunchError('session-lifetime')
+            pad=world.touch.pad(new['source']['pad'])
+            if (not pad['active'] or not pad['enabled'] or pad['hidden'] or not pad['fixed'] or pad['moveValid']
+                    or new['source']['touch']['active']):raise LaunchError('session-lifetime')
+            measured=world.measure(old,new)
+            if measured['heldInputs'] or measured['worldDisplacement']>.025 or loop.time()>=deadline:raise LaunchError('session-lifetime')
+            # Opaque local source receipt, no JSON/callback/True substitution.
+            # Resource.make_lease4 intentionally remains CLOSED separately.
+            return receipt
+        except BaseException:
+            original.revoke();resource._motion_failed=True
+            raise
 
     def native_acquisition_read(self,args,session):
         """Historical immutable FD bytes; never a fresh native query/verdict."""

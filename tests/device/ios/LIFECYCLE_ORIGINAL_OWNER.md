@@ -249,3 +249,23 @@ inconsistently; the real validator rejected its second cut. Those 13 original
 files remain retained. The corrected producer selects both genuine elapsed
 clock mappings before their first birth or capture. Native, SDK, device and
 current-movement admission remain unqualified.
+
+## Fresh native cut before Down
+
+Resource profile 4 can now request a genuinely new five-original native cut
+from its original source after preparation has aged. The original preparation
+is retained unchanged. The new receipt has its own unchanged 1.5-second
+deadline and joins the actual WDA window, bundle, geometry and idle World pad.
+A persisted resource pointer cannot authorize it without the original live
+source task. Cancellation or an unknown WDA return keeps that same task and
+its descriptors under source drainage until the original operation settles;
+drainage propagates the original failure.
+
+Nine host source models pass in 10.759 seconds, retaining 122 files in 18
+genuine roots with 10,529 pins unchanged. The existing eight selected-motion
+join cases also pass, retaining 92 files. Original FD/task/thread/child checks
+pass. The earlier failed model expected successful drainage after a revoked
+capture; its 69 files and failure remain retained. No input gate is enabled:
+the actual retained touch worker and post-Down, pre-move cut still need to be
+connected. Native/RSD/WDA/SDK producers remain models; device and whole-feature
+qualification remain open.
