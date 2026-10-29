@@ -97,3 +97,24 @@ rendered/keyed/scene and process/SDK terminal paths require their separate
 profiles and normal-flow qualification. The prospective Feature5 is not selected
 by public configuration. Native/SDK/GPU producers remain models; complete
 Emote capability and device qualification remain open.
+
+## Native, rendered, keyed and scene callback profiles
+
+Explicit Rendered4 and Keyed4 owners now connect the actual Native4 original
+to original restoration pixels, current key/IME facts and the existing scene
+receipt. Their constructors retain the old literal type gates for earlier
+owners. The scene still reports its measured held Qt/QImage/QSG/native holders;
+an empty callback list does not establish process or SDK retirement.
+
+Eight connected host cases pass in 219.364 seconds, retaining 1,908 files with
+8,084 source pins unchanged. They exercise normal play/cancel/close, original
+initial and cleanup PNGs, full Native4 retention, cold historical reopening,
+changed parent membership, modified PNG bytes, lost saved-original return, a
+new key press and a later image offered against an older native cut. All original
+VM/thread/process and retained-file checks pass. The initial fixture wrongly
+required retired UI before ordinary close; its failed originals remain retained.
+The corrected fixture uses the existing production pre-close ownership checks.
+
+The prospective Feature6 selects these component profiles explicitly. Live,
+paired terminal, final process/SDK end and public activation remain separate
+work. Native/SDK/GPU producers remain models and devices remain untested.
