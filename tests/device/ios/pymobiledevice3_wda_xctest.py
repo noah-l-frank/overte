@@ -501,6 +501,7 @@ class OriginalKeeperOperations:
         self.issued={};self.operations=set();self.state_root=state_root;self.touch_resources=None;self.native_passive_tasks={};self.native_passive_callback=None
         self.native_query_task=None;self.native_query_journals={}
         self.native_acquisition=None;self.native_acquisition_journals={};self.native_current_cuts={}
+        self.native_passive_collect_task=None;self.native_passive_pair_task=None
 
     def scope(self, session):
         if self.closed or self.draining or self.session is None or session!=self.session['sessionId']:
@@ -646,10 +647,269 @@ class OriginalKeeperOperations:
                 except BaseException:pass
             if thread.ident is not None:thread.join(timeout=0)
 
+    def _native_query_save(self,journal,value):
+        """Existing query CAS; an uncertain saved return never grants adoption."""
+        from copy import deepcopy
+        with journal['lock'].held():
+            if journal['pending'] is not None or journal['store'].read()!=journal['previous']:
+                raise LaunchError('session-lifetime')
+            attempted=deepcopy(value);journal['pending']=attempted
+            journal['store'].write(attempted,journal['previous'])
+            if journal['store'].read()!=attempted:raise LaunchError('session-lifetime')
+            journal['previous']=deepcopy(attempted);journal['pending']=None
+
+    def _native_passive_files(self,journal,scope,field,*,advance=None):
+        """OriginalFrameStore at original StateRoot; WAL contains references only."""
+        from copy import deepcopy
+        from adapters.original_frame_store import OriginalFrameStore
+        from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionPassiveRead
+        if type(scope) is not _NativeMotionPassiveRead or scope._owner() is not self or field not in ('passiveOriginal','passiveCut'):
+            raise LaunchError('session-lifetime')
+        def current():
+            scope.current()
+            if (self.native_query_journals.get(scope._resource().run) is not journal or journal['source'] is not self.source
+                    or journal['rsd'] is not self.scope(scope._session) or journal['loop'] is not asyncio.get_running_loop()
+                    or journal['pending'] is not None or journal['binding']!=scope._resource().binding
+                    or journal['previous']['originalKeeperNativeQueryOwnerVersion']!=4):raise LaunchError('session-lifetime')
+            with journal['lock'].held():
+                if journal['store'].read()!=journal['previous']:raise LaunchError('session-lifetime')
+        def intent(kind,reference):
+            current()
+            if kind!='original' or advance is None:raise LaunchError('session-lifetime')
+            value=deepcopy(journal['previous']);index=reference['index']
+            if not 1<=index<=len(value['records'])<=32:raise LaunchError('request')
+            row=value['records'][index-1];old=row.get(field)
+            if (row['index']!=index or row['phase']!='http-returned' or row.get('passiveLeaseId')!=scope.lease_id
+                    or row.get('passivePhase')!=scope._phase or old is None and reference['phase']!='planned'
+                    or old is not None and (reference['phase']!={'planned':'opened','opened':'saved'}.get(old['phase'])
+                        or any(old[k]!=reference[k] for k in old if k not in ('phase','file'))
+                        or old['phase']!='planned' and old['file']!=reference['file'])):raise LaunchError('session-lifetime')
+            row[field]=deepcopy(reference);self._native_query_save(journal,value);advance();current()
+        namespace,prefix=('lifecycle-passive-original','iosLifecyclePassiveRaw') if field=='passiveOriginal' else ('lifecycle-passive-world','iosLifecyclePassiveWorld')
+        current();return OriginalFrameStore(self.state_root,journal['binding'],scope._resource().run,'primary',current,intent,
+            namespace=namespace,schema_prefix=prefix)
+
+    def _native_passive_original(self,journal,scope,query,result,read_end,advance):
+        """Mint only INSIDE actual native_original_read after original SDK close.
+
+        Query start and raw read-end were sampled at actual original source
+        points, BEFORE WAL writes/transport return. They never change on read.
+        """
+        from copy import deepcopy
+        import sys
+        if (sys._getframe(1).f_code is not self.native_original_read.__func__.__code__
+                or self.native_passive_pair_task is not asyncio.current_task()
+                or self.native_passive_collect_task is None or self.native_passive_collect_task.done()):
+            raise LaunchError('session-lifetime')
+        scope.current();source=self.source;loop=source._loop;capture=asyncio.current_task();creator=source._creator_task()
+        rows=journal['previous']['records'];record=next((r for r in rows if r['query']==query),None)
+        if (record is None or record.get('passiveOriginal') is not None or record['phase']!='http-returned'
+                or record['passiveLeaseId']!=scope.lease_id or record['passivePhase']!=scope._phase
+                or not isinstance(creator,asyncio.Task) or creator.done()):raise LaunchError('session-lifetime')
+        frame=dict(originalKeeperPassiveRawVersion=1,queryIndex=record['index'],query=deepcopy(query),nativeFile=deepcopy(result),
+            hostBefore=dict(epochMs=record['hostStartedEpochMs'],monotonic=record['hostStartedMonotonic']),
+            hostAfter=deepcopy(read_end),passiveLeaseId=scope.lease_id,passivePhase=scope._phase)
+        files=self._native_passive_files(journal,scope,'passiveOriginal',advance=advance)
+        # Store.write performs its full byte/inode/readback/WAL checks. This
+        # source-local receipt is NOT exposed: mandatory original caller.read
+        # validates physical bytes AGAIN after the capture Task truly finishes.
+        reference=files.write(record['index'],frame);scope.current()
+        immutable=deepcopy(frame);saved=deepcopy(reference);birth=object()
+        owner_ref,source_ref,rsd_ref,loop_ref=weakref.ref(self),weakref.ref(source),weakref.ref(journal['rsd']),weakref.ref(loop)
+        capture_ref,creator_ref=weakref.ref(capture),weakref.ref(creator)
+        read_function,query_function=self.native_original_read.__func__,self.native_query.__func__
+        query_id=query['commandId'];row_index=record['index'];lease_id=scope.lease_id
+        receipt=None;valid={'revoked':False}
+        def original_read(current_scope):
+            from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionPassiveRead
+            owner,actual,original_loop,task,original_creator=owner_ref(),source_ref(),loop_ref(),capture_ref(),creator_ref()
+            if (valid['revoked'] or type(current_scope) is not _NativeMotionPassiveRead or owner is None or actual is None
+                    or current_scope._owner() is not owner or owner.source is not actual or actual._loop is not original_loop
+                    or original_loop is not asyncio.get_running_loop() or journal['source'] is not actual
+                    or journal['rsd'] is not rsd_ref() or owner.scope(current_scope._session) is not rsd_ref()
+                    or owner.native_original_read.__func__ is not read_function or owner.native_query.__func__ is not query_function
+                    or original_creator is None or original_creator.done() or actual._creator_task() is not original_creator
+                    or task is None or not task.done() or task.cancelled() or task.exception() is not None
+                    or task.get_loop() is not original_loop or current_scope.lease_id!=lease_id
+                    or journal.get('passiveOriginals',{}).get(query_id) is not receipt):raise LaunchError('session-lifetime')
+            current_scope.current();value=journal['previous']['records'][row_index-1]
+            if (value['query']!=query or value['index']!=row_index or value.get('passiveOriginal') is None
+                    or value['passiveOriginal']['phase']!='saved'
+                    or not any(r[2] is task and r[4].is_set() and r[0]._service is None and r[0]._afc_reader_task is None and not r[0]._afc_pending for r in actual._native_reads)
+                    or not any(r[0] is task and not r[1].is_alive() and r[2].is_set() for r in actual._native_queries)):
+                raise LaunchError('session-lifetime')
+            store=owner._native_passive_files(journal,current_scope,'passiveOriginal')
+            if store.compact(value['passiveOriginal'])!=saved:raise LaunchError('session-lifetime')
+            body=store.read(store.expand(saved));current_scope.current()
+            if body!=immutable:raise LaunchError('session-lifetime')
+            return deepcopy(body)
+        def original(current_scope):
+            try:return original_read(current_scope)
+            except BaseException:
+                valid['revoked']=True;raise
+        receipt=(birth,original,saved,capture_ref)
+        journal.setdefault('passiveOriginals',{})[query_id]=receipt
+
+    async def native_passive_collect(self,args,session):
+        """Held, released, then FOUR distinct later quiet originals; no new input.
+
+        Initial input16 + held3 + released3 + four(newWorld+newAfter)=30.
+        Previous actual NativeAfter+its ORIGINAL read-end are the next Before.
+        Default NativeClockAcquisition and acquisition8 remain unchanged.
+        """
+        from copy import deepcopy
+        from adapters.native_feature_observation import decode,number
+        from adapters.native_clock_join import validate_join,digest
+        from adapters.script_feature.history import canonical
+        from ios.adapters import lifecycle_world as world
+        from ios.adapters.lifecycle_world_attempt import source_frame_original
+        from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionPassiveRead
+        expected={'binding','runId','resultsDirectory','origin','nativePassiveAcquisitionVersion','phase'}
+        if (type(args) is not dict or set(args)!=expected or type(args['nativePassiveAcquisitionVersion']) is not int
+                or args['nativePassiveAcquisitionVersion']!=1 or args['phase'] not in ('held','released','quiet')):raise LaunchError('request')
+        task=asyncio.current_task();loop=asyncio.get_running_loop();run=args['runId'];journal=self.native_query_journals.get(run)
+        if (not isinstance(task,asyncio.Task) or loop is not self.source._loop or journal is None
+                or self.native_passive_collect_task is not None or self.native_passive_pair_task is not None
+                or journal['binding']!=args['binding'] or journal['directory']!=args['resultsDirectory']
+                or journal['origin']!=args['origin'] or journal['pending'] is not None):raise LaunchError('session-lifetime')
+        history=journal.setdefault('passiveCollection',dict(cuts=[],pending=None,function=self.native_passive_collect.__func__))
+        index=len(history['cuts'])+1;phase='held' if index==1 else 'released' if index==2 else 'quiet'
+        if (history['function'] is not self.native_passive_collect.__func__ or history['pending'] is not None
+                or index>6 or phase!=args['phase'] or index==1 and len(journal['previous']['records'])+14>32):raise LaunchError('request')
+        self.native_passive_collect_task=task
+        def scope():
+            value=_NativeMotionPassiveRead(self,session,world.ACTION,args['binding'],run)
+            if value._phase!=('holding' if phase=='held' else 'released'):
+                value.close();raise LaunchError('session-lifetime')
+            return value
+        def read(receipt):
+            current=scope()
+            try:
+                import types
+                producer=self._native_passive_original.__func__
+                callbacks=[code for code in producer.__code__.co_consts if isinstance(code,types.CodeType) and code.co_name=='original']
+                # Check SOURCE ownership and the actual original producer's
+                # callback identity BEFORE invoking any function from a tuple.
+                # DTO shape, copied birth token/ref, or a grafted foreign
+                # registry callback cannot execute as the original reader.
+                if (type(receipt) is not tuple or len(receipt)!=4 or type(receipt[0]) is not object
+                        or not any(value is receipt for value in journal.get('passiveOriginals',{}).values())
+                        or len(callbacks)!=1 or type(receipt[1]) is not types.FunctionType
+                        or receipt[1].__code__ is not callbacks[0] or receipt[1].__globals__ is not producer.__globals__):
+                    raise LaunchError('session-lifetime')
+                return receipt[1](current)
+            finally:current.close()
+        async def pair(action):
+            base={k:deepcopy(args[k]) for k in ('binding','runId','resultsDirectory','origin')}
+            async def acquire():
+                issued=await self.native_query(dict(base,action=action,nativePassiveReadVersion=1),session)
+                await self.native_original_read(dict(binding=deepcopy(args['binding']),runId=run,
+                    resultsDirectory=args['resultsDirectory'],query=deepcopy(issued['query']),nativePassiveReadVersion=1),session,_retain_passive_original=True)
+                return issued['query']['commandId']
+            if self.native_passive_pair_task is not None:raise LaunchError('session-lifetime')
+            original=asyncio.create_task(acquire(),name='original-passive-'+action);self.native_passive_pair_task=original
+            self.operations.add(original);original.add_done_callback(self.operations.discard)
+            failure=None
+            try:
+                while not original.done():
+                    try:await asyncio.shield(original)
+                    except BaseException as error:failure=failure or error
+                if failure is not None:raise failure
+                query_id=original.result();receipt=journal.get('passiveOriginals',{}).get(query_id)
+                # Private tuple only; EVERY caller immediately invokes read
+                # before using any raw bytes/endpoint. No accepted result or
+                # outbound RPC exists before that mandatory completed-Task read.
+                return receipt
+            finally:
+                # Actual query/read helpers own their HTTP/AFC until return;
+                # never cancellation-as-completion or a replacement query.
+                if original.done() and self.native_passive_pair_task is original:self.native_passive_pair_task=None
+        try:
+            current=scope();current.close()
+            history['pending']=dict(task=weakref.ref(task),index=index,phase=phase)
+            if phase=='quiet':
+                first_receipt=history['cuts'][-1]['after'];first=read(first_receipt)
+                if first['passivePhase']!='released':raise LaunchError('session-lifetime')
+                start=deepcopy(first['hostAfter'])
+                if not 0<=loop.time()-start['monotonic']<1.5:raise LaunchError('session-lifetime')
+                # Quiet cadence belongs to WORLD originals, not the later
+                # clock/Raw-WAL work. Reopen the prior actual cut AND its own
+                # producer-born World raw receipt before selecting this point.
+                current=scope()
+                try:
+                    previous=history['cuts'][-1]
+                    files=self._native_passive_files(journal,current,'passiveCut')
+                    body=files.read(files.expand(previous['reference']))
+                    if body!=previous['frame']:raise LaunchError('session-lifetime')
+                    source_frame_original(body,args['binding'],run)
+                finally:current.close()
+                world_row=body['reads'][1]
+                world_receipt=journal.get('passiveOriginals',{}).get(world_row['query']['commandId'])
+                prior_world=read(world_receipt)
+                if (prior_world!=world_row or prior_world['query']['action']!=world.ACTION
+                        or prior_world['passivePhase']!='released'):raise LaunchError('session-lifetime')
+                # SAME1.05s spacing from the ORIGINAL WORLD read-end. The
+                # NativeBefore and join start stay the unchanged old NativeAfter
+                # and its original host-end; no re-clock/freshness substitution.
+                remaining=prior_world['hostAfter']['monotonic']+1.05-loop.time()
+                if remaining>0:await asyncio.sleep(remaining)
+                current=scope();current.close()
+                if not 0<=loop.time()-start['monotonic']<1.5:raise LaunchError('session-lifetime')
+            else:
+                first_receipt=await pair('feature-native-observe');first=read(first_receipt);start=deepcopy(first['hostBefore'])
+            middle_receipt=await pair(world.ACTION);middle=read(middle_receipt)
+            last_receipt=await pair('feature-native-observe');last=read(last_receipt)
+            packet=decode(middle['nativeFile']['rawJson'],limit=world.LIMIT)
+            originals=dict(world=packet,worldClock=dict(capturedEpochMs=packet['clockAfter']['epochMs']))
+            joined=dict(clockJoinVersion=1,hostBeforeEpochMs=start['epochMs'],hostBeforeMonotonic=start['monotonic'],
+                hostAfterEpochMs=last['hostAfter']['epochMs'],hostAfterMonotonic=last['hostAfter']['monotonic'],
+                nativeBefore=decode(first['nativeFile']['rawJson'],limit=262144),nativeAfter=decode(last['nativeFile']['rawJson'],limit=262144),
+                sourceTimes=[dict(source='worldClock',field='capturedEpochMs',epochMs=packet['clockAfter']['epochMs'])],originalsSha256=digest(originals))
+            validate_join(joined,originals);source_frame_original(dict(originals=originals,clockJoin=joined),args['binding'],run)
+            old=[]
+            for cut in history['cuts']:
+                current=scope()
+                try:
+                    files=self._native_passive_files(journal,current,'passiveCut');body=files.read(files.expand(cut['reference']))
+                    if body!=cut['frame']:raise LaunchError('session-lifetime')
+                    source_frame_original(body,args['binding'],run);old.append(body)
+                finally:current.close()
+            if phase=='held':
+                current=scope()
+                try:anchor=current._resource()._motion_original.anchor(self.source,current._resource(),self.instance)['originals']['world']
+                finally:current.close()
+                world.active_forward(anchor,packet)
+            else:
+                world.contact_released(old[0]['originals']['world'],packet)
+                if phase=='quiet':
+                    world.validate(packet,middle['query'],int(args['binding']['processIdentity']),previous=old[-1]['originals']['world'])
+                    if packet['source']['touch']['events']!=old[1]['originals']['world']['source']['touch']['events']:
+                        raise LaunchError('session-lifetime')
+                    world.measure(old[1]['originals']['world'],packet)
+            if index==6:world.stationary([body['originals']['world'] for body in old[2:]]+[packet])
+            frame=dict(originalKeeperPassiveWorldFrameVersion=1,ordinal=index,phase=phase,originals=originals,clockJoin=joined,
+                reads=[first,middle,last],previousReference=None if not history['cuts'] else deepcopy(history['cuts'][-1]['reference']))
+            current=scope()
+            try:
+                def advanced():pass
+                files=self._native_passive_files(journal,current,'passiveCut',advance=advanced)
+                ref=files.write(middle['queryIndex'],frame);files.read(files.expand(ref));current.current()
+            finally:current.close()
+            history['cuts'].append(dict(reference=deepcopy(ref),frame=deepcopy(frame),after=last_receipt));history['pending']=None
+            payload=canonical(dict(binding=deepcopy(args['binding']),runId=run,reference=ref,ordinal=index,phase=phase)).decode('ascii')
+            result=dict(originalKeeperNativeAcquisitionVersion=4,ownerInstance=self.instance,encoding='canonical-json-ascii',acquisitionJson=payload,
+                nativeAcquisitionBound=False,installedCandidateBound=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
+            if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:raise LaunchError('request')
+            return result
+        finally:
+            if self.native_passive_collect_task is task:self.native_passive_collect_task=None
+
     async def native_query(self,args,session,*,_passive_scope=None):
         """Own ONE diagnostic query nonce/intent; never candidate/motion authority."""
         from concurrent.futures import Future
         from copy import deepcopy
+        if self.native_passive_collect_task is not None and asyncio.current_task() is not self.native_passive_pair_task:
+            raise LaunchError('session-lifetime')
         if type(args) is dict and 'nativePassiveReadVersion' in args:
             if _passive_scope is not None or type(args['nativePassiveReadVersion']) is not int or args['nativePassiveReadVersion']!=1:
                 raise LaunchError('request')
@@ -698,7 +958,7 @@ class OriginalKeeperOperations:
             except BaseException:
                 if self.native_query_task is task:self.native_query_task=None
                 raise
-        started=loop.time();deadline=started+1.5
+        started=loop.time();started_epoch=time.time()*1000;deadline=started+1.5
         journal=None;issued_query=None;query=None;owns_task=selected_profile
         def current():
             if selected is not None:selected[1]()
@@ -731,15 +991,7 @@ class OriginalKeeperOperations:
             raise
         self.native_query_task=task;owns_task=True;thread=None;query=None;packet=None;record=None;store=None;lock=None;outcome={}
         def save():
-            # A lost write/readback never grants adoption or delivery permission.
-            # Retain the exact attempted envelope in THIS original owner.
-            previous=journal['previous']
-            with lock.held():
-                if journal['pending'] is not None or store.read()!=previous:raise LaunchError('session-lifetime')
-                attempted=deepcopy(packet);journal['pending']=attempted
-                store.write(attempted,previous)
-                if store.read()!=attempted:raise LaunchError('session-lifetime')
-                journal['previous']=deepcopy(attempted);journal['pending']=None
+            self._native_query_save(journal,packet)
         try:
             await self.fresh_touch_scope(binding);current()
             store=PrivateFeatureState(self.state_root/('ios-lifecycle-native-query-owner-'+run+'.json'))
@@ -778,7 +1030,7 @@ class OriginalKeeperOperations:
             issued_query=deepcopy(query)
             record=dict(index=len(packet['records'])+1,query=deepcopy(query),origin=origin,resultsDirectory=directory,phase='intent',
                 hostStartedMonotonic=started,hostDeadlineMonotonic=deadline)
-            if _passive_scope is not None:record.update(passiveLeaseId=_passive_scope.lease_id,passivePhase=_passive_scope._phase)
+            if _passive_scope is not None:record.update(passiveLeaseId=_passive_scope.lease_id,passivePhase=_passive_scope._phase,hostStartedEpochMs=started_epoch)
             packet['records'].append(record);save();current()
             if selected is not None:journal.setdefault('selectedOriginals',{})[query['commandId']]=selected
             # All SDK/source/release checks execute on the ORIGINAL loop.
@@ -835,7 +1087,7 @@ class OriginalKeeperOperations:
                 if thread.ident is not None:thread.join(timeout=0)
             if self.native_query_task is task:self.native_query_task=None
 
-    async def native_original_read(self,args,session,*,_passive_scope=None):
+    async def native_original_read(self,args,session,*,_passive_scope=None,_retain_passive_original=False):
         """Read a fixed native original through THIS original RSD/provider.
 
         The caller's nonce is correlation only: this method does not own its
@@ -844,6 +1096,8 @@ class OriginalKeeperOperations:
         """
         from pymobiledevice3.services.house_arrest import HouseArrestService
         from copy import deepcopy
+        if self.native_passive_collect_task is not None and asyncio.current_task() is not self.native_passive_pair_task:
+            raise LaunchError('session-lifetime')
         if type(args) is dict and 'nativePassiveReadVersion' in args:
             if _passive_scope is not None or type(args['nativePassiveReadVersion']) is not int or args['nativePassiveReadVersion']!=1:
                 raise LaunchError('request')
@@ -852,13 +1106,14 @@ class OriginalKeeperOperations:
             scope=_NativeMotionPassiveRead(self,session,action,args.get('binding'),args.get('runId'))
             try:
                 original=deepcopy(args);del original['nativePassiveReadVersion']
-                return await self.native_original_read(original,session,_passive_scope=scope)
+                return await self.native_original_read(original,session,_passive_scope=scope,_retain_passive_original=_retain_passive_original)
             finally:scope.close()
         if _passive_scope is not None:
             from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionPassiveRead
             if type(_passive_scope) is not _NativeMotionPassiveRead or self.native_passive_tasks.get(asyncio.current_task()) is not _passive_scope:
                 raise LaunchError('session-lifetime')
             _passive_scope.current()
+        if _retain_passive_original and (_passive_scope is None or self.native_passive_pair_task is not asyncio.current_task()):raise LaunchError('session-lifetime')
         import hashlib
         from adapters.normal_feature_state import context
         from adapters.native_feature_observation import decode,validate as native_packet
@@ -901,6 +1156,9 @@ class OriginalKeeperOperations:
                     or query_journal['binding']!=binding or query_journal['directory']!=directory or query_journal['pending'] is not None):
                 raise LaunchError('session-lifetime')
             query_previous=deepcopy(query_journal['previous'])
+            if _retain_passive_original and any(row['query']==query and row.get('passiveOriginal') is not None for row in query_previous['records']):
+                # Uncertain stored original stays owned; never reread/reclock it.
+                raise LaunchError('session-lifetime')
             versions=(4,) if _passive_scope is not None else (2,3)
             if (query_previous is None or query_previous['originalKeeperNativeQueryOwnerVersion'] not in versions
                     or not any(row['query']==query and row['phase']=='http-returned'
@@ -981,6 +1239,7 @@ class OriginalKeeperOperations:
             elif action=='feature-native-observe':native_packet(packet,query['commandId'],int(binding['processIdentity']),packet['capturedEpochMs'])
             else:native_geometry.validate(packet,query['commandId'],native_epoch_ms=packet['observation']['sampleEpochMs'])
             current()
+            read_end=dict(epochMs=time.time()*1000,monotonic=loop.time())
         except BaseException as error:
             if selected is not None:selected[3]['revoked']=True
             failure=error;raise
@@ -1008,6 +1267,12 @@ class OriginalKeeperOperations:
         if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:
             if selected is not None:selected[3]['revoked']=True
             raise LaunchError('request')
+        if _retain_passive_original:
+            def advance():
+                nonlocal query_previous
+                query_previous=deepcopy(query_journal['previous'])
+            self._native_passive_original(query_journal,_passive_scope,query,result,read_end,advance)
+            current()
         return result
 
     def _native_motion_window_function(self):return WdaServiceClient._request_json
@@ -1090,6 +1355,9 @@ class OriginalKeeperOperations:
 
     async def native_acquire(self,args,session,*,_motion_window=False,_current_resource=None):
         """Four actual owned query/file pairs; immutable raw originals, no motion."""
+        if type(args) is dict and 'nativePassiveAcquisitionVersion' in args:
+            if _motion_window or _current_resource is not None:raise LaunchError('request')
+            return await self.native_passive_collect(args,session)
         from copy import deepcopy
         from adapters.native_feature_observation import decode
         from adapters.native_clock_join import validate_join,digest
@@ -1389,8 +1657,44 @@ class OriginalKeeperOperations:
             original.revoke();resource._motion_failed=True
             raise
 
+    def native_passive_acquisition_read(self,args,session):
+        """Historical original bytes over the EXISTING chunk operation only."""
+        import base64,os
+        from adapters.script_feature.history import canonical
+        from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionPassiveRead
+        expected={'binding','runId','referenceJson','offset','nativePassiveAcquisitionVersion'}
+        if (type(args) is not dict or set(args)!=expected or type(args['nativePassiveAcquisitionVersion']) is not int
+                or args['nativePassiveAcquisitionVersion']!=1 or type(args['referenceJson']) is not str
+                or len(args['referenceJson'])>2048 or type(args['offset']) is not int or args['offset']<0 or args['offset']%4096):
+            raise LaunchError('request')
+        from ios.adapters import lifecycle_world as world
+        scope=_NativeMotionPassiveRead(self,session,world.ACTION,args['binding'],args['runId'])
+        try:
+            journal=self.native_query_journals.get(args['runId']);reference=decode_owner_packet(args['referenceJson'])
+            if journal is None or journal.get('passiveCollection') is None:raise LaunchError('session-lifetime')
+            cut=next((row for row in journal['passiveCollection']['cuts'] if row['reference']==reference),None)
+            if cut is None:raise LaunchError('request')
+            files=self._native_passive_files(journal,scope,'passiveCut');full=files.expand(reference)
+            row=journal['previous']['records'][reference['index']-1]
+            if row.get('passiveCut') is None or files.compact(row['passiveCut'])!=reference:raise LaunchError('session-lifetime')
+            if files.read(full)!=cut['frame']:raise LaunchError('session-lifetime')
+            offset=args['offset']
+            if offset>=reference['bytes']:raise LaunchError('request')
+            scope.current();descriptor=os.open(files.path(full),os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+            with os.fdopen(descriptor,'rb') as stream:
+                files.file(files.path(full),stream.fileno(),full);stream.seek(offset);chunk=stream.read(min(4096,reference['bytes']-offset))
+                files.file(files.path(full),stream.fileno(),full)
+            if files.read(full)!=cut['frame'] or len(chunk)!=min(4096,reference['bytes']-offset):raise LaunchError('request')
+            scope.current();payload=canonical(dict(reference=reference,offset=offset,contentBase64=base64.b64encode(chunk).decode('ascii'))).decode('ascii')
+            result=dict(originalKeeperNativeAcquisitionReadVersion=2,ownerInstance=self.instance,encoding='canonical-json-ascii',originalJson=payload,
+                nativeAcquisitionBound=False,installedCandidateBound=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
+            if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:raise LaunchError('request')
+            return result
+        finally:scope.close()
+
     def native_acquisition_read(self,args,session):
         """Historical immutable FD bytes; never a fresh native query/verdict."""
+        if type(args) is dict and 'nativePassiveAcquisitionVersion' in args:return self.native_passive_acquisition_read(args,session)
         import base64,hashlib,os
         from copy import deepcopy
         from adapters.script_feature.history import canonical

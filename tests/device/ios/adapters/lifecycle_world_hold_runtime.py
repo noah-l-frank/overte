@@ -21,9 +21,52 @@ from ios.adapters.lifecycle_world_attempt import LifecycleWorldAttempt
 from ios.adapters.lifecycle_world_hold import LifecycleWorldHold
 
 
+def passive_world_original(frame,binding,run,owner):
+    """Strict typed RAW+carrier join. Transport correlation is NOT live ownership."""
+    from adapters.native_feature_observation import decode,validate as native,integer,number
+    from adapters.native_clock_join import validate_join
+    from ios.adapters import lifecycle_world as world
+    from ios.adapters.lifecycle_world_attempt import source_frame_original
+    exact(frame,{'originalKeeperPassiveWorldFrameVersion','ordinal','phase','originals','clockJoin','reads','previousReference'})
+    need(type(frame['originalKeeperPassiveWorldFrameVersion']) is int and frame['originalKeeperPassiveWorldFrameVersion']==1
+        and integer(frame['ordinal'],1,6) and frame['phase']==('held' if frame['ordinal']==1 else 'released' if frame['ordinal']==2 else 'quiet'))
+    exact(frame['originals'],{'world','worldClock'});joined=validate_join(frame['clockJoin'],frame['originals'])
+    packet=source_frame_original(frame,binding,run);reads=frame['reads'];need(type(reads) is list and len(reads)==3)
+    phase='holding' if frame['phase']=='held' else 'released';lease=None;indices=[];ids=[]
+    for row,action,original in zip(reads,('feature-native-observe',world.ACTION,'feature-native-observe'),(joined['nativeBefore'],packet,joined['nativeAfter'])):
+        exact(row,{'originalKeeperPassiveRawVersion','queryIndex','query','nativeFile','hostBefore','hostAfter','passiveLeaseId','passivePhase'})
+        need(type(row['originalKeeperPassiveRawVersion']) is int and row['originalKeeperPassiveRawVersion']==1 and integer(row['queryIndex'],1,32)
+            and row['passivePhase']==phase);identifier(row['passiveLeaseId']);lease=row['passiveLeaseId'] if lease is None else lease;need(row['passiveLeaseId']==lease)
+        query=row['query'];exact(query,{'schemaVersion','commandId','action'}|({'runId'} if action==world.ACTION else set()))
+        need(type(query['schemaVersion']) is int and query['schemaVersion']==1 and query['action']==action
+            and query['commandId']==original.get('requestId') and (action!=world.ACTION or query['runId']==run))
+        flags={'queryIssuanceOwned','freshNativeAcquisitionEstablished','installedCandidateBound','physicalFileIdentityEstablished',
+            'nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'}
+        value=row['nativeFile'];exact(value,{'originalKeeperNativeFileVersion','ownerInstance','source','action','requestId','rawJson','bytes','sha256','passiveLeaseId','passivePhase'}|flags)
+        need(type(value['originalKeeperNativeFileVersion']) is int and value['originalKeeperNativeFileVersion']==4
+            and value['ownerInstance']==owner and value['source']=='original-rsd-house-arrest' and value['action']==action
+            and value['requestId']==query['commandId'] and value['passiveLeaseId']==lease and value['passivePhase']==phase
+            and type(value['rawJson']) is str and type(value['bytes']) is int and value['bytes']==len(value['rawJson'].encode())
+            and value['sha256']==hashlib.sha256(value['rawJson'].encode()).hexdigest() and all(value[k] is False for k in flags)
+            and decode(value['rawJson'],limit=world.LIMIT)==original)
+        for point in (row['hostBefore'],row['hostAfter']):
+            exact(point,{'epochMs','monotonic'});need(number(point['epochMs'],1,1e15) and number(point['monotonic'],0,1e15))
+        a,b=row['hostBefore'],row['hostAfter'];need(0<=b['epochMs']-a['epochMs']<1500 and 0<=b['monotonic']-a['monotonic']<1.5
+            and abs((b['epochMs']-a['epochMs'])-(b['monotonic']-a['monotonic'])*1000)<=250)
+        if action==world.ACTION:world.validate(original,query,int(binding['processIdentity']))
+        else:native(original,query['commandId'],int(binding['processIdentity']),original['capturedEpochMs'])
+        indices.append(row['queryIndex']);ids.append(query['commandId'])
+    need(indices==list(range(indices[0],indices[0]+3)) and len(set(ids))==3)
+    begin=reads[0]['hostAfter'] if frame['phase']=='quiet' else reads[0]['hostBefore'];end=reads[2]['hostAfter']
+    need(joined['hostBeforeEpochMs']==begin['epochMs'] and joined['hostBeforeMonotonic']==begin['monotonic']
+        and joined['hostAfterEpochMs']==end['epochMs'] and joined['hostAfterMonotonic']==end['monotonic'])
+    need((frame['ordinal']==1)==(frame['previousReference'] is None));return frame
+
+
+
 class IOSLifecycleWorldHoldRuntime:
     def __init__(self,adapter):self.adapter=adapter
-    def native_original_acquisition(self,selector,run):
+    def native_original_acquisition(self,selector,run,*,selected_query=None):
         """Reread the original child's immutable bytes; no fresh/input verdict.
 
         Actual capture clocks stay in the original frame. Transporting it
@@ -37,13 +80,17 @@ class IOSLifecycleWorldHoldRuntime:
         from ios.adapters import lifecycle_world as world,native_geometry
         identifier(run);source=IOSScriptRuntime(self.adapter)._sources(selector);source['check']()
         binding=source['binding'];client=source['client'];session=source['session'];target=source['target']
-        result=client.execute(session,'mobile: overteOriginalKeeperOperation',dict(operation='touch-native-acquire',
+        if selected_query is not None:
+            need(type(selected_query) is str and re.fullmatch('ios-[0-9a-f]{32}',selected_query) is not None)
+        operation='touch-native-acquire' if selected_query is None else 'touch-native-motion-acquire'
+        extra={} if selected_query is None else dict(selectedQueryId=selected_query)
+        result=client.execute(session,'mobile: overteOriginalKeeperOperation',dict(operation=operation,
             args=dict(binding=deepcopy(binding),runId=run,resultsDirectory=target['testBuild']['resultsDirectory'],
-                origin=target['testBuild']['fixtureOrigin'])))
+                origin=target['testBuild']['fixtureOrigin'],**extra)))
         source['check']()
         flags={'nativeAcquisitionBound','installedCandidateBound','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'}
         exact(result,{'originalKeeperNativeAcquisitionVersion','ownerInstance','encoding','acquisitionJson'}|flags)
-        need(type(result['originalKeeperNativeAcquisitionVersion']) is int and result['originalKeeperNativeAcquisitionVersion']==1
+        need(type(result['originalKeeperNativeAcquisitionVersion']) is int and result['originalKeeperNativeAcquisitionVersion']==(1 if selected_query is None else 3)
             and result['encoding']=='canonical-json-ascii' and type(result['acquisitionJson']) is str
             and len(result['acquisitionJson'])<=2048 and result['acquisitionJson'].isascii()
             and all(result[key] is False for key in flags));identifier(result['ownerInstance'])
@@ -78,7 +125,9 @@ class IOSLifecycleWorldHoldRuntime:
         need(type(body['iosLifecycleNativeAcquisitionFrameVersion']) is int and body['iosLifecycleNativeAcquisitionFrameVersion']==1
             and body['kind']=='sources' and body['role']=='primary' and same(body['binding'],binding) and body['runId']==run
             and type(body['index']) is int and body['index']==reference['index'])
-        frame=body['frame'];exact(frame,{'originalKeeperNativeAcquisitionFrameVersion','originals','clockJoin','reads'})
+        frame=body['frame']
+        if selected_query is not None:return self._selected_motion_original_result(source,run,selected_query,result,reference,frame,transfer_current)
+        exact(frame,{'originalKeeperNativeAcquisitionFrameVersion','originals','clockJoin','reads'})
         need(type(frame['originalKeeperNativeAcquisitionFrameVersion']) is int and frame['originalKeeperNativeAcquisitionFrameVersion']==1)
         originals=frame['originals'];exact(originals,{'world','worldClock','geometry'})
         joined=validate_join(frame['clockJoin'],originals);source_frame_original(frame,binding,run)
@@ -110,6 +159,40 @@ class IOSLifecycleWorldHoldRuntime:
         return dict(originalKeeperNativeAcquisitionVersion=1,ownerInstance=result['ownerInstance'],binding=deepcopy(binding),
             runId=run,reference=deepcopy(reference),originalFrame=deepcopy(frame),nativeAcquisitionBound=False,
             installedCandidateBound=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
+
+    def _selected_motion_original_result(self,source,run,selected_query,result,reference,frame,transfer_current):
+        """Decode the existing selected3 source original; no host-created owner."""
+        import re
+        from urllib.parse import quote,unquote
+        from adapters.native_feature_observation import number
+        from adapters.native_clock_join import validate_join
+        from ios.adapters.lifecycle_world_attempt import source_frame_original,gesture
+        from ios.adapters.lifecycle_touch_resource_owner import selected_motion_original
+        from ios.adapters import native_geometry
+        binding=source['binding']
+        exact(frame,{'originalKeeperNativeAcquisitionFrameVersion','originals','clockJoin','reads','sdkWindow','selectedCandidate'})
+        need(type(frame['originalKeeperNativeAcquisitionFrameVersion']) is int and frame['originalKeeperNativeAcquisitionFrameVersion']==3)
+        originals=frame['originals'];exact(originals,{'world','worldClock','geometry','window'})
+        joined=validate_join(frame['clockJoin'],originals);packet=source_frame_original(frame,binding,run)
+        candidate=frame['selectedCandidate'];selected_motion_original(candidate,frame,binding,run,result['ownerInstance'])
+        need(candidate['selectionQueryId']==selected_query)
+        geometry=originals['geometry'];native_geometry.validate(geometry,geometry['commandId'],native_epoch_ms=joined['nativeAfter']['capturedEpochMs'])
+        need(joined['nativeBefore']['capturedEpochMs']<=geometry['observation']['sampleEpochMs']<=packet['clockBefore']['epochMs'])
+        sdk=frame['sdkWindow'];exact(sdk,{'method','path','reply','hostBeforeMonotonic','hostAfterMonotonic'})
+        need(sdk['method']=='GET' and type(sdk['path']) is str and len(sdk['path'])<=512
+            and sdk['path'].startswith('/session/') and sdk['path'].endswith('/window/rect'))
+        session=unquote(sdk['path'][9:-12]);need(re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}',session) is not None
+            and sdk['path']=='/session/'+quote(session,safe='')+'/window/rect')
+        need(type(sdk['reply']) is dict and sdk['reply'].get('value')==originals['window']
+            and number(sdk['hostBeforeMonotonic'],joined['hostBeforeMonotonic'],joined['hostAfterMonotonic'])
+            and number(sdk['hostAfterMonotonic'],sdk['hostBeforeMonotonic'],joined['hostAfterMonotonic']))
+        # Actual same raw UIKit geometry/window derives the complete path;
+        # no x/y or dimensions arrive as caller-chosen movement authority.
+        gesture(packet,geometry,originals['window'],'selected-original-reader')
+        transfer_current()
+        return dict(originalKeeperNativeAcquisitionVersion=3,ownerInstance=result['ownerInstance'],binding=deepcopy(binding),runId=run,
+            reference=deepcopy(reference),originalFrame=deepcopy(frame),nativeAcquisitionBound=False,installedCandidateBound=False,
+            nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
 
     def resource_metadata(self,selector,run,*,recover=False):
         """Read the original child's passive resource DTO, never borrow auth.
@@ -151,6 +234,56 @@ class IOSLifecycleWorldHoldRuntime:
         return dict(originalKeeperTouchResourceVersion=2,ownerInstance=value['ownerInstance'],
                     capture=deepcopy(capture),owner=deepcopy(payload['owner']),
                     nativeTouchSupport=False,resourceRetirementEstablished=False)
+
+    def native_passive_world(self,selector,run,phase):
+        """Existing child/pipe+chunk path. Four quiet calls are distinct originals.
+
+        These originals remain partial observations; no canonical child or
+        current native/input/resource-retirement capability is opened here.
+        """
+        import base64,time
+        from adapters.native_feature_observation import decode,number
+        from adapters.script_feature.history import canonical
+        from adapters.original_frame_store import OriginalFrameStore
+        identifier(run);need(phase in ('held','released','quiet'))
+        source=IOSScriptRuntime(self.adapter)._sources(selector);source['check']()
+        binding,client,session,target=source['binding'],source['client'],source['session'],source['target']
+        flags={'nativeAcquisitionBound','installedCandidateBound','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'}
+        result=client.execute(session,'mobile: overteOriginalKeeperOperation',dict(operation='touch-native-acquire',args=dict(
+            binding=deepcopy(binding),runId=run,resultsDirectory=target['testBuild']['resultsDirectory'],origin=target['testBuild']['fixtureOrigin'],
+            nativePassiveAcquisitionVersion=1,phase=phase)))
+        source['check']();exact(result,{'originalKeeperNativeAcquisitionVersion','ownerInstance','encoding','acquisitionJson'}|flags)
+        need(type(result['originalKeeperNativeAcquisitionVersion']) is int and result['originalKeeperNativeAcquisitionVersion']==4
+            and result['encoding']=='canonical-json-ascii' and type(result['acquisitionJson']) is str and result['acquisitionJson'].isascii()
+            and len(result['acquisitionJson'])<=2048 and all(result[k] is False for k in flags));identifier(result['ownerInstance'])
+        value=json_document(result['acquisitionJson']);exact(value,{'binding','runId','reference','ordinal','phase'})
+        need(canonical(value).decode('ascii')==result['acquisitionJson'] and value['binding']==binding and value['runId']==run and value['phase']==phase)
+        codec=OriginalFrameStore(self.adapter.state_path(selector).parent,binding,run,'primary',source['check'],lambda *_:need(False),
+            namespace='lifecycle-passive-world',schema_prefix='iosLifecyclePassiveWorld')
+        ref=value['reference'];codec.expand(ref);raw=[];started=time.monotonic()
+        for offset in range(0,ref['bytes'],4096):
+            source['check']();need(0<=time.monotonic()-started<5)
+            chunk=client.execute(session,'mobile: overteOriginalKeeperOperation',dict(operation='touch-native-acquisition-read',args=dict(
+                binding=deepcopy(binding),runId=run,referenceJson=canonical(ref).decode('ascii'),offset=offset,nativePassiveAcquisitionVersion=1)))
+            source['check']();need(0<=time.monotonic()-started<5)
+            exact(chunk,{'originalKeeperNativeAcquisitionReadVersion','ownerInstance','encoding','originalJson'}|flags)
+            need(type(chunk['originalKeeperNativeAcquisitionReadVersion']) is int and chunk['originalKeeperNativeAcquisitionReadVersion']==2
+                and chunk['ownerInstance']==result['ownerInstance'] and chunk['encoding']=='canonical-json-ascii'
+                and type(chunk['originalJson']) is str and chunk['originalJson'].isascii() and len(chunk['originalJson'])<12000
+                and all(chunk[k] is False for k in flags))
+            body=json_document(chunk['originalJson']);exact(body,{'reference','offset','contentBase64'})
+            need(canonical(body).decode('ascii')==chunk['originalJson'] and body['reference']==ref and type(body['offset']) is int and body['offset']==offset
+                and type(body['contentBase64']) is str and len(body['contentBase64'])<=5464)
+            data=base64.b64decode(body['contentBase64'],validate=True);need(len(data)==min(4096,ref['bytes']-offset));raw.append(data)
+        raw=b''.join(raw);need(len(raw)==ref['bytes'] and hashlib.sha256(raw).hexdigest()==ref['sha256'])
+        body=decode(raw.decode('utf-8'),limit=1024*1024);need(canonical(body)==raw)
+        exact(body,{'iosLifecyclePassiveWorldFrameVersion','kind','binding','runId','role','index','frame'})
+        need(type(body['iosLifecyclePassiveWorldFrameVersion']) is int and body['iosLifecyclePassiveWorldFrameVersion']==1
+            and body['kind']=='sources' and body['binding']==binding and body['runId']==run and body['role']=='primary'
+            and type(body['index']) is int and body['index']==ref['index'])
+        frame=passive_world_original(body['frame'],binding,run,result['ownerInstance']);need(frame['ordinal']==value['ordinal'] and frame['phase']==phase)
+        source['check']();return dict(originalKeeperNativeAcquisitionVersion=4,ownerInstance=result['ownerInstance'],reference=deepcopy(ref),
+            originalFrame=deepcopy(frame),**{k:False for k in flags})
 
     def production_child(self,selector,editors,attempt,*,configuration=None):
         from ios.adapters.lifecycle_touch_transport import admit

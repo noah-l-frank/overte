@@ -343,3 +343,46 @@ These results use modeled SDK/native/HID producers. Query32, acquisition-frame8,
 reply12000 and freshness bounds are unchanged. A separately retained original
 clock carrier and four genuinely later quiet cuts still need their connected
 collector. Native/device, canonical input and whole-feature gates remain closed.
+
+
+## Original held, released and quiet clock carriers
+
+The existing acquisition/read RPCs now carry an explicit passive profile over
+the same original Source and born worker. Six immutable cuts retain held,
+released and four later quiet World observations. The previous actual native
+after-packet and its original host read-end form the next clock bracket; a
+physical reread of the previous World original schedules the unchanged quiet
+spacing. Native timestamps and saved host endpoints are never renewed. The
+strict 1.5-second bracket, 250-millisecond clock agreement, three-second World
+quiet span and existing query/file/acquisition limits remain unchanged.
+
+Opaque source-local receipts bind the actual producer, registry membership,
+original query/read task, returned HTTP thread, closed AFC reader, Source/RSD,
+loop and lease. Membership and producer code are checked before any callback
+can run. OriginalFrameStore performs its complete write/readback protocol; one
+mandatory physical caller read follows actual capture-task completion. Lost
+saved raw/frame returns retain responsibility without another query or input.
+The host reader transfers bounded original chunks and validates those same
+clock joins and immutable references. All capability claims remain false.
+
+Twelve host source-model cases pass in 66.802 seconds, retaining 277 files and
+24 actual roots. They cover the full 30-query sequence, wrong phases, stale
+endpoints, changed raw/previous-frame inodes, foreign callbacks, genuine native
+receipts grafted as World receipts, uncertain saves and truncated transfers.
+An earlier fixture binding mismatch and a real overlong clock bracket remain
+retained failures. The correction uses original World cadence and removes two
+redundant reads; it changes no observation clock or acceptance bound.
+
+The existing selected-motion acquisition route is also exposed by the host
+original reader as explicit version three. It validates the five original
+reads, selected archive identity, SDK window and native geometry/path, while
+the default version-one reader retains its four-read grammar. Four host source
+models pass in 1.937 seconds, including foreign selection, changed executable,
+sticky revocation and legacy default behavior. A prior negative-test exception
+expectation failed and was corrected to the original bundle validator's exact
+ValueError; no source rejection was weakened.
+
+Both successful runs have unchanged source/original inventories and complete
+actual task, thread, descriptor and process cleanup checks. Native, SDK and HID
+producers remain models. Canonical retained-input integration, native builds,
+devices and the complete Lifecycle adapter are not qualified by these cases.
