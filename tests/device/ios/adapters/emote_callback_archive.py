@@ -20,7 +20,7 @@ from ios.adapters.emote_retirement import Frozen
 from ios.adapters.emote_callback_retirement import IOSEmoteCallbackNativeRetirement
 from ios.adapters.emote_callback_scene import (IOSEmoteCallbackRenderedRetirement,
     IOSEmoteCallbackKeyedRetirement,IOSEmoteCallbackSceneRetirement)
-from ios.adapters.emote_archive_round import scope as original_round
+from ios.adapters.emote_archive_round import scope as original_round,LITERAL_PACKETS
 
 VERSION=2
 PARTS={'native','frames','rendered','keys','keyed'}
@@ -77,7 +77,7 @@ def reopen(value,*,lock,primary_lock):
 
 
 def read(value,*,lock,primary_lock):
-    with original_round(value,lock=lock,primary_lock=primary_lock):
+    with original_round(value,lock=lock,primary_lock=primary_lock,key_packet_policy=LITERAL_PACKETS):
         return IOSEmoteCallbackSceneRetirement(reopen(value,lock=lock,primary_lock=primary_lock)).read(value['reference'])
 
 
@@ -100,6 +100,7 @@ class CallbackGraphs:
 def grouped(values,*,lock,primary_lock):
     """Literal new-profile reopens under the existing full immutable census.
 
+    Packet originals use their existing literal raw decoder each time.
     No marshal/audit callback, new memo, copied result or current owner verdict
     is introduced. Existing original-only per-round validators retain their
     unchanged byte/inode/membership and owner/clock guards.
@@ -110,7 +111,7 @@ def grouped(values,*,lock,primary_lock):
     need(all(type(item) is str for item in boundary.values())
         and all(all(value.get(key)==boundary[key] for key in fields) for value in values))
     boundary['snapshots']=[digest(value) for value in values]
-    with original_round(boundary,lock=lock,primary_lock=primary_lock) as round_:
+    with original_round(boundary,lock=lock,primary_lock=primary_lock,key_packet_policy=LITERAL_PACKETS) as round_:
         reader=CallbackGraphs(round_,boundary,lock,primary_lock)
         try:
             for value in values:reader.read(value)

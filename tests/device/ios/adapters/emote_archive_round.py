@@ -22,10 +22,13 @@ from ios.adapters.emote_original_lease import EmoteOriginalLease
 
 _ACTIVE=ContextVar('ios_emote_historical_archive_round',default=None)
 LIMIT=8*1024*1024
+LITERAL_PACKETS='literal-key-packets-v1'
 
 
 class Round:
-    def __init__(self,value,lock,primary_lock):
+    def __init__(self,value,lock,primary_lock,*,key_packet_policy=None):
+        need(key_packet_policy is None or type(key_packet_policy) is str and key_packet_policy==LITERAL_PACKETS)
+        self.key_packet_policy=key_packet_policy
         need(type(value) is dict and {'artifactRoot','stateRoot'}<=set(value)
             and all(type(value[key]) is str for key in ('artifactRoot','stateRoot'))
             and isinstance(lock,ScriptSourceLock) and isinstance(primary_lock,ScriptSourceLock))
@@ -44,12 +47,14 @@ class Round:
 
 
 @contextmanager
-def scope(value,*,lock,primary_lock):
+def scope(value,*,lock,primary_lock,key_packet_policy=None):
+    need(key_packet_policy is None or type(key_packet_policy) is str and key_packet_policy==LITERAL_PACKETS)
     current=_ACTIVE.get()
     if current is not None:
-        need(current.identity==digest(value) and current.lock is lock and current.primary_lock is primary_lock)
+        need(current.identity==digest(value) and current.lock is lock and current.primary_lock is primary_lock
+            and (key_packet_policy is None or current.key_packet_policy==key_packet_policy))
         current.guard();yield current;current.guard();return
-    current=Round(value,lock,primary_lock);token=_ACTIVE.set(current)
+    current=Round(value,lock,primary_lock,key_packet_policy=key_packet_policy);token=_ACTIVE.set(current)
     try:
         with pure_round(PURE_PROFILE,current.guard):yield current
     finally:
@@ -110,6 +115,16 @@ def key_original(owner,kind,operand,decode,parsers):
     need(kind in ('receipt','packet') and owner.lock in (current.lock,current.primary_lock)
         and type(parsers) is list and parsers and all(callable(parser) for parser in parsers))
     raw=owner.raw;store=raw.originals
+    def admitted():
+        owner.lock.assert_held()
+        PrivateFeatureState(owner.root/'emote-key-original-boundary')._parent()
+        PrivateFeatureState(store.root/'emote-key-raw-boundary')._parent()
+        need(store.guard() is not False)
+    if kind=='packet' and current.key_packet_policy==LITERAL_PACKETS:
+        # Selection changes only result reuse. The same owner/lock/parser,
+        # namespace and actual raw-source admission stays mandatory. No memo
+        # hit claims unchanged full inventory on this direct literal branch.
+        admitted();value=decode();admitted();return value
     context=dict(owner=type(owner).__module__+'.'+type(owner).__qualname__,path=str(owner.store.path),
         envelope=owner.envelope(dict(records=[],abandoned=[],pending=None,serial=0)),
         raw=dict(profile=raw.profile,binding=raw.binding,run=raw.run,role=raw.role,subject=raw.subject),
@@ -118,10 +133,7 @@ def key_original(owner,kind,operand,decode,parsers):
     key=canonical(dict(emoteKeyOriginalMemoVersion=1,kind=kind,context=context,operand=operand,
         parsers=[id(getattr(parser,'__func__',parser)) for parser in parsers]))
     def bound():
-        owner.lock.assert_held()
-        PrivateFeatureState(owner.root/'emote-key-original-boundary')._parent()
-        PrivateFeatureState(store.root/'emote-key-raw-boundary')._parent()
-        need(store.guard() is not False);current.guard();need(store.guard() is not False)
+        admitted();current.guard();need(store.guard() is not False)
     bound()
     if key in current.rows:
         value,reads,_size=current.rows[key];result=deepcopy(value);bound()
