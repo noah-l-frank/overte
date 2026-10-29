@@ -28,6 +28,27 @@ The optional response is touch version 3 with retained profile 1; all native
 touch, motion and resource-retirement qualification flags remain false.
 The normal held-input consumer is a subsequent integration step.
 
+## Original prepared motion start
+
+Optional motion profile 2 also binds the existing touch-begin route to the
+original owner and canonical acquisition reference. The Node bridge checks
+the expected owner before WDA binding or dispatch. Before creating a worker,
+the Python receiver compares its actual retained operations, resource,
+Source, loop and original motion receipt with that pre-Down birth. A matching
+session, copied header or another genuine current cut cannot replace it.
+
+The default motion profile 1 keeps its argument and response shape. The new
+scoped begin returns touch version 4 and the original resource reference;
+its native qualification flags remain false. Cleanup retains profile 1 and
+its touch-version-3 response.
+
+Four receiver and three actual Node route checks passed in Root63, retaining
+55 original files with 13,753 source/launcher pins unchanged. Bounded
+RAISE-only diagnostics were active from the first receiver execution. Actual
+tasks, threads, descriptors and processes completed their existing cleanup.
+This is host protocol qualification, without native timing, SDK execution or
+whole Lifecycle acceptance.
+
 ## Host verification and retained failures
 
 Six receiver cases, six actual HTTP transport cases and three actual Node

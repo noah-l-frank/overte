@@ -111,6 +111,9 @@ async function tryOriginalKeeperLaunch(driver, remoteXpc, options) {
                     args.expectedOwnerInstance !== retainedScope.ownerInstance : Object.keys(args).length !== 0)
                     throw new Error('Original retained touch owner unavailable');
             }
+            if (operation === 'touch-begin' && args?.nativeMotionProfileVersion === 2 &&
+                (args.expectedOwnerInstance !== retainedScope.ownerInstance || typeof args.referenceJson !== 'string'))
+                throw new Error('Original prepared touch resource unavailable');
             const nativeRead = ['touch-begin', 'touch-native-query', 'touch-native-original-read', 'touch-native-acquire', 'touch-native-motion-acquire'].includes(operation);
             if (nativeRead) await bindWda();
             if (nativeRead || operation === 'touch-motion-prepare') originalWda();

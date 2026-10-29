@@ -2057,10 +2057,29 @@ class OriginalKeeperOperations:
                 from adapters.normal_feature_state import context
                 from adapters.native_feature_observation import number
                 from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner,_NativeMotionReference
+                scoped=type(args['nativeMotionProfileVersion']) is int and args['nativeMotionProfileVersion']==2
                 fields={'binding','runId','width','height','x','y','seconds','nativeMotionProfileVersion'}
-                if (set(args)!=fields or type(args['nativeMotionProfileVersion']) is not int or args['nativeMotionProfileVersion']!=1
+                if scoped:
+                    args=deepcopy(args)
+                    fields|={'expectedOwnerInstance','referenceJson'}
+                if (set(args)!=fields or type(args['nativeMotionProfileVersion']) is not int or args['nativeMotionProfileVersion'] not in (1,2)
                         or self.touch is not None or type(self.touch_resources) is not LifecycleTouchResourceOwner):raise LaunchError('request')
                 resource=self.touch_resources;binding=context(args['binding'])
+                if scoped:
+                    # Caller values SELECT the original birth; only the actual
+                    # local Resource/receipt/Source/loop below admit input.
+                    from adapters.script_feature.history import canonical
+                    birth=self.retained_motion_resource
+                    if (type(args['expectedOwnerInstance']) is not str or args['expectedOwnerInstance']!=self.instance
+                            or type(args['referenceJson']) is not str or len(args['referenceJson'])>2048
+                            or type(birth) is not tuple or len(birth)!=9 or birth[0] is not self
+                            or birth[1] is not resource or birth[2] is not self.source
+                            or birth[3] is not asyncio.get_running_loop() or birth[4]!=self.instance
+                            or birth[5]!=binding or birth[6]!=args['runId']
+                            or type(birth[7]) is not _NativeMotionReference or resource._motion_original is not birth[7]
+                            or birth[7]._owner() is not self or birth[7]._source() is not birth[2]
+                            or birth[7]._loop() is not birth[3] or birth[7].reference!=birth[8]
+                            or canonical(birth[8]).decode('ascii')!=args['referenceJson']):raise LaunchError('session-lifetime')
                 if (resource.version!=4 or resource.binding!=binding or resource.run!=args['runId']
                         or binding['sessionId']!=session or type(resource._motion_original) is not _NativeMotionReference
                         or resource._motion_original._owner() is not self or resource._motion_original._source() is not self.source
@@ -2079,8 +2098,10 @@ class OriginalKeeperOperations:
                 # Actual Source._birth/RetainedTouchWorker precede all input.
                 value=await lease.begin(path['window']['width'],path['window']['height'],*path['start'],seconds=seconds)
                 with resource.lock.held():resource._native_step.scope()
-                return dict(iosOriginalKeeperTouchVersion=2,ownerInstance=self.instance,inspection=value,
+                result=dict(iosOriginalKeeperTouchVersion=4 if scoped else 2,ownerInstance=self.instance,inspection=value,
                     nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
+                if scoped:result['resourceReferenceJson']=args['referenceJson']
+                return result
             if self.touch is not None or self.touch_resources is not None or set(args)!={'binding','runId','width','height','x','y','seconds'}:raise LaunchError('request')
             from adapters.normal_feature_state import PrivateFeatureState,context
             binding=context(args['binding'])
