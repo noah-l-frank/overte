@@ -92,6 +92,7 @@ class PrepareDomain:
                 def call(_self,method,path,body=None):return super().call(method,path.replace('/session/'+_self.state['sessionId'],'/session/owned-session'),body)
             admitted_clock=self.clock[0];n=Native(s.root,self.origin,self.opener);self.clock[0]=admitted_clock;n.scene=scene;n.pid=31;n.birth=('b' if role=='primary' else 'd')*32;n.state.update(processIdentity='31',sessionId='sdk-'+role)
             n.target['serverUrl']='http://'+role+'.sdk.invalid:4723';n.target['testBuild']['fixtureOrigin']='http://'+role+'.transport.invalid:49121'
+            self.declare_native_target(role,n) # Explicit producer profile, BEFORE binding/original admission.
             n.state['targetFingerprint']=n.fingerprint();self.natives[role]=n;self.role_by_url[n.target['serverUrl']]=role
             class SharedDomain(type(d)):
                 @property
@@ -214,6 +215,10 @@ class PrepareDomain:
             if role=='actor':config['authorityRead']=dict(mode='adapter',token=self.adapter)
             client=self.client if role=='primary' else witness.Client(self.client.url,self.actor)
             self.owners[role]=IOSAvatarFeature(self.runtime,role,client,RUN,role,config,epoch_ms=self.host,monotonic=lambda:self.clock[0],sleep=self.sleep)
+    def declare_native_target(self,role,native):
+        """Default model unchanged; subclasses declare targets before first bind."""
+        pass
+
     def peer_world(self,selector,run):
         import uuid
         self.test.assertEqual(RUN,run);n=self.natives[selector];self.clock[0]+=.001
