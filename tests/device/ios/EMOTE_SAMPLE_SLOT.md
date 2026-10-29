@@ -145,3 +145,27 @@ continuity, paired terminal/finish integration, the complete public journey and
 whole Emote admission require their own implementation and qualification.
 Native/SDK/Qt/GPU boundaries remain declared host models; no device or native
 build result follows.
+
+
+## Current copied callback and GPU ownership
+
+Callback Live2 now checks the actual current Scope, Samples3, Observer4 and
+GPU-owner WALs against its typed Archive2/Native4 originals before a new live
+intent. The existing owner admission runs once; the additional join reads no
+native source or input. Historical pending Sample3 owners stay pending in
+their old packets. Separate original Drain4 carriers prove the later released
+owners, and current GPU WALs must preserve their exact file identity and full
+transcript prefix. Only subsequent completed inspect records may extend that
+prefix. Missing copied metadata never falls back to a physical current file.
+
+All eight focused cases pass in two first-run groups of four: 177.074 and
+130.839 seconds. Their 934 and 932 product files, 88 and 89 raw context
+deliveries and all eight genuine VM/stream/thread/process cleanups are retained
+and verified. Cases cover distinct Projection4/Samples3 types, missing/foreign
+GPU WALs, an unlisted entry, a same-body write during collection, unknown GPU
+owners, missing Scope and a genuinely later inspect without renewing old facts.
+The existing native acquisition, API and quiet bounds are unchanged.
+
+This current-state connection does not enable the prospective paired window,
+process/SDK end or public complete Emote path. Those joins remain separate
+implementation and qualification work; native/device execution is unverified.

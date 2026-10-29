@@ -12,13 +12,20 @@ from ios.adapters.emote_callback_scene import IOSEmoteCallbackKeyedRetirement,IO
 from ios.adapters.emote_rooted_feature import IOSEmoteRootedFeature
 from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
 from ios.adapters import emote_callback_archive as archive
+from ios.adapters.emote_callback_current_state import current as current_state
 
 
 class IOSEmoteCallbackLive(IOSEmoteRootedLive):
     Owner=IOSEmoteCallbackKeyedRetirement
     FORMAT_VERSION=2
 
-    def capture_snapshot(self,reference):return archive.capture(self.owner,reference)
+    def capture_snapshot(self,reference):
+        # Base.append has already performed its original owner.current().
+        # Validate current copied State/GPU continuity AFTER that admission and
+        # BEFORE any new Live intent, without a duplicate SDK/owner guard.
+        snapshot=archive.capture(self.owner,reference)
+        current_state(snapshot,lock=self.lock,primary_lock=self.primary_lock)
+        return snapshot
 
     def read_snapshot(self,snapshot):return archive.read(snapshot,lock=self.lock,primary_lock=self.primary_lock)
 
