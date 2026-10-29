@@ -15,7 +15,7 @@ from unittest.mock import patch
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.operation_transport_guard import check as transport_check
 from adapters.recorded_preview_history import measured_state
-from feature_journeys.contract import state
+from feature_journeys.contract import state,VERSION
 from feature_journeys.engine import matches
 from feature_journeys.scenarios import SCENARIOS
 from ios.adapters.audio_authorization_sources import AudioAuthorizationSources
@@ -33,7 +33,7 @@ class AudioNormalJourneyTests(unittest.TestCase):
     def test_all_fourteen_normal_actions_authorized_cycles_pcm_and_same_process_resume(self):
         self.run_normal_journey()
 
-    def run_normal_journey(self,*,pcm_model=PCMModel,pcm_profile=None,close_evidence=False,runtime_pcm=False):
+    def run_normal_journey(self,*,pcm_model=PCMModel,pcm_profile=None,close_evidence=False,runtime_pcm=False,runtime_dispatch=False):
         b=AudioBackgroundDomain(self,pages=True,prepare_recording=False);m=b.m;parent=b.parent;m.automatic=True
         class Session(Boundary):
             def stamp(self):m.tick();return dict(epochMs=m.native_epoch(),monotonicMs=round(m.clock*1000))
@@ -56,6 +56,14 @@ class AudioNormalJourneyTests(unittest.TestCase):
         starts=AudioAuthorizedStarts(PrivateFeatureState(b.root/'ios-audio-authorized-starts.json'),parent,authorization)
         lease=None;retired=None;steps=[];closing=[False];close_results=[]
         pcm=None
+        if runtime_dispatch:
+            self.assertTrue(runtime_pcm and close_evidence)
+            from ios.adapters.audio_session_owners import register_scope
+            register_scope(b.runtime.adapter,'test-only',b.binding,parent.run,b.root)
+        def preview_reader():
+            nonlocal pcm
+            if runtime_dispatch and pcm is None:pcm=pcm_model(m)
+            return pcm.reader()[1]
         if runtime_pcm:
             # Explicit new test profile: expose the actual existing observer
             # factory before any recording, keeping original session queries.
@@ -64,7 +72,7 @@ class AudioNormalJourneyTests(unittest.TestCase):
                 from types import SimpleNamespace
                 value=runtime_sources(selector);observer=value['observer']
                 value['observer']=SimpleNamespace(audio_session=observer.audio_session,
-                    recorded_preview_observer=lambda:pcm.reader()[1])
+                    recorded_preview_observer=preview_reader)
                 return value
             b.runtime._sources=runtime_pcm_sources
         source_before_close=b.runtime._sources
@@ -73,7 +81,7 @@ class AudioNormalJourneyTests(unittest.TestCase):
                 value=source_before_close(selector)
                 if closing[0]:
                     from types import SimpleNamespace
-                    value['observer']=SimpleNamespace(recorded_preview_observer=lambda:pcm.reader()[1])
+                    value['observer']=SimpleNamespace(recorded_preview_observer=preview_reader)
                 return value
             b.runtime._sources=closing_sources
             def close_owner(owner):
@@ -83,7 +91,10 @@ class AudioNormalJourneyTests(unittest.TestCase):
             parent.close_evidence=close_owner
         for index,step in enumerate(SCENARIOS['audio']['steps'],1):
             verb,inputs=step['verb'],step['inputs'];ticket=format(index+32,'032x');m.add_phase(verb,ticket,**inputs)
-            if verb=='record-start':result=starts.act(ticket)
+            if runtime_dispatch:
+                result=b.runtime.normal_act('test-only',parent,dict(contractVersion=VERSION,runId=parent.run,
+                    fixtureUrl=parent.fixture_url,ticket=ticket,verb=verb,inputs=deepcopy(inputs)),pcm_profile=pcm_profile)
+            elif verb=='record-start':result=starts.act(ticket)
             elif verb=='background-resume':
                 result=b.runtime.resume_recording('test-only',parent,ticket,m.client(),epoch_ms=m.epoch,monotonic=lambda:m.clock,sleep=m.sleep)
             else:result=parent.act(ticket,verb,**inputs)
@@ -94,14 +105,17 @@ class AudioNormalJourneyTests(unittest.TestCase):
             steps.append(dict(step=index,verb=verb,phase=observed['phase'],cycle=original['originals']['native']['audio']['recordedVoice']['cycle']))
             print(json.dumps(steps[-1]),flush=True)
             if verb=='await-completion':
-                pcm=pcm_model(m);native,preview=pcm.reader()
+                if not runtime_dispatch:pcm=pcm_model(m)
+                native,preview=pcm.reader()
                 if runtime_pcm:
                     from ios.adapters.audio_pcm_runtime import lease as runtime_lease
                     lease=runtime_lease(b.runtime,'test-only',parent,profile=pcm_profile)
                 else:
                     lease=IOSAudioPCMLease(PrivateFeatureState(b.root/'ios-audio-pcm-lease.json'),parent,native=native,preview=preview,profile=pcm_profile)
-                snapshot=lease.capture();self.assertEqual(ticket,parent.state['operations'][-1]['ticket'])
-                self.assertEqual(3,snapshot['recording']['cycle']);retired=lease.retire()
+                snapshot=lease.snapshot() if runtime_dispatch else lease.capture()
+                self.assertEqual(ticket,parent.state['operations'][-1]['ticket'])
+                self.assertEqual(3,snapshot['recording']['cycle'])
+                retired=lease.retired() if runtime_dispatch else lease.retire()
                 activate=m.activate
                 def new_cycle(identifier,*,token):
                     before=m.cycle;answer=activate(identifier,token=token)
@@ -120,6 +134,11 @@ class AudioNormalJourneyTests(unittest.TestCase):
             self.assertEqual(5,close_results[0]['recording']['cycle']);self.assertFalse(pcm.files)
             self.assertEqual(1,pcm.count('feature-recorded-audio-observe'))
             self.assertEqual(1,sum(row['action']=='feature-recorded-audio-release' and row['schemaVersion']==2 for row in pcm.commands))
+        if runtime_dispatch:
+            authorization=b.runtime.authorization_sources('test-only',parent,epoch_ms=m.epoch,monotonic=lambda:m.clock)
+            starts=AudioAuthorizedStarts(PrivateFeatureState(b.root/'ios-audio-authorized-starts.json'),parent,authorization)
+            self.assertEqual(5,len(starts.state['entries']))
+            self.assertTrue(all(row['phase']=='complete' for row in starts.state['entries']))
         def census():
             files={}
             for path in sorted(b.root.rglob('*')):

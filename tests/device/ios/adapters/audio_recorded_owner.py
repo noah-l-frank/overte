@@ -466,6 +466,48 @@ class IOSAudioRecordedOwner:
         return dict(performed=True,original=deepcopy(reference),state=actual)
 
     @operation
+    def normal_act(self,runtime,selector,call,*,pcm_profile=None):
+        """Join ordinary actions to existing child owners within one API budget.
+
+        This is an explicit component entry, not InstalledAdapter admission or
+        acoustic/peer/terminal proof. Existing child WALs own all uncertain
+        inputs, snapshot allocations and releases; no action is synthesized.
+        """
+        from feature_journeys.contract import arguments
+        from ios.adapters.audio_runtime import IOSAudioRuntime
+        from ios.adapters.audio_pcm_runtime import lease
+        from ios.adapters.audio_pcm_lease import INPUT_ORIGIN_PROFILE
+        need(pcm_profile is None or type(pcm_profile) is str and pcm_profile==INPUT_ORIGIN_PROFILE)
+        call=deepcopy(arguments('feature.audio.act',call))
+        need(isinstance(runtime,IOSAudioRuntime) and not self.historical and self.version>=4
+            and callable(self.close_evidence) and call['runId']==self.run and call['fixtureUrl']==self.fixture_url
+            and self.store.path==runtime.state_path(selector).with_name('ios-audio-recorded-owner.json'))
+        ticket,verb=call['ticket'],call['verb']
+        if verb=='background-resume':
+            # Existing BackgroundOwner exclusively checks/recovers the original
+            # OS scope while foreground is uncertain. Do not ask the parent's
+            # foreground-only native guard before that original recovery.
+            self.lock.assert_held();need(same(self.store.read(),self.previous))
+        else:self.bound()
+        scope=PrivateFeatureState(self.store.path.with_name('ios-audio-scope.json'))
+        expected=dict(iosAudioScopeVersion=1,binding=self.binding,runId=self.run,artifactRoot=str(self.root))
+        need(same(scope.read(),expected))
+        # In particular, a completed background child is not a current ticket.
+        # Phase status is input metadata; child originals still prove effects.
+        need(same(self.phase_original(self.phase.status(),ticket,verb),call['inputs']))
+        if verb=='record-start':
+            result=runtime.authorized_starts(selector,self,epoch_ms=self.epoch_ms,monotonic=self.monotonic).act(ticket)
+        elif verb=='background-resume':
+            result=runtime.resume_recording(selector,self,ticket,self.phase.client,
+                epoch_ms=self.epoch_ms,monotonic=self.monotonic,sleep=self.sleep)
+        else:result=self.act(ticket,verb,**call['inputs'])
+        if verb=='await-completion':
+            pcm=lease(runtime,selector,self,profile=pcm_profile)
+            pcm.capture();pcm.retire()
+        self.bound();need(same(scope.read(),expected))
+        return result
+
+    @operation
     def act(self,ticket,verb,*,enabled=None):
         self.bound();need(not self.historical);identifier(ticket)
         if self.version>=4 and self.state['background'] is not None:need(self.state['background']['after'] is not None)

@@ -20,6 +20,11 @@ import time
 
 
 class IOSAudioRuntime(IOSScriptRuntime):
+    def normal_act(self,selector,recorded,call,*,pcm_profile=None):
+        """Use the held normal owner; configuration/public admission stays closed."""
+        need(isinstance(recorded,IOSAudioRecordedOwner))
+        return recorded.normal_act(self,selector,call,pcm_profile=pcm_profile)
+
     def close_recording_evidence(self,selector,owner):
         from ios.adapters.audio_pcm_runtime import close_lease
         owner.bound()
