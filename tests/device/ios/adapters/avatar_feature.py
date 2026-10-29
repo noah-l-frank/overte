@@ -37,6 +37,8 @@ from ios.adapters.avatar_authority import AvatarAuthorityReader
 from ios.adapters.avatar_facts import retained
 from ios.adapters.avatar_code import pins
 from ios.adapters.avatar_configuration import authority_client,settings
+from ios.adapters.avatar_primary_control import load as primary_control,checkpoint_order
+from adapters.feature_fixture_access import AdapterFixtureClient
 from ios.adapters.avatar_login_owner import IOSAvatarLoginOwner,AvatarLoginPending
 from ios.adapters.avatar_observer import IOSAvatarObserver
 from ios.adapters.avatar_runtime import IOSAvatarRuntime
@@ -97,6 +99,9 @@ class WholeAvatarObserver(IOSAvatarObserver):
 
 
 class IOSAvatarFeature:
+    # Archived and original component owners retain the literal Reader path.
+    # A live GET-only Primary still requires explicit scoped admission below.
+    primary_control=None
     @classmethod
     def archive(cls,runtime,value,client,locks):
         """Closed original-file reconstruction; no live factory or SDK call."""
@@ -118,6 +123,8 @@ class IOSAvatarFeature:
             and all(callable(fn) for fn in (epoch_ms,monotonic,sleep)))
         self.runtime,self.selector,self.client,self.run,self.role=runtime,selector,client,identifier(run),role
         config=settings(configuration,role=role,target=selector)
+        self.primary_control=primary_control(client,self.run,role,config)
+        need(role!='primary' or not isinstance(client,AdapterFixtureClient) or self.primary_control is not None)
         self.root,self.policy=Path(config['artifactRoot']),deepcopy(config['imagePolicy'])
         peer='actorTarget' if role=='primary' else 'primaryTarget'
         self.selectors={role:selector,('actor' if role=='primary' else 'primary'):config[peer]}
@@ -295,6 +302,7 @@ class IOSAvatarFeature:
         return result
 
     def initialize(self):
+        if self.primary_control is not None:self.primary_control.admit()
         self.load();phase=self.phase.read();actual=self.actual()
         if self.state is None:
             need(phase['verb']=='baseline')
@@ -446,7 +454,7 @@ class IOSAvatarFeature:
         need(self.role=='primary' and current['phase']=='allocated')
         self.state['sessions']=dict(phase='issued',input=inputs,authority=None,**refs);self.save()
         # The original inputs and issued responsibility precede the socket.
-        self.client.request('/runs/'+self.run+'/avatar/sessions',inputs,method='POST')
+        (self.primary_control or self.client).request('/runs/'+self.run+'/avatar/sessions',inputs,method='POST')
         self.sessions(parts)
 
     def session_inputs(self,parts,row,status):
@@ -661,6 +669,10 @@ class IOSAvatarFeature:
     def _cleanup(self,call):
         call=arguments('feature.avatar-people.cleanup',call);need(call['runId']==self.run)
         requested_clock=deepcopy(self.requested_cleanup_clock)
+        if self.primary_control is not None:
+            with self.held():
+                self.load();terminal=self.state is not None and self.state['phase'] in ('terminal-ready','cleaned')
+            if not terminal:self.primary_control.admit()
         preparing=self.preparation_cleanup_requested()
         if preparing:return self.cleanup_preparation()
         with self.held():
@@ -911,6 +923,11 @@ class IOSAvatarFeature:
 
     def wait_actor_checkpoint(self):
         """Read an authenticated existing witness outside both SDK locks."""
+        if self.primary_control is not None:
+            for _ in range(251):
+                try:return checkpoint_order(self)
+                except AvatarFeaturePending:self.sleep(.1)
+            raise AvatarFeaturePending('Independent cleanup checkpoint original has not been committed')
         checker=object.__new__(PhaseWitnessPublisher);checker.run,checker.area=self.run,'avatar-people'
         for _ in range(251):
             self.cleanup_deadline();before=self.phase.read();journal=self.client.request('/runs/'+self.run);after=self.phase.read()
@@ -1301,7 +1318,7 @@ class IOSAvatarFeature:
             if self.role=='primary':
                 if not events:
                     before=self.authority.read();self.state['cleanup'].append(dict(kind='accounts-retired',before=self.keep(before),phase='issued',after=None));self.save()
-                    self.client.request('/runs/'+self.run+'/avatar/control',dict(operation='revoke'),method='POST')
+                    (self.primary_control or self.client).request('/runs/'+self.run+'/avatar/control',dict(operation='revoke'),method='POST')
                 event=next(row for row in self.state['cleanup'] if row['kind']=='accounts-retired')
             else:event=None
             status=self.authority.read()

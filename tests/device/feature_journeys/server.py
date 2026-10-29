@@ -32,6 +32,7 @@ from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as G
 from feature_journeys.emote_resources import EmoteResources,RESOURCE as EMOTE_SCENE
 from feature_journeys.avatar_social_provider import AvatarSocialProvider
 from feature_journeys.avatar_accounts import AvatarAccountScopes
+from feature_journeys.avatar_primary_control import intercept as avatar_primary_control
 from feature_journeys.avatar_account_http import handle as avatar_account_request
 from feature_journeys.avatar_social_http import AccountAuthenticator, handle as avatar_social_request
 from feature_journeys.snapshot_upload_provider import SnapshotUploadProvider
@@ -272,6 +273,7 @@ class Handler(BaseHTTPRequestHandler):
                         or self.server.journal.runs[run]['area']!='authentication'):
                     return self.send(404,{'error':'not-found'})
                 return self.send(200,self.server.account_provider.delayed_status(run))
+            if avatar_primary_control(self,parts,reader=reader,actor=actor,adapter_reader=adapter_reader):return
             if not reader and not actor and not adapter_reader:
                 return self.send(403, {'error': 'forbidden'})
             if self.command=='GET' and parts==['adapter-reader']:
@@ -591,6 +593,7 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
     server.reader_token, server.actor_token = reader_token, actor_token
     server.adapter_token=adapter_token
     server.journal = Journal() if browser_peer_of is None else browser_peer_of.journal
+    server.avatar_control_handoffs={}
     server.phase_retirements=PhaseRetirementJournal(server.journal) if browser_peer_of is None else browser_peer_of.phase_retirements
     server.browser_resources = BrowserResources() if browser_peer_of is None else browser_peer_of.browser_resources
     server.browser_peer = browser_peer_of is not None

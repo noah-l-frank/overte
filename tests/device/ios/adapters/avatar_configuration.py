@@ -6,6 +6,7 @@ no product fact. Authority tokens stay in the live client, not feature state.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from pathlib import Path
 import re
 from adapters.native_feature_observation import exact,need
 from feature_journeys.contract import identifier
@@ -22,7 +23,9 @@ def selector(value):
 
 def settings(value,*,role,target=None):
     need(role in ('primary','actor'));peer='actorTarget' if role=='primary' else 'primaryTarget'
-    fields={'artifactRoot','imagePolicy',peer};exact(value,fields|({'authorityRead'} if 'authorityRead' in value else set()))
+    fields={'artifactRoot','imagePolicy',peer};exact(value,fields|set(value).intersection({'authorityRead','authorityControlRoot'}))
+    if 'authorityControlRoot' in value:
+        root=value['authorityControlRoot'];need(role=='primary' and type(root) is str and root and Path(root).is_absolute())
     selector(value[peer]);image_settings({key:value[key] for key in ('artifactRoot','imagePolicy')})
     if target is not None:need(selector(target)!=value[peer])
     need(role=='primary' or 'authorityRead' in value)

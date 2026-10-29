@@ -28,6 +28,15 @@ def main():
     session = OverteSession()
     identity = old_identity = None
     try:
+        # Explicit runner-owned authority, kept separate from the adapter's
+        # GET-only client and the independent actor publisher credential.
+        control_root=os.environ.get('OVERTE_E2E_AVATAR_PRIMARY_CONTROL_HANDOFF_ROOT')
+        if args.area=='avatar-people' and control_root is not None:
+            from adapters.normal_feature_state import PrivateFeatureState
+            from feature_journeys.avatar_primary_control import prepare as prepare_control
+            root=Path(control_root)
+            if not root.is_absolute():raise ValueError('Avatar control root must be absolute')
+            prepare_control(client,PrivateFeatureState(root/('avatar-primary-control-'+run+'.json')),run)
         prepare(session, args.area)
         identity = process_identity()
         policy = json.loads(Path(os.environ['OVERTE_E2E_FEATURE_IMAGE_POLICY']).read_text())[args.area]
