@@ -303,7 +303,6 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             self._candidate_guard();need(self._scope(selector,session,state,target)==scope)
             return path,candidate['artifactIdentity']['artifactSha256']
 
-
         def _chat_qml_owner_image_originals(self,selector,value):
             from ios.adapters.script_runtime import IOSScriptRuntime
             from ios.adapters.chat_qml_sources import original
@@ -316,7 +315,6 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             bound=gate.qt_entry_images_bytes([value['qtEntryImage'],value['qtDependencyEntryImage']],path,digest)
             self._candidate_guard();need(self._scope(selector,session,state,target)==scope and gate.record()==record)
             return dict(bindingOriginal=record,entryBindings=bound)
-
 
         def _native_source_scope(self,*args,**kwargs):
             self._candidate_guard()
@@ -584,7 +582,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                         config=configuration();runtime=IOSEmoteRuntime(self)
                         factory=(runtime._emote_rooted_feature if config.get('iosFeatureAdapterVersion',0)>=6
                             and config.get('emoteCoordinatorVersion')==2 else runtime._emote_feature)
-                        flow=factory(selector,values['runId'],role='primary',client=reader(config),settings=config['emotes'])
+                        flow=factory(selector,values['runId'],role='primary',client=reader(config),settings=config['emotes'],**({'target_pair':config['emoteTargets']} if config.get('iosFeatureAdapterVersion',0)>=8 else {}))
                     elif operation.split('.')[1]=='avatar-people':
                         from ios.adapters.avatar_runtime import IOSAvatarRuntime
                         config=configuration();runtime=IOSAvatarRuntime(self)
@@ -731,7 +729,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                     need(self.component_owners_absent(selector))
                     transaction=IOSGraphicsSessionRetirement.from_receipt(IOSGraphicsRuntime(self),selector,graphics_receipt)
                     return transaction.historical(graphics_receipt)
-                config=configuration();need(config is not None and config['iosFeatureAdapterVersion'] in (2,3,4,5,6) and 'graphics' in config['areas'])
+                config=configuration();need(config is not None and config['iosFeatureAdapterVersion'] in (2,3,4,5,6,7,8) and 'graphics' in config['areas'])
                 transaction=IOSGraphicsSessionRetirement(IOSGraphicsRuntime(self),selector,reader(config),config['graphics'],original)
                 need(self.cleanup_components(selector) and self.component_owners_absent(selector))
                 return transaction.finalize()

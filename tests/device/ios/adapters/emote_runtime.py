@@ -58,6 +58,12 @@ class IOSEmoteRuntime(IOSScriptRuntime):
         return IOSEmoteRootedFeature(self,selector,client,run,role,selected['artifactRoot'],selected['imagePolicy'],
             primary_selector=selected.get('primaryTarget'),actor_selector=selected.get('actorTarget'),target_pair=target_pair)
 
+    def _emote_callback_terminal(self,primary,actor=None):
+        """Explicit internal Callback8 terminal; no configuration selection."""
+        from ios.adapters.emote_callback_terminal import IOSEmoteCallbackTerminalFeature,IOSEmoteCallbackTerminal
+        need(type(primary) is IOSEmoteCallbackTerminalFeature and primary.runtime is self)
+        return IOSEmoteCallbackTerminal(primary,actor)
+
     def _emote_rooted_terminal(self,primary,actor=None):
         from ios.adapters.emote_terminal import IOSEmoteTerminal
         need(primary.runtime is self)

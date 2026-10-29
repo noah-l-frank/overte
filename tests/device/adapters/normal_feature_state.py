@@ -6,7 +6,7 @@ This file records input/cleanup intent, never observed feature success.
 # SPDX-License-Identifier: Apache-2.0
 import json
 import os
-from adapters.original_file_reads import record as record_original_read
+from adapters.original_file_reads import record as record_original_read,check_writable
 from pathlib import Path
 import re
 import stat
@@ -86,6 +86,7 @@ class PrivateFeatureState:
             raise NativeUIError('Normal feature ownership file is invalid') from None
 
     def write(self, value, previous):
+        check_writable()
         self._parent()
         need(self.read() == previous)
         raw = json.dumps(value, allow_nan=False, sort_keys=True, separators=(',', ':'))
@@ -99,5 +100,6 @@ class PrivateFeatureState:
             Path(temporary).unlink(missing_ok=True)
 
     def discard(self, previous):
+        check_writable()
         need(self.read() == previous)
         self.path.unlink(missing_ok=True)

@@ -16,6 +16,7 @@ from adapters.script_feature.history import same,pack,unpack
 from ios.adapters.graphics_history import follow_native
 from ios.adapters.tablet_web_native_reads import TabletNativeReads
 from ios.adapters.tablet_web_source_owner import TabletWebSourceOwner
+from ios.adapters.tablet_web_aggregate_root import source_owner
 from ios.adapters import tablet_web_state as state,uikit_input as uikit,world_web_keys as keys,pointer_state as pointer
 from ios.adapters.tablet_web_runtime import file_responsibilities
 
@@ -72,7 +73,7 @@ class TabletWebTail:
             epoch_ms=forbidden,monotonic=self.monotonic,historical=True)
     def source(self):
         actual=self.runtime.observer.source
-        return TabletWebSourceOwner(self.root,self.binding,self.run,self.role,actual.fixture,actual.pid,self.lock,forbidden,
+        return source_owner(self.root,self.binding,self.run,self.role,actual.fixture,actual.pid,self.lock,forbidden,
             epoch_ms=forbidden,monotonic=self.monotonic,historical=True)
 
     def read(self,reference):

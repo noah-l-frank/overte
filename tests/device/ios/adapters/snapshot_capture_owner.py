@@ -56,6 +56,12 @@ class IOSSnapshotCaptureOwner:
     @classmethod
     def archive(cls,store,lock,binding,run,fixture_url,*,combined=False):
         """Actual local originals only; no SDK or live source construction."""
+        from ios.adapters.snapshot_photos_end_read_area import capture_archive
+        return capture_archive(cls,store,lock,binding,run,fixture_url,combined,
+            lambda:cls._archive_original(store,lock,binding,run,fixture_url,combined=combined))
+
+    @classmethod
+    def _archive_original(cls,store,lock,binding,run,fixture_url,*,combined=False):
         need(type(combined) is bool);owner=object.__new__(cls);owner.runtime=object.__new__(IOSSnapshotCaptureRuntime);owner.combined=combined
         owner.selector=None;owner.run=identifier(run);owner.lock=lock;owner.binding=deepcopy(context(binding));owner.store=store
         owner.sources=None;owner.phase=SimpleNamespace(fixture_url=fixture_url);owner.guard=lambda:True;owner.historical=True

@@ -13,6 +13,7 @@ from adapters.phase_witness_publisher import PhaseWitnessPublisher
 from adapters.script_feature.history import same
 from feature_journeys.contract import result
 from ios.adapters.tablet_web_source_owner import TabletWebSourceOwner
+from ios.adapters.tablet_web_aggregate_root import source_owner
 from ios.adapters.uikit_input import _owned
 from ios.adapters.tablet_web_dom import IOSTabletWebDOM
 
@@ -88,7 +89,7 @@ class TabletWebObserver:
         need(type(original['tabletWebObservationOriginalVersion']) is int and original['tabletWebObservationOriginalVersion']==VERSION
             and same(original['binding'],source.binding) and original['runId']==source.run and original['role']==source.role
             and original['fixtureUrl']==source.fixture and integer(original['hostProcessId'],1))
-        historical=TabletWebSourceOwner(source.root,source.binding,source.run,source.role,source.fixture,source.pid,source.lock,forbidden,
+        historical=source_owner(source.root,source.binding,source.run,source.role,source.fixture,source.pid,source.lock,forbidden,
             monotonic=source.monotonic,epoch_ms=forbidden,historical=True)
         measured,record,frame=historical.facts_at(original['reference'],self.origins)
         need(record['hostProcessId']==original['hostProcessId'])

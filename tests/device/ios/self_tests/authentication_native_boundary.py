@@ -167,9 +167,14 @@ class Native:
             scriptInventory=dict(inventoryVersion=1,complete=True,managers=[],pickers=[],tabletPresent=True,tabletShown=self.shown))
 
     def feature_packet(self,value):
-        self.poll();value.update(instance=self.birth,processId=self.pid,requestedEpochMs=self.epoch(),capturedEpochMs=self.epoch(),
+        requested=self.epoch();self.poll()
+        value.update(instance=self.birth,processId=self.pid,requestedEpochMs=requested,
             lifecycle=deepcopy(self.lifecycle),account=deepcopy(self.account))
-        value['account']['observation']['capturedEpochMs']=self.epoch();value['animationFence']['requestedEpochMs']=self.epoch()
+        value['account']['observation']['capturedEpochMs']=self.epoch()
+        value['animationFence']['requestedEpochMs']=requested
+        # Finish ALL nested original/source samples before this NEW enclosing
+        # capture. Forward clocks cannot place a child after its parent frame.
+        value['capturedEpochMs']=self.epoch()
 
     def origin_packet(self,value):value.update(processId=self.pid,requestedEpochMs=self.epoch(),capturedEpochMs=self.epoch())
 
@@ -181,8 +186,9 @@ class Native:
             self.probe_slot=key;self.probe_used.add(request['requestId'])
         if key!=self.probe_slot:
             self.probe_value=dict(commandId=request['commandId'],available=False);return
+        requested=self.epoch()
         if op=='read':
-            sent=self.epoch();headers={RUN_HEADER:request['runId'],TICKET_HEADER:request['ticket'],REQUEST_HEADER:request['requestId']}
+            sent=requested;headers={RUN_HEADER:request['runId'],TICKET_HEADER:request['ticket'],REQUEST_HEADER:request['requestId']}
             if self.token:headers['Authorization']='Bearer '+self.token
             status,body=self.http(PROFILE_PATH,headers=headers);value=json.loads(body)
             username=value.get('data',{}).get('user',{}).get('username','')
@@ -194,7 +200,7 @@ class Native:
         else:source=dict(inflight=False,responseBytes=0,credentialBytes=0,released=True)
         self.probe_value=dict(probeVersion=1,**{key:request[key] for key in ('commandId','requestId','runId','ticket','operation')},
             instance=self.account['observation']['instance'],sequence=self.probe_sequence,processId=self.pid,
-            requestedEpochMs=self.epoch(),capturedEpochMs=self.epoch(),source=source)
+            requestedEpochMs=requested,capturedEpochMs=self.epoch(),source=source)
 
     def post(self,request,timeout):
         command=json.loads(request.data);self.commands.append(deepcopy(command));self.echo=json.dumps(command).encode();action=command['action']
@@ -209,13 +215,17 @@ class Native:
         elif action=='feature-private-login-input':
             payload=None
             if command['operation']=='deliver' and self.private.path(command).exists():payload=json.loads(self.private.path(command).read_bytes())['input']
-            self.private.pid=self.pid;self.private.send(command);self.private.value.update(capturedEpochMs=self.epoch(),elapsedMs=round(self.clock*1000))
+            self.private.pid=self.pid;self.private.send(command)
             if payload is not None and 'inputStatus' in self.private.value['source']:
                 rows=[row for row in self.observed()['controls'] if row['id'] in ('login.username','login.password') and row['token']==payload['fieldToken']]
                 valid=len(rows)==1 and rows[0]['focused'] and rows[0]['inputReady'] and payload['instance']==self.instance and payload['sequence']==self.sequence+1
                 if valid:self.sequence+=1;self.login.fields[rows[0]['id']]=payload['text']
                 status=self.private.rows[command['inputId']]['inputStatus'];status.update(performed=valid,processId=self.pid,sampleEpochMs=self.epoch())
                 self.private.value['source']['inputStatus']=deepcopy(status)
+            # Capture this NEW raw packet only after the actual delivery status
+            # exists. A forward clock may advance during observed()/input; the
+            # status cannot belong to the future of its enclosing packet.
+            self.private.value.update(capturedEpochMs=self.epoch(),elapsedMs=round(self.clock*1000))
         elif action=='normal-ui-input':
             if command['operation']=='observe':self.ui_receipt=dict(schemaVersion=1,commandId=command['commandId'],observation=self.observed())
             else:

@@ -7,8 +7,9 @@ WALs, pending/rejected rows and cross-record history floors remain outside hits.
 # SPDX-License-Identifier: Apache-2.0
 from contextlib import contextmanager
 from contextvars import ContextVar
+from copy import deepcopy
 from adapters.native_feature_observation import need
-from adapters.script_feature.history import canonical
+from adapters.script_feature.history import canonical,same
 from ios.adapters.avatar_record_cache import AvatarRecordCache
 
 _ACTIVE=ContextVar('tablet_web_immutable_records',default=None)
@@ -30,6 +31,28 @@ class TabletRecordCache:
         return value
 
 
+def aggregate_epoch(owner):
+    """Bind mutable owned headers separately from immutable packet originals.
+
+    Each current child and root header is freshly checked before selecting a
+    key. A historical reader cannot adopt a later write behind its saved state.
+    Ordinary packet owners keep their existing decoder/cache path unchanged.
+    """
+    from ios.adapters.tablet_web_aggregate_root import TabletAggregateChild,TabletWebAggregateRoot
+    if type(owner) is TabletAggregateChild:
+        owner._bound();parent=owner.owner
+        need(same(parent.store.read(),parent.saved))
+        return dict(historical=owner.historical,child=deepcopy(owner.saved),root=deepcopy(parent.saved))
+    if type(owner) is TabletWebAggregateRoot:
+        owner._parent_guard();need(same(owner.store.read(),owner.saved))
+        children={}
+        for name,child in owner.children.items():
+            need(type(child) is TabletAggregateChild and child.owner is owner)
+            child._bound();children[name]=deepcopy(child.saved)
+        return dict(historical=owner.historical,root=deepcopy(owner.saved),children=children)
+    return None
+
+
 def returned_record(owner,value,index,previous,decode):
     cache=_ACTIVE.get()
     if cache is None or type(value) is not dict or value.get('status')!='returned' or value.get('unsafe') or value.get('readbacks'):
@@ -39,11 +62,17 @@ def returned_record(owner,value,index,previous,decode):
         functions=[id(owner.module.original),id(owner.module.validate),id(type(owner)._record)],
         versions=[getattr(owner.module,'VERSION',None),getattr(owner.module,'READS',None),owner.module.LIMIT],
         row=value,index=index,previous=previous)
+    epoch=aggregate_epoch(owner)
+    if epoch is not None:key['ownedHeaderEpoch']=deepcopy(epoch)
     # A complete returned record cannot set a pending/rejected side effect.
     # Those records are never memoized and still update the live history floor.
     def checked():
-        blocked=owner.blocked;answer=decode();need(owner.blocked==blocked);return answer
-    return cache.read(key,checked)
+        blocked=owner.blocked;answer=decode();need(owner.blocked==blocked)
+        if epoch is not None:need(same(aggregate_epoch(owner),epoch))
+        return answer
+    answer=cache.read(key,checked)
+    if epoch is not None:need(same(aggregate_epoch(owner),epoch))
+    return answer
 
 
 def auxiliary_record(owner,value,index,previous,decode):
@@ -99,12 +128,17 @@ def parent_record(owner,value,index,previous,decode):
         functions=[id(type(owner)._record),id(type(owner)._clock),id(source.exact),id(source.integer),id(source.number),
             id(source.need),id(source.native_original),id(source.follow_native),id(source.phase_original),
             id(source.active_browser),id(admission.validate),id(browser_original),id(digest),id(same)])
+    epoch=aggregate_epoch(owner)
+    if epoch is not None:key['ownedHeaderEpoch']=deepcopy(epoch)
     def checked():
         before=(owner.blocked,tuple(child.blocked for child in owner.children.values()))
         answer=decode()
         need(before==(owner.blocked,tuple(child.blocked for child in owner.children.values())))
+        if epoch is not None:need(same(aggregate_epoch(owner),epoch))
         return answer
-    return cache.read(key,checked)
+    answer=cache.read(key,checked)
+    if epoch is not None:need(same(aggregate_epoch(owner),epoch))
+    return answer
 
 
 @contextmanager

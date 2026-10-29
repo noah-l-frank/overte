@@ -9,6 +9,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import re
+import select
 import subprocess
 from ios.self_tests.test_ios_tablet_web_app_origin import originals_boundary,admit,EPOCH
 from ios.self_tests.test_ios_tablet_web_documents import originals as document_originals
@@ -17,7 +18,7 @@ from ios.self_tests.test_ios_tablet_web_sources import stamp,RUN,ROOT
 REPO=Path(__file__).resolve().parents[4]
 
 
-def actual_js(*,bridge=True,trusted=True):
+def actual_js(*,bridge=True,trusted=True,session=False):
     values=originals_boundary();app=admit(values);url=app['profile']['assignedUrl']
     program=r'''
 const vm=require('vm'),files=__FILES__,url=__URL__,root=__ROOT__,record={},page=require('./tests/device/ios/self_tests/test_ios_tablet_web_dom.js').page({bridge:__BRIDGE__});
@@ -41,9 +42,49 @@ process.stdout.write(JSON.stringify(record));})().catch(error=>{console.error(er
 '''
     inputs=dict(FILES={key:raw.decode() for key,raw in values[-1].items()},URL=url,ROOT=ROOT,EPOCH=EPOCH,BRIDGE=bridge,TRUSTED=trusted)
     program=re.sub(r'__(FILES|URL|ROOT|EPOCH|BRIDGE|TRUSTED)__',lambda m:json.dumps(inputs[m[1]]),program)
+    assert type(session) is bool
+    if session:
+        # Declared before FIRST native source capture. The same original page
+        # and bridge execute once; each later command is ONLY passive read.
+        original="process.stdout.write(JSON.stringify(record));"
+        continuation=r'''process.stdout.write(JSON.stringify(record)+'\n');
+const lines=require('node:readline').createInterface({input:process.stdin,crlfDelay:Infinity});
+for await (const line of lines) {
+ const request=JSON.parse(line);
+ if(!Number.isSafeInteger(request.epochMs)||request.epochMs<=0||!/^ios-[a-f0-9]{32}$/.test(request.commandId))throw Error('Invalid declared passive query');
+ now=Math.max(now,request.epochMs-10);
+ const current=page.read(request.commandId);
+ process.stdout.write(JSON.stringify(current)+'\n');
+}'''
+        assert program.count(original)==1;program=program.replace(original,continuation)
+        return ActualDOMSession(program),app
     run=subprocess.run(['node','-e',program],cwd=REPO,capture_output=True,text=True,timeout=5)
     if run.returncode:raise AssertionError(run.stderr)
     return json.loads(run.stdout),app
+
+
+class ActualDOMSession:
+    """Original observer JS in one real host Node page, no repeated UI input."""
+    def __init__(self,program):
+        self.process=subprocess.Popen(['node','-e',program],cwd=REPO,stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
+        try:self.initial=self._received()
+        except BaseException:
+            self.close();raise
+    def _received(self):
+        if not select.select([self.process.stdout],[],[],5)[0]:raise AssertionError('Actual passive DOM did not return')
+        value=self.process.stdout.readline()
+        if not value:raise AssertionError('Actual passive DOM source closed')
+        return json.loads(value)
+    def read(self,command_id,epoch_ms):
+        self.process.stdin.write(json.dumps(dict(commandId=command_id,epochMs=epoch_ms))+'\n');self.process.stdin.flush()
+        return self._received()
+    def close(self):
+        if self.process.stdin:self.process.stdin.close()
+        try:self.process.wait(timeout=5)
+        except subprocess.TimeoutExpired:self.process.terminate();self.process.wait(timeout=5)
+        for stream in (self.process.stdout,self.process.stderr):
+            if stream:stream.close()
 
 
 def fixture(*,bridge=True,trusted=True):

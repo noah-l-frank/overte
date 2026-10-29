@@ -87,8 +87,8 @@ class TabletWebTerminal:
         held=proof['proof']['heldResources'];need(protocol.held(held)==measured['public']['resources'])
         if owner.screen is not None:
             from pathlib import Path
-            from ios.adapters.tablet_web_samples import TabletWebSamples
-            TabletWebSamples(history,Path(owner.screen['artifactRoot']),owner.screen['policy'],historical=True).files_absent()
+            from ios.adapters.tablet_web_sample_root import samples_owner
+            samples_owner(history,Path(owner.screen['artifactRoot']),owner.screen['policy'],historical=True).files_absent()
         return measured,dict(binding=binding(owner.binding),heldResources=held,originalSha256=digest(original))
     def inspect(self,observer):
         self.lock.assert_held();need(self.feature.role=='primary');observer.check();phase=observer.observer.phase.read()

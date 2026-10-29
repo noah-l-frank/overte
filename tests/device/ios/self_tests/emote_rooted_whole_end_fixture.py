@@ -76,7 +76,7 @@ class RoleOS(OSBoundary):
 
 
 class WholeRootedEndFixture:
-    def __init__(self,test,*,retain_originals=False):
+    def __init__(self,test,*,retain_originals=False,normal_scripts_profile=False):
         self.test=test;temporary=tempfile.TemporaryDirectory();test.addCleanup(temporary.cleanup)
         self.root=Path(temporary.name);self.root.chmod(0o700);self.artifacts=self.root/'candidate';self.artifacts.mkdir(mode=0o700)
         self.trees={};self.targets={};self.bindings={};self.alive=dict(primary=True,actor=True);self.deleted=set()
@@ -99,6 +99,11 @@ class WholeRootedEndFixture:
                 artifactMode='personal-team-preinstalled',_artifactMode='personal-team-preinstalled',probe={'kind':'ios-documents'},
                 serverUrl='http://127.0.0.1:9/'+role,testBuild=dict(resultsDirectory='owned-results',
                     fixtureOrigin='http://native-model.invalid:'+str(port),scenePath='/scene.json'),capabilities={})
+            # Select the declared source profile BEFORE fingerprints and any
+            # original binding/session construction. Defaults stay unchanged.
+            if normal_scripts_profile:
+                self.targets[role]['normalScripts']=dict(contractVersion=1,profile='ios-native-qt-scripts-v1')
+                self.targets[role]['nativeUiObservation']=dict(kind='uikit-documents',version=1)
             binding=BINDING if role=='primary' else ACTOR
             fingerprint=hashlib.sha256(json.dumps(self.targets[role],sort_keys=True,separators=(',',':')).encode()).hexdigest()
             test.enterContext(patch.dict(binding,artifactSha256=self.sha,targetFingerprint=fingerprint))

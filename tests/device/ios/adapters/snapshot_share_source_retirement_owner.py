@@ -135,8 +135,14 @@ class SnapshotShareSourceRetirementOwner:
                 if row['queryIndex'] is not None:need(integer(row['queryIndex'],last+1,len(self.queries.state['queries'])));last=row['queryIndex'];self.share.cleanup_absent(last)
                 action=self.action(row,True);allowed|=self.paths(action)
                 if action.state['issued']:need(row['queryIndex'] is not None);self.dispatch_original(action,row['queryIndex'])
-                if row['sha256'] is not None:need(digest(action.previous)==row['sha256']);self.observed(row)
-                if row['qualified'] is True:self.qualified(row)
+                if row['sha256'] is not None:need(digest(action.previous)==row['sha256'])
+                if self.historical and row['qualified'] is True:
+                    # One actual guarded observation already proves both the
+                    # immutable original and absence. No verdict is reused.
+                    self._qualified_observed(row)
+                else:
+                    if row['sha256'] is not None:self.observed(row)
+                    if row['qualified'] is True:self.qualified(row)
             if state['result'] is not None:need(same(state['result'],self.proof()))
             self.inventory_paths(allowed)
         finally:self.state=prior
@@ -158,13 +164,20 @@ class SnapshotShareSourceRetirementOwner:
             need(value['clockAfter']['monotonicMs']-value['clockBefore']['monotonicMs']<=frame['hostAfter']['monotonicMs']-frame['hostBefore']['monotonicMs']+250)
             previous=value;selected=(value,frame)
         need(selected is not None);return selected
+    def _qualified_observed(self,row):
+        # Keep every original guard BEFORE the actual observation, exactly as
+        # qualified() has always done. The frame is from that SAME real read.
+        self.share.cleanup_absent(row['queryIndex']);self.action(row,True).qualified();value,frame=self.observed(row)
+        return source.absent(value),frame
     def qualified(self,row):
-        self.share.cleanup_absent(row['queryIndex']);self.action(row,True).qualified();value,_frame=self.observed(row);return source.absent(value)
+        return self._qualified_observed(row)[0]
     def proof(self):
         retired,_raw=self.retired();source.qualified(retired);selected=[row for row in self.state['after'] if row['qualified'] is True][-3:];need(len(selected)==3)
         values=[];hosts=[]
         for row in selected:
-            self.qualified(row);value,frame=self.observed(row);values.append(value);hosts.append(dict(before=frame['hostBefore'],after=frame['hostAfter']))
+            if self.historical:value,frame=self._qualified_observed(row)
+            else:self.qualified(row);value,frame=self.observed(row)
+            values.append(value);hosts.append(dict(before=frame['hostBefore'],after=frame['hostAfter']))
         files=source.quiet(values,hosts,self.run);before=self.queries.quiet_originals(self.state['before'][-1]);after=self.queries.quiet_originals([row['queryIndex'] for row in selected])
         return dict(snapshotShareSourceFilesRetiredVersion=1,runId=self.run,inventoryOwnerSha256=self.inventory_hash,retirementSha256=digest(retired),
             extensionBefore=before,extensionAfter=after,fileQuiet=files,sourceFilesRetired=True,hostOriginalsRetained=True,

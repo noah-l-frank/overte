@@ -8,18 +8,18 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.feature_fixture_access import client as fixture_client
 from ios.adapters.normal_scripts import configuration as scripts_configuration
 
-VERSION=6
-READS=(1,2,3,4,5,6)
+VERSION=8
+READS=(1,2,3,4,5,6,7,8)
 WHOLE_SETTINGS={'world-navigation':('worldNavigation','navigation_configuration'),
     'avatar-people':('avatarPeople','avatar_configuration'),
     'world-web':('worldWeb','world_web_configuration'),
     'tablet-web':('tabletWeb','tablet_web_configuration')}
 LEGACY_AREAS=frozenset(('scripts','authentication','graphics','create','emotes'))
 AREAS=LEGACY_AREAS|frozenset(WHOLE_SETTINGS)
-# Emotes retains its readable v4 configuration and operation implementation.
-# Real cached marker resources still need the two-stage native/process finalizer
-# before this area can again advertise a complete operation triple.
-COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create','world-navigation'))
+# Prospective Emote whole admission requires explicit configuration v8.
+# Older rooted v6/v7 configurations remain readable and closed; the live roots
+# still require the actual typed paired process/SDK end in the complete journey.
+COMPLETE_AREAS=frozenset(('scripts','authentication','graphics','create','world-navigation','world-web','emotes'))
 OPERATIONS=frozenset('feature.'+area+'.'+kind for area in AREAS for kind in ('act','observe','cleanup'))|frozenset(
     'feature.'+area+'.terminal' for area in set(WHOLE_SETTINGS)|{'emotes'})
 
@@ -38,7 +38,8 @@ def validate(value):
     version=value['iosFeatureAdapterVersion']
     exact(value,{'iosFeatureAdapterVersion','areas','fixtureConfig'}|({'graphics'} if version>=2 else set())|({'create'} if version>=3 else set())|({'emotes'} if version>=4 else set())
         |({field for field,_module in WHOLE_SETTINGS.values()} if version>=5 else set())
-        |({'emoteCoordinatorVersion'} if version>=6 else set()))
+        |({'emoteCoordinatorVersion'} if version>=6 else set())
+        |({'worldWebCoordinatorVersion'} if version>=7 else set())|({'emoteTargets'} if version>=8 else set()))
     allowed=AREAS if version>=5 else LEGACY_AREAS if version==4 else LEGACY_AREAS-{'emotes'} if version==3 else LEGACY_AREAS-{'create','emotes'} if version==2 else LEGACY_AREAS-{'graphics','create','emotes'}
     need(type(value['iosFeatureAdapterVersion']) is int
          and type(value['areas']) is list and 1<=len(value['areas'])<=len(AREAS)
@@ -64,6 +65,16 @@ def validate(value):
         if 'emotes' in value['areas']:
             need(type(value['emoteCoordinatorVersion']) is int and value['emoteCoordinatorVersion']==2)
         else:need(value['emoteCoordinatorVersion'] is None)
+    if version>=7:
+        if 'world-web' in value['areas']:
+            need(type(value['worldWebCoordinatorVersion']) is int and value['worldWebCoordinatorVersion']==1)
+        else:need(value['worldWebCoordinatorVersion'] is None)
+    if version>=8:
+        if 'emotes' in value['areas']:
+            from ios.adapters.emote_target_pair import configuration as pair_configuration
+            pair=pair_configuration(value['emoteTargets'])
+            need(pair['actorTarget']==value['emotes']['actorTarget'] and pair['primaryArtifactRoot']==value['emotes']['artifactRoot'])
+        else:need(value['emoteTargets'] is None)
     if version>=5:
         from importlib import import_module
         for area,(field,module) in WHOLE_SETTINGS.items():
@@ -82,7 +93,12 @@ def capabilities(target):
     # Reading an old configuration does not upgrade its coordinator or admit
     # rooted terminal ownership. Complete admission remains closed above.
     if 'emotes' in config['areas']:
-        need(config['iosFeatureAdapterVersion']>=6 and config['emoteCoordinatorVersion']==2)
+        need(config['iosFeatureAdapterVersion']>=8 and config['emoteCoordinatorVersion']==2)
+    # Prospective whole source admission is an explicit coordinator contract.
+    # A readable old configuration cannot silently acquire the terminal/Actor
+    # protocol merely because the area has an implementation in this version.
+    if 'world-web' in config['areas']:
+        need(config['iosFeatureAdapterVersion']>=7 and config['worldWebCoordinatorVersion']==1)
     need(scripts_configuration(target) is not None)
     if 'authentication' in config['areas']:
         from ios.adapters.authentication_origin import origin

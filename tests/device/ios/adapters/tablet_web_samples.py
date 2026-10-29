@@ -43,10 +43,13 @@ class TabletWebSamples:
                 and same(self.saved['binding'],self.binding) and self.saved['runId']==self.run and self.saved['role']==self.role
                 and self.saved['artifactRoot']==str(self.root) and same(self.saved['policy'],self.policy))
             rows=unpack(self.saved['payload']);need(len(rows)==1);self.state=rows[0]
+        self._original_storage();self.decode()
+    def _original_storage(self):
         self.originals=OriginalFrameStore(self.root,self.binding,self.run,self.role,self.file_guard,self.intent,
-            namespace='tabletweb-screen-samples',schema_prefix='tabletWebScreenSample',monotonic=source.monotonic)
-        self.raw=TabletWebScreenArchive(self.root,self.binding,self.run,self.role,self.file_guard,self.raw_intent,monotonic=source.monotonic)
-        self.decode()
+            namespace='tabletweb-screen-samples',schema_prefix='tabletWebScreenSample',monotonic=self.source.monotonic)
+        self.raw=TabletWebScreenArchive(self.root,self.binding,self.run,self.role,self.file_guard,self.raw_intent,monotonic=self.source.monotonic)
+    def record_references(self):return self.state['records']
+    def _next_index(self):return len(self.record_references())+1
     def live(self):need(not self.historical);self.source.bound()
     def file_guard(self):
         if not self.historical:self.live()
@@ -65,9 +68,10 @@ class TabletWebSamples:
         if self.failed or not number(now,0,1e15) or self.last is not None and now<self.last or self.started is not None and now-self.started>=1.5:
             self.failed=True;need(False)
         self.last=now;return True
+    def screen_guard(self):return self.source.guard
     def screen(self,client):
         return IOSTabletWebImages(PrivateFeatureState(self.source.root/('tabletweb-screen-owner-'+self.run+'-'+self.role+'.json')),
-            self.root,self.binding,self.run,self.role,0,client,self.runtime.native_clock,self.source.guard,source_lock=self.lock,
+            self.root,self.binding,self.run,self.role,0,client,self.runtime.native_clock,self.screen_guard(),source_lock=self.lock,
             epoch_ms=self.source.epoch_ms,monotonic=self.source.monotonic)
     def record(self,row,index):
         exact(row,{'tabletWebScreenSampleVersion','index','ticket','status','before','after','png','raw','archive'})
@@ -95,20 +99,20 @@ class TabletWebSamples:
         exact(self.state,{'records','pending','original','nextRaw'})
         need(type(self.state['records']) is list and len(self.state['records'])<=32 and integer(self.state['nextRaw'],1,MAX_FRAMES+1))
         first=1
-        for index,reference in enumerate(self.state['records'],1):
+        for index,reference in enumerate(self.record_references(),1):
             full=self.originals.expand(reference);need(full['index']==index);row=self.record(self.originals.read(full),index)
             if row['archive'] is not None:
                 need(row['archive']['first']==first)
                 first+=sum(max(1,(part['bytes']+CHUNK_BYTES-1)//CHUNK_BYTES) for part in row['archive']['parts'])
         row=self.state['pending']
         if row is not None:
-            self.record(row,len(self.state['records'])+1)
+            self.record(row,self._next_index())
             if row['archive'] is not None:
                 need(row['archive']['first']==first)
                 first+=sum(max(1,(part['bytes']+CHUNK_BYTES-1)//CHUNK_BYTES) for part in row['archive']['parts'])
         need(self.state['nextRaw']==first)
         if self.state['original'] is not None:
-            need(row is not None and self.state['original']['index']==len(self.state['records'])+1)
+            need(row is not None and self.state['original']['index']==self._next_index())
             self.pending_original()
     def pending_original(self):
         """Original opened prefix only; no interrupted write is relabelled."""
@@ -129,7 +133,7 @@ class TabletWebSamples:
         if complete:need(same(self.originals.read(reference),row))
         return dict(bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),complete=complete)
     def read(self,reference,*,previous=None,changed=False):
-        full=self.originals.expand(reference);index=full['index'];need(1<=index<=len(self.state['records']) and same(reference,self.state['records'][index-1]))
+        full=self.originals.expand(reference);index=full['index'];references=self.record_references();need(1<=index<=len(references) and same(reference,references[index-1]))
         row=self.record(self.originals.read(full),index);need(row['status']=='returned')
         raw=self.raw.read(row['archive']);before=self.runtime.validate_tail_source(row['before']);after=self.runtime.validate_tail_source(row['after'])
         measured,subject=compose(self.run,row['ticket'],self.binding,before,after,row['png']['capture'],raw,self.policy,previous=previous,changed=changed)
@@ -147,7 +151,7 @@ class TabletWebSamples:
     def export(self,name):
         need(type(name) is str and '/' not in name and '\\' not in name)
         matches=[]
-        for index,reference in enumerate(self.state['records'],1):
+        for index,reference in enumerate(self.record_references(),1):
             row=self.record(self.originals.read(self.originals.expand(reference)),index)
             if row['status']=='returned' and row['png']['name']==name:matches.append(reference)
         need(len(matches)==1)
@@ -185,7 +189,7 @@ class TabletWebSamples:
             try:owner._path(row).lstat()
             except FileNotFoundError:pass
             else:need(False)
-        for index,reference in enumerate(self.state['records'],1):
+        for index,reference in enumerate(self.record_references(),1):
             sample=self.record(self.originals.read(self.originals.expand(reference)),index)
             if sample['status']=='returned':
                 matches=[row for row in owner.rows if row['nonce']==sample['png']['nonce']]
@@ -204,16 +208,16 @@ class TabletWebSamples:
             source=self.source;source.history()
             need(not source.blocked and source.state['pending'] is source.state['intent'] is source.state['appPending'] is source.state['appIntent'] is None
                 and same(source.store.read(),source.saved) and same(source.saved,source.state)
-                and source.state['records'] and same(before['observation']['reference'],source.state['records'][-1])
+                and source.record_references() and same(before['observation']['reference'],source.record_references()[-1])
                 and same(admitted_before['row']['apps'],source.state['apps']))
             for part in admitted_before['row']['components']:
                 child=source.children[part['component']]
                 need(same(child.store.read(),child.saved) and same(child.saved,child.state)
                     and not child.blocked and child.state['pending'] is child.state['recordIntent'] is None
-                    and child.state['records'] and same(part['reference'],child.state['records'][-1]))
+                    and child._next_index()>1 and same(part['reference'],child.reference(child._next_index()-1)))
             self.started=admitted_before['row']['clockJoin']['hostBeforeMonotonic']
             self.clock()
-        row=dict(tabletWebScreenSampleVersion=VERSION,index=len(self.state['records'])+1,ticket=ticket,status='acquiring',before=None,after=None,png=None,raw=None,archive=None)
+        row=dict(tabletWebScreenSampleVersion=VERSION,index=self._next_index(),ticket=ticket,status='acquiring',before=None,after=None,png=None,raw=None,archive=None)
         self.state['pending']=row;self.save();outer=self
         def capture_clock():
             outer.clock()

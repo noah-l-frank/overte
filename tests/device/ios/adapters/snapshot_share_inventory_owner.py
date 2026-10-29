@@ -51,10 +51,19 @@ class SnapshotShareSourceInventoryOwner(SnapshotShareAdmissionSealOwner):
         super().bound();self.share.guard();self.sealed.bound()
         need(digest(self.share.previous)==self.share_hash and digest(self.sealed.previous)==self.seal_hash);return True
     def original(self):
+        from ios.adapters.snapshot_photos_end_read_area import inventory_original
+        return inventory_original(self,self._original_uncached)
+    def _original_uncached(self):
         need(self.state['slotSha256'] is not None);action=self.action(True);need(digest(action.previous)==self.state['slotSha256'])
         raw=action.original();return source.original(decode(raw.decode('utf-8')),self.state['nonce'],self.share,self.sealed),raw
+    def _historical_load_proof(self,retained):
+        # Same actual inventory pair inside this one completed load; its
+        # action/qualification/frame guards below still read current files.
+        return self._proof_from_original(*retained) if type(self) is SnapshotShareSourceInventoryOwner else self.proof()
     def proof(self):
-        packet,raw=self.original();source.qualified(packet);action=self.action(True);action.qualified();frame=action.files.read(action.files.expand(action.state['proof']))
+        packet,raw=self.original();return self._proof_from_original(packet,raw)
+    def _proof_from_original(self,packet,raw):
+        source.qualified(packet);action=self.action(True);action.qualified();frame=action.files.read(action.files.expand(action.state['proof']))
         need(packet['clockAfter']['monotonicMs']-packet['clockBefore']['monotonicMs']<=frame['hostAfter']['monotonicMs']-frame['hostBefore']['monotonicMs']+250)
         return dict(snapshotShareSourceInventoryResultVersion=1,runId=self.run,shareOwnerSha256=self.share_hash,sealOwnerSha256=self.seal_hash,
             nativeOriginalSha256=hashlib.sha256(raw).hexdigest(),processId=packet['processId'],sourceInstance=packet['sourceInstance'],catalogInstance=packet['instance'],

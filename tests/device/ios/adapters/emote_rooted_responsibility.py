@@ -21,6 +21,7 @@ from ios.adapters.emote_rooted_live import IOSEmoteRootedLive
 from ios.adapters.emote_rooted_retirement import IOSEmoteRootedKeyedRetirement
 from ios.adapters.emote_rooted_scene_retirement import IOSEmoteRootedSceneRetirement
 from ios.adapters.emote_rooted_gpu import validate as current_gpu
+from ios.adapters.emote_sample_recovery import IOSEmoteSampleRecovery
 from ios.adapters.emote_scene_history import validate as scene_history
 from ios.adapters.emote_scene_order import IOSEmoteSceneOrder
 from ios.adapters.emote_scene_proof import rooted
@@ -28,8 +29,15 @@ from ios.adapters.peer_admission import validate as admitted
 
 
 class IOSEmoteRootedResponsibility:
+    Owner=IOSEmoteRootedKeyedRetirement
+    Live=IOSEmoteRootedLive
+    Scene=IOSEmoteRootedSceneRetirement
+    SampleRecovery=IOSEmoteSampleRecovery
+
+    def gpu_originals(self,parts,owner,live):return current_gpu(self.flow,parts)
+
     def __init__(self,flow,parts,owner,live):
-        need(type(owner) is IOSEmoteRootedKeyedRetirement and type(live) is IOSEmoteRootedLive
+        need(type(owner) is self.Owner and type(live) is self.Live
             and live.owner is owner and not owner.historical and flow.role==owner.role and flow.run==owner.run
             and flow.root==owner.root and flow.lock is owner.lock and flow.primary_lock is owner.primary_lock
             and same(flow.state['binding'],owner.binding) and same(flow.state['primaryBinding'],owner.primary_binding))
@@ -39,7 +47,7 @@ class IOSEmoteRootedResponsibility:
         with read_scope(fresh=True) as reads:
             self.values=self.metadata()
             self.validate(self.values,parts,owner,live)
-            self.values.update({str(path):value for path,value in current_gpu(flow,parts).items()})
+            self.values.update({str(path):value for path,value in self.gpu_originals(parts,owner,live).items()})
         for lease in leases:lease.guard()
         self.signatures=AvatarRecordCache.signatures(reads)
         self.carriers=self.original_carriers(parts)
@@ -89,7 +97,7 @@ class IOSEmoteRootedResponsibility:
         else:
             need(retirement['kind']=='actor-published')
             for cls,prefix,callback in ((PhaseWitnessPublisher,'phase-publication',parts['observer'].validate_original),
-                (PhaseRetirementPublisher,'phase-retirement',IOSEmoteRootedSceneRetirement(owner).actor_original)):
+                (PhaseRetirementPublisher,'phase-retirement',self.Scene(owner).actor_original)):
                 class Retained(cls):
                     def record_store(_reader,ordinal):
                         path=super().record_store(ordinal).path;need(str(path) in values)

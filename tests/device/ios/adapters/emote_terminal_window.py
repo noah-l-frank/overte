@@ -36,8 +36,19 @@ def _retirement_floor(rows,publications,receipt_acquisitions):
 
 
 class IOSEmoteTerminalWindow:
+    Live=IOSEmoteRootedLive
+    FORMAT_VERSION=VERSION
+
+    def group_snapshots(self,snapshots,*,lock,primary_lock):return grouped(snapshots,lock=lock,primary_lock=primary_lock)
+
+    def reopen_snapshot(self,snapshot,*,lock,primary_lock):return reopen(snapshot,lock=lock,primary_lock=primary_lock)
+
+    def select_publications(self,snapshot,value,*,retirement_floor,**options):
+        selector=select_with_retirement_clocks if retirement_floor else select
+        return selector(snapshot,value,**options)
+
     def __init__(self,primary,actor):
-        need(type(primary) is IOSEmoteRootedLive and type(actor) is IOSEmoteRootedLive)
+        need(type(primary) is self.Live and type(actor) is self.Live)
         self.roles=dict(primary=primary,actor=actor);self.guard()
 
     def guard(self):
@@ -93,14 +104,13 @@ class IOSEmoteTerminalWindow:
         # The supplied entries select exact existing server receipts. They do
         # not provide feature facts or authorize an Actor publication.
         value=publisher_store.read();need(value is not None)
-        selector=select_with_retirement_clocks if retirement_floor else select
-        selection=selector(snapshots[-1],value,store=publisher_store,entries=[pair['actor'] for pair in samples],
+        selection=self.select_publications(snapshots[-1],value,retirement_floor=retirement_floor,store=publisher_store,entries=[pair['actor'] for pair in samples],
             lock=actor.lock,primary_lock=actor.primary_lock,record_store_for=record_store_for)
         publications,receipt_acquisitions=selection if retirement_floor else (selection,None)
         joined=[]
-        with grouped(snapshots,lock=actor.lock,primary_lock=actor.primary_lock):
+        with self.group_snapshots(snapshots,lock=actor.lock,primary_lock=actor.primary_lock):
             for snapshot,row,publication in zip(snapshots,actor_rows,publications):
-                keyed=reopen(snapshot,lock=actor.lock,primary_lock=actor.primary_lock)
+                keyed=self.reopen_snapshot(snapshot,lock=actor.lock,primary_lock=actor.primary_lock)
                 rendered=keyed.rendered_owner;rendered_original=rendered.original(keyed.original(snapshot['reference'])['renderedReference'])
                 native=rendered.native_owner.original(rendered_original['nativeReference'])
                 # Compare both actual private original payloads, not merely
@@ -108,7 +118,7 @@ class IOSEmoteTerminalWindow:
                 need(same(native['observation'],publication['observation']))
                 joined.append(dict(live=deepcopy(row['reference']),publication=deepcopy(publication['reference']),
                     observation=deepcopy(publication['original']),entry=deepcopy(publication['entry'])))
-        proof=dict(iosEmoteTerminalWindowVersion=VERSION,description=deepcopy(description),references=deepcopy(references),
+        proof=dict(iosEmoteTerminalWindowVersion=self.FORMAT_VERSION,description=deepcopy(description),references=deepcopy(references),
             samples=deepcopy(samples),journals={role:deepcopy(live.previous) for role,live in self.roles.items()},
             primary=[deepcopy(row['reference']) for row in selected],actor=joined,publisher=deepcopy(value))
         seal=dict(featureTerminalSealVersion=1,description=deepcopy(description),windowSha256=digest(samples),liveOriginalSha256=digest(proof))

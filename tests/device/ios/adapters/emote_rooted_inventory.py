@@ -14,8 +14,10 @@ from ios.adapters.emote_terminal_journal import IOSEmoteTerminalJournal
 
 
 class IOSEmoteRootedInventory:
+    Journal=IOSEmoteTerminalJournal
+
     def __init__(self,journal,reads):
-        need(type(journal) is IOSEmoteTerminalJournal and type(reads) is set)
+        need(type(journal) is self.Journal and type(reads) is set)
         self.journal=journal;self.roots=set()
         for live in journal.window.roles.values():
             live.lock.assert_held();live.primary_lock.assert_held()

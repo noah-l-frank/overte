@@ -28,9 +28,10 @@ class CanonicalTerminalDomain(TerminalDomain):
 
 
 class AvatarCanonicalFrontdoor:
+    domain_type=CanonicalTerminalDomain
     def __init__(self,case):
         self.stack=ExitStack();case.addCleanup(self.stack.close)
-        self.domain=CanonicalTerminalDomain(case);domain=self.domain;self.original=domain.runtime.adapter
+        self.domain=self.domain_type(case);domain=self.domain;self.original=domain.runtime.adapter
         self.directory=tempfile.TemporaryDirectory(prefix='avatar-frontdoor-');case.addCleanup(self.directory.cleanup)
         self.root=Path(self.directory.name);self.root.chmod(0o700)
         self.artifacts=self.root/'candidate';self.artifacts.mkdir(mode=0o700)
@@ -56,9 +57,12 @@ class AvatarCanonicalFrontdoor:
                     need(values==dict(remotePath=wanted));return base64.b64encode(gate.native.original().encode()).decode()
                 return old(session,operation,values)
             def post(request,timeout,*,native=native,gate=gate,old=old_post):
-                command=json.loads(request.data)
-                if command.get('action')!='ios-bundle-observe':return old(request,timeout)
-                native.commands.append(deepcopy(command));native.echo=json.dumps(command).encode();gate.native.send(command);return native
+                def produce():
+                    command=json.loads(request.data)
+                    if command.get('action')!='ios-bundle-observe':return old(request,timeout)
+                    native.commands.append(deepcopy(command));native.echo=json.dumps(command).encode();gate.native.send(command);return native
+                channels=getattr(native,'avatar_channels',None)
+                return produce() if channels is None else channels.http_reply(produce)
             native.execute=execute;native.post=post
         outer=self
         class Base:
@@ -74,6 +78,11 @@ class AvatarCanonicalFrontdoor:
                 return domain.natives[selector],value['sessionId'],value
             def invoke(_self,*_args):raise AssertionError('No generic operation fallback is selected')
             def cleanup(_self,*_args):raise AssertionError('Typed Avatar end must precede generic cleanup fallback')
+            def script_store(_self,selector):return outer.original.script_store(selector)
+            def script_files_store(_self,selector):return outer.original.script_files_store(selector)
+            def script_restart_store(_self,selector):return outer.original.script_restart_store(selector)
+            def script_restart_inputs_store(_self,selector):return outer.original.script_restart_inputs_store(selector)
+
         gate=domain.installed['primary']
         summary=dict(physicalHandoffVersion=1,bundleIdentity=deepcopy(gate.native.bundle),
             artifactIdentity={key:gate.scope[key] for key in ('sourceRevision','artifactSha256')})

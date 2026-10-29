@@ -12,7 +12,7 @@ from adapters.native_feature_observation import exact,need,number
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.script_feature.history import same
 from feature_journeys.contract import result
-from ios.adapters.tablet_web_samples import TabletWebSamples
+from ios.adapters.tablet_web_sample_root import samples_owner
 
 VERSION=1
 
@@ -26,7 +26,7 @@ def validate(runtime,original):
         and same(configured.get('binding'),source.binding) and configured.get('runId')==source.run and configured.get('role')==source.role
         and same(configured.get('screen'),dict(artifactRoot=str(root),policy=original['policy'])))
     with runtime.image_observation_context(original['observation'],root) as (observed,tail):
-        samples=TabletWebSamples(runtime,root,original['policy'],historical=True,tail_validator=tail)
+        samples=samples_owner(runtime,root,original['policy'],historical=True,tail_validator=tail)
         value=samples.read(original['sample']);row=value['row']
         need(same(original['observation']['observation'],row['after']['observation']) and observed['ticket']==row['ticket'])
         first=tail(row['before'])['row']['clockJoin'];last=observed['acquisition'];clock=deepcopy(last)

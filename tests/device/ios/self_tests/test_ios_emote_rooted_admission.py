@@ -33,10 +33,11 @@ class RootedConfigurationTests(unittest.TestCase):
         self.value=rooted_config(self.f.value['emotes'],self.f.h.root/'reader.json')
     def test_explicit_rooted_version_is_readable_and_complete_capability_remains_closed(self):
         self.f.store.write(self.value,self.f.store.read())
+        raw=self.f.store.path.read_bytes();inode=self.f.store.path.stat().st_ino
         with patch.dict(os.environ,OVERTE_IOS_FEATURE_ADAPTER_CONFIG=str(self.f.store.path)):
             self.assertEqual(self.value,config.configuration())
             with self.assertRaises(NativeUIError):config.capabilities(self.f.target)
-        self.assertNotIn('emotes',config.COMPLETE_AREAS)
+        self.assertEqual(raw,self.f.store.path.read_bytes());self.assertEqual(inode,self.f.store.path.stat().st_ino)
     def test_coordinator_cannot_be_boolean_legacy_or_implicitly_added_to_old_configuration(self):
         for version in (True,1,3,None):
             with self.subTest(version=version),self.assertRaises(NativeUIError):config.validate(self.value|dict(emoteCoordinatorVersion=version))

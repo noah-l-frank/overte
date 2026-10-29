@@ -21,6 +21,10 @@ VERSION=1
 
 
 class IOSEmoteTerminalJournal:
+    Window=IOSEmoteTerminalWindow
+    FORMAT_VERSION=VERSION
+    WINDOW_VERSION=1
+
     def __init__(self,window,*,check=lambda:True):
         self.initialize(window,check,historical=False,value=None)
 
@@ -30,7 +34,7 @@ class IOSEmoteTerminalJournal:
         result=object.__new__(cls);result.initialize(window,check,historical=True,value=value);return result
 
     def initialize(self,window,check,*,historical,value):
-        need(type(window) is IOSEmoteTerminalWindow and callable(check));need(check() is not False);window.guard()
+        need(type(window) is self.Window and callable(check));need(check() is not False);window.guard()
         self.check,self.historical=check,historical
         self.window=window;primary=window.roles['primary']
         self.root,self.binding,self.run=primary.root,deepcopy(primary.binding),primary.run
@@ -43,14 +47,14 @@ class IOSEmoteTerminalJournal:
         self.bound()
 
     def envelope(self,state):
-        return dict(iosEmoteTerminalJournalVersion=VERSION,runId=self.run,artifactRoot=str(self.root),
+        return dict(iosEmoteTerminalJournalVersion=self.FORMAT_VERSION,runId=self.run,artifactRoot=str(self.root),
             bindings={role:deepcopy(live.binding) for role,live in self.window.roles.items()},
             locks={role:str(live.lock.path) for role,live in self.window.roles.items()},payload=pack([state]))
 
     def proof(self,value,state):
         exact(value,{'seal','original'});original=value['original']
         exact(original,{'iosEmoteTerminalWindowVersion','description','references','samples','journals','primary','actor','publisher'})
-        need(type(original['iosEmoteTerminalWindowVersion']) is int and original['iosEmoteTerminalWindowVersion']==1
+        need(type(original['iosEmoteTerminalWindowVersion']) is int and original['iosEmoteTerminalWindowVersion']==self.WINDOW_VERSION
             and same(original['description'],state['description']) and same(original['references'],state['references'])
             and same(value['seal'],state['seal']) and digest(original)==value['seal']['liveOriginalSha256'])
         terminal.sealed(value['seal'],state['description'],original['samples'])
@@ -58,7 +62,7 @@ class IOSEmoteTerminalJournal:
 
     def decode(self,value):
         exact(value,set(self.envelope(None)));rows=unpack(value['payload'])
-        need(type(value['iosEmoteTerminalJournalVersion']) is int and value['iosEmoteTerminalJournalVersion']==VERSION
+        need(type(value['iosEmoteTerminalJournalVersion']) is int and value['iosEmoteTerminalJournalVersion']==self.FORMAT_VERSION
             and len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'phase','description','references','seal','staged','record','pending'})
         need(state['phase'] in ('inspected','sealing','sealed'))

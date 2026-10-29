@@ -20,7 +20,8 @@ def sha(raw):return hashlib.sha256(raw).hexdigest()
 def original(value,nonce,inventory):
     exact(value,{'snapshotShareSourceRetirementVersion','requestId','runId','processId','bundleId','instance','sourceInstance','sourceBirthClock',
         'inventorySha256','parentIdentity','outputs','clockBefore','clockAfter','intent','steps','readersClosed','parentDescriptorClosed','complete'})
-    source,raw=inventory.original();inventory.proof()
+    from ios.adapters.snapshot_photos_end_read_area import inventory_original_with_fresh_proof
+    source,raw,_proof=inventory_original_with_fresh_proof(inventory)
     need(type(value['snapshotShareSourceRetirementVersion']) is int and value['snapshotShareSourceRetirementVersion']==1
         and type(nonce) is str and re.fullmatch('ios-[a-f0-9]{32}',nonce) and value['requestId']==nonce
         and nonce not in (source['requestId'],inventory.sealed.original()[0]['requestId'])

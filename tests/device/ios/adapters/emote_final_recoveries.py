@@ -37,6 +37,10 @@ def validate(final,copies,sources,peers,scope,samples):
         if reader.state['records']:reader.follow(scope.frames[-1],historical=True)
     path,value=original('sample-recovery')
     if value is not None:
-        reader=object.__new__(IOSEmoteSampleRecovery);reader.samples=samples;reader.store=Frozen(path.path,value)
+        kind=getattr(final,'SampleRecovery',IOSEmoteSampleRecovery)
+        if kind is not IOSEmoteSampleRecovery:
+            from ios.adapters.emote_callback_observation import IOSEmoteCallbackSampleRecovery
+            need(kind is IOSEmoteCallbackSampleRecovery)
+        reader=object.__new__(kind);reader.samples=samples;reader.store=Frozen(path.path,value)
         reader.state=reader.decode(value);need(reader.state['pending'] is None)
     return True

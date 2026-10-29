@@ -31,6 +31,7 @@ from ios.adapters.tablet_web_app_origin import Frozen,admitted
 from ios.adapters import tablet_web_buttons as app_buttons
 from ios.adapters.tablet_web_observer import TabletWebObserver,TabletWebDOMDisposition
 from ios.adapters.tablet_web_source_owner import TabletWebSourceOwner,TabletSourcePhaseChanged
+from ios.adapters.tablet_web_aggregate_root import source_owner
 from ios.adapters.tablet_web_native_semantics import TabletNativeSemantics,scope as native_semantics_scope
 
 VERSION=1
@@ -51,7 +52,7 @@ def pending_document(source,original):
     """
     frames=source.history();need(not source.blocked and frames)
     frame=frames[-1];full=source.originals.expand(original['reference']);row=source.originals.read(full)
-    need(full['index']==len(source.state['records']) and row['status']=='returned' and row['hostProcessId']==original['hostProcessId'])
+    need(full['index']==source._next_index()-1 and row['status']=='returned' and row['hostProcessId']==original['hostProcessId'])
     document=frame['document'];native=frame['state']
     if document['status']!='unavailable' or not native['complete'] or native['otherLiveTablets']!=0:return False
     # An actual pending page owns its existing native grant; a foreign view,
@@ -372,12 +373,17 @@ class TabletRuntimeObserver:
             owner=holders[0]
             need(isinstance(owner,TabletWebSourceOwner) and owner.historical and owner.lock is lock and metadata(owner)==expected)
             store=owner.store;path=store.path;state=canonical(owner.state);saved=canonical(owner.saved)
-            need(type(store) is PrivateFeatureState and path==source.root/('tabletweb-source-owner-'+source.run+'-'+source.role+'.json'))
+            from ios.adapters.tablet_web_aggregate_root import TabletWebAggregateRoot,child_name,root_name
+            owned=type(owner) is TabletWebAggregateRoot
+            if owned:owner._parent_guard()
+            expected_source=source.root/(root_name(source.run,source.role) if owned else 'tabletweb-source-owner-'+source.run+'-'+source.role+'.json')
+            need(type(store) is PrivateFeatureState and path==expected_source)
             children={name:(child,child.store,child.store.path,canonical(child.state),canonical(child.saved),
                 metadata(child),child.module,child.monotonic) for name,child in owner.children.items()}
-            need(all(type(entry[1]) is PrivateFeatureState and entry[2]==source.root/('tabletweb-'+name+'-queries-'+source.run+'-'+source.role+'.json')
+            need(all(type(entry[1]) is PrivateFeatureState and entry[2]==source.root/(child_name(name,source.run,source.role) if owned else 'tabletweb-'+name+'-queries-'+source.run+'-'+source.role+'.json')
                 and entry[5]==expected and entry[0].component==name for name,entry in children.items()))
             def current_owner():
+                if owned:owner._parent_guard()
                 unchanged();need(getattr(self,'_image_tail',None) is capsule
                     and owner.historical and owner.lock is lock and owner.monotonic is monotonic and metadata(source)==metadata(owner)==expected
                     and owner.store is store and store.path==path and canonical(owner.state)==state
@@ -484,7 +490,7 @@ class TabletRuntimeObserver:
         else:need(value['primaryBootstrap'] is None)
         history=_history
         if history is None:
-            history=TabletWebSourceOwner(source.root,source.binding,source.run,source.role,source.fixture,source.pid,source.lock,
+            history=source_owner(source.root,source.binding,source.run,source.role,source.fixture,source.pid,source.lock,
                 lambda:need(False),epoch_ms=lambda:need(False),monotonic=source.monotonic,historical=True)
         else:
             need(isinstance(history,TabletWebSourceOwner) and history.historical and history.lock is source.lock
@@ -536,11 +542,11 @@ class TabletRuntimeObserver:
         Readiness is measured before the screenshot. No second feature capture
         replaces the source frame that actually brackets the returned PNG.
         """
-        from ios.adapters.tablet_web_samples import TabletWebSamples
+        from ios.adapters.tablet_web_sample_root import samples_owner
         need(type(readiness) is bool)
         if readiness:
             for kind in ('keys','pointer','geometry','widgets'):self.read_auxiliary(kind)
-        source=self.observer.source;samples=TabletWebSamples(self,root,policy)
+        source=self.observer.source;samples=samples_owner(self,root,policy,for_capture=True)
         reference=samples.capture(ticket,before=before);selected=samples.read(reference)['row']['after']['observation']
         references=self.auxiliary_references()
         observation=dict(tabletWebRuntimeObservationVersion=VERSION,bootstrap=deepcopy(self.bootstrap.state['original']),
@@ -590,7 +596,7 @@ class IOSTabletWebRuntime(IOSScriptRuntime):
                 monotonic=monotonic,historical=True)
             owner.original();return owner
         bootstrap=context_for(role);primary=context_for('primary') if role=='actor' else None
-        source=TabletWebSourceOwner(root,binding,run,role,fixture_url,
+        source=source_owner(root,binding,run,role,fixture_url,
             int(binding['processIdentity']),lock,lambda:need(False),epoch_ms=lambda:need(False),monotonic=monotonic,historical=True)
         observer=object.__new__(TabletWebObserver);observer.source=source;observer.origins=deepcopy(origins)
         observer.readers={};observer.native=observer.phase=None;observer.browser=lambda:need(False);observer.publisher=None
@@ -650,8 +656,8 @@ class IOSTabletWebRuntime(IOSScriptRuntime):
             readers={name:getattr(transport,method)(clock) for name,method in FACTORIES.items()}
             readers['dom']=TabletWebDOMDisposition.from_reader(readers['dom'])
             phase=PhaseFixtureReader(fixture_client,run,'tablet-web',epoch_ms=epoch_ms,monotonic=monotonic)
-            source=TabletWebSourceOwner(root,physical_binding,run,role,phase.fixture_url,int(physical_binding['processIdentity']),lock,check,
-                epoch_ms=epoch_ms,monotonic=monotonic,admission=admission)
+            source=source_owner(root,physical_binding,run,role,phase.fixture_url,int(physical_binding['processIdentity']),lock,check,
+                epoch_ms=epoch_ms,monotonic=monotonic,admission=admission,for_capture=True)
             observer=TabletWebObserver(source,readers,native,phase,lambda:fixture_client.request('/runs/'+run+'/browser'),origins)
             composed=TabletRuntimeObserver(observer,context,primary_bootstrap=primary,admission=admission)
             composed.transport,composed.native_clock,composed.native_clock_source,composed.client=transport,native_epoch,clock,client

@@ -53,7 +53,7 @@ class IOSSnapshotUploadOwner:
         self.file=deepcopy(fact['file']);self.pins=dict(captureResultSha256=digest(self.capture_result),artifactJournalSha256=digest(artifact.previous))
         self.store=PrivateFeatureState(self.root/'snapshot-upload-owner.json');self.previous=self.store.read()
         self.state=dict(ticket=None,verb=None,phaseOriginal=None,slots=[],input=None,cancel=None,baseline=None,job=None,decision=None,quiet=[],result=None,
-            inputSources={},nativeTail=deepcopy(self.capture_tail()))
+            inputSources={},nativeTail=None if self.previous is not None else deepcopy(self.capture_tail()))
         if self.frontend_http:self.state.update(httpBefore=None,httpAfter=None)
         if self.frontend_caller:self.state.update(causalBefore=None,causalAfter=None)
         if self.previous is not None:self.state=self.load(self.previous)

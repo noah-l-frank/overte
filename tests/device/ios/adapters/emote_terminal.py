@@ -25,6 +25,16 @@ from ios.adapters.emote_rooted_end_lock import held_existing
 
 
 class IOSEmoteTerminal:
+    Flow=IOSEmoteRootedFeature
+    Live=IOSEmoteRootedLive
+    Responsibility=IOSEmoteRootedResponsibility
+    Window=IOSEmoteTerminalWindow
+    Journal=IOSEmoteTerminalJournal
+    Inventory=IOSEmoteRootedInventory
+    snapshot_capture=staticmethod(capture)
+
+    def sample_envelope(self,raw):return raw['sampleOwners']
+
     @staticmethod
     def existing_actor(primary):
         """Reopen the real Actor root without preparing or querying an SDK."""
@@ -60,9 +70,9 @@ class IOSEmoteTerminal:
             actor.load();need(same(actor.previous,actual));return actor
 
     def __init__(self,primary,actor=None):
-        need(type(primary) is IOSEmoteRootedFeature and primary.role=='primary')
+        need(type(primary) is self.Flow and primary.role=='primary')
         if actor is None:actor=self.existing_actor(primary)
-        need(type(actor) is IOSEmoteRootedFeature and actor.role=='actor' and actor.runtime is primary.runtime
+        need(type(actor) is self.Flow and actor.role=='actor' and actor.runtime is primary.runtime
             and actor.run==primary.run and actor.selector==primary.actor_selector and actor.primary_selector==primary.selector
             and actor.primary_lock is primary.lock and primary.primary_lock is primary.lock
             and actor.phase.fixture_url==primary.phase.fixture_url and actor.root!=primary.root)
@@ -85,9 +95,9 @@ class IOSEmoteTerminal:
         need(scope.state['phase']=='released' and scope.state['pending'] is None and samples.state['phase']=='ready'
             and observer.state['pending'] is None and parts['sources'].state['pending'] is None)
         owner=flow.retirement_owner(parts);owner.current()
-        live=IOSEmoteRootedLive(owner);need(live.state['pending'] is None and live.state['records'])
+        live=self.Live(owner);need(live.state['pending'] is None and live.state['records'])
         snapshot=live.read_frame(live.state['records'][-1])['snapshot']
-        need(same(snapshot,capture(owner,flow.state['cleanup'][-1])))
+        need(same(snapshot,self.snapshot_capture(owner,flow.state['cleanup'][-1])))
         rendered=owner.rendered_owner;native=rendered.native_owner
         rendered_ref=owner.original(snapshot['reference'])['renderedReference']
         raw=native.original(rendered.original(rendered_ref)['nativeReference'])
@@ -95,7 +105,7 @@ class IOSEmoteTerminal:
         # Separately guard recovery/scene/publication responsibility below.
         need(same(scope.snapshot(),raw['scope']) and same(parts['sources'].store.read(),raw['sources'])
             and same(None if parts['peers'] is None else parts['peers'].store.read(),raw['peers'])
-            and same(samples.store.read(),raw['sampleOwners']) and observer.state['records']
+            and same(samples.store.read(),self.sample_envelope(raw)) and observer.state['records']
             and same(observer.original(observer.state['records'][-1]),raw['observation']))
         for name,field in (('files','fileReceipts'),('entities','entities'),('pointers','pointers')):
             need(same(PrivateFeatureState(native.paths[name]).read(),raw[field]))
@@ -104,7 +114,7 @@ class IOSEmoteTerminal:
         if flow.role=='primary':
             for key,name in (('cleanup','cleanup-inputs'),('actions','inputs'),('background','background')):
                 need(same(PrivateFeatureState(flow.store.path.with_name('ios-emote-'+name+'.json')).read(),raw['inputOwners'][key]))
-        responsibility=IOSEmoteRootedResponsibility(flow,parts,owner,live)
+        responsibility=self.Responsibility(flow,parts,owner,live)
         self.responsibilities.append(responsibility)
         for path in responsibility.signatures:original_read(path)
         return live
@@ -124,7 +134,7 @@ class IOSEmoteTerminal:
                 and retirement['original'] in flow.state['cleanup'])
             roles[flow.role]=self.local_window(flow)
         need(same(admitted(self.flow.state['actorAdmission'],self.flow.state['binding']),self.actor.state['binding']))
-        return IOSEmoteTerminalWindow(roles['primary'],roles['actor'])
+        return self.Window(roles['primary'],roles['actor'])
 
     @operation(30)
     def invoke(self,call):
@@ -144,8 +154,8 @@ class IOSEmoteTerminal:
             terminal.result('emotes',result);self.clock();return result
         with self.actor.held(30):
             with read_scope(fresh=True) as reads:
-                window=self.window();self.guard();journal=IOSEmoteTerminalJournal(window,check=self.guard)
-            self.inventory=IOSEmoteRootedInventory(journal,reads);self.guard()
+                window=self.window();self.guard();journal=self.Journal(window,check=self.guard)
+            self.inventory=self.Inventory(journal,reads);self.guard()
             if call['stage']=='inspect':
                 refs=({role:live.state['records'][-1] for role,live in window.roles.items()}
                     if journal.state is None else journal.state['references'])

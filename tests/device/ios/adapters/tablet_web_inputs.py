@@ -14,7 +14,7 @@ import time
 from adapters.native_feature_observation import exact,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError,NativeUI
-from adapters.original_frame_store import OriginalFrameStore
+from adapters.original_frame_store import OriginalFrameStore,MAX_FRAMES
 from adapters.original_file_reads import record as original_read
 from adapters.operation_transport_guard import scope as transport_scope
 from adapters.script_feature.history import same,canonical
@@ -26,6 +26,7 @@ from ios.adapters.tablet_web_presentation import point as projected_point
 from ios.adapters.tablet_web_segments import sha
 
 VERSION=1
+ROW_READS=(1,2)
 MAX_INPUTS=128
 
 
@@ -68,22 +69,28 @@ class TabletWebInputs:
         return value
 
     def document(self,row):
-        need(row['sourceRef'] is not None and integer(row['sourceIndex'],1,len(self.source.state['records'])))
-        original=self.source.state['records'][row['sourceIndex']-1];need(same(original,row['sourceRef']))
+        need(row['sourceRef'] is not None and integer(row['sourceIndex'],1,self.source._next_index()-1))
+        original=self.source.reference(row['sourceIndex']);need(same(original,row['sourceRef']))
         record=self.source.originals.read(self.source.originals.expand(original));need(record['status']=='returned')
         _,values=self.source.record(record,row['sourceIndex'],None);need(values)
         document=values[-1];need(sha(canonical(document))==row['sourceSha256'] and document['status']=='ready');return document,record
 
     def record(self,row,index):
         exact(row,{'tabletWebInputVersion','index','ticket','label','kind','control','text','phase','sourceIndex','sourceRef','sourceSha256','events','before','after'})
-        need(type(row['tabletWebInputVersion']) is int and row['tabletWebInputVersion']==VERSION and type(row['index']) is int and row['index']==index)
+        version=row['tabletWebInputVersion'];need(type(version) is int and version in ROW_READS and type(row['index']) is int and row['index']==index)
         identifier(row['ticket']);need(type(row['label']) is str and re.fullmatch('[a-z][a-z0-9-]{0,63}',row['label'])
             and row['kind'] in ('tap','replace') and type(row['control']) is str and row['phase'] in ('reading','prepared','issued','returned','failed')
             and type(row['events']) is list and len(row['events'])<=3)
         if row['kind']=='tap':need(row['text'] is None)
         else:input_text(row['control'],row['text'])
         self.clock(row['before']);need(row['after'] is None or self.clock(row['after'],row['before']))
-        need(integer(row['sourceIndex'],1,MAX_INPUTS))
+        if version==1:need(integer(row['sourceIndex'],1,MAX_INPUTS))
+        else:
+            # Input2 is explicit owned-Root DOM history, not an enlargement of
+            # Input1's source grammar or the128 actual-input responsibility cap.
+            from ios.adapters.tablet_web_aggregate_root import TabletAggregateChild
+            need(type(self.source) is TabletAggregateChild)
+            self.source._bound();need(integer(row['sourceIndex'],1,MAX_FRAMES))
         if row['sourceRef'] is None:need(row['sourceSha256'] is None and not row['events'] and row['phase'] in ('reading','failed'))
         else:
             document,capture=self.document(row);self.clock(capture['before'],row['before']);need(capture['after'] is not None)
@@ -246,8 +253,10 @@ class TabletWebInputs:
         if prior:
             ref,row=prior[0];need(row['phase']=='returned' and row['kind']==kind and row['control']==control and row['text']==text);return deepcopy(ref)
         need(len(self.records)<MAX_INPUTS)
-        row=dict(tabletWebInputVersion=VERSION,index=len(self.records)+1,ticket=ticket,label=label,kind=kind,control=control,text=text,
-            phase='reading',sourceIndex=len(self.source.state['records'])+1,sourceRef=None,sourceSha256=None,events=[],before=self.stamp(),after=None)
+        from ios.adapters.tablet_web_aggregate_root import TabletAggregateChild
+        row_version=2 if type(self.source) is TabletAggregateChild else VERSION
+        row=dict(tabletWebInputVersion=row_version,index=len(self.records)+1,ticket=ticket,label=label,kind=kind,control=control,text=text,
+            phase='reading',sourceIndex=self.source._next_index(),sourceRef=None,sourceSha256=None,events=[],before=self.stamp(),after=None)
         self.record(row,row['index']);self.state['pending']=row;self.save()
         try:
             document=self.source.capture(self.reader);row['sourceRef']=deepcopy(self.source.state['records'][-1]);row['sourceSha256']=sha(canonical(document));row['phase']='prepared';self.save()

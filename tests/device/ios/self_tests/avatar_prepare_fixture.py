@@ -53,7 +53,7 @@ SESSIONS=dict(primary='00000000-0000-4000-8000-000000000001',actor='00000000-000
 class PrepareDomain:
     HELD_MARKER=True
     def __init__(self,test):
-        self.test=test;self.clock=[1.];self.scenes={};self.natives={};self.installed={};self.receivers={};self.peer_sequences={};self.role_by_url={}
+        self.test=test;self.clock=self.create_clock();self.scenes={};self.natives={};self.installed={};self.receivers={};self.peer_sequences={};self.role_by_url={}
         self.provider=AccountProvider(epoch_ms=self.host)
         self.social=AvatarSocialProvider(account_authenticator(self.provider),epoch_ms=self.host,monotonic=lambda:self.clock[0])
         self.reader,self.actor,self.adapter=[secrets.token_hex(32) for _ in range(3)]
@@ -215,6 +215,8 @@ class PrepareDomain:
             if role=='actor':config['authorityRead']=dict(mode='adapter',token=self.adapter)
             client=self.client if role=='primary' else witness.Client(self.client.url,self.actor)
             self.owners[role]=IOSAvatarFeature(self.runtime,role,client,RUN,role,config,epoch_ms=self.host,monotonic=lambda:self.clock[0],sleep=self.sleep)
+    def create_clock(self):return [1.]
+
     def declare_native_target(self,role,native):
         """Default model unchanged; subclasses declare targets before first bind."""
         pass

@@ -90,8 +90,12 @@ class SnapshotShareAdmissionSealOwner:
                 need(type(state['nonce']) is str and re.fullmatch('ios-[a-f0-9]{32}',state['nonce']));action=self.action(True);allowed.add(action.store.path)
                 if action.state['wire'] is not None:allowed.add(action.files.path(action.state['wire']))
                 if action.state['proof'] is not None:allowed.add(action.files.path(action.files.expand(action.state['proof'])))
-                if state['slotSha256'] is not None:need(action.previous is not None and digest(action.previous)==state['slotSha256']);self.original()
-                if state['result'] is not None:need(same(state['result'],self.proof()))
+                retained=None
+                if state['slotSha256'] is not None:
+                    need(action.previous is not None and digest(action.previous)==state['slotSha256']);retained=self.original()
+                if state['result'] is not None:
+                    result=self._historical_load_proof(retained) if self.historical and retained is not None else self.proof()
+                    need(same(state['result'],result))
             else:need(state['slotSha256'] is None and state['result'] is None)
             self.inventory(allowed)
         finally:self.state=prior
@@ -100,8 +104,14 @@ class SnapshotShareAdmissionSealOwner:
         need(self.state['slotSha256'] is not None);action=self.action(True);need(digest(action.previous)==self.state['slotSha256'])
         raw=action.original();packet=source.original(decode(raw.decode('utf-8')),self.state['nonce'],self.admission)
         return packet,raw
+    def _historical_load_proof(self,retained):
+        # A default completed historical load just decoded this exact pair.
+        # Foreign subclasses retain their old virtual proof/original order.
+        return self._proof_from_original(*retained) if type(self) is SnapshotShareAdmissionSealOwner else self.proof()
     def proof(self):
-        packet,raw=self.original();source.qualified(packet);action=self.action(True);action.qualified()
+        packet,raw=self.original();return SnapshotShareAdmissionSealOwner._proof_from_original(self,packet,raw)
+    def _proof_from_original(self,packet,raw):
+        source.qualified(packet);action=self.action(True);action.qualified()
         ref=action.files.expand(action.state['proof']);frame=action.files.read(ref)
         need(packet['clockAfter']['monotonicMs']-packet['clockBefore']['monotonicMs']<=frame['hostAfter']['monotonicMs']-frame['hostBefore']['monotonicMs']+250)
         return dict(snapshotShareAdmissionSealedVersion=1,runId=self.run,admissionSha256=self.admission_hash,nativeOriginalSha256=hashlib.sha256(raw).hexdigest(),

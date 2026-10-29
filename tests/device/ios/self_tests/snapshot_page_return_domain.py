@@ -56,10 +56,10 @@ class PageReturnFlow(SourceArchiveEndFlow):
     def __init__(self,case):
         super().__init__(case);self.runtime.existing_input_session=self.main.runtime.existing_input_session
     @contextmanager
-    def return_owner(self):
+    def return_owner(self,*,photos_end=None):
         def primary(runtime,selector,binding):
             need(runtime is self.runtime and selector=='primary' and binding==self.primary.binding);return self.primary
         with patch.object(snapshot_share_runtime,'PhotosClientContext',primary):
             with self.runtime.page_return_owner('primary',RUN,self.client(),self.archive_config(),
                     SYSTEM_UI,
-                    epoch_ms=lambda:REAL_TIME()*1000,monotonic=REAL_MONOTONIC,sleep=self.main.sleep,combined=getattr(self,'combined',False)) as owner:yield owner
+                    epoch_ms=lambda:REAL_TIME()*1000,monotonic=REAL_MONOTONIC,sleep=self.main.sleep,combined=getattr(self,'combined',False),photos_end=photos_end) as owner:yield owner

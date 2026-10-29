@@ -63,6 +63,9 @@ class SnapshotPhotosArchive(IOSSnapshotPhotosOwner):
             and digest(self.admission.previous)==self.admission_sha
             and IOSSnapshotCompanionRuntime.pin_artifact(self.companion)==self.artifact_pin)
         return True
+    def capture(self):
+        from ios.adapters.snapshot_photos_end_round import capture
+        return capture(self,super().capture)
     @staticmethod
     def _unavailable(*_args,**_kwargs):need(False)
     save_state=save=cleanup=observed=handoff=acted=active=permission=companion_clock=inspect_destination=_unavailable

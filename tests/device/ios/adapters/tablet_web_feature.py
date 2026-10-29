@@ -180,8 +180,8 @@ class IOSTabletWebFeature:
             cleanup.release_files(self.state['cleanupBefore'],self.state['cleanupStop'],current)
             self.state['filesReleased']=True;self.save(observer)
         if self.screen is not None:
-            from ios.adapters.tablet_web_samples import TabletWebSamples
-            samples=TabletWebSamples(observer,Path(self.screen['artifactRoot']),self.screen['policy']);samples.cleanup_files()
+            from ios.adapters.tablet_web_sample_root import samples_owner
+            samples=samples_owner(observer,Path(self.screen['artifactRoot']),self.screen['policy']);samples.cleanup_files()
         # Actor never repeats Primary input, stage/release, Stop or SDK deletion.
         # It acquires its own original NativeFiles absence and native lifetime
         # dispositions after the actual primary effects become observable.

@@ -26,8 +26,8 @@ from ios.adapters.emote_configuration import settings,selector
 from ios.adapters.emote_observer import EmoteObservationPending
 from ios.adapters.emote_runtime import IOSEmoteRuntime
 
-VERSION=2
-READS=(1,2)
+VERSION=3
+READS=(1,2,3)
 
 
 def configuration(path):
@@ -35,7 +35,7 @@ def configuration(path):
     need(type(value) is dict and type(value.get('iosEmoteObserverVersion')) is int and value['iosEmoteObserverVersion'] in READS)
     version=value['iosEmoteObserverVersion']
     exact(value,{'iosEmoteObserverVersion','target','primaryTarget','runId','candidateArguments','fixtureUrl','actorToken',
-                 'durationSeconds','artifactRoot','imagePolicy'}|({'primaryArtifactRoot','primaryImagePolicy'} if version>=2 else set()))
+                 'durationSeconds','artifactRoot','imagePolicy'}|({'primaryArtifactRoot','primaryImagePolicy'} if version>=2 else set())|({'targetPair'} if version>=3 else set()))
     need(type(value['iosEmoteObserverVersion']) is int and value['iosEmoteObserverVersion'] in READS
         and type(value['candidateArguments']) is list and 1<=len(value['candidateArguments'])<=96
         and all(type(item) is str and bool(item) for item in value['candidateArguments'])
@@ -48,6 +48,11 @@ def configuration(path):
         settings(dict(artifactRoot=value['primaryArtifactRoot'],imagePolicy=value['primaryImagePolicy'],actorTarget=value['target']),
             role='primary',target=value['primaryTarget'])
         need(value['primaryArtifactRoot']!=value['artifactRoot'])
+    if version>=3:
+        from ios.adapters.emote_target_pair import configuration as pair_configuration
+        pair=pair_configuration(value['targetPair'])
+        need(pair['primaryTarget']==value['primaryTarget'] and pair['actorTarget']==value['target']
+            and pair['primaryArtifactRoot']==value['primaryArtifactRoot'] and pair['actorArtifactRoot']==value['artifactRoot'])
     return value
 
 
@@ -63,7 +68,7 @@ def rooted_step(flow,config):
         flow.load()
         primary=IOSEmoteRootedFeature(flow.runtime,config['primaryTarget'],flow.client,flow.run,'primary',
             config['primaryArtifactRoot'],config['primaryImagePolicy'],actor_selector=flow.selector,
-            epoch_ms=flow.epoch_ms,monotonic=flow.monotonic,sleep=flow.sleep)
+            epoch_ms=flow.epoch_ms,monotonic=flow.monotonic,sleep=flow.sleep,target_pair=getattr(flow,'configured_pair',None))
         primary.lock=primary.primary_lock=flow.primary_lock
         end=PrivateFeatureState(primary.store.path.with_name('ios-emote-primary-'+flow.run+'-rooted-end.json')).read()
         if end is not None:
@@ -146,7 +151,8 @@ def run(runtime,config,*,monotonic=time.monotonic,sleep=time.sleep):
     selected=settings({key:config[key] for key in ('artifactRoot','imagePolicy','primaryTarget')},role='actor',target=config['target'])
     factory=runtime._emote_rooted_feature if config.get('iosEmoteObserverVersion',1)>=2 else runtime._emote_feature
     flow=factory(config['target'],config['runId'],role='actor',
-        client=Client(config['fixtureUrl'],config['actorToken']),settings=selected)
+        client=Client(config['fixtureUrl'],config['actorToken']),settings=selected,
+        **({'target_pair':config['targetPair']} if config.get('iosEmoteObserverVersion',1)>=3 else {}))
     return run_flow(flow,config,monotonic=monotonic,sleep=sleep)
 
 

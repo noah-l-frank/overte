@@ -284,7 +284,7 @@ class TabletWebSourceOwner:
     def history(self):
         with self._stored_reads():return self._history()
 
-    def _history(self):
+    def _header(self):
         value=self.state
         version=value.get('tabletWebSourceOwnerVersion');need(type(version) is int and version in READS)
         exact(value,({'reconciled'} if version>=2 else set())|{'tabletWebSourceOwnerVersion','binding','runId','role','fixtureUrl','processId','apps','records','pending','intent','inspection','appIntent','appPending','appInspection'})
@@ -292,6 +292,13 @@ class TabletWebSourceOwner:
             and same(value['binding'],self.binding) and value['runId']==self.run and value['role']==self.role and value['fixtureUrl']==self.fixture
             and type(value['processId']) is int and value['processId']==self.pid and type(value['apps']) is list and len(value['apps'])<=32
             and type(value['records']) is list and len(value['records'])<=128)
+
+    def record_references(self):return self.state['records']
+
+    def _next_index(self):return len(self.record_references())+1
+
+    def _history(self):
+        value=self.state;self._header();references=self.record_references()
         for child in self.children.values():child.history()
         self.app_sources();frames=[];native=None;phase_floor=None;admission_floor=None
         self.blocked=(value['appPending'] is not None or value['appIntent'] is not None
@@ -311,9 +318,9 @@ class TabletWebSourceOwner:
         for entry in reconciled:
             exact(entry,{'acquisition','component','leaf'})
             full=self.originals.expand(entry['acquisition']);index=full['index']
-            need(index not in recovered and 1<=index<=len(value['records']) and same(value['records'][index-1],entry['acquisition']))
+            need(index not in recovered and 1<=index<=len(references) and same(references[index-1],entry['acquisition']))
             self._reconciled(self.originals.read(full),entry['component'],entry['leaf']);recovered[index]=entry
-        for index,ref in enumerate(value['records'],1):
+        for index,ref in enumerate(references,1):
             original=self.originals.expand(ref);need(original['index']==index);row=self.originals.read(original)
             previous=native
             native,frame=parent_record(self,row,index,previous,lambda:self._record(row,index,previous))
@@ -323,7 +330,7 @@ class TabletWebSourceOwner:
                 need(row['status']=='failed')
                 if index not in recovered:self.blocked=True
         if value['pending'] is not None:
-            native,_=self._record(value['pending'],len(value['records'])+1,native);self.blocked=True
+            native,_=self._record(value['pending'],self._next_index(),native);self.blocked=True
             phase_follow(value['pending'])
         need(value['intent'] is None or value['pending'] is not None)
         for ref,pending,inspection,store in ((value['intent'],value['pending'],value['inspection'],self.originals),(value['appIntent'],value['appPending'],value['appInspection'],self.app_originals)):
@@ -340,7 +347,7 @@ class TabletWebSourceOwner:
         ref=self.state[key];need(ref is not None and ref['phase'] in ('opened','saved'))
         store=self.app_originals if app else self.originals;actual=store.read(ref);need(same(actual,self.state[pending_key]))
         if not app:need(actual['status']=='returned')
-        originals=self.state['apps' if app else 'records'];need(ref['index']==len(originals)+1)
+        originals=self.state['apps' if app else 'records'];need(ref['index']==(len(originals)+1 if app else self._next_index()))
         originals.append(store.compact(dict(ref,phase='saved')));self.state[key]=self.state[pending_key]=self.state[inspection_key]=None;self.save()
         return deepcopy(originals[-1])
 
@@ -406,7 +413,7 @@ class TabletWebSourceOwner:
             and isinstance(phase,PhaseFixtureReader) and phase.area=='tablet-web' and phase.run==self.run and phase.fixture_url==self.fixture and callable(browser))
         if phase.previous is None and self.phase_floor is not None:phase.previous=deepcopy(self.phase_floor)
         first=phase.read(self.phase_floor);before=self.stamp()
-        self.state['pending']=dict(tabletWebAcquisitionVersion=ACQUISITION_VERSION if self.admission is not None else 1,index=len(self.state['records'])+1,status='acquiring',hostProcessId=os.getpid(),apps=deepcopy(self.state['apps']),before=before,after=None,
+        self.state['pending']=dict(tabletWebAcquisitionVersion=ACQUISITION_VERSION if self.admission is not None else 1,index=self._next_index(),status='acquiring',hostProcessId=os.getpid(),apps=deepcopy(self.state['apps']),before=before,after=None,
             phaseBefore=first['status'],phaseAfter=None,nativeBefore=None,nativeAfter=None,components=[],browser=None,clockJoin=None)
         if self.admission is not None:self.state['pending']['admission']=deepcopy(self.admission)
         self.save();pending=self.state['pending']
@@ -415,7 +422,7 @@ class TabletWebSourceOwner:
             window=NativeClockAcquisition(native,epoch_ms=self.epoch_ms,monotonic=self.monotonic);window.begin(first['afterEpochMs'])
             pending['nativeBefore']=deepcopy(window.started['nativeBefore']);self.save();parts={}
             for name in ORDER:
-                child=self.children[name];part=dict(component=name,index=len(child.state['records'])+1,reference=None);pending['components'].append(part);self.save()
+                child=self.children[name];part=dict(component=name,index=child._next_index(),reference=None);pending['components'].append(part);self.save()
                 parts[FRAME_KEYS.get(name,name)]=child.capture(readers[name]);part['reference']=deepcopy(child.state['records'][-1]);self.save()
             parts['browser']=browser();pending['browser']=deepcopy(parts['browser']);self.save()
             active_browser(pending['browser'])
@@ -450,8 +457,9 @@ class TabletWebSourceOwner:
         floors and ownership rather than a replacement observation.
         """
         need(self.historical);frames=self.history();full=self.originals.expand(reference);index=full['index']
-        need(1<=index<=len(self.state['records']) and same(reference,self.state['records'][index-1]))
-        rows=[self.originals.read(self.originals.expand(ref)) for ref in self.state['records'][:index]]
+        references=self.record_references()
+        need(1<=index<=len(references) and same(reference,references[index-1]))
+        rows=[self.originals.read(self.originals.expand(ref)) for ref in references[:index]]
         current=rows[-1];need(current['status']=='returned')
         recovered={self.originals.expand(entry['acquisition'])['index'] for entry in self.state.get('reconciled',[])}
         need(all(row['status']=='returned' or ordinal in recovered for ordinal,row in enumerate(rows,1)))
