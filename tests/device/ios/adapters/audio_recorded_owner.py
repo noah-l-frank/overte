@@ -22,6 +22,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_
 from ios.adapters.graphics_history import follow_native
 from ios.adapters.normal_input import observation as ui_packet
 from ios.adapters.audio_api_clock import operation
+from ios.adapters.audio_session_owners import installed_entry
 
 VERSION=4
 READS=(1,2,3,4)
@@ -466,7 +467,8 @@ class IOSAudioRecordedOwner:
         return dict(performed=True,original=deepcopy(reference),state=actual)
 
     @operation
-    def normal_act(self,runtime,selector,call,*,pcm_profile=None):
+    @installed_entry(recorded_action=True)
+    def normal_act(self,selector,call,*,runtime,pcm_profile=None):
         """Join ordinary actions to existing child owners within one API budget.
 
         This is an explicit component entry, not InstalledAdapter admission or

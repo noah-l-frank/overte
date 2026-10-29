@@ -20,6 +20,14 @@ The background owner's original SDK/process/session guards remain mandatory,
 and the parent's full live guard runs after recovery. Ordinary foreground
 actions keep their initial live guard.
 
+The same live recorded owner now has an explicit internal entry route under
+that operation budget. Every invocation reopens its actual scope, current
+binding, parent and typed child histories. Fresh read membership must cover all
+Audio files in both state and artifact roots, and original inventory leases
+check their bytes and identities. Unknown Settings responsibilities and orphan
+children remain unresolved. Ordinary InstalledAdapter entrypoints retain their
+ownership barrier, including while this internal route succeeds.
+
 ## Host verification
 
 Six boundary/recovery checks, one new normal fourteen-action runtime flow and
@@ -35,6 +43,14 @@ thread and process checks completed; no Node process was selected by these
 cases. Local reports are retained in
 `.ios-host-tmp/audio-next-normal-runtime14-dispatch-root3-preparation-20261029`.
 Existing default helper mode retains its original manual dispatch path.
+
+The subsequent held-owner change passed seven new ownership counterexamples,
+six existing boundary/recovery checks, seven ordinary entry-barrier checks and
+the complete normal fourteen-action runtime flow. Those 21 tests retained 222
+original files in 21 genuine temporary roots; all 7,779 source/launcher pins,
+cleanup checks and post-stop censuses remained stable. The runtime flow took
+124.746 seconds in unittest. These receipts are retained in
+`.ios-host-tmp/audio-next-held-recorded-entry-root4-preparation-20261029`.
 
 This is an internal component connection. Public InstalledAdapter/configuration
 admission, independent acoustic/peer evidence, permission restart and typed
