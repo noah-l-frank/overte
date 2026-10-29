@@ -32,8 +32,17 @@ def sha(value):need(type(value) is str and re.fullmatch('[0-9a-f]{64}',value))
 
 
 class IOSEmoteRootedLive:
+    Owner=IOSEmoteRootedKeyedRetirement
+    FORMAT_VERSION=VERSION
+
+    def capture_snapshot(self,reference):return capture(self.owner,reference)
+
+    def read_snapshot(self,snapshot):return read(snapshot,lock=self.lock,primary_lock=self.primary_lock)
+
+    def group_snapshots(self,snapshots):return grouped(snapshots,lock=self.lock,primary_lock=self.primary_lock)
+
     def __init__(self,owner):
-        need(type(owner) is IOSEmoteRootedKeyedRetirement and not owner.historical)
+        need(type(owner) is self.Owner and not owner.historical)
         self.owner,self.historical=owner,False
         self.configure(root=owner.root,binding=owner.binding,primary_binding=owner.primary_binding,run=owner.run,role=owner.role,
             fixture_url=owner.fixture_url,phase_instance=owner.phase_instance,policy=owner.policy,
@@ -82,7 +91,7 @@ class IOSEmoteRootedLive:
             namespace='emote-rooted-live',schema_prefix='iosEmoteRootedLive',kind='inputs')
 
     def envelope(self,state):
-        return dict(iosEmoteRootedLiveVersion=VERSION,binding=deepcopy(self.binding),primaryBinding=deepcopy(self.primary_binding),
+        return dict(iosEmoteRootedLiveVersion=self.FORMAT_VERSION,binding=deepcopy(self.binding),primaryBinding=deepcopy(self.primary_binding),
             runId=self.run,role=self.role,fixtureUrl=self.fixture_url,phaseInstance=self.phase_instance,imagePolicy=deepcopy(self.policy),
             artifactRoot=str(self.root),sourceLock=str(self.lock.path),primaryLock=str(self.primary_lock.path),payload=pack([state]))
 
@@ -114,7 +123,7 @@ class IOSEmoteRootedLive:
     def measurement(self,snapshot):
         self.snapshot_context(snapshot)
         if self.prepared is not None:return self.prepared.read(snapshot)
-        return read(snapshot,lock=self.lock,primary_lock=self.primary_lock)
+        return self.read_snapshot(snapshot)
 
     def record(self,reference):
         self.bound()
@@ -128,7 +137,7 @@ class IOSEmoteRootedLive:
     def read_frame(self,reference):
         frame=self.originals.read(self.originals.expand(reference))
         exact(frame,{'iosEmoteRootedLiveRecordVersion','snapshot','measurementSha256'})
-        need(type(frame['iosEmoteRootedLiveRecordVersion']) is int and frame['iosEmoteRootedLiveRecordVersion']==VERSION)
+        need(type(frame['iosEmoteRootedLiveRecordVersion']) is int and frame['iosEmoteRootedLiveRecordVersion']==self.FORMAT_VERSION)
         self.snapshot_context(frame['snapshot']);sha(frame['measurementSha256']);return frame
 
     def read_record(self,reference):
@@ -157,14 +166,14 @@ class IOSEmoteRootedLive:
             if not snapshots:
                 yield self.decode_state(value);return
             need(self.prepared is None)
-            with grouped(snapshots,lock=self.lock,primary_lock=self.primary_lock) as prepared:
+            with self.group_snapshots(snapshots) as prepared:
                 self.prepared=prepared
                 try:yield self.decode_state(value)
                 finally:self.prepared=None
 
     def structure(self,value):
         exact(value,set(self.envelope(dict(records=[],pending=None))));rows=unpack(value['payload'])
-        need(type(value['iosEmoteRootedLiveVersion']) is int and value['iosEmoteRootedLiveVersion']==VERSION
+        need(type(value['iosEmoteRootedLiveVersion']) is int and value['iosEmoteRootedLiveVersion']==self.FORMAT_VERSION
             and len(rows)==1 and same(value,self.envelope(rows[0])))
         state=rows[0];exact(state,{'records','pending'});need(type(state['records']) is list and len(state['records'])<=LIMIT)
         return state
@@ -217,10 +226,10 @@ class IOSEmoteRootedLive:
             else:
                 # No file write was attempted. Only an identical actual owner
                 # snapshot can resume this private save; no input/query occurs.
-                snapshot=capture(self.owner,reference);measured=self.measurement(snapshot)
+                snapshot=self.capture_snapshot(reference);measured=self.measurement(snapshot)
                 need(same(reference,pending['keyedReference']) and digest(snapshot)==pending['snapshotSha256']
                     and digest(measured)==pending['measurementSha256'])
-        snapshot=capture(self.owner,reference);measured=self.measurement(snapshot)
+        snapshot=self.capture_snapshot(reference);measured=self.measurement(snapshot)
         if self.state['records']:
             last=self.record(self.state['records'][-1]);frame=self.originals.read(self.originals.expand(last['reference']))
             if same(snapshot,frame['snapshot']):need(same(measured,last['measurement']));return last
@@ -229,7 +238,7 @@ class IOSEmoteRootedLive:
         pending=dict(index=index,keyedReference=deepcopy(reference),snapshotSha256=digest(snapshot),measurementSha256=digest(measured),original=None)
         if self.state['pending'] is not None:need(same(self.state['pending'],pending))
         else:self.state['pending']=pending;self.save()
-        frame=dict(iosEmoteRootedLiveRecordVersion=VERSION,snapshot=snapshot,measurementSha256=digest(measured))
+        frame=dict(iosEmoteRootedLiveRecordVersion=self.FORMAT_VERSION,snapshot=snapshot,measurementSha256=digest(measured))
         return self.complete(self.originals.write(index,frame))
 
     def selected_many(self,values):

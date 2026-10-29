@@ -118,3 +118,30 @@ The corrected fixture uses the existing production pre-close ownership checks.
 The prospective Feature6 selects these component profiles explicitly. Live,
 paired terminal, final process/SDK end and public activation remain separate
 work. Native/SDK/GPU producers remain models and devices remain untested.
+
+
+## Callback cleanup snapshots in the existing live journal
+
+Explicit Callback Live2/Archive2 and prospective Feature7 now retain the actual
+Native4/Rendered4/Keyed4/Scene4 originals through the existing once-only live
+journal. Metadata contains compact inode-bound references; historical reads
+rederive measurements from original files and pixels. Legacy Live1/Archive1
+keep their literal owner/version grammar. Saved-return loss can recover the
+same original; an opened empty file, changed inode, unknown prefix or missing
+current keyed member cannot be adopted or trigger another capture.
+
+The first eight-case selection reached six successful methods before its
+300-second outer timeout. Its 1,645 originals and failure remain retained; the
+interrupted child's final drain is unqualified. The remaining two methods pass
+separately in 96.406 seconds including supervision, with 471 retained files and
+actual per-case VM/stream/thread/process cleanup receipts. Five existing
+RootedLive regressions also pass in 164.389 seconds, retaining 1,065 files and
+all five actual synchronous Node returns. Source pins and original inventories
+remain unchanged around these runs. The six earlier methods were not rerun or
+retroactively assigned a successful child-final-drain result.
+
+This is the durable cleanup snapshot connection. Current copied State/GPU
+continuity, paired terminal/finish integration, the complete public journey and
+whole Emote admission require their own implementation and qualification.
+Native/SDK/Qt/GPU boundaries remain declared host models; no device or native
+build result follows.
