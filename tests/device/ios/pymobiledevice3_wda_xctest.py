@@ -233,6 +233,7 @@ class OriginalKeeperSource:
             if type(resource) is not LifecycleTouchResourceOwner or type(resource._native_step) is not _NativeMotionWorkerGuard:
                 raise LaunchError('session-lifetime')
             row['motionResource']=resource # Actual source birth, never an RPC field.
+            row['motionStep']=resource._native_step # Same original born guard, retained for old cleanup.
             resource._native_step.born(lease,task)
         return row
 
@@ -497,7 +498,7 @@ class OriginalKeeperOperations:
     """Versioned existing-pipe dispatch; JSON routes, live originals admit."""
     def __init__(self, source, state_root):
         self.source=source;self.instance=uuid.uuid4().hex;self.session=None
-        self.wda=None;self.wda_stop=None;self.wda_session=None;self.wda_binding_claimed=False;self.touch=None;self.closed=False;self.draining=False
+        self.wda=None;self.wda_stop=None;self.wda_session=None;self.wda_binding_claimed=False;self.touch=None;self.closed=False;self.draining=False;self.retained_motion_resource=None
         self.issued={};self.operations=set();self.state_root=state_root;self.touch_resources=None;self.native_passive_tasks={};self.native_passive_callback=None
         self.native_query_task=None;self.native_query_journals={}
         self.native_acquisition=None;self.native_acquisition_journals={};self.native_current_cuts={}
@@ -1809,6 +1810,67 @@ class OriginalKeeperOperations:
                     source='original-rsd-personalized-image-and-tcp',nativeTouchSupport=False,
                     resourceRetirementEstablished=False)
 
+    async def retained_resource_cleanup(self,operation,args,session):
+        """Selectors bind actual pre-Down objects BEFORE any release/settle.
+
+        No current source/RSD/foreground admission is required for ORIGINAL Up.
+        JSON fields cannot create the source-local birth tuple or born worker.
+        """
+        from copy import deepcopy
+        from adapters.normal_feature_state import context
+        from adapters.script_feature.history import canonical
+        from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner,_NativeMotionReference,_NativeMotionWorkerGuard
+        from ios.adapters.lifecycle_touch_transport import RetainedTouchWorker
+        from ios.adapters.touch_lease import TouchLease
+        expected={'originalKeeperRetainedTouchProfileVersion','expectedOwnerInstance','binding','runId','referenceJson'}
+        if (type(args) is not dict or set(args)!=expected or type(args['originalKeeperRetainedTouchProfileVersion']) is not int
+                or args['originalKeeperRetainedTouchProfileVersion']!=1 or type(args['expectedOwnerInstance']) is not str
+                or args['expectedOwnerInstance']!=self.instance or self.session is None or session!=self.session['sessionId']
+                or type(args['referenceJson']) is not str or len(args['referenceJson'])>2048):raise LaunchError('session-lifetime')
+        birth=self.retained_motion_resource
+        if type(birth) is not tuple or len(birth)!=9:raise LaunchError('session-lifetime')
+        owner,resource,source,loop,owner_instance,binding,run,receipt,reference=birth
+        selected=decode_owner_packet(args['referenceJson'])
+        if (owner is not self or owner_instance!=args['expectedOwnerInstance'] or asyncio.get_running_loop() is not loop
+                or context(args['binding'])!=binding or args['runId']!=run or selected!=reference
+                or canonical(selected).decode('ascii')!=args['referenceJson']
+                or type(resource) is not LifecycleTouchResourceOwner
+                or type(receipt) is not _NativeMotionReference or receipt._owner() is not self
+                or receipt._source() is not source or receipt._loop() is not loop):raise LaunchError('session-lifetime')
+        # This is identity of the source-BORN resource. Current public slots or
+        # the current RSD may drift; neither redirects the old original worker.
+        rows=[row for row in source._born if row.get('motionResource') is resource]
+        if len(rows)>1:raise LaunchError('session-lifetime')
+        row=rows[0] if rows else None
+        if row is not None:
+            step=row.get('motionStep');lease=row['lease'];worker=row['worker']
+            if (type(step) is not _NativeMotionWorkerGuard or step._resource() is not resource
+                    or step._source() is not source or step._owner() is not self or step._lease() is not lease or step._worker() is not worker
+                    or type(lease) is not TouchLease
+                    or row['loop'] is not loop or worker.get_loop() is not loop
+                    or row['release'] is not lease.request_release or type(row['owner']) is not RetainedTouchWorker):raise LaunchError('session-lifetime')
+            # RetainedTouchWorker pins the actual original lease/task/store/
+            # factory/binding; no Source.current() or native-freshness callback.
+            row['owner']._status()
+        elif operation=='touch-release':
+            raise LaunchError('session-lifetime')
+        if operation=='touch-settle':
+            # Scoped settle cannot drain a foreign worker just because it now
+            # occupies the same Source/URL/session slot. Validate ALL affected
+            # touch rows before any ordinary Up or closing admission changes.
+            if row is not None:
+                if len(source._born)!=1 or source._born[0] is not row or source._leases!=[row['lease']]:raise LaunchError('session-lifetime')
+            else:
+                original=None if resource._lease is None else resource._lease()
+                if source._born or source._leases not in ([],[original]) or original is not None and original.worker is not None:
+                    raise LaunchError('session-lifetime')
+            await source.settle_touches()
+        elif operation=='touch-release':await row['owner'].release()
+        inspection=None if row is None else row['owner']._status()
+        return dict(iosOriginalKeeperTouchVersion=3,ownerInstance=owner_instance,inspection=inspection,
+            originalKeeperRetainedTouchProfileVersion=1,resourceReferenceJson=canonical(reference).decode('ascii'),
+            nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
+
     async def execute(self, operation, args, session):
         if operation=='owner-drain':
             if args or session is not None or asyncio.get_running_loop() is not self.source._loop:
@@ -1850,6 +1912,8 @@ class OriginalKeeperOperations:
             self.source.current();self.session=dict(args)
             return dict(originalKeeperClaimVersion=1,ownerInstance=self.instance)
         if operation in ('touch-release','touch-inspect','touch-settle'):
+            if type(args) is dict and 'originalKeeperRetainedTouchProfileVersion' in args:
+                return await self.retained_resource_cleanup(operation,args,session)
             # Original claim/session and retained worker identity are sufficient
             # for OLD handle cleanup. No current SDK/RSD/PID is reacquired and
             # no new input/process/WDA mutation is admitted by this branch.
@@ -1911,6 +1975,7 @@ class OriginalKeeperOperations:
             result=await self.process(args['bundleId'],args['originalPid'],terminate=operation=='process-terminate')
             self.scope(session);return result
         if operation=='touch-motion-prepare':
+            from copy import deepcopy
             # Old RPC Frame JSON is deliberately refused. Only THIS live
             # Source's exact actual immutable acquisition ref can be loaded.
             if (type(args) is not dict or set(args)!={'binding','runId','referenceJson','seconds'}
@@ -1942,6 +2007,13 @@ class OriginalKeeperOperations:
                     resource=LifecycleTouchResourceOwner(PrivateFeatureState(self.state_root/('ios-lifecycle-touch-resources-'+run+'.json')),
                         binding,run,lock,resource_current)
                     self.touch_resources=resource # Retain actual duty before any saved ACK can be lost.
+                    if receipt._selected is not None:
+                        if self.retained_motion_resource is not None:raise LaunchError('session-lifetime')
+                        # Actual source-local resource and original receipt,
+                        # captured BEFORE preparation CAS/worker/Down. A cold
+                        # JSON header cannot recreate this original duty.
+                        self.retained_motion_resource=(self,resource,original_source,asyncio.get_running_loop(),self.instance,
+                            deepcopy(binding),run,receipt,deepcopy(reference))
                     self.source.prepare_motion(resource,self.instance,receipt,seconds=args['seconds'])
                 await self.fresh_touch_scope(binding);receipt._check()
             except BaseException:

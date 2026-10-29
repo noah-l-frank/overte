@@ -140,6 +140,12 @@ class WebDriver:
             if method == "POST" and path == "/session"
             else self.COMMAND_TIMEOUT_SECONDS
         )
+        return self._read_reply(request,timeout)
+
+    def _read_reply(self,request,timeout):
+        # Same original parser, limits, final transport guard and HTTP close.
+        # Retained cleanup constructs its original URL/session request BEFORE
+        # invoking this bound original parser; no fresh client or SDK session.
         from adapters.operation_transport_guard import check as final_transport_guard
         final_transport_guard()
         try:
@@ -167,6 +173,40 @@ class WebDriver:
         if isinstance(value, dict) and value.get("error"):
             fail("Appium rejected the WebDriver command")
         return value
+
+    def retain_original_keeper_cleanup(self,session: str,*,original=None):
+        """Original HTTP endpoint only; never Source/HID/authentication authority.
+
+        The child independently checks its actual retained original worker.
+        This restricted sender cannot create input, processes or SDK sessions.
+        """
+        if type(session) is not str or re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}',session) is None:
+            fail('Original keeper cleanup session is unavailable')
+        original_args={}
+        if original is not None:
+            from adapters.normal_feature_state import context
+            from feature_journeys.contract import identifier,json_document
+            from adapters.script_feature.history import canonical
+            if type(original) is not dict or set(original)!={'ownerInstance','binding','runId','referenceJson'}:
+                fail('Original keeper retained resource is unavailable')
+            identifier(original['ownerInstance']);identifier(original['runId']);context(original['binding'])
+            if original['binding']['sessionId']!=session or type(original['referenceJson']) is not str or len(original['referenceJson'])>2048:
+                fail('Original keeper retained resource is unavailable')
+            reference=json_document(original['referenceJson'])
+            if canonical(reference).decode('ascii')!=original['referenceJson']:fail('Original keeper retained resource is unavailable')
+            original_args={'originalKeeperRetainedTouchProfileVersion':1,'expectedOwnerInstance':original['ownerInstance'],
+                'binding':json.loads(json.dumps(original['binding'])),'runId':original['runId'],'referenceJson':original['referenceJson']}
+        origin=self.server_url;path=f'/session/{session}/execute/sync'
+        read_reply=self._read_reply;timeout=self.COMMAND_TIMEOUT_SECONDS
+        def send(operation):
+            if type(operation) is not str or operation not in ('touch-inspect','touch-release','touch-settle'):
+                fail('Original keeper retained operation is unavailable')
+            # No later self.server_url/self.call/self.execute lookup; aliases
+            # cannot redirect the ORIGINAL ordinary Up/drain to another child.
+            payload={'script':'mobile: overteOriginalKeeperOperation','args':[{'operation':operation,'args':original_args}]}
+            request=Request(origin+path,data=json.dumps(payload).encode('utf-8'),method='POST',headers={'Content-Type':'application/json'})
+            return read_reply(request,timeout)
+        return send
 
     def execute(self, session: str, script: str, arguments: dict | None = None) -> object:
         return self.call("POST", f"/session/{session}/execute/sync",

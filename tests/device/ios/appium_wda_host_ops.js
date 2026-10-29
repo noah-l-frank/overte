@@ -100,9 +100,17 @@ async function tryOriginalKeeperLaunch(driver, remoteXpc, options) {
             // Gate only NEW input. Existing original Up/drain/cleanup remains
             // available if the WDA source is later revoked or disappears.
             const retained = ['touch-release', 'touch-inspect', 'touch-settle'].includes(operation);
-            if (retained && (!originalClaimAccepted || originalKeeperRoutes.get(driver) !== bridge ||
-                !args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length !== 0))
-                throw new Error('Original retained touch owner unavailable');
+            if (retained) {
+                if (!originalClaimAccepted || originalKeeperRoutes.get(driver) !== bridge ||
+                    !args || typeof args !== 'object' || Array.isArray(args))
+                    throw new Error('Original retained touch owner unavailable');
+                const scoped = Object.hasOwn(args, 'originalKeeperRetainedTouchProfileVersion');
+                const keys = ['binding', 'expectedOwnerInstance', 'originalKeeperRetainedTouchProfileVersion', 'referenceJson', 'runId'];
+                if (scoped ? args.originalKeeperRetainedTouchProfileVersion !== 1 ||
+                    Object.keys(args).sort().join(',') !== keys.join(',') ||
+                    args.expectedOwnerInstance !== retainedScope.ownerInstance : Object.keys(args).length !== 0)
+                    throw new Error('Original retained touch owner unavailable');
+            }
             const nativeRead = ['touch-begin', 'touch-native-query', 'touch-native-original-read', 'touch-native-acquire', 'touch-native-motion-acquire'].includes(operation);
             if (nativeRead) await bindWda();
             if (nativeRead || operation === 'touch-motion-prepare') originalWda();
