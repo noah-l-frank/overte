@@ -751,6 +751,106 @@ class OriginalKeeperOperations:
         receipt=(birth,original,saved,capture_ref)
         journal.setdefault('passiveOriginals',{})[query_id]=receipt
 
+    async def native_passive_terminal(self,args,session):
+        """Original-loop released+four-quiet batch; saved-only uncertain recovery.
+
+        Host WAL/read costs happen AFTER these unchanged strict cuts. No new
+        input, query budget, clock sample, threshold or SDK owner is introduced.
+        """
+        from copy import deepcopy
+        from adapters.script_feature.history import canonical
+        from ios.adapters import lifecycle_world as world
+        from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionPassiveRead
+        expected={'binding','runId','resultsDirectory','origin','nativePassiveAcquisitionVersion','phase',
+                  'terminalMode','expectedOwnerInstance','preparationReferenceJson'}
+        if (type(args) is not dict or set(args)!=expected or type(args['nativePassiveAcquisitionVersion']) is not int
+                or args['nativePassiveAcquisitionVersion']!=2 or type(args['phase']) is not str or args['phase']!='released-quiet'
+                or type(args['terminalMode']) is not str or args['terminalMode'] not in ('collect','recover')
+                or type(args['expectedOwnerInstance']) is not str or args['expectedOwnerInstance']!=self.instance
+                or type(args['preparationReferenceJson']) is not str or len(args['preparationReferenceJson'])>2048):raise LaunchError('request')
+        task=asyncio.current_task();loop=asyncio.get_running_loop();journal=self.native_query_journals.get(args['runId'])
+        birth=self.retained_motion_resource
+        if (type(birth) is not tuple or len(birth)!=9 or birth[0] is not self or birth[2] is not self.source
+                or birth[3] is not loop or birth[4]!=self.instance or birth[5]!=args['binding'] or birth[6]!=args['runId']
+                or canonical(birth[8]).decode('ascii')!=args['preparationReferenceJson']
+                or journal is None or journal['source'] is not birth[2] or journal['loop'] is not loop
+                or journal['binding']!=args['binding'] or journal['directory']!=args['resultsDirectory']
+                or journal['origin']!=args['origin'] or journal['pending'] is not None
+                or not isinstance(task,asyncio.Task) or task.get_loop() is not loop):raise LaunchError('session-lifetime')
+        history=journal.get('passiveCollection')
+        if (history is None or history['function'] is not self.native_passive_collect.__func__
+                or args['terminalMode']=='collect' and history['pending'] is not None
+                or self.native_passive_collect_task is not None or self.native_passive_pair_task is not None):raise LaunchError('session-lifetime')
+        terminal=history.get('terminal');function=self.native_passive_terminal.__func__
+        def current():
+            scope=_NativeMotionPassiveRead(self,session,world.ACTION,args['binding'],args['runId'])
+            try:
+                if (scope._resource() is not birth[1] or scope._phase!='released' or self.retained_motion_resource is not birth
+                        or self.native_passive_terminal.__func__ is not function
+                        or journal.get('passiveCollection') is not history or history.get('terminal') is not terminal
+                        or self.native_query_journals.get(args['runId']) is not journal
+                        or journal['source'] is not birth[2] or journal['rsd'] is not self.scope(session)
+                        or journal['pending'] is not None):raise LaunchError('session-lifetime')
+                with journal['lock'].held():
+                    if journal['store'].read()!=journal['previous']:raise LaunchError('session-lifetime')
+            finally:scope.close()
+        current()
+        if args['terminalMode']=='collect':
+            if (terminal is not None or len(history['cuts'])!=1 or 'passiveTerminal' in journal['previous']
+                    or len(journal['previous']['records'])+11>32):raise LaunchError('request')
+            rows=[(key,row) for key,row in self.issued.items() if row.get('task') is task]
+            if (len(rows)!=1 or rows[0][1]['request']['operation']!='touch-native-acquire'
+                    or rows[0][1]['request']['args']!=args):raise LaunchError('session-lifetime')
+            request_id,row=rows[0]
+            intent=dict(nativePassiveTerminalVersion=1,ownerInstance=self.instance,preparationReferenceJson=args['preparationReferenceJson'],
+                        requestId=request_id,phase='issued')
+            # Source-local membership and original request Task are born BEFORE
+            # durable CAS or any await/query. A failed/unknown return holds this
+            # responsibility; it can never start a replacement terminal batch.
+            terminal=dict(task=weakref.ref(task),row=row,birth=birth,function=self.native_passive_terminal.__func__,intent=deepcopy(intent))
+            history['terminal']=terminal
+            packet=deepcopy(journal['previous']);packet['passiveTerminal']=intent;self._native_query_save(journal,packet);current()
+            base={key:deepcopy(args[key]) for key in ('binding','runId','resultsDirectory','origin')}
+            for phase in ('released','quiet','quiet','quiet','quiet'):
+                current()
+                await self.native_passive_collect(dict(base,nativePassiveAcquisitionVersion=1,phase=phase),session)
+            current();packet=deepcopy(journal['previous']);packet['passiveTerminal']=dict(intent,phase='saved')
+            self._native_query_save(journal,packet);current()
+        else:
+            if (type(terminal) is not dict or terminal.get('birth') is not birth
+                    or terminal.get('function') is not self.native_passive_terminal.__func__):raise LaunchError('session-lifetime')
+            original=terminal['task']();row=terminal['row'];intent=terminal['intent']
+            if (original is None or not original.done() or original.get_loop() is not loop
+                    or self.issued.get(intent['requestId']) is not row or row.get('task') is not original
+                    or intent['preparationReferenceJson']!=args['preparationReferenceJson']
+                    or journal['previous'].get('passiveTerminal') not in (intent,dict(intent,phase='saved'))):raise LaunchError('session-lifetime')
+            pending=history['pending']
+            if (pending is not None and (type(pending) is not dict or pending.get('task')() is not original
+                    or pending.get('index')!=len(history['cuts'])+1)):
+                raise LaunchError('session-lifetime')
+            # No await, query, Up, re-clock, pending adoption or task cancellation.
+            # Return only actual already-saved refs after original Task ended.
+            current()
+        cuts=history['cuts'][1:]
+        if not 0<=len(cuts)<=5:raise LaunchError('session-lifetime')
+        references=[]
+        for ordinal,cut in enumerate(cuts,2):
+            scope=_NativeMotionPassiveRead(self,session,world.ACTION,args['binding'],args['runId'])
+            try:
+                files=self._native_passive_files(journal,scope,'passiveCut')
+                if files.read(files.expand(cut['reference']))!=cut['frame'] or cut['frame']['ordinal']!=ordinal:
+                    raise LaunchError('session-lifetime')
+                references.append(dict(reference=deepcopy(cut['reference']),ordinal=ordinal,phase=cut['frame']['phase']))
+            finally:scope.close()
+        saved=journal['previous']['passiveTerminal']['phase']=='saved'
+        if saved and len(references)!=5:raise LaunchError('session-lifetime')
+        payload=canonical(dict(binding=deepcopy(args['binding']),runId=args['runId'],
+            preparationReferenceJson=args['preparationReferenceJson'],terminalState='saved' if saved else 'partial',references=references)).decode('ascii')
+        result=dict(originalKeeperNativeAcquisitionVersion=5,ownerInstance=self.instance,encoding='canonical-json-ascii',acquisitionJson=payload,
+            nativeAcquisitionBound=False,installedCandidateBound=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
+        if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:raise LaunchError('request')
+        return result
+
     async def native_passive_collect(self,args,session):
         """Held, released, then FOUR distinct later quiet originals; no new input.
 
@@ -765,6 +865,8 @@ class OriginalKeeperOperations:
         from ios.adapters import lifecycle_world as world
         from ios.adapters.lifecycle_world_attempt import source_frame_original
         from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionPassiveRead
+        if type(args) is dict and type(args.get('nativePassiveAcquisitionVersion')) is int and args['nativePassiveAcquisitionVersion']==2:
+            return await self.native_passive_terminal(args,session)
         expected={'binding','runId','resultsDirectory','origin','nativePassiveAcquisitionVersion','phase'}
         if (type(args) is not dict or set(args)!=expected or type(args['nativePassiveAcquisitionVersion']) is not int
                 or args['nativePassiveAcquisitionVersion']!=1 or args['phase'] not in ('held','released','quiet')):raise LaunchError('request')
@@ -774,6 +876,8 @@ class OriginalKeeperOperations:
                 or journal['binding']!=args['binding'] or journal['directory']!=args['resultsDirectory']
                 or journal['origin']!=args['origin'] or journal['pending'] is not None):raise LaunchError('session-lifetime')
         history=journal.setdefault('passiveCollection',dict(cuts=[],pending=None,function=self.native_passive_collect.__func__))
+        terminal=history.get('terminal')
+        if terminal is not None and (terminal['task']() is not task or task.done()):raise LaunchError('session-lifetime')
         index=len(history['cuts'])+1;phase='held' if index==1 else 'released' if index==2 else 'quiet'
         if (history['function'] is not self.native_passive_collect.__func__ or history['pending'] is not None
                 or index>6 or phase!=args['phase'] or index==1 and len(journal['previous']['records'])+14>32):raise LaunchError('request')

@@ -26,7 +26,7 @@ The source is in [the receiver](pymobiledevice3_wda_xctest.py),
 [the WebDriver transport](adapters/appium_adapter.py).
 The optional response is touch version 3 with retained profile 1; all native
 touch, motion and resource-retirement qualification flags remain false.
-The normal held-input consumer is a subsequent integration step.
+The normal held-input consumer is described below.
 
 ## Original prepared motion start
 
@@ -49,6 +49,40 @@ tasks, threads, descriptors and processes completed their existing cleanup.
 This is host protocol qualification, without native timing, SDK execution or
 whole Lifecycle acceptance.
 
+## Normal held-input consumer
+
+The existing normal interrupted-input attempt now connects to the original
+child worker through [the held-input runtime](adapters/lifecycle_world_hold_runtime.py)
+and [its durable owner](adapters/lifecycle_world_hold.py). Preparation, Down,
+Move, held observation and Up retain the original Source, loop, resource,
+request task and selected acquisition. Public connection aliases cannot
+redirect the retained release channel. Production transport admission remains
+closed.
+
+The optional terminal collection runs Released and four later Quiet cuts in
+one original child request before host journal serialization. It reuses the
+existing collectors and original clocks: thirty queries, unchanged 1.5-second
+freshness, 250-millisecond clock joins and three-second native quiet window.
+The host subsequently rereads each physical original through the existing
+chunk route. Its original thread checks its held lock before and after that
+read; the worker acquires its own canonical existing channel admission.
+
+A lost terminal return cannot start another collection. Explicit recovery
+checks that the original task ended and returns only already saved references.
+A partial collection retains responsibility and cannot establish four Quiet
+cuts. Source loss can block proof while the original Up and settle remain
+available. No native, motion or resource-retirement qualification flag changes.
+
+Seven collector counterexamples, four normal-flow checks, one worker-channel
+counterexample and one lost-HTTP-return recovery passed. Eighteen distinct
+legacy cases passed in three separate selections with actual per-case cleanup
+receipts. Together these selections retain 926 original files in fifty genuine
+temporary roots. Their source maps, descriptors, threads, processes and both
+post-stop censuses were checked. The earlier combined legacy selection remains
+a recorded timeout. An earlier normal-flow failure exposed a thread-bound lock
+being used by the worker; the corrected normal selection passed afterward.
+These are host model results; native compilation and devices remain untested.
+
 ## Host verification and retained failures
 
 Six receiver cases, six actual HTTP transport cases and three actual Node
@@ -67,6 +101,7 @@ remain preserved. Their cause is unresolved, and no stable timing claim is
 made. The strict 1.5-second acquisition and 250-millisecond clock-join limits
 were not changed.
 
-This qualifies the host cleanup components. Canonical normal held-input
-integration, authentication, native compilation, device execution and whole
-Lifecycle acceptance remain open. Complete areas remain 5/14.
+This qualifies the described host cleanup and normal child integration.
+Production admission, resource retirement, authentication, native compilation,
+device execution and whole Lifecycle acceptance remain open. Complete areas
+remain 5/14.

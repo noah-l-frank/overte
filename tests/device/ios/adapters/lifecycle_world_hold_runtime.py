@@ -1,7 +1,8 @@
 """Current installed/PID-gated composition; authenticated HID stays explicit.
 
-No canonical RPC supplies a retained HID context yet. A caller must already
-own that actual factory; absent transport cannot be reconstructed or installed.
+Default profile retains an explicitly owned HID factory. Optional child profile
+routes its original worker through existing operations and typed source births.
+Production admission stays closed; JSON cannot supply a HID/SDK owner.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -61,6 +62,285 @@ def passive_world_original(frame,binding,run,owner):
     need(joined['hostBeforeEpochMs']==begin['epochMs'] and joined['hostBeforeMonotonic']==begin['monotonic']
         and joined['hostAfterEpochMs']==end['epochMs'] and joined['hostAfterMonotonic']==end['monotonic'])
     need((frame['ordinal']==1)==(frame['previousReference'] is None));return frame
+
+
+
+def selected_motion_frame_original(frame,binding,run,owner,selected_query):
+    import re
+    from urllib.parse import quote,unquote
+    from adapters.native_feature_observation import number
+    from adapters.native_clock_join import validate_join
+    from ios.adapters.lifecycle_world_attempt import source_frame_original,gesture
+    from ios.adapters.lifecycle_touch_resource_owner import selected_motion_original
+    from ios.adapters import native_geometry
+    exact(frame,{'originalKeeperNativeAcquisitionFrameVersion','originals','clockJoin','reads','sdkWindow','selectedCandidate'})
+    need(type(frame['originalKeeperNativeAcquisitionFrameVersion']) is int and frame['originalKeeperNativeAcquisitionFrameVersion']==3)
+    originals=frame['originals'];exact(originals,{'world','worldClock','geometry','window'})
+    joined=validate_join(frame['clockJoin'],originals);packet=source_frame_original(frame,binding,run)
+    candidate=frame['selectedCandidate'];selected_motion_original(candidate,frame,binding,run,owner)
+    need(candidate['selectionQueryId']==selected_query)
+    geometry=originals['geometry'];native_geometry.validate(geometry,geometry['commandId'],native_epoch_ms=joined['nativeAfter']['capturedEpochMs'])
+    need(joined['nativeBefore']['capturedEpochMs']<=geometry['observation']['sampleEpochMs']<=packet['clockBefore']['epochMs'])
+    sdk=frame['sdkWindow'];exact(sdk,{'method','path','reply','hostBeforeMonotonic','hostAfterMonotonic'})
+    need(sdk['method']=='GET' and type(sdk['path']) is str and len(sdk['path'])<=512
+        and sdk['path'].startswith('/session/') and sdk['path'].endswith('/window/rect'))
+    session=unquote(sdk['path'][9:-12]);need(re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}',session) is not None
+        and sdk['path']=='/session/'+quote(session,safe='')+'/window/rect')
+    need(type(sdk['reply']) is dict and sdk['reply'].get('value')==originals['window']
+        and number(sdk['hostBeforeMonotonic'],joined['hostBeforeMonotonic'],joined['hostAfterMonotonic'])
+        and number(sdk['hostAfterMonotonic'],sdk['hostBeforeMonotonic'],joined['hostAfterMonotonic']))
+    # Actual same raw UIKit geometry/window derives the complete path;
+    # no x/y or dimensions arrive as caller-chosen movement authority.
+    gesture(packet,geometry,originals['window'],'selected-original-reader')
+    return frame
+
+
+def original_child_world_frame(value,binding,run,*,before):
+    """Historical content/reference join only; actual child owns all authority."""
+    from adapters.native_feature_observation import integer
+    from adapters.script_feature.history import canonical
+    from ios.adapters.keyboard_source import sha
+    flags={'nativeAcquisitionBound','installedCandidateBound','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'}
+    exact(value,{'originalKeeperNativeAcquisitionVersion','ownerInstance','reference','originalFrame'}|flags|({'binding','runId'} if before else set()))
+    need(type(value['originalKeeperNativeAcquisitionVersion']) is int and value['originalKeeperNativeAcquisitionVersion']==(3 if before else 4)
+        and all(value[k] is False for k in flags));identifier(value['ownerInstance'])
+    if before:need(value['binding']==binding and value['runId']==run)
+    frame=value['originalFrame'];ref=value['reference'];exact(ref,{'index','sha256','bytes','device','inode'});sha(ref['sha256'])
+    need(integer(ref['index'],1,1024) and integer(ref['bytes'],2,1024*1024) and integer(ref['device'],0,2**64-1) and integer(ref['inode'],1,2**64-1))
+    prefix='iosLifecycleNativeAcquisitionFrameVersion' if before else 'iosLifecyclePassiveWorldFrameVersion'
+    body={prefix:1,'kind':'sources','binding':binding,'runId':run,'role':'primary','index':ref['index'],'frame':frame}
+    raw=canonical(body);need(len(raw)==ref['bytes'] and hashlib.sha256(raw).hexdigest()==ref['sha256'])
+    if before:selected_motion_frame_original(frame,binding,run,value['ownerInstance'],frame['selectedCandidate']['selectionQueryId'])
+    else:passive_world_original(frame,binding,run,value['ownerInstance'])
+    return frame
+
+
+class _OriginalKeeperMotionLease:
+    """Transport to the existing child worker; NEVER an authenticated factory.
+
+    Actual source/RSD/loop/worker/native admission remain in the child. This
+    object cannot open a HID session. Existing production admission stays closed.
+    """
+    def __init__(self,source,run,owner,reference,path,seconds):
+        import asyncio
+        from adapters.native_feature_observation import number
+        identifier(run);identifier(owner);exact(path,{'window','start','end'})
+        need(type(source) is dict and source['binding']['sessionId']==source['session']
+            and source['check']() is not False and type(reference) is dict)
+        self._source=source;self._client=source['client'];self._session=source['session'];self._owner=owner
+        self._binding=deepcopy(source['binding']);self._run=run;self._reference=deepcopy(reference);self._path=deepcopy(path)
+        from ios.adapters.appium_adapter import WebDriver
+        need(type(self._client) is WebDriver
+            and self._client.retain_original_keeper_cleanup.__func__ is WebDriver.retain_original_keeper_cleanup
+            and self._client._read_reply.__func__ is WebDriver._read_reply)
+        self._execute=self._client.execute;self._call_function=self._client.call.__func__;self._origin=self._client.server_url
+        self._cleanup=self._client.retain_original_keeper_cleanup(self._session,original=dict(ownerInstance=self._owner,
+            binding=deepcopy(self._binding),runId=self._run,referenceJson=canonical(self._reference).decode('ascii')))
+        from ios.adapters.touch import validate_actions
+        need(number(seconds,0,12) and seconds>0)
+        actions=validate_actions(dict(actions=[dict(type='pointer',id='original-child-motion',parameters=dict(pointerType='touch'),actions=[
+            dict(type='pointerMove',duration=0,origin='viewport',x=self._path['start'][0],y=self._path['start'][1]),
+            dict(type='pointerDown',button=0),dict(type='pointerUp',button=0)])]),self._path['window']['width'],self._path['window']['height'])
+        self._requests=[];self._issued=False;self._journal=None;self._loop=None
+        self._opening=dict(position=list(actions[0][1]),seconds=seconds)
+    async def _request(self,operation,args,*,forward):
+        import asyncio,inspect
+        from ios.adapters.touch_lease import TouchLeasePending
+        loop=asyncio.get_running_loop()
+        if self._loop is None:self._loop=loop
+        need(loop is self._loop)
+        if forward:need(self._source['client'] is self._client and self._source['session']==self._session
+            and self._source['binding']==self._binding and self._client.server_url==self._origin
+            and self._client.call.__func__ is self._call_function and self._source['check']() is not False)
+        # Preserve the ORIGINAL bound sender even if current mutable driver /
+        # foreground fields drift. The child retained route checks its actual
+        # original owner; no selector/new client/session is constructed here.
+        def send():
+            if not forward:
+                need(not args);return self._cleanup(operation)
+            return self._execute(self._session,'mobile: overteOriginalKeeperOperation',dict(operation=operation,args=deepcopy(args)))
+        task=asyncio.create_task(asyncio.to_thread(send),name='original-child-'+operation);self._requests.append(task)
+        failure=None
+        while not task.done():
+            try:await asyncio.shield(task)
+            except BaseException as error:failure=failure or error
+        # Actual Thread/Future completes before accepted return or propagated
+        # cancellation. Unknown send is not a permit to repeat original Down.
+        if failure is not None:raise failure
+        result=task.result()
+        need(type(result) is dict and result.get('ownerInstance')==self._owner)
+        if forward:need(self._source['check']() is not False)
+        return result
+    def _inspection(self,result,*,begin=False,allow_unborn=False):
+        from adapters.native_feature_observation import integer,number
+        from ios.adapters.touch_lease import PHASES,FAILURES
+        keys={'iosOriginalKeeperTouchVersion','ownerInstance','inspection','nativeTouchSupport','resourceRetirementEstablished'}
+        keys.add('nativeMotionGuardAvailable')
+        if not begin:keys|={'originalKeeperRetainedTouchProfileVersion','resourceReferenceJson'}
+        else:keys.add('resourceReferenceJson')
+        exact(result,keys);need(type(result['iosOriginalKeeperTouchVersion']) is int and result['iosOriginalKeeperTouchVersion']==(4 if begin else 3)
+            and result['ownerInstance']==self._owner and result['nativeTouchSupport'] is False and result['resourceRetirementEstablished'] is False
+            and result['nativeMotionGuardAvailable'] is False)
+        if begin:need(result['resourceReferenceJson']==canonical(self._reference).decode('ascii'))
+        if not begin:need(type(result['originalKeeperRetainedTouchProfileVersion']) is int and result['originalKeeperRetainedTouchProfileVersion']==1
+            and result['resourceReferenceJson']==canonical(self._reference).decode('ascii'))
+        value=result['inspection']
+        if value is None:
+            need(allow_unborn and not begin and not self._issued and self._journal is None);return None
+        exact(value,{'hostResponsibility','workerRunning','downIssued','upIssued','contextExitReturned','failure','journal'})
+        need(all(type(value[k]) is bool for k in ('hostResponsibility','workerRunning','downIssued','upIssued','contextExitReturned'))
+            and (value['failure'] is None or value['failure'] in FAILURES))
+        journal=value['journal'];exact(journal,{'iosTouchLeaseVersion','binding','runId','leaseId','position','startedMonotonic','deadlineMonotonic','phase','failure'})
+        need(type(journal['iosTouchLeaseVersion']) is int and journal['iosTouchLeaseVersion']==1 and journal['binding']==self._binding
+            and journal['runId']==self._run and journal['phase'] in PHASES and journal['failure']==value['failure'])
+        identifier(journal['leaseId']);need(type(journal['position']) is list and len(journal['position'])==2
+            and all(integer(n,0,65535) for n in journal['position'])
+            and number(journal['startedMonotonic'],0,1e15) and number(journal['deadlineMonotonic'],journal['startedMonotonic'],journal['startedMonotonic']+12)
+            and 0<journal['deadlineMonotonic']-journal['startedMonotonic']<=12)
+        need(self._opening is not None and journal['position']==self._opening['position']
+            and abs((journal['deadlineMonotonic']-journal['startedMonotonic'])-self._opening['seconds'])<1e-7)
+        # Immutable original Source deadline remains in its own clock domain.
+        # It is NEVER relabelled as the host event-loop deadline.
+        immutable={k:v for k,v in journal.items() if k not in ('phase','failure')}
+        if self._journal is None:self._journal=deepcopy(immutable)
+        else:need(self._journal==immutable)
+        return deepcopy(value)
+    async def begin(self,width,height,x,y,*,seconds):
+        need(not self._issued and (width,height,x,y)==(self._path['window']['width'],self._path['window']['height'],*self._path['start']))
+        need(type(seconds) in (int,float) and seconds==self._opening['seconds'])
+        self._issued=True # before actual send; lost return cannot authorize replay.
+        result=await self._request('touch-begin',dict(binding=deepcopy(self._binding),runId=self._run,width=width,height=height,x=x,y=y,
+            seconds=seconds,nativeMotionProfileVersion=2,expectedOwnerInstance=self._owner,referenceJson=canonical(self._reference).decode('ascii')),forward=True)
+        return self._inspection(result,begin=True)
+    async def inspect(self):return self._inspection(await self._request('touch-inspect',{},forward=False),allow_unborn=True)
+    async def release(self):return self._inspection(await self._request('touch-release',{},forward=False))
+    async def settle(self):return self._inspection(await self._request('touch-settle',{},forward=False),allow_unborn=True)
+
+
+class _OriginalKeeperWorldConnection:
+    """Existing client/child operation path; no local HID context or new Source."""
+    def __init__(self,runtime,selector,source,run):
+        need(type(runtime) is IOSLifecycleWorldHoldRuntime and source['check']() is not False)
+        self.runtime,self.selector,self.source,self.run=runtime,selector,source,identifier(run)
+        self.binding=deepcopy(source['binding']);self.owner=None;self.lease=None;self.preparation=None;self._lease=None
+        self._terminal_started=False;self._terminal_references=None
+    def current(self):
+        need(self.source['binding']==self.binding and self.source['check']() is not False
+            and self.lease is self._lease);return True
+    def retained_lease(self):
+        # This exact private born transport survives mutable public aliases.
+        # It is only a sender; the child still proves the original Resource.
+        need(self._lease is None or type(self._lease) is _OriginalKeeperMotionLease)
+        return self._lease
+    async def prepare(self,seconds):
+        import asyncio
+        from adapters.native_feature_observation import number
+        from ios.adapters.lifecycle_world_hold import coordinates
+        need(self.preparation is None and self.lease is None and number(seconds,0,12) and seconds>0)
+        self.current()
+        query=await asyncio.to_thread(self.runtime.adapter._lifecycle_owned_native_query,self.selector,self.run,
+            'ios-bundle-observe',original_child_artifact=True)
+        self.current()
+        flags={'nativeAcquisitionBound','originalChildCandidateBound','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'}
+        exact(query,{'originalKeeperInstalledQueryVersion','binding','queryOriginal','installedBefore','installedAfter','selectedArtifactBundle','childBundleOriginal'}|flags)
+        need(type(query['originalKeeperInstalledQueryVersion']) is int and query['originalKeeperInstalledQueryVersion']==3
+            and query['binding']==self.binding and all(query[k] is False for k in flags))
+        original=query['queryOriginal'];need(type(original['originalKeeperNativeQueryVersion']) is int and original['originalKeeperNativeQueryVersion']==3)
+        selection=original['query']['commandId']
+        value=await asyncio.to_thread(self.runtime.native_original_acquisition,self.selector,self.run,selected_query=selection)
+        self.current();need(value['binding']==self.binding and value['runId']==self.run and value['ownerInstance']==original['ownerInstance'])
+        frame=value['originalFrame'];path=coordinates(frame)
+        # Bind cleanup to the ORIGINAL transport before preparation can leave
+        # unknown child responsibility. It grants no authenticated/input fact.
+        self.owner=value['ownerInstance'];lease=_OriginalKeeperMotionLease(self.source,self.run,self.owner,value['reference'],path,seconds)
+        self._lease=self.lease=lease # BEFORE the preparation may have an unknown return.
+        prepared=await lease._request('touch-motion-prepare',dict(binding=deepcopy(self.binding),runId=self.run,
+            referenceJson=canonical(value['reference']).decode('ascii'),seconds=seconds),forward=True)
+        exact(prepared,{'originalKeeperMotionPreparationVersion','ownerInstance','preparationRecorded','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'})
+        need(type(prepared['originalKeeperMotionPreparationVersion']) is int and prepared['originalKeeperMotionPreparationVersion']==3
+            and prepared['ownerInstance']==self.owner and prepared['preparationRecorded'] is True
+            and all(prepared[k] is False for k in ('nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished')))
+        self.preparation=deepcopy(value)
+        return dict(originals=deepcopy(frame['originals']),clockJoin=deepcopy(frame['clockJoin']),originalChild=deepcopy(value))
+    def bind_preparation(self,frame,seconds):
+        """Rebind TRANSPORT to an existing source; never restore a worker from JSON."""
+        from ios.adapters.lifecycle_world_hold import coordinates
+        need(self.lease is None and self.preparation is None)
+        value=frame['originalChild'];need(value['binding']==self.binding and value['runId']==self.run)
+        self.owner=value['ownerInstance'];self.preparation=deepcopy(value)
+        self._lease=self.lease=_OriginalKeeperMotionLease(self.source,self.run,self.owner,value['reference'],coordinates(frame),seconds)
+        # Any resumed read/release/begin still reaches the original child's
+        # actual opaque lease/resource gates; this DTO mints none of them.
+    async def _terminal(self,mode):
+        self.current();need(self.preparation is not None and self._lease is not None and mode in ('collect','recover'))
+        target=self.source['target']['testBuild']
+        args=dict(binding=deepcopy(self.binding),runId=self.run,resultsDirectory=target['resultsDirectory'],origin=target['fixtureOrigin'],
+            nativePassiveAcquisitionVersion=2,phase='released-quiet',terminalMode=mode,expectedOwnerInstance=self.owner,
+            preparationReferenceJson=canonical(self.preparation['reference']).decode('ascii'))
+        if mode=='collect':
+            need(not self._terminal_started);self._terminal_started=True # BEFORE actual possibly-unknown send.
+        else:need(self._terminal_started)
+        result=await self._lease._request('touch-native-acquire',args,forward=True)
+        self.current()
+        flags={'nativeAcquisitionBound','installedCandidateBound','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'}
+        exact(result,{'originalKeeperNativeAcquisitionVersion','ownerInstance','encoding','acquisitionJson'}|flags)
+        need(type(result['originalKeeperNativeAcquisitionVersion']) is int and result['originalKeeperNativeAcquisitionVersion']==5
+            and result['ownerInstance']==self.owner and result['encoding']=='canonical-json-ascii'
+            and type(result['acquisitionJson']) is str and result['acquisitionJson'].isascii()
+            and len(result['acquisitionJson'])<12000 and all(result[key] is False for key in flags))
+        value=json_document(result['acquisitionJson'])
+        exact(value,{'binding','runId','preparationReferenceJson','terminalState','references'})
+        need(canonical(value).decode('ascii')==result['acquisitionJson'] and value['binding']==self.binding and value['runId']==self.run
+            and value['preparationReferenceJson']==args['preparationReferenceJson'] and value['terminalState'] in ('saved','partial')
+            and type(value['references']) is list and len(value['references'])<=5)
+        codec=OriginalFrameStore(self.runtime.adapter.state_path(self.selector).parent,self.binding,self.run,'primary',
+            self.current,lambda *_:need(False),namespace='lifecycle-passive-world',schema_prefix='iosLifecyclePassiveWorld')
+        references=set()
+        for ordinal,row in enumerate(value['references'],2):
+            exact(row,{'reference','ordinal','phase'});codec.expand(row['reference'])
+            need(type(row['ordinal']) is int and row['ordinal']==ordinal and type(row['phase']) is str
+                and row['phase']==('released' if ordinal==2 else 'quiet')
+                and row['reference']['sha256'] not in references)
+            references.add(row['reference']['sha256'])
+        # Partial saved observations retain responsibility but are NEVER a
+        # successful four-quiet proof. Recovery performs NO replacement query.
+        need(value['terminalState']=='saved' and len(value['references'])==5)
+        self._terminal_references=deepcopy(value['references'])
+    async def recover_terminal(self):
+        """Explicit saved-only recovery after original uncertain terminal RPC."""
+        await self._terminal('recover')
+    async def capture(self,phase,*,ordinal=None):
+        import asyncio
+        self.current();need(self.lease is not None and self.preparation is not None)
+        if phase=='held':
+            need(ordinal==1)
+            value=await asyncio.to_thread(self.runtime.native_passive_world,self.selector,self.run,phase)
+        else:
+            need(type(ordinal) is int and 2<=ordinal<=6 and phase==('released' if ordinal==2 else 'quiet'))
+            if not self._terminal_started:await self._terminal('collect')
+            # A lost HTTP return NEVER automatically retries the batch. Caller
+            # must explicitly ask saved-only recover_terminal on the same owner.
+            need(self._terminal_references is not None)
+            row=deepcopy(self._terminal_references[ordinal-2])
+            selector=dict(binding=deepcopy(self.binding),runId=self.run,**row)
+            result=dict(ownerInstance=self.owner)
+            task=asyncio.create_task(asyncio.to_thread(self.runtime._native_passive_world_reference,
+                self.selector,None,self.run,phase,result,selector),name='original-child-passive-ref-read')
+            self._lease._requests.append(task);failure=None
+            while not task.done():
+                try:await asyncio.shield(task)
+                except BaseException as error:failure=failure or error
+            if failure is not None:raise failure
+            value=task.result()
+        self.current();need(value['ownerInstance']==self.owner)
+        frame=value['originalFrame']
+        return dict(originals=deepcopy(frame['originals']),clockJoin=deepcopy(frame['clockJoin']),originalChild=deepcopy(value))
+    async def inspect(self):
+        lease=self.retained_lease();need(lease is not None);return await lease.inspect()
+    async def release(self):
+        lease=self.retained_lease();need(lease is not None);return await lease.release()
+    async def settle(self):
+        lease=self.retained_lease();need(lease is not None);return await lease.settle()
 
 
 
@@ -161,36 +441,9 @@ class IOSLifecycleWorldHoldRuntime:
             installedCandidateBound=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
 
     def _selected_motion_original_result(self,source,run,selected_query,result,reference,frame,transfer_current):
-        """Decode the existing selected3 source original; no host-created owner."""
-        import re
-        from urllib.parse import quote,unquote
-        from adapters.native_feature_observation import number
-        from adapters.native_clock_join import validate_join
-        from ios.adapters.lifecycle_world_attempt import source_frame_original,gesture
-        from ios.adapters.lifecycle_touch_resource_owner import selected_motion_original
-        from ios.adapters import native_geometry
-        binding=source['binding']
-        exact(frame,{'originalKeeperNativeAcquisitionFrameVersion','originals','clockJoin','reads','sdkWindow','selectedCandidate'})
-        need(type(frame['originalKeeperNativeAcquisitionFrameVersion']) is int and frame['originalKeeperNativeAcquisitionFrameVersion']==3)
-        originals=frame['originals'];exact(originals,{'world','worldClock','geometry','window'})
-        joined=validate_join(frame['clockJoin'],originals);packet=source_frame_original(frame,binding,run)
-        candidate=frame['selectedCandidate'];selected_motion_original(candidate,frame,binding,run,result['ownerInstance'])
-        need(candidate['selectionQueryId']==selected_query)
-        geometry=originals['geometry'];native_geometry.validate(geometry,geometry['commandId'],native_epoch_ms=joined['nativeAfter']['capturedEpochMs'])
-        need(joined['nativeBefore']['capturedEpochMs']<=geometry['observation']['sampleEpochMs']<=packet['clockBefore']['epochMs'])
-        sdk=frame['sdkWindow'];exact(sdk,{'method','path','reply','hostBeforeMonotonic','hostAfterMonotonic'})
-        need(sdk['method']=='GET' and type(sdk['path']) is str and len(sdk['path'])<=512
-            and sdk['path'].startswith('/session/') and sdk['path'].endswith('/window/rect'))
-        session=unquote(sdk['path'][9:-12]);need(re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}',session) is not None
-            and sdk['path']=='/session/'+quote(session,safe='')+'/window/rect')
-        need(type(sdk['reply']) is dict and sdk['reply'].get('value')==originals['window']
-            and number(sdk['hostBeforeMonotonic'],joined['hostBeforeMonotonic'],joined['hostAfterMonotonic'])
-            and number(sdk['hostAfterMonotonic'],sdk['hostBeforeMonotonic'],joined['hostAfterMonotonic']))
-        # Actual same raw UIKit geometry/window derives the complete path;
-        # no x/y or dimensions arrive as caller-chosen movement authority.
-        gesture(packet,geometry,originals['window'],'selected-original-reader')
+        selected_motion_frame_original(frame,source['binding'],run,result['ownerInstance'],selected_query)
         transfer_current()
-        return dict(originalKeeperNativeAcquisitionVersion=3,ownerInstance=result['ownerInstance'],binding=deepcopy(binding),runId=run,
+        return dict(originalKeeperNativeAcquisitionVersion=3,ownerInstance=result['ownerInstance'],binding=deepcopy(source['binding']),runId=run,
             reference=deepcopy(reference),originalFrame=deepcopy(frame),nativeAcquisitionBound=False,installedCandidateBound=False,
             nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
 
@@ -258,6 +511,23 @@ class IOSLifecycleWorldHoldRuntime:
             and len(result['acquisitionJson'])<=2048 and all(result[k] is False for k in flags));identifier(result['ownerInstance'])
         value=json_document(result['acquisitionJson']);exact(value,{'binding','runId','reference','ordinal','phase'})
         need(canonical(value).decode('ascii')==result['acquisitionJson'] and value['binding']==binding and value['runId']==run and value['phase']==phase)
+        return self._native_passive_world_reference(selector,source,run,phase,result,value)
+
+    def _native_passive_world_reference(self,selector,source,run,phase,result,value):
+        # Every caller reopens actual Source membership/physical bytes through
+        # the SAME existing chunk route. Saved batch refs are historical only.
+        import base64,time
+        from adapters.native_feature_observation import decode
+        if source is None:
+            # The caller keeps its ACTUAL main-thread source/lock gates before
+            # and after this owned thread. Acquire the SAME canonical existing
+            # channel admission HERE, as native_passive_world always did; never
+            # borrow the caller's thread-bound ScriptSourceLock callback.
+            source=IOSScriptRuntime(self.adapter)._sources(selector)
+            source['check']()
+        binding,client,session=source['binding'],source['client'],source['session']
+        flags={'nativeAcquisitionBound','installedCandidateBound','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'}
+        need(value['binding']==binding and value['runId']==run and value['phase']==phase)
         codec=OriginalFrameStore(self.adapter.state_path(selector).parent,binding,run,'primary',source['check'],lambda *_:need(False),
             namespace='lifecycle-passive-world',schema_prefix='iosLifecyclePassiveWorld')
         ref=value['reference'];codec.expand(ref);raw=[];started=time.monotonic()
@@ -291,8 +561,9 @@ class IOSLifecycleWorldHoldRuntime:
         # or caller-supplied factory may turn missing transport into support.
         admit(configuration)
 
-    def child(self,selector,editors,attempt,session_factory):
-        need(type(editors) is LifecycleEditors and type(attempt) is LifecycleWorldAttempt and callable(session_factory))
+    def child(self,selector,editors,attempt,session_factory,*,original_child=False):
+        need(type(original_child) is bool and type(editors) is LifecycleEditors and type(attempt) is LifecycleWorldAttempt
+            and (original_child and session_factory is None or not original_child and callable(session_factory)))
         editors.history.check();attempt.bound();need(attempt.history is editors.history)
         source=IOSScriptRuntime(self.adapter)._sources(selector)
         need(same(source['binding'],editors.binding))
@@ -303,7 +574,8 @@ class IOSLifecycleWorldHoldRuntime:
         sources=IOSLifecycleSources(source,editors.run,epoch_ms=editors.sources.epoch_ms,monotonic=editors.sources.monotonic)
         # Retain the unchanged actual first-attempt owner; only the second
         # attempt's passive readers use this freshly admitted canonical scope.
-        owner=LifecycleWorldHold(PrivateFeatureState(root/'ios-lifecycle-world-hold.json'),attempt,session_factory)
+        connection=_OriginalKeeperWorldConnection(self,selector,source,editors.run) if original_child else None
+        owner=LifecycleWorldHold(PrivateFeatureState(root/'ios-lifecycle-world-hold.json'),attempt,session_factory,original_child=connection)
         owner.sources=sources;owner.reader=source['observer'].lifecycle_world(source['clock_source'])
         owner.geometry=source['observer'].geometry();owner.ui=NativeUI(source['client'],source['session'],check)
         return owner

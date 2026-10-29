@@ -63,8 +63,15 @@ class _MotionContext:
 
 
 class LifecycleWorldHold:
-    def __init__(self,store,attempt,session_factory):
-        need(isinstance(store,PrivateFeatureState) and type(attempt) is LifecycleWorldAttempt and callable(session_factory))
+    def __init__(self,store,attempt,session_factory,*,original_child=None):
+        from ios.adapters.lifecycle_world_hold_runtime import _OriginalKeeperWorldConnection
+        need(isinstance(store,PrivateFeatureState) and type(attempt) is LifecycleWorldAttempt
+            and (original_child is None and callable(session_factory)
+                or type(original_child) is _OriginalKeeperWorldConnection and session_factory is None))
+        self.version=1 if original_child is None else 2
+        self.original_child=self._original_child=original_child
+        self._child_lease_owner=None if original_child is None else original_child.retained_lease
+        self._child_bind_preparation=None if original_child is None else original_child.bind_preparation
         self.store,self.attempt,self.factory=store,attempt,session_factory
         self.history,self.sources,self.reader,self.geometry,self.ui=attempt.history,attempt.sources,attempt.reader,attempt.geometry,attempt.ui
         self.binding,self.run=self.history.binding,self.history.run
@@ -75,28 +82,43 @@ class LifecycleWorldHold:
         if self.previous is not None:self.state=self.decode(self.previous)
 
     def bound(self):
-        self.history.check();need(self.sources.source['check']() is not False and same(self.store.read(),self.previous));return True
+        self.history.check();need(self.sources.source['check']() is not False and same(self.store.read(),self.previous))
+        if self.version==2:need(self.original_child is self._original_child and self.original_child.current() is not False)
+        return True
     def file_guard(self):
         self.history.lock.assert_held();need(same(self.store.read(),self.previous));return True
     def files(self,live=False):
         return OriginalFrameStore(self.store.path.parent,self.binding,self.run,'primary',self.bound if live else self.file_guard,
-            self.storage if live else lambda *_:need(False),namespace='ios-lifecycle-world-hold-proof',schema_prefix='iosLifecycleWorldHoldProof')
+            self.storage if live else lambda *_:need(False),
+            namespace='ios-lifecycle-child-hold-proof' if self.version==2 else 'ios-lifecycle-world-hold-proof',
+            schema_prefix='iosLifecycleWorldHoldChildProof' if self.version==2 else 'iosLifecycleWorldHoldProof')
     def frame(self,index):
         need(integer(index,1,len(self.state['frames'])))
         return self.files().read(self.files().expand(self.state['frames'][index-1]))
     def source_frame(self,frame,*,before=False):
-        exact(frame,{'originals','clockJoin'})
+        exact(frame,{'originals','clockJoin'}|({'originalChild'} if self.version==2 else set()))
+        if self.version==2:
+            from ios.adapters.lifecycle_world_hold_runtime import original_child_world_frame
+            child=original_child_world_frame(frame['originalChild'],self.binding,self.run,before=before)
+            need(frame['originals']==child['originals'] and frame['clockJoin']==child['clockJoin'])
         exact(frame['originals'],{'world','worldClock'}|({'geometry','window'} if before else set()))
         packet=self.attempt.source_frame(frame)
         if before:
             need(frame['clockJoin']['nativeBefore']['capturedEpochMs']<=frame['originals']['geometry']['observation']['sampleEpochMs']
                  <=packet['clockBefore']['epochMs'])
         return packet
-    def packet(self,index):return self.source_frame(self.frame(index),before=index==1)
-    def envelope(self):return dict(iosLifecycleWorldHoldVersion=VERSION,binding=self.binding,runId=self.run,state=deepcopy(self.state))
+    def packet(self,index):
+        frame=self.frame(index);packet=self.source_frame(frame,before=index==1)
+        if self.version==2 and index>1:
+            child=frame['originalChild'];first=self.frame(1)['originalChild']
+            need(child['ownerInstance']==first['ownerInstance'] and child['originalFrame']['ordinal']==index-1)
+            previous=child['originalFrame']['previousReference']
+            need(previous is None if index==2 else previous==self.frame(index-1)['originalChild']['reference'])
+        return packet
+    def envelope(self):return dict(iosLifecycleWorldHoldVersion=self.version,binding=self.binding,runId=self.run,state=deepcopy(self.state))
     def decode(self,value):
         exact(value,{'iosLifecycleWorldHoldVersion','binding','runId','state'})
-        need(type(value['iosLifecycleWorldHoldVersion']) is int and value['iosLifecycleWorldHoldVersion']==VERSION
+        need(type(value['iosLifecycleWorldHoldVersion']) is int and value['iosLifecycleWorldHoldVersion']==self.version
              and same(value['binding'],self.binding) and value['runId']==self.run)
         state=value['state'];exact(state,STATE_KEYS);old=self.state;self.state=state
         try:
@@ -131,6 +153,7 @@ class LifecycleWorldHold:
             and (old['phase']=='planned' or same(old['file'],value['file'])))
         self.state['storage'][key]=deepcopy(value);self.save()
     def capture(self,before=False):
+        if self.version==2:return self._capture_original_child(before)
         need(len(self.state['frames'])<32)
         index=len(self.state['frames'])+1;pending=self.state['storage'].get(str(index))
         if pending is not None:
@@ -139,6 +162,37 @@ class LifecycleWorldHold:
             ref=self.files().compact(self.state['storage'][str(index)])
         else:ref=self.files(True).write(index,LifecycleWorldAttempt.acquire(self,before))
         self.state['frames'].append(ref);self.save();return index
+    async def _capture_original_child(self,before=False):
+        """Use actual original child refs; never normal pullFile or a new HID."""
+        need(self.version==2 and self.original_child is self._original_child and len(self.state['frames'])<32)
+        index=len(self.state['frames'])+1;pending=self.state['storage'].get(str(index))
+        if pending is not None:
+            need(pending['phase'] in ('opened','saved'));self.files().read(pending)
+            if pending['phase']=='opened':self.storage('original',dict(pending,phase='saved'))
+            ref=self.files().compact(self.state['storage'][str(index)])
+        else:
+            if before:frame=await self.original_child.prepare(self.state['seconds'])
+            else:
+                phase='quiet' if self.state['released'] is not None else 'held' if self.state['held'] is None else 'released'
+                frame=await self.original_child.capture(phase,ordinal=index-1)
+            self.source_frame(frame,before=before)
+            ref=self.files(True).write(index,frame)
+        self.state['frames'].append(ref);self.save();return index
+    async def _observe_original_child(self):
+        self.bound();need(self.version==2 and self.state['phase'] in ('issued','held'))
+        lease=self.lease_owner();status=await lease.inspect()
+        need(status['workerRunning'] and status['hostResponsibility'] and status['failure'] is None and not status['upIssued'])
+        # The ORIGINAL Source loop enforces its actual12s deadline and fresh
+        # native interval in the held collector; no child monotonic is cast
+        # into a host-loop deadline and no old prep becomes a fresh cut.
+        index=await self.capture();proof=self.held_proof(index)
+        self.state['held']=index;self.state['phase']='held';self.save();return proof
+    async def _quiet_original_child(self):
+        self.bound();need(self.version==2 and self.state['released'] is not None)
+        index=await self.capture();self.quiet_packet(index);self.state['quiet'].append(index);self.save()
+        if len(self.state['quiet'])<4:return None
+        proof=self.proof();self.state['phase']='quiet';self.save();return proof
+
     def prepared(self):
         need(self.state['attempt'] is not None and same(self.attempt.store.read(),self.attempt.previous)
              and digest(self.attempt.previous)==self.state['attempt'] and self.attempt.state['phase']=='observed')
@@ -155,6 +209,14 @@ class LifecycleWorldHold:
         need(type(self.state['seconds']) in (int,float) and 0<self.state['seconds']<=12)
         return before
     def lease_owner(self):
+        if self.version==2:
+            # Captured original callbacks select no new endpoint/HID/Source.
+            # Current public aliases may refuse NEW proof, never old Up.
+            lease=self._child_lease_owner()
+            if lease is None:
+                self.prepared();self._child_bind_preparation(self.frame(1),self.state['seconds'])
+                lease=self._child_lease_owner()
+            need(lease is not None);self.lease=lease;return lease
         if self.lease is None:
             before=self.prepared();path=deepcopy(self.state['path']);window=path['window']
             actions=validate_actions(dict(actions=[dict(type='pointer',id='world-hold-codec',parameters=dict(pointerType='touch'),actions=[
@@ -184,13 +246,18 @@ class LifecycleWorldHold:
             self.attempt.effect();self.state['attempt']=digest(self.attempt.previous);self.state['seconds']=seconds
             if self.state['editor'] is None:
                 self.history.append(self.sources.sample(self.epoch_ms()));self.state['editor']=len(self.history.state['frames']);self.save()
-            if not self.state['frames']:self.capture(True)
+            if not self.state['frames']:
+                captured=self.capture(True)
+                if inspect.isawaitable(captured):await captured
             before=self.frame(1);self.state['path']=coordinates(before)
             self.state['phase']='prepared';self.save()
         need(self.state['phase']=='prepared')
         frame=self.prepared();join=frame['clockJoin']
-        need(0<=self.epoch_ms()-join['hostBeforeEpochMs']<1500 and 0<=self.monotonic()-join['hostBeforeMonotonic']<1.5)
-        fresh(frame['originals']['world']['clockAfter']['epochMs'],self.reader.clock_ms())
+        if self.version==1:
+            need(0<=self.epoch_ms()-join['hostBeforeEpochMs']<1500 and 0<=self.monotonic()-join['hostBeforeMonotonic']<1.5)
+            fresh(frame['originals']['world']['clockAfter']['epochMs'],self.reader.clock_ms())
+        # Child profile performs actual new beforeDown+beforeMove cuts in its
+        # original worker. The stored preparation is historical intent only.
         self.state['phase']='issued';self.save();lease=self.lease_owner()
         window=self.state['path']['window'];start=self.state['path']['start']
         return await lease.begin(window['width'],window['height'],*start,seconds=self.state['seconds'])
@@ -203,6 +270,7 @@ class LifecycleWorldHold:
              and all(abs(a-b)<=1 for a,b in zip(points[-1]['position'],end)))
         return proof
     def observe(self):
+        if self.version==2:return self._observe_original_child()
         self.bound();need(self.state['phase'] in ('issued','held'))
         lease=self.lease_owner();status=lease.inspect()
         need(status['workerRunning'] and status['hostResponsibility'] and status['failure'] is None and not status['upIssued']
@@ -222,11 +290,17 @@ class LifecycleWorldHold:
         # Ordinary Up/context exit remains possible after a candidate/foreground
         # guard failure. Native proof requires fresh current admission afterward.
         if self.state['released'] is not None:self.bound();return self.release_proof()
-        lease=self.lease_owner();status=await lease.release()
+        lease=self.lease_owner()
+        if self.version==2 and not lease._issued:
+            await lease.settle()
+            need(False) # Original pre-Down cleanup returned; no native release proof exists.
+        status=await lease.release()
         need(not status['hostResponsibility'] and status['contextExitReturned'])
         self.bound()
         if self.state['released'] is None:
-            self.state['released']=self.capture();self.state['phase']='released';self.save()
+            captured=self.capture()
+            if inspect.isawaitable(captured):captured=await captured
+            self.state['released']=captured;self.state['phase']='released';self.save()
         return self.release_proof()
     def quiet_packet(self,index):
         value=self.packet(index);source=value['source'];released=self.packet(self.state['released'])
@@ -234,6 +308,7 @@ class LifecycleWorldHold:
              and same(source['touch']['events'],released['source']['touch']['events']))
         world.measure(released,value);return value
     def sample_quiet(self):
+        if self.version==2:return self._quiet_original_child()
         self.bound();need(self.state['released'] is not None)
         index=self.capture();self.quiet_packet(index)
         self.state['quiet'].append(index);self.save()
