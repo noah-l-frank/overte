@@ -20,20 +20,27 @@ from ios.adapters.avatar_account_reads import IOSAvatarAccountReads
 from ios.adapters.avatar_postlogout_parts import AvatarPostLogoutParts
 from ios.adapters.authentication_causality import check as account_causality
 from ios.adapters.emote_native_prefix import follow as native_prefix
+from ios.adapters import avatar_postlogout_row_cache as row_cache
+from ios.adapters import avatar_account_reads as account_source
+from ios.adapters.avatar_record_cache import AvatarRecordCache
 
 VERSION=2
 READS=(1,2)
 
+def _archived_guard():return True
+
 
 class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
     def __init__(self,store,root,binding,run,role,subject,lock,guard,accounts_factory,model_factory,*,
-                 child_run,fixture_url,ticket,baseline,logout_before,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,historical=False):
+                 child_run,fixture_url,ticket,baseline,logout_before,epoch_ms=lambda:time.time()*1000,monotonic=time.monotonic,historical=False,historical_rows=None):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and role in ('primary','actor') and subject in ('primary','actor')
             and type(historical) is bool and all(callable(fn) for fn in (guard,accounts_factory,model_factory,epoch_ms,monotonic)))
         self.store,self.root,self.binding,self.run,self.role,self.subject,self.lock=store,root,context(binding),identifier(run),role,subject,lock
         need(store.path.name=='ios-avatar-'+role+'-'+subject+'-postlogout.json' and store.path.parent==lock.path.parent);lock.assert_held()
         self.guard,self.accounts_factory,self.model_factory,self.epoch_ms,self.monotonic=guard,accounts_factory,model_factory,epoch_ms,monotonic
-        self.historical=historical
+        need(historical_rows is None or historical and type(historical_rows) is AvatarRecordCache)
+        self.historical,self.historical_rows=historical,historical_rows
+        if historical_rows is not None:self.part_cache=historical_rows
         self.inputs=dict(childRunId=identifier(child_run),fixtureUrl=fixture_url,ticket=identifier(ticket),baseline=deepcopy(baseline),logoutBefore=deepcopy(logout_before))
         avatar_state.original(baseline);need(baseline['runId']==run and baseline['processId']==int(binding['processIdentity']))
         self.originals=OriginalFrameStore(root,binding,run,role,guard,self.storage,namespace='avatar-'+subject+'-postlogout',
@@ -124,10 +131,8 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
             need(integer(row['index'],1,64) and row['index']==index and row['status'] in ('observed','abandoned'))
             if 'partsCarrier' in row:need(version>=2)
             material=self.row_material(row) if 'partsCarrier' in row else dict(partial=row,parts=row['parts'])
-            materials[index]=material;previous=self.part(material['parts'],previous)
-            if row['original'] is not None:self.originals.original(row['original']);need(row['original']['index']==index)
-            if row['acquisition'] is not None:self.acquisition(row['acquisition'])
-            if row['status']=='observed':self._record_fields(row,material)
+            materials[index]=material
+            previous=self._historical_row(row,material,previous,index)
         if state['pending'] is not None:
             row=state['pending'];fields={'index','parts','original','acquisition'}
             if 'partsStorageVersion' in row:
@@ -146,10 +151,30 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
             self.parts_inventory(state,materials)
             # The local material is used only inside this synchronous parse.
             # Recheck its complete actual read/absence inventory at the end;
-            # no derived model/account/history verdict is reused.
+            # Per-row historical reuse never supplies a current/quiet verdict.
             for row in state['rows']:
                 if 'partsCarrier' in row:self.row_material(row,check_only=True)
         return deepcopy(state)
+
+    def _historical_row(self,row,material,previous,index):
+        def decode():
+            model=self.part(material['parts'],previous)
+            if row['original'] is not None:self.originals.original(row['original']);need(row['original']['index']==index)
+            if row['acquisition'] is not None:self.acquisition(row['acquisition'])
+            if row['status']=='observed':self._record_fields(row,material)
+            return model
+        def policy():
+            # arguments() actually reads only this area's current steps. Use
+            # exact builtin lookups before metadata scanning; never invoke an
+            # opaque scenario container or cache an actions()/verdict result.
+            scenarios=vars(feature_contract)['SCENARIOS']
+            if type(scenarios) is not dict or not all(type(key) is str for key in scenarios):raise row_cache._Unsupported
+            area=dict.get(scenarios,'authentication')
+            if type(area) is not dict or not all(type(key) is str for key in area):raise row_cache._Unsupported
+            steps=dict.get(area,'steps')
+            if type(steps) is not list:raise row_cache._Unsupported
+            return (VERSION,READS,avatar_state.VERSION,avatar_state.READS,account_source.VERSION,feature_contract.VERSION,steps)
+        return row_cache.read(self,row,material,previous,index,policy,decode)
 
     def save(self):
         pending_round=getattr(self,'_pending_round',None)
@@ -280,10 +305,63 @@ class IOSAvatarPostLogoutReads(AvatarPostLogoutParts):
         return row
 
     @classmethod
-    def archive(cls,value,store,root,binding,run,role,subject,lock,*,child_run,fixture_url,ticket,baseline,logout_before):
+    def archive(cls,value,store,root,binding,run,role,subject,lock,*,child_run,fixture_url,ticket,baseline,logout_before,historical_rows=None):
         class Frozen(PrivateFeatureState):
             def read(_self):return deepcopy(value)
             def write(_self,*_args):need(False)
             def discard(_self,*_args):need(False)
-        return cls(Frozen(store.path),root,binding,run,role,subject,lock,lambda:True,lambda:need(False),lambda:need(False),
-            child_run=child_run,fixture_url=fixture_url,ticket=ticket,baseline=baseline,logout_before=logout_before,historical=True)
+        return cls(Frozen(store.path),root,binding,run,role,subject,lock,_archived_guard,lambda:need(False),lambda:need(False),
+            child_run=child_run,fixture_url=fixture_url,ticket=ticket,baseline=baseline,logout_before=logout_before,historical=True,historical_rows=historical_rows)
+
+
+# These are the actual skipped parser dependencies, not a source inventory.
+from adapters import native_feature_observation as native_source,native_account_observation as account_native
+from adapters import native_animation_history as animation_native,recorded_preview_history as recorded_native
+from adapters import native_clock_join as clock_source
+from adapters.script_feature import history as history_source
+from ios.adapters import avatar_bookmarks as bookmark_source,places_model as places_source
+from ios.adapters import authentication_causality as causality_source,emote_native_prefix as prefix_source
+from ios.adapters import authentication_origin as origin_source,login_source as login_parser
+from feature_journeys import contract as feature_contract,scenarios as scenario_source
+from ios.adapters import location_bookmarks as file_bookmarks
+import re as parser_re
+import json as parser_json
+import hashlib as parser_hashlib
+
+row_cache.bind(IOSAvatarPostLogoutReads,_archived_guard,
+    [(IOSAvatarPostLogoutReads,name) for name in ('part','_record_fields','_historical_row','row_material','row_partial_original',
+        'resolved_parts','retained_partial','account','account_original','acquisition','native_file','part_parents','part_tag','part_value','part_complete')]
+    +[(IOSAvatarAccountReads,name) for name in ('__init__','parse','packet','_pending','pending','command','partial_file','envelope')]
+    +[(avatar_state,name) for name in ('_validate','command','history','text','identity','session','tree','exact','integer','number','need','fresh')]
+    +[(bookmark_source,'original_bytes'),(bookmark_source,'stable_file'),(file_bookmarks,'original_bytes'),(places_source,'tree'),(places_source,'text')]
+    +[(native_source,name) for name in ('validate','exact','integer','number','fresh','need')]
+    +[(account_native,name) for name in ('validate','accept')]
+    +[(animation_native,name) for name in ('validate','_validate','accept','clip')]
+    +[(recorded_native,name) for name in ('validate_history','accept_history','phases')]
+    +[(causality_source,name) for name in ('check','arguments','identifier','need','validate','source_nonce','accept','fixture_origin')]
+    +[(origin_source,'origin'),(login_parser,'nonce')]
+    +[(prefix_source,name) for name in ('follow','_follow')]
+    +[(feature_contract,name) for name in ('arguments','identifier','operation_parts','actions','expand','context','typed_equal','exact')]
+    +[(scenario_source,'actions'),(scenario_source,'expand')]
+    +[(clock_source,'digest')]
+    +[(history_source,name) for name in ('canonical','same','pack','unpack')]
+    +[(account_source,name) for name in ('validate','exact','integer','need','number','digest','pack','unpack','same','context','identifier')]
+    +[(parser_re,'fullmatch'),(parser_json,'dumps'),(parser_json,'loads')]
+    +[(globals(),name) for name in ('native','native_prefix','account_causality','exact','integer','need','number','canonical','same','digest')]
+    +[(OriginalFrameStore,name) for name in ('__init__','read','original','file','path','key','bound','now')]
+    +[(PrivateFeatureState,name) for name in ('read','_parent')]
+    +[(AvatarRecordCache,name) for name in ('read','_read','signatures','absent')],
+    [(module,name,'data') for module,names in (
+        (avatar_state,('VERSION','READS','ACTION','LIMIT')),(account_source,('VERSION',)),
+        (native_source,('LIMIT','BOUND_CLOCK_VERSION')),
+        (account_native,('VERSION','SIGNALS','REPLIES','FIELDS','BOOLEANS','EVENT_FIELDS')),
+        (recorded_native,('FIELDS','ACTIVE','TERMINAL','NEXT')),(causality_source,('VERSION','EMPTY')),
+        (bookmark_source,('VERSION','SOURCE')),(places_source,('VERSION','LIMIT')),
+        (feature_contract,('VERSION',)),(file_bookmarks,('FILE_LIMIT','REASONS')))
+        for name in names]
+    +[(globals(),name,'identity') for name in ('IOSAvatarAccountReads','avatar_state','account_source','native','native_prefix','account_causality','OriginalFrameStore','PrivateFeatureState','AvatarRecordCache')]
+    +[(module,name,'identity') for module,names in (
+        (parser_re,('fullmatch',)),(parser_json,('dumps','loads')),(parser_hashlib,('sha256',)),
+        (avatar_state,('json','re','IOSPlacesModel')),(native_source.math,('isfinite',)),
+        (feature_contract,('HEX','SCENARIOS')),(scenario_source,('SCENARIOS',)),(account_source,('validate','_native')))
+        for name in names])

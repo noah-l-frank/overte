@@ -217,7 +217,7 @@ class IOSAvatarFinal:
         config=self.input(subject);shared=dict(root=Path(config['root']),binding=self.bindings[subject],run=self.run,role=self.role,lock=self.locks[subject])
         common=dict(child_run=config['childRunId'],fixture_url=config['fixtureUrl'],ticket=config['ticket'],logout_before=config['logoutBefore'],subject=subject)
         post=IOSAvatarPostLogoutReads.archive(original['post'],store=Frozen(config['paths']['post'],original['post']),
-            baseline=config['baseline']['state'],**common,**shared)
+            baseline=config['baseline']['state'],historical_rows=getattr(self,'_postlogout_rows',None),**common,**shared)
         tail=self.Tail.archive(original['tail'],store=Frozen(config['paths']['tail'],original['tail']),
             baseline=config['baseline'],**common,**shared)
         pointer=IOSAvatarPointers.archive(original['pointers'],store=Frozen(config['paths']['pointers'],original['pointers']),**shared)
@@ -279,7 +279,14 @@ class IOSAvatarFinal:
     def parse(self,value):
         if self.VERSION==2:
             from ios.adapters.avatar_final_pure_round import scope
-            with scope(self,value):return self._parse(value)
+            from ios.adapters.avatar_api_entry import original_cache
+            from ios.adapters.avatar_record_cache import AvatarRecordCache
+            existing=getattr(self,'_postlogout_rows',None)
+            if existing is None:self._postlogout_rows=original_cache('postlogout-parts') or AvatarRecordCache()
+            try:
+                with scope(self,value):return self._parse(value)
+            finally:
+                if existing is None:del self._postlogout_rows
         return self._parse(value)
 
     def _parse(self,value):

@@ -96,3 +96,30 @@ comparison remains under
 `.ios-host-tmp/avatar-account-pure-live-profile-8jqouqm_`. No whole/boundary
 timeout was retried. Remaining measured work includes the repeated complete
 Scene traversals in the actual Final-round call graph.
+
+
+## Historical completed-row reuse in Final2
+
+Final2 now shares the existing operation-local `AvatarRecordCache` for completed
+historical PostLogout rows across its subject/group reopens. Current pending
+rows, prefix ordering, complete inventory, selected-row proofs and quiet-window
+calculation remain literal. Default PostLogout reads and Final1 do not enable
+this reuse. Cache hits recheck actual original-file signatures and membership,
+current parser identities/code/defaults and the current authentication policy;
+changed or unsupported metadata takes the literal decoder.
+
+Five focused host cases pass, including growing prefixes, changed original
+bytes/inodes, changed parser/default/policy and actual Final2 wiring. Seven
+existing default/Legacy1/Final1/HeldFinal2 regressions also pass. Their retained
+corpora contain 298 and 485 files respectively, with all original resources
+closed and source pins unchanged. The initial namespace preflight failed before
+any test because `contracts.py` shadows `contracts.*`; that failure remains
+retained separately.
+
+The same supported historical archive over the earlier 1,113 unchanged files
+took 6.574 seconds versus the earlier 7.353-second profile. This limited timing
+diagnostic does not establish a complete flow deadline or device performance.
+Real API calls already shared the account/parts cache before this change. The
+old 600-second full-flow timeout remains a timeout, and the complete Avatar
+terminal/installed dispatch still requires separate qualification. No source
+clock, API deadline, quiet threshold or capability admission changed.
