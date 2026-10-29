@@ -196,6 +196,62 @@ class OwnedAssetsPicker:
         picker=root(current,'picker',identifier=self.state['picker']);need(picker['chosen']==[url] and not picker['bundleReview'] and not picker['closing'])
         self.state['phase']='primary-chosen';self.save();return current
 
+    def _prepare_slot(self,slot,identifier,action='activate',text=None):
+        """Continue only this original slot; never resend a durable command."""
+        entries=[entry for entry in self.state['inputs'] if entry['slot']==slot]
+        need(len(entries)<=1)
+        if not entries:return self.input(slot,identifier,action,text)
+        entry=entries[0]
+        need(entry['id']==identifier and entry['action']==action and entry['text']==text and entry['command'] is not None)
+        if entry['receipt'] is None and entry['resolvedBy'] is None:self.resolve_pending()
+        need(entry['receipt'] is not None or entry['resolvedBy'] is not None)
+
+    @operation
+    def prepare(self):
+        """Normal preparation/recovery using existing owned original inputs.
+
+        A known lost reply requires its actual passive effect before another
+        slot may run. An unissued/unknown intent stays closed; neither a call
+        failure nor an absent ACK permits another normal input delivery.
+        """
+        need(self.state is not None and self.state['phase'] in ('reserved','page-open','picker-open','primary-chosen')
+            and self.files.state is not None and self.files.state['phase']=='staged')
+        if self.state['phase']=='primary-chosen':return
+        if self.state['phase']=='reserved':
+            if not self.state['inputs']:self.open_page()
+            else:
+                slots={entry['slot'] for entry in self.state['inputs']}
+                need(slots<={'open-edit-menu','open-assets'})
+                if 'open-edit-menu' in slots:self._prepare_slot('open-edit-menu','assets.menu')
+                if 'open-assets' not in slots:
+                    current=self.capture()
+                    need(not any(row['alive'] and row['role'] in ('page','picker') for row in current['inventory']['roots']))
+                self._prepare_slot('open-assets','assets.open');current=self.capture();page=root(current,'page')
+                need(page['visible'] and page['canWrite'] and not page['busy'] and not page['pendingBundle'] and not page['destinationOpen'])
+                self.state['page']=page['rootId'];self.state['phase']='page-open';self.save()
+        if self.state['phase']=='page-open':
+            self._prepare_slot('open-picker','assets.upload');current=self.capture();picker=root(current,'picker')
+            need(picker['ownerRootId']==self.state['page'] and picker['visible'] and not picker['closing']
+                and not picker['requestId'] and not picker['chosen'] and not picker['bundleReview'])
+            self.state['picker']=picker['rootId'];self.state['phase']='picker-open';self.save()
+        if self.state['phase']=='picker-open':
+            directory=local(self.files.state['directory'])
+            self._prepare_slot('focus-folder','asset-file.folder')
+            self._prepare_slot('replace-folder','asset-file.folder','replace',directory)
+            current=self.capture();fields=[row for row in current['controls'] if row['id']=='asset-file.folder']
+            need(len(fields)==1 and fields[0]['assetControl']['fieldText']==directory)
+            self._prepare_slot('submit-folder','asset-file.folder','submit');current=self.capture()
+            need(root(current,'picker',identifier=self.state['picker'])['directory']==self.files.state['directory'])
+            chosen=[entry for entry in self.state['inputs'] if entry['slot']=='choose-primary']
+            if chosen:
+                need(len(chosen)==1 and chosen[0]['id'].startswith('asset-file.row.'))
+                self._prepare_slot('choose-primary',chosen[0]['id']);current=self.capture()
+                url=self.files.state['directory']+'/'+BUNDLES[self.files.state['resource']][0]
+                picker=root(current,'picker',identifier=self.state['picker'])
+                need(picker['chosen']==[url] and not picker['bundleReview'] and not picker['closing'])
+                self.state['phase']='primary-chosen';self.save()
+            else:self.choose_primary()
+
     @operation
     def retire_and_select(self):
         need(self.state['phase']=='primary-chosen');self.files.retire_primary();return self.select_after_primary()

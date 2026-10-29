@@ -5,6 +5,7 @@ The narrow bundle input/readback owner does not establish oven/model outcomes.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
 import time
 import hashlib
 import re
@@ -161,6 +162,54 @@ class IOSAssetsRuntime(IOSScriptRuntime):
             pool=observer.assets_image_reader_pool(clock),storage=observer.assets_image_reader_storage(clock),
             image_reader=observer.assets_image_reader(clock),epoch_ms=self.epoch_ms,monotonic=self.monotonic)
         parts['check']();return dict(parts,image_pool_sources=source)
+
+    @operation
+    def _assets_image_lifetime_sources(self,selector,run,lock):
+        """Assemble existing four primary image journals, without acquisition.
+
+        These owners retain partial resource responsibilities. Construction
+        reserves nothing and neither captures nor retires a product resource.
+        """
+        from ios.adapters.assets_image_reader_lifecycle_sources import AssetsImageReaderLifecycleSources
+        from ios.adapters.assets_image_processing_sources import AssetsImageReaderProcessingSources
+        from ios.adapters.assets_image_storage_sources import AssetsImageReaderStorageSources
+        from ios.adapters.assets_image_pool_sources import AssetsImageReaderPoolSources
+        from ios.adapters.assets_image_reader_lifecycle_ownership import inspect_lifecycles
+        from ios.adapters.assets_image_processing_ownership import inspect_processing
+        from ios.adapters.assets_image_storage_ownership import inspect_storage
+        from ios.adapters.assets_image_pool_ownership import inspect_pool
+        from ios.adapters.assets_session_owners import directory_entries
+        identifier(run);parts=self._assets_sources(selector,lock)
+        binding=deepcopy(parts['binding']);directory=self.state_path(selector).parent
+        observer,clock=parts['observer'],parts['clock_source']
+        def admission():
+            need(parts['check']() is not False and parts['binding']==binding)
+            lock.assert_held();need(lock.path==directory/'script-feature-sources.lock')
+            entries=directory_entries(directory)
+            for inspect in (inspect_lifecycles,inspect_processing,inspect_storage,inspect_pool):
+                for row in inspect(directory,entries):
+                    need(row['runId']==run and row['role']=='primary' and row['binding']==binding)
+            need(parts['check']() is not False and parts['binding']==binding)
+        result={}
+        # Each literal owner gets independent Native/Source1/child cursors.
+        # Reopening one historical owner must not rewind another owner reader.
+        for key,owner_type,kind,channels in (
+                ('image_lifecycle_sources',AssetsImageReaderLifecycleSources,'image-reader-lifecycle',('queue',)),
+                ('image_processing_sources',AssetsImageReaderProcessingSources,'image-processing',('processing',)),
+                ('image_storage_sources',AssetsImageReaderStorageSources,'image-storage',('storage',)),
+                ('image_pool_sources',AssetsImageReaderPoolSources,'image-pool',('pool','storage'))):
+            admission()
+            readers={name:getattr(observer,'assets_image_reader_'+name)(clock) for name in channels}
+            native=observer.bound_native_observer(clock);parent=observer.assets_image_reader(clock)
+            admission()
+            owner=owner_type(PrivateFeatureState(directory/('ios-assets-'+kind+'-'+run+'.json')),
+                binding,run,lock,parts['check'],native=native,image_reader=parent,
+                epoch_ms=self.epoch_ms,monotonic=self.monotonic,**readers)
+            need(owner.lock is lock and owner.run==run and owner.role=='primary' and owner.binding==binding
+                and owner.store.path.parent==directory and owner.native is native and owner.readers['reader'] is parent)
+            admission();result[key]=owner
+        admission();return dict(parts,**result)
+
 
     @operation
     def _assets_peer_components(self,selector,primary_selector,run,fixture_url,lock,primary_lock,backend_config,*,primary_parts=None,primary_scene_parts=None,peer_scene_parts=None):
@@ -377,9 +426,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         elif files.state['phase']=='staging':files.recover_stage()
         need(files.state['phase']=='staged')
         if picker.state is None:picker.reserve()
-        if picker.state['phase']=='reserved':picker.open_page()
-        if picker.state['phase']=='page-open':picker.open_picker()
-        if picker.state['phase']=='picker-open':picker.choose_primary()
+        if picker.state['phase'] in ('reserved','page-open','picker-open'):picker.prepare()
         need(picker.state['phase']=='primary-chosen')
         if replies.state is None:replies.reserve(ticket,resource)
         need(replies.state['phase']=='open' and replies.state['ticket']==ticket and replies.state['resource']==resource and replies.state['namespace']=='original')
