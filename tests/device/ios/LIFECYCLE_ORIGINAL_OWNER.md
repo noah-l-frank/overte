@@ -420,3 +420,36 @@ authenticated device support and whole-feature admission remain false. The
 complete coordinator must still join independent actor/image/restoration
 evidence, repeated resource quiet and final process/SDK retirement. Lifecycle
 remains partial; the completed-area count remains five of fourteen.
+
+
+## Parent-retained original resource history
+
+The explicit original-child profile can retain resource header and capture
+bytes inside each existing parent World original. Profile 3 binds the same
+preparation, original child, passive lease and held or released worker phase.
+Later child-header generations do not overwrite the earlier parent originals.
+Default profiles 1 and 2 retain their existing wire grammar.
+
+Each current read uses the existing source, Task, original descriptor and
+bounded chunk route. The three metadata receivers retain their original bound
+methods and code objects through acquisition and every awaited or chunk read.
+Changing a receiver or its code refuses a new capture before another query;
+the original Up and resource cleanup remain available.
+
+The historical reader validates the exact canonical bytes, hashes, physical
+references, owner membership and consecutive frame indices. It performs no
+query, input, recovery or timestamp replacement. Five actual released and
+quiet observations must span at least three seconds on both original host
+clocks. This is passive host history, not native or SDK resource retirement.
+
+One positive and three counterexample host cases pass with 191 retained files
+in 12 genuine temporary roots. The cases cover later child-header generations,
+changed original bytes or identity, a replaced receiver, and in-place code
+replacement. Their source maps and stopped inventories remain unchanged; each
+standard async runner returns with clean task, descriptor, thread and process
+censuses. The original native 1.5-second and 250-millisecond limits remain.
+
+Native and SDK producers are models, native compilation is unverified and no
+device was used. Whole Lifecycle coordination, independent actor/image and
+restoration joins, and final process/SDK retirement remain unfinished. This
+component does not change the five-of-fourteen completed-area count.
