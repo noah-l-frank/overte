@@ -39,6 +39,10 @@ Armored Chat comes with basic settings for managing itself.
 
 This boolean setting toggles whether AC will be a in-game overlay window, or whether AC will be a external floating window.
 
+This setting applies to desktop window presentation. Android and iOS use the
+normal system tablet, including after scripts are reloaded while the mobile
+tablet is open. A saved desktop window preference does not change that route.
+
 Default is `false`.
 
 #### Maximum saved messages

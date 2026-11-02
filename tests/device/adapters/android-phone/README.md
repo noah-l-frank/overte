@@ -16,11 +16,14 @@ ADB cannot attest a remote grid's selected device. Physical targets pass the
 original Shared physical ARM64 Phone check. The PH-003 virtual path additionally
 reads the selected target's QEMU flag, primary x86_64 ABI, API >=26 and GLES >=3
 before binding; configuration alone cannot relabel a physical/ARM64 target.
-The original private Appium configuration schema and ownership checks remain.
+The original private Appium configuration ownership checks remain. The optional
+closed normal-navigation profile is documented in
+[`NORMAL_NAVIGATION.md`](NORMAL_NAVIGATION.md); only that explicitly configured,
+candidate-bound Phone wrapper advertises the new normal UI operations.
 Besides reserved describe, the wrapper rechecks installed bytes after session
 creation/reuse and before every operation (session creation may itself install an
-application). It does not fabricate touch/probe observations or advertise added
-capabilities. Unbound Appium diagnostics retain the original behavior.
+application). It does not fabricate touch/probe observations. Unbound Appium
+diagnostics retain the original behavior and advertise no added capabilities.
 
 For a future authorized bound run, place the existing Phone candidate verifier's
 arguments in a private adapter manifest command after `adapter.py`: `--record`,

@@ -167,7 +167,8 @@ class ConanCacheManagerTest(unittest.TestCase):
     def test_unmarked_data_and_default_conan_home_are_never_adopted(self):
         with tempfile.TemporaryDirectory(prefix="overte-cache-adopt-test-") as name:
             root = Path(name) / "existing"
-            root.mkdir()
+            root.mkdir(mode=0o755)
+            # Establish the permission fixture even under a private runner umask.
             root.chmod(0o755)
             existing = root / "keep.txt"
             existing.write_text("keep", encoding="utf-8")
