@@ -42,6 +42,7 @@
 #include "../../../tests/device/native/PicoBrowserFeatureBridge.h"
 #include "../../../tests/device/native/PicoWorldCurrentDocumentBridge.h"
 #include "../../../tests/device/native/PicoWorldCurrentInputBridge.h"
+#include "../../../tests/device/native/PicoWorldCurrentConsumptionBridge.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include <ScriptManager.h>
 #include "../../../tests/device/native/PicoEmoteSceneFixture.h"
@@ -148,6 +149,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
 #if defined(ANDROID_APP_PICO_INTERFACE)
         _featurePicoCurrentQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featurePicoCurrentInputQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featurePicoCurrentConsumptionQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAssetsReadQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureWorldRetirementsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
@@ -1606,6 +1608,30 @@ QVariantMap TestScriptingInterface::featurePicoWorldCurrentInput(const QVariantM
     const auto value=QCoreApplication::instance()->property(overte::e2e::picoCurrentInputProperty());
     if(value.userType()!=qMetaTypeId<overte::e2e::PicoCurrentInputProvider>())return {};
     const auto provider=value.value<overte::e2e::PicoCurrentInputProvider>();
+    auto result=provider ? provider(command,anchor) : QVariantMap();
+    return anchor->fresh() ? result : QVariantMap();
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::featurePicoWorldCurrentConsumption(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto anchor=overte::e2e::picoCurrentConsumptionAnchor(command);
+    if(!anchor || !anchor->fresh() || !_featurePicoCurrentConsumptionQueue)return {};
+    const auto queue=_featurePicoCurrentConsumptionQueue;
+    if(QThread::currentThread()!=thread()) {
+        auto value=queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoWorldCurrentConsumption(command),{}};
+        }).values;
+        return anchor->fresh() ? value : QVariantMap();
+    }
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+        || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::previewDirectory(_testResultsLocation)
+        || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString()))return {};
+    const auto value=QCoreApplication::instance()->property(overte::e2e::picoCurrentConsumptionProperty());
+    if(value.userType()!=qMetaTypeId<overte::e2e::PicoCurrentConsumptionProvider>())return {};
+    const auto provider=value.value<overte::e2e::PicoCurrentConsumptionProvider>();
     auto result=provider ? provider(command,anchor) : QVariantMap();
     return anchor->fresh() ? result : QVariantMap();
 #else

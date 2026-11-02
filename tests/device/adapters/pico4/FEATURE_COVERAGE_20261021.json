@@ -721,7 +721,11 @@
         "android/vr/pico/tests/device/test_world_current_input_reader.py",
         "tests/device/adapters/pico4/world_current_focus_parent.py",
         "tests/device/adapters/pico4/WORLD_CURRENT_FOCUS_PARENT.md",
-        "android/vr/pico/tests/device/test_world_current_focus_parent.py"
+        "android/vr/pico/tests/device/test_world_current_focus_parent.py",
+        "tests/device/adapters/pico4/world_current_consumption.py",
+        "tests/device/adapters/pico4/WORLD_CURRENT_CONSUMPTION_READOUT.md",
+        "android/vr/pico/tests/device/test_world_current_consumption_reader.py",
+        "android/vr/pico/tests/device/world-current-consumption-probe-test.js"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -771,7 +775,7 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Extend the integrated existing Parent acting/current-ray/fresh-focus join with actual normal Qt-key/Qt-IME/JNI/Java consumption, independent text/HTTP, Actor/stereo and full source/VM retirement. Root f9a6d25578 passes8 owning cases with all13,625 source hashes/physical signatures unchanged; the text action stays acting. Original three-layer keyboard.json has ASCII-only decoded keys, so normal VR Unicode production remains a concrete source gap, distinct from Qt-IME encoding. Preserve exact Common16 and historical Prefix readers before explicit shared-version dispatch. Full public/resource/journal/archive/host finalization remains open.",
+      "nextExecutableStep": "Compose the existing same-Parent focus stage with the private bounded Trace1 readout and actual normal input plus fresh independent DOM/editor effect. The TSI/probe/strict Host reader chain has17 no-build cases, including actual Node probe dispatch and genuine delayed pre-send RED-to-GREEN with zero sends after expiry. Native/Java Trace1 owning checks and compilation remain unavailable under the current no-compiler boundary; no private wire or complete capability is advertised. Preserve exact Common16, old Prefix readers, full raw records, original clocks and unresolved ownership. Stock keyboard.json remains ASCII-only; arbitrary Unicode Qt-IME is a distinct producer. Actor/stereo and full source/VM/archive/host retirement remain open.",
       "nativeCompilation": "Selected complete NativeWebViewItem/JNI, both conditional sides of whole current-document/current-input TSI getters, actual exported single-owner factories/two hidden DSOs, original Java methods and WorldRayProvider/RayPick/renderer bodies compile and pass host checks. Entity/avatar/HMD and Android looper/WebView/DOM/editor are explicit seams. Whole APK/application and devices unverified.",
       "deviceQualification": "untested"
     },
@@ -918,7 +922,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Address measured complete capture-history validation and per-unlink full copy inventory/namespace/PNG/independent phase costs. The new unchanged120s whole diagnostic at6a06bce8f5 completes26 normal actions/common cleanup but remains red at120.024s during archive retirement:1087 complete copies/manifests,143 confirmed unlinks, no pending unlink and no final host release. All13,621 source hashes/physical signatures remain unchanged;2115 terminal files are stable historical originals, never cold-adopted. Earlier isolated exact-byte CPU improvements and owning green cases remain component evidence, with full guards/budgets retained. No unchanged whole retry or whole completion claim.",
+      "nextExecutableStep": "Address measured complete capture-history and mandatory per-unlink physical copy/namespace/PNG/independent-source costs without dropping checks. Sealed PNG metadata projection passes15 focused cases and11 capture-owner cases; metadata-only measurement improves while the complete owning Journey still times out at120s (exit124):1087 immutable copies/manifests,223 confirmed unlinks and one unresolved issued unlink, no final host release. The2040 terminal files retain full stable hashes/physical signatures and no matching process remains. Concurrent unrelated feature edits are disclosed; no whole-checkout freeze or whole success is claimed. Failed originals remain historical and cannot be cold-adopted; do not retry the unchanged whole case.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },

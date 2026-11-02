@@ -5,6 +5,12 @@ or capability. Fixed Parent `16e0356b03` ends at real focus, with its original
 text action still acting. No trace hook, Common migration, key/clipboard
 setter or product behavior change is included by this document.
 
+The preserved native/Java WIP and its later private Test/probe/Host readout are
+tracked in [the readout record](WORLD_CURRENT_CONSUMPTION_READOUT.md). Their
+source and Host-model status does not qualify the original native consumers or
+register this private protocol. The complete Parent keyboard/effect join remains
+open.
+
 ## Proven original dispatch and encoding boundaries
 
 The actual bodies at this fixed source establish these separate edges:
@@ -165,7 +171,7 @@ Exact proposed raw DTOs (no arbitrary QVariant/Java object export):
 | --- | --- |
 | keyboard-event | keyboardObject, keyEntity, keyType, eventType, key, modifiers, textUtf16Hex, requestedEntity |
 | application-target | eventType, requestedEntity, focusedBefore, handlerMatchesWindow, focusItemMatches, handled, focusedAfter |
-| native-input | authority, editor, eventType, key, modifiers, textUtf16Hex, commitUtf16Hex, preeditUtf16Hex, replacementStart, replacementLength, attributes |
+| native-input | authority, editor, eventType, key, modifiers, textUtf16Hex, commitUtf16Hex, preeditUtf16Hex, replacementStart, replacementLength, attributes, accepted |
 | jni-command | handle, creation, grant, page, url, sourceIdentity, commandUtf16Hex, commandUtf8Hex |
 | java-entry | handle, grant, page, url, commandUtf16Hex, commandUtf8Hex, isMainThread, capturedEpochMs, capturedElapsedMs |
 | java-consume | handle, grant, page, url, commandUtf16Hex, commandUtf8Hex, before, after |

@@ -168,6 +168,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoWorldCurrentDocument(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoWorldCurrentInput(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoWorldCurrentConsumption(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoBrowser(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureNavigationReplies(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureProcessPresence(const QVariantMap& command);
@@ -323,6 +324,7 @@ private:
     std::shared_ptr<overte::e2e::PicoEmoteSceneFixture> _featureEmoteScene;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentInputQueue;
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentConsumptionQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureEmoteSceneQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAssetsReadQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAssetsUploadsQueue;

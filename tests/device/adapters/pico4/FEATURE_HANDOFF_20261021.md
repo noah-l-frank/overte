@@ -17,6 +17,19 @@ native components and original production bodies now compile and pass host
 checks; the full application/APK and every device remain unqualified. See the
 [current build and integration record](BUILD_VERIFICATION_20261022.md).
 
+The2026-11-02 continuation adds the private
+[World consumption readout](WORLD_CURRENT_CONSUMPTION_READOUT.md), with17
+no-build owning cases and original pre-send/outer-exit time fences. Its native
+recorder remains uncompiled; Parent keyboard/effect composition remains open.
+The canonical Lifecycle Actor independently observes the existing Create draft
+model and retains rejected phase originals (23 affected cases); actual shared
+Primary/Actor namespace and lock composition is a separate next step. Browser
+metadata projection preserves complete original checks, but its latest full
+owning Journey still reaches120s with223 confirmed unlinks and one uncertain
+issued unlink. See the [retained Browser diagnostic](BROWSER_CAPTURE_RETIREMENT.md).
+No new feature or device qualification is claimed. Resume checks use no
+compiler, application build, physical device or remote write.
+
 The selected Chat archive-v4/host-close, Avatar original preferences/Bookmarks
 and Snapshot export packets are integrated together. Eleven affected owning
 groups pass after correcting the shared original Avatar observer harness to
