@@ -15,8 +15,8 @@ lock. These are two separate original three-second windows. Public normal acts
 use the closed common arguments and exact active fixture ticket/verb/inputs.
 Wearable verbs refuse before input. The optional version-2
 [People request/cancel child](AVATAR_PEOPLE_CONSENT_SOURCE.md) has separate
-role authority and reserve/execute/complete boundaries; it requires the
-corresponding canonical factory/dispatcher integration. Unconfigured People
+role authority and reserve/execute/complete boundaries, now integrated with
+the canonical factory/dispatcher and separately configured Peer. Unconfigured People
 verbs continue refusing before input. The full common scenario and its
 mandatory multi-user foundation remain unchanged and cannot run to completion
 until their actual sources exist.

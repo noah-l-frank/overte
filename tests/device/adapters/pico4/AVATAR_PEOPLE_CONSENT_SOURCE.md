@@ -141,9 +141,22 @@ and the integer epoch-envelope correction. Full source copies are available for
 the final owning stages; no complete source freeze is claimed for every earlier
 diagnostic attempt.
 
-The canonical factory/dispatcher integration and registry/catalog admission
-must be reviewed on the final common tree. Then actual independent account/
-native consent histories, peer lifecycle/ownership, relationship backend,
-accept/reject/remove, normal page restoration, stereo/loaded-model evidence and
-complete callback/file/host retirement still need composition. These are open
+The canonical factory/dispatcher and private registry/catalog integration is
+now selected on the common tree. Set `OVERTE_PICO_AVATAR_PEER_TARGET` before
+constructing the candidate adapter: its existing candidate seal pins the full
+environment. The canonical route acquires Primary and Peer runtimes outside
+both role locks, reserves under Primary, executes under each separate role
+lock and completes under Primary. Orphan People/role journals block generic
+cleanup even if the Parent root is missing.
+
+Five canonical cases plus six legacy Parent cases pass35.886s with14 source
+files' SHA-256 and full physical identities unchanged; final fixture originals
+are retained in
+`/home/user/.local/state/overte-pico-avatar-canonical-final-20261102-6sx59l2i`.
+Native/candidate/UI/time remain explicit host models. Initial setup diagnostics
+are separate; the earliest failed setup did not retain temporary originals.
+Actual independent account/native consent histories, peer lifecycle/ownership,
+relationship backend, accept/reject/remove, normal page restoration,
+stereo/loaded-model evidence and complete callback/file/host retirement still
+need composition. These are open
 requirements, not successful skips or a completed Avatar feature.

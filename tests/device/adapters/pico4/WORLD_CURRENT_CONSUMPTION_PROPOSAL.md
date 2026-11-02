@@ -213,3 +213,15 @@ UTF16 versus ModifiedUTF8, same-nonce no-reread, wrong scope/field/grant/page/
 nonce, delayed queue/clock, sensitive editor, weak death and original late Java
 callback. Product dispatch must remain once even if the observer expires.
 Full device/OpenXR/scene/Actor/Keyboard-Unicode/retirement claims remain open.
+
+## Existing special keys do not supply a Unicode workaround
+
+The 2026-11-02 source review also followed the existing special-key route.
+`Keyboard::handleSpecialKey` sends Copy/Cut/Paste as ControlModifier plus
+C/X/V through `dispatchKey`. The actual `NativeWebViewItem::keyPressEvent`
+rejects Control/Alt/Meta before any `editorCommand`. Thus those ordinary keys
+cannot be promoted into an available clipboard/Unicode path for this native
+World editor. No clipboard content, alternate keyboard layout, new keys,
+product change or substituted Qt-IME producer is introduced by this review.
+Actual native event acceptance and JavaScript field effect remain separate
+observation obligations.

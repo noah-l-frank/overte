@@ -438,7 +438,12 @@
         "interface/src/scripting/TestScriptingInterface.cpp",
         "android/vr/pico/tests/device/create-voxel-add-bindings.js",
         "tests/device/native/NormalCreateControls.h",
-        "android/vr/pico/tests/device/create-voxel-texture-prepare.py"
+        "android/vr/pico/tests/device/create-voxel-texture-prepare.py",
+        "tests/device/adapters/pico4/create_peer_source.py",
+        "tests/device/adapters/pico4/create_peer_parent.py",
+        "tests/device/adapters/pico4/CREATE_INDEPENDENT_MODEL_PEER.md",
+        "android/vr/pico/tests/device/create_peer_originals_host.py",
+        "android/vr/pico/tests/device/test_create_peer_source.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -468,9 +473,9 @@
         "voxelValue"
       ],
       "missingOperationsOrEvidence": [
-        "Whole model/texture creation and actual local JSON picker/export ownership",
-        "Actual domain rez-denial/recovery authority and independent actor",
-        "Independent entity/history, original export, complete resource and stereo image joins"
+        "Complete independent GUI/permission/voxel Actor and production second-client observer composition",
+        "Original Model/texture CPU resources are joined privately; executed GPU/stereo evidence and complete public capability remain open",
+        "Before-input independent scene inventory and final global archive/host/resource retirement"
       ],
       "requiredOriginalEvidence": [
         "Original entity UUID/properties/history and rez authority",
@@ -483,7 +488,7 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "Connect the reviewed normal Add/preset-1 original entity and real qrc texture path to the live production Parent/Session/NativeNavigationIO route with independent actor and stereo evidence. Root freshly compiles and verifies the original normal Add/Edit/Restore/Delete CPU path with actual Ground/Grass FileResourceRequest, NetworkTexture, decoded pixels and resource retirement; retained-renderer and ignored-controller counterexamples pass. Property application/Octree/node/domain/avatar/lifecycle/SDK/scene-release remain explicit host endpoints. Actual rez denial/recovery, material/GPU draw, complete heap/process retirement and full parent remain open.",
+      "nextExecutableStep": "Integrate the retained independently owned Model peer source into the production observer CLI/factory using a distinct configured Pico client and actual measured entity UUID/birth/provider scope. The private normal Parent/Model/texture/Delete and typed process return packet passed11 source cases and19 legacy Parent cases before the checkpoint. Same-client, foreign birth/provider, ignored material and premature worker return refuse. Native/Qt/SDK/domain replication are explicit host models; production second-client/GPU/stereo/global archive and the complete common Create Actor remain unqualified.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "nativeDialogIntegrationStatus": "Focused original Qt5 dialog pipeline passed after restoring actual GUI Window receiver affinity and original worker DirectConnection call. Full application/V8 TUs and devices unqualified; earlier unsupported moved-receiver diagnostic crash documented.",
@@ -781,7 +786,7 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Compose the existing same-Parent focus stage with the private bounded Trace1 readout and actual normal input plus fresh independent DOM/editor effect. The TSI/probe/strict Host reader chain has17 no-build cases, including actual Node probe dispatch and genuine delayed pre-send RED-to-GREEN with zero sends after expiry. Native/Java Trace1 owning checks and compilation remain unavailable under the current no-compiler boundary; no private wire or complete capability is advertised. Preserve exact Common16, old Prefix readers, full raw records, original clocks and unresolved ownership. Stock keyboard.json remains ASCII-only; arbitrary Unicode Qt-IME is a distinct producer. Actor/stereo and full source/VM/archive/host retirement remain open.",
+      "nextExecutableStep": "Compose the existing same-Parent focus stage with the private bounded Trace1 readout and actual normal input plus fresh independent DOM/editor effect. The TSI/probe/strict Host reader chain has17 no-build cases, including actual Node probe dispatch and genuine delayed pre-send RED-to-GREEN with zero sends after expiry. Native/Java Trace1 owning checks and compilation remain unverified; no private wire or complete capability is advertised. Preserve exact Common16, old Prefix readers, full raw records, original clocks and unresolved ownership. Stock keyboard.json remains ASCII-only; arbitrary Unicode Qt-IME is a distinct producer. Actor/stereo and full source/VM/archive/host retirement remain open. Existing Keyboard special Copy/Paste keys send ControlModifier; NativeWebViewItem rejects Control/Alt/Meta, so those keys do not establish a normal Unicode source either. Preserve product behavior.",
       "nativeCompilation": "Selected complete NativeWebViewItem/JNI, both conditional sides of whole current-document/current-input TSI getters, actual exported single-owner factories/two hidden DSOs, original Java methods and WorldRayProvider/RayPick/renderer bodies compile and pass host checks. Entity/avatar/HMD and Android looper/WebView/DOM/editor are explicit seams. Whole APK/application and devices unverified.",
       "deviceQualification": "untested"
     },
@@ -1832,7 +1837,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Extend the actual Common16/OverteSession/PrimaryOperations graph beyond first normal Create/type into exact original World-envelope/native gesture ownership for step3. Canonical editor and independent Actor now share candidate/session/native binding and actual lock inode; original Common peer readiness, lifecycle/continuity waits and consumed global cursors are retained. The separate3-case operations group passes82.939s, legacy PrimaryOperations10/14.699s, with57 frozen dependencies; Actor28 remains a separate selection. Changed phase originals are retained before refusal with no repeated input. Actual stock VR Unicode, later generations/G1/native birth, stereo/typed return and full resource/archive/IPC/host closure remain open.",
+      "nextExecutableStep": "Finish and qualify V2 Actor storage before extending Common16 past normal Create/type: the existing14 parts per observation would require714 parts for the minimum51 observations, exceeding512. Preserve all raw originals, original clocks, strict staged-transfer/retirement and unchanged512-part/16MiB limits; the new draft remains incomplete and unqualified. Then join step3 World-envelope/native gesture ownership, later generations/G1/native birth, stereo/typed return and full resource/archive/IPC/host closure. Canonical editor and independent Actor already share candidate/session/native binding and actual lock inode; the separate3-case Common operations group passed82.939s plus10 legacy operations14.699s. Stock VR Unicode remains open.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

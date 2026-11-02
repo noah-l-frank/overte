@@ -17,18 +17,31 @@ native components and original production bodies now compile and pass host
 checks; the full application/APK and every device remain unqualified. See the
 [current build and integration record](BUILD_VERIFICATION_20261022.md).
 
-The2026-11-02 continuation adds the private
+The 2026-11-02 continuation adds the private
 [World consumption readout](WORLD_CURRENT_CONSUMPTION_READOUT.md), with17
 no-build owning cases and original pre-send/outer-exit time fences. Its native
 recorder remains uncompiled; Parent keyboard/effect composition remains open.
-The canonical Lifecycle Actor independently observes the existing Create draft
-model and retains rejected phase originals (23 affected cases); actual shared
-Primary/Actor namespace and lock composition is a separate next step. Browser
-metadata projection preserves complete original checks, but its latest full
-owning Journey still reaches120s with223 confirmed unlinks and one uncertain
-issued unlink. See the [retained Browser diagnostic](BROWSER_CAPTURE_RETIREMENT.md).
-No new feature or device qualification is claimed. Resume checks use no
-compiler, application build, physical device or remote write.
+The canonical Lifecycle Actor now shares the actual candidate/session/source
+lock with the normal Create editor; the same Common16/OverteSession graph
+passes peer readiness and its first two actions in3 cases/82.939s. Its next
+required boundary is lossless storage capacity: the current14-part observation
+format cannot fit the minimum51 observations under the unchanged512-part cap.
+The committed V2 storage and G1 Navigation continuations remain unfinished WIP
+as recorded in the [consolidation checkpoint](CONSOLIDATION_CHECKPOINT_20261102.md).
+
+Normal People request/cancellation is integrated through canonical Pico binding
+with two independently owned role sources;5 canonical cases plus6 legacy
+Parent cases pass35.886s. The Audio recording cycle joins separately retained
+digital PC preview files, not physical acoustic evidence (10 cases/55.892s).
+The retained independent Create Model peer packet passes11 new source cases
+and19 legacy Parent cases; production observer integration remains next.
+The central catalog contains295 disjoint groups, including the new Create
+peer source group and the four Avatar/Audio/Lifecycle groups. Browser namespace
+and complete physical archive checks pass21 affected cases; previous complete
+owning Journeys still time out120s. See the
+[retained Browser diagnostics](BROWSER_CAPTURE_RETIREMENT.md).
+No new feature or device qualification is claimed. Source-complete areas remain
+3/14; host models and native/device qualification remain separate.
 
 The selected Chat archive-v4/host-close, Avatar original preferences/Bookmarks
 and Snapshot export packets are integrated together. Eleven affected owning
