@@ -12,6 +12,9 @@ QtObject {
     property bool screenSpacePresentation: false
     // UIKit may already position the render surface at the safe-content origin.
     property bool screenSpaceOriginAtSafeArea: false
+    // Opt-in presentation policy: reserve matching space on both sides of
+    // an asymmetric cutout without changing the measured platform insets.
+    property bool centerScreenSpaceHorizontally: false
 
     property int safeInsetLeft: 0
     property int safeInsetTop: 0

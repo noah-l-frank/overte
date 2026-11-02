@@ -95,7 +95,7 @@ Item {
             hoverEnabled: touchMetrics.hoverSupported;
             propagateComposedEvents: true;
 
-            onPressed: {
+            onPressed: function(mouse) {
                 mouse.accepted = false
             }
 

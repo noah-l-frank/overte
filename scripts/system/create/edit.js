@@ -16,7 +16,7 @@
 
 /* global Script, SelectionDisplay, LightOverlayManager, CameraManager, Grid, GridTool, EditTools, EditVoxels, EntityListTool, Vec3, SelectionManager,
    Overlays, OverlayWebWindow, UserActivityLogger, Settings, Entities, Tablet, Toolbars, Messages, Menu, Camera,
-   progressDialog, tooltip, MyAvatar, Quat, Controller, Clipboard, HMD, UndoStack, OverlaySystemWindow */
+   progressDialog, tooltip, MyAvatar, Quat, Controller, Clipboard, HMD, PlatformInfo, UndoStack, OverlaySystemWindow */
 
 (function() { // BEGIN LOCAL_SCOPE
     var createApp = {};
@@ -178,12 +178,26 @@
         false
     );
 
+    // This editor has its own engine. A mobile presenter sets toolbarMode=true,
+    // but that is not a request for desktop tool windows. Cache the native host
+    // identity instead of depending on globals from defaultScripts.js.
+    var nativeMobileHost = false;
+    if (typeof PlatformInfo !== "undefined" && typeof PlatformInfo.getComputer === "function") {
+        try {
+            var nativeComputer = JSON.parse(PlatformInfo.getComputer());
+            nativeMobileHost = !!nativeComputer && (nativeComputer.OS === "ANDROID" || nativeComputer.OS === "IOS");
+        } catch (error) {
+            // Older/unknown hosts retain their existing presentation choices.
+        }
+    }
+
     /**
      * @description Returns true in case we should use the tablet version of the CreateApp
      * @returns boolean
      */
     var shouldUseEditTabletApp = function() {
         return HMD.active
+            || nativeMobileHost
             || Tablet.getTablet("com.highfidelity.interface.tablet.system").toolbarMode === false
             || (typeof ANDROID_PHONE_INTERFACE !== "undefined" && ANDROID_PHONE_INTERFACE)
             || (!HMD.active && !Settings.getValue("desktopTabletBecomesToolbar", true));

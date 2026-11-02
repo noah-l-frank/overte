@@ -295,6 +295,20 @@ def _public_network_bindings():
             "--symlink", "certs/ca-certificates.crt", "/etc/ssl/cert.pem"]
 
 
+def _public_tool_aliases():
+    """Recreate fixed public compiler/linker and awk aliases inside RO /usr."""
+    result = []
+    for name in ("ld", "cc", "c++", "awk"):
+        tool = Path("/usr/bin") / name
+        alias = "/etc/alternatives/" + name
+        if tool.is_symlink() and os.readlink(tool) == alias:
+            target = tool.resolve(strict=True)
+            require(_inside(target, Path("/usr")) and target.is_file(),
+                    "system tool alias escapes prepared /usr")
+            result += ["--symlink", str(target), alias]
+    return result
+
+
 def namespace_command(candidate, command, *, prepared_roots=(), network=False,
                       environment=None, timeout=DEFAULT_TIMEOUT):
     """Build an explicit namespace boundary; network is a trusted fetch role.
@@ -332,14 +346,7 @@ def namespace_command(candidate, command, *, prepared_roots=(), network=False,
     for alias in ("bin", "sbin", "lib", "lib64"):
         if (Path("/usr") / alias).is_dir():
             argv += ["--symlink", "usr/" + alias, "/" + alias]
-    # Some hosts select their linker through /etc/alternatives. Recreate only
-    # this public tool alias, after proving its target is already in RO /usr.
-    linker = Path("/usr/bin/ld")
-    if linker.is_symlink() and os.readlink(linker) == "/etc/alternatives/ld":
-        target = linker.resolve(strict=True)
-        require(_inside(target, Path("/usr")) and target.is_file(),
-                "system linker alias escapes prepared /usr")
-        argv += ["--symlink", str(target), "/etc/alternatives/ld"]
+    argv += _public_tool_aliases()
     argv += ["--proc", "/proc", "--dev", "/dev", "--size", str(16 * 1024 ** 2),
              "--tmpfs", "/run", "--bind", str(candidate), "/work",
              "--ro-bind", str(candidate / ".git"), "/work/.git",
