@@ -24,16 +24,17 @@ from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.contract import arguments
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 
-VERSION=1
+VERSION=2
 OPERATIONS=frozenset('feature.avatar-people.'+kind for kind in ('act','observe','cleanup'))
 URL_VERBS={'avatar-url','avatar-restore'}
 FAVORITE_VERBS={'avatar-bookmark-save','avatar-scale','avatar-bookmark-choose','avatar-bookmark-delete'}
+PEOPLE_VERBS={'connection-request','connection-cancel'}
 SOURCES={'preferences':preferences,'callbacks':callbacks}
 CLASSES={'preferences':preferences.NativePicoAvatarPreferences,'callbacks':callbacks.NativePicoAvatarModelConnections}
 
 
 class PicoAvatarParent:
-    def __init__(self,store,binding,phase,lock,urls,favorites,sources,guard,*,monotonic=time.monotonic):
+    def __init__(self,store,binding,phase,lock,urls,favorites,sources,guard,*,people=None,monotonic=time.monotonic):
         need(isinstance(lock,ScriptSourceLock) and isinstance(phase,PhaseFixtureReader) and phase.area=='avatar-people'
             and set(sources)==set(SOURCES) and all(callable(v) for v in (*sources.values(),urls,favorites,guard,monotonic)))
         self.store,self.binding,self.phase,self.lock=store,deepcopy(context(binding)),phase,lock
@@ -42,6 +43,8 @@ class PicoAvatarParent:
         self.archive=AvatarOriginalFrames(store,self.binding,self.run,phase.fixture_url,'parent')
         key=store.path.name.removeprefix('avatar-parent-owner-').removesuffix('-'+self.run+'.json')
         need(re.fullmatch('[0-9a-f]{32}',key) is not None);self.key=key
+        need(people is None or callable(people));self.people_factory,self.people_instance=people,None
+        self.version=1
         self.readers={};self.child_pair=None;self.clock=None;self.previous=store.read()
         self.state=dict(prepared=False,frames=[],calls=[],pending=None)
         self.bound()
@@ -54,8 +57,9 @@ class PicoAvatarParent:
         # Count every persisted parent/child original and root in this exact
         # target/run domain, including compressed payload's full decoded bytes.
         files=total=0
-        for kind in ('parent','urls','favorites'):
+        for kind in ('parent','urls','favorites','people','people-role-primary','people-role-peer'):
             for group in ('owner','frame'):
+                if kind.startswith('people-role-') and group=='frame':continue
                 prefix='avatar-'+kind+'-'+group+'-'+self.key+'-'+self.run
                 for path in self.store.path.parent.glob(prefix+'*.json'):
                     suffix='' if group=='owner' else '-[0-9a-f]{32}'
@@ -96,7 +100,7 @@ class PicoAvatarParent:
             exact(call,{'request','before','after','child'})
             request=arguments('feature.avatar-people.act',call['request']);ticket=request['ticket']
             need(request['runId']==self.run and request['fixtureUrl']==self.phase.fixture_url and ticket not in tickets
-                and request['verb'] in URL_VERBS|FAVORITE_VERBS and integer(call['before'],1,len(state['frames'])))
+                and request['verb'] in URL_VERBS|FAVORITE_VERBS|(PEOPLE_VERBS if self.version>=2 else set()) and integer(call['before'],1,len(state['frames'])))
             activation=phase_original(state['frames'][call['before']-1]['phaseAfter'],self.run)
             need(activation['ticket']==ticket and activation['stimulus']==dict(verb=request['verb'],inputs=request['inputs']))
             if call['after'] is not None:
@@ -110,15 +114,16 @@ class PicoAvatarParent:
         need(pending==([] if state['pending'] is None else [state['pending']]))
     def restore(self,record):
         exact(record,{'picoAvatarParentVersion','binding','runId','fixtureUrl','payload'})
-        need(type(record['picoAvatarParentVersion']) is int and record['picoAvatarParentVersion']==VERSION
+        need(type(record['picoAvatarParentVersion']) is int and record['picoAvatarParentVersion'] in (1,VERSION)
             and same(record['binding'],self.binding) and record['runId']==self.run and record['fixtureUrl']==self.phase.fixture_url)
+        self.version=record['picoAvatarParentVersion']
         states=unpack(record['payload']);need(len(states)==1);state=states[0]
         need(type(state) is dict and type(state.get('frames')) is list and len(state['frames'])<=128)
         state['frames']=[self.archive.frame_original(ref) for ref in state['frames']];self.check(state);return state
     def save(self):
         self.bound();self.check(self.state);payload=deepcopy(self.state)
         payload['frames']=[self.archive.frame_reference(frame) for frame in self.state['frames']]
-        record=dict(picoAvatarParentVersion=VERSION,binding=self.binding,runId=self.run,fixtureUrl=self.phase.fixture_url,payload=pack([payload]))
+        record=dict(picoAvatarParentVersion=self.version,binding=self.binding,runId=self.run,fixtureUrl=self.phase.fixture_url,payload=pack([payload]))
         self.store.write(record,self.previous);self.previous=deepcopy(record);self.bound()
     def reader(self,key):
         if key not in self.readers:
@@ -147,6 +152,17 @@ class PicoAvatarParent:
         need(all(same(child.previous,child.store.read()) for child in (urls,favorites)))
         return urls,favorites
     def child_original(self,call,frame):
+        if call['request']['verb'] in PEOPLE_VERBS:
+            exact(call['child'],{'kind','frame'});need(call['child']['kind']=='people')
+            owner=self.people_child();need(same(call['child']['frame'],owner.receipt(call['request'])))
+            original=owner.archive.frame_original(call['child']['frame'])
+            final=owner.archive.frame_original(original['frames'][-1])
+            need(same(final['phaseAfter']['activations'],frame['phaseAfter']['activations']))
+            native=owner.frame(final)['primary'];values=self.frame(frame)
+            need(native['instance']==values['callbacks']['instance']
+                and native['source']['avatarLoads']['instance']==values['callbacks']['source']['avatarInstance']
+                and native['source']['sessionId']==values['callbacks']['source']['sessionId'])
+            return
         kind='urls' if call['request']['verb'] in URL_VERBS else 'favorites'
         exact(call['child'],{'kind','frame'});need(call['child']['kind']==kind)
         urls,favorites=self.children();owner=urls if kind=='urls' else favorites
@@ -191,6 +207,40 @@ class PicoAvatarParent:
             frame=owner.originals.frame_reference(child) if owner is urls else owner.archive.frame_reference(child))
         self.child_original(call,self.state['frames'][-1]);self.state['pending']=None;self.save()
         self.archive.verify_frames(self.state['frames']);return dict(performed=True)
+    def people_child(self):
+        from adapters.pico4.avatar_people import PicoAvatarPeople
+        need(callable(self.people_factory))
+        if self.people_instance is None:self.people_instance=self.people_factory()
+        owner=self.people_instance
+        need(isinstance(owner,PicoAvatarPeople) and owner.lock is self.lock and owner.run==self.run
+            and same(owner.binding,self.binding) and owner.phase.fixture_url==self.phase.fixture_url)
+        return owner
+    def reserve_people(self,request):
+        """Persist Parent and child intent under Primary; perform no input."""
+        arguments('feature.avatar-people.act',request);self.bound()
+        need(request['verb'] in PEOPLE_VERBS and request['runId']==self.run and request['fixtureUrl']==self.phase.fixture_url
+            and self.state['prepared'] and self.state['pending'] is None and len(self.state['calls'])<16
+            and request['ticket'] not in {row['request']['ticket'] for row in self.state['calls']})
+        owner=self.people_child()
+        frame=self.sample();activation=phase_original(frame['phaseAfter'],self.run)
+        need(frame['phaseAfter']['active'] and activation['ticket']==request['ticket']
+            and same(activation['stimulus'],dict(verb=request['verb'],inputs=request['inputs'])))
+        self.version=VERSION
+        self.state['calls'].append(dict(request=deepcopy(request),before=len(self.state['frames']),after=None,child=None))
+        self.state['pending']=request['ticket'];self.save();owner.reserve(request,parent_original=self.previous)
+    def execute_people(self,request):
+        """Run only after the real outer Primary lock has been released."""
+        need(self.people_instance is not None)
+        return self.people_instance.execute(request)
+    def complete_people(self,request,receipt):
+        """Admit exact retained child originals under the original Parent lock."""
+        self.bound();need(self.state['pending']==request['ticket'] and self.state['calls']
+            and same(self.state['calls'][-1]['request'],request))
+        owner=self.people_child();need(same(receipt,owner.receipt(request)))
+        self.sample();call=self.state['calls'][-1];call['after']=len(self.state['frames'])
+        call['child']=dict(kind='people',frame=deepcopy(receipt));self.child_original(call,self.state['frames'][-1])
+        owner.fresh_current();self.state['pending']=None;self.save();self.archive.verify_frames(self.state['frames']);owner.fresh_current()
+        return dict(performed=True)
     def observe(self,request):
         arguments('feature.avatar-people.observe',request)
         raise NativeUIError('Complete original Avatar/People observation and independent actor are unavailable')

@@ -727,7 +727,42 @@ def create_adapter(args, base_class):
                 monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
-        def _avatar_parent(self,target,run,*,source_lock=None):
+        def _avatar_people_roles(self,target,peer_target,*,source_lock=None):
+            from copy import deepcopy
+            _need(type(peer_target) is str and 1<=len(peer_target)<=256 and peer_target==peer_target.strip()
+                and peer_target!=target and self.pico_configuration is not None)
+            locks=dict(primary=self._script_journey()._lock(target,source_lock),
+                peer=self._script_journey()._lock(peer_target))
+            _need(locks['primary'].path!=locks['peer'].path and all(lock._owner is None for lock in locks.values()))
+            roles={}
+            for role,selected in (('primary',target),('peer',peer_target)):
+                lock=locks[role]
+                with lock.held():
+                    route,_observe,binding=self._script_runtime(selected)
+                    native=self._native_feature_observer(selected)
+                    _need(native.guard() is not False and self.require_pico_session_identity(selected)==binding['processIdentity']
+                        and native.pid==int(binding['processIdentity'].split(':')[0]))
+                    expected=deepcopy(binding)
+                    def guard(selected=selected,native=native,expected=expected,lock=lock):
+                        lock.assert_held();_need(native.guard() is not False
+                            and self.require_pico_session_identity(selected)==expected['processIdentity'])
+                        return True
+                    roles[role]=dict(binding=expected,lock=lock,
+                        native=lambda selected=selected:self._avatar_state_observer(selected),
+                        widgets=route.io.capture,
+                        controls=lambda intent,before_send,selected=selected:self._avatar_people_controls(
+                            selected,intent,before_send=before_send),guard=guard)
+            return roles
+
+        @_private
+        def _avatar_parent_store(self,target,run):
+            from feature_journeys.contract import identifier
+            identifier(run);_need(self.pico_configuration is not None)
+            key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
+            return PrivateFeatureState(self.pico_configuration[1]/('avatar-parent-owner-'+key+'-'+run+'.json'))
+
+        @_private
+        def _avatar_parent(self,target,run,*,source_lock=None,people_roles=None):
             from adapters.pico4.avatar_parent import PicoAvatarParent
             from adapters.feature_fixture_access import client
             from feature_journeys.phase_fixture import PhaseFixtureReader
@@ -736,17 +771,25 @@ def create_adapter(args, base_class):
             _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
             phase=PhaseFixtureReader(client(Path(os.environ["OVERTE_PICO_FEATURE_FIXTURE_CONFIG"]),
                 configured_url=os.environ.get("OVERTE_E2E_FEATURE_FIXTURE_URL")),run,"avatar-people")
-            key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
-            store=PrivateFeatureState(self.pico_configuration[1]/('avatar-parent-owner-'+key+'-'+run+'.json'))
+            store=self._avatar_parent_store(target,run)
+            people=None
+            if people_roles is not None:
+                from adapters.pico4.avatar_people import PicoAvatarPeople
+                _need(people_roles['primary']['lock'] is lock and people_roles['primary']['binding']==binding)
+                child=PrivateFeatureState(store.path.with_name(store.path.name.replace('avatar-parent-owner-','avatar-people-owner-',1)))
+                people=lambda:PicoAvatarPeople(child,binding,phase,lock,people_roles,
+                    monotonic=native.monotonic,sleep=native.sleep)
             return PicoAvatarParent(store,binding,phase,lock,
                 lambda:self._avatar_urls(target,run,source_lock=lock),lambda:self._avatar_favorites(target,run,source_lock=lock),
                 dict(preferences=lambda:self._avatar_preferences_observer(target),callbacks=lambda:self._avatar_model_connections_observer(target)),
-                native.guard,monotonic=native.monotonic)
+                native.guard,people=people,monotonic=native.monotonic)
 
         def _avatar_parent_owned(self,target):
             if self.pico_configuration is None:return False
             key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
-            for prefix,suffix in (('avatar-parent-owner-',r'[0-9a-f]{32}'),('avatar-parent-frame-',r'[0-9a-f]{32}-[0-9a-f]{32}')):
+            for prefix,suffix in (('avatar-parent-owner-',r'[0-9a-f]{32}'),('avatar-parent-frame-',r'[0-9a-f]{32}-[0-9a-f]{32}'),
+                    ('avatar-people-owner-',r'[0-9a-f]{32}'),('avatar-people-frame-',r'[0-9a-f]{32}-[0-9a-f]{32}'),
+                    ('avatar-people-role-primary-owner-',r'[0-9a-f]{32}'),('avatar-people-role-peer-owner-',r'[0-9a-f]{32}')):
                 for path in self.pico_configuration[1].glob(prefix+key+'-*.json'):
                     _need(re.fullmatch(prefix+key+'-'+suffix+r'\.json',path.name))
                     if PrivateFeatureState(path).read() is not None:return True
@@ -3629,12 +3672,27 @@ def create_adapter(args, base_class):
                     # a complete feature triple, actor, model or image verdict.
                     _need(os.environ.get('OVERTE_PICO_AVATAR_PARENT_SOURCE','0')=='1')
                     from feature_journeys.contract import arguments
-                    from adapters.pico4.avatar_parent import OPERATIONS
+                    from adapters.pico4.avatar_parent import OPERATIONS,PEOPLE_VERBS
                     _need(operation in OPERATIONS);arguments(operation,values)
                     lock=self._script_journey()._lock(target)
-                    with lock.held():
-                        flow=self._avatar_parent(target,values['runId'],source_lock=lock)
-                        result=getattr(flow,operation.rsplit('.',1)[1])(values)
+                    people_act=operation=='feature.avatar-people.act' and values['verb'] in PEOPLE_VERBS
+                    original=self._avatar_parent_store(target,values['runId']).read()
+                    history_needs_peer=original is not None and type(original.get('picoAvatarParentVersion')) is int and original['picoAvatarParentVersion']==2
+                    roles=None
+                    if people_act or history_needs_peer:
+                        # Resolve each actual role separately before reserving
+                        # the Parent. Peer SDK work and waits never nest locks.
+                        roles=self._avatar_people_roles(target,os.environ.get('OVERTE_PICO_AVATAR_PEER_TARGET'),source_lock=lock)
+                    if people_act:
+                        with lock.held():
+                            flow=self._avatar_parent(target,values['runId'],source_lock=lock,people_roles=roles)
+                            flow.reserve_people(values)
+                        receipt=flow.execute_people(values)
+                        with lock.held():result=flow.complete_people(values,receipt)
+                    else:
+                        with lock.held():
+                            flow=self._avatar_parent(target,values['runId'],source_lock=lock,people_roles=roles)
+                            result=getattr(flow,operation.rsplit('.',1)[1])(values)
                 elif operation in graphics_journey.OPERATIONS:
                     _need(graphics_journey.configured(os.environ))
                     from feature_journeys.contract import arguments
