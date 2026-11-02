@@ -28,6 +28,12 @@ For dependency verification without launching Electron, CI uses
 `npm test`, and the packager's version entry point. This checks dependency and
 console behavior, not an interactive GUI session or a complete installer.
 
+The ASAR packaging subtree pins patched `glob` and `minimatch` releases through
+scoped npm overrides while its upstream dependency ranges still include affected
+versions. The dependency compatibility test exercises real archive creation,
+symlinks, extraction, and unpack patterns with these versions. Review these
+overrides when updating `@electron/asar`; retain the audit and packaging test.
+
 ## Packaging
 
 The CMake target `packaged-server-console` builds the selected native components
