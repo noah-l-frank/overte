@@ -728,25 +728,27 @@ void TabletProxy::resizeAndroidTablet(int width, int height) {
             || surfaceHeight <= topInset + bottomInset) {
         return;
     }
+    // Match TabletSurfaceGeometry's opt-in centered presentation while
+    // preserving UIKit's already-safe local coordinate system.
+    const int horizontalProtection = std::max(leftInset, rightInset);
+    const bool centered = root->property("screenSpaceCenterHorizontally").toBool()
+        && surfaceWidth > 2 * horizontalProtection;
+    const int tabletLeft = centered ? horizontalProtection : leftInset;
+    const int tabletRight = centered ? horizontalProtection : rightInset;
 #if defined(Q_OS_IOS)
-    // OffscreenUi itself is already sized to UIKit's safe-content rect. Its
-    // children therefore use a local (0, 0) origin; applying the native inset
-    // here a second time clips the lower part of the tablet and offsets every
-    // hit target from the pixels sent to the Vulkan HUD.
-    _desktopWindow->setPosition(0, 0);
+    // OffscreenUi already starts at UIKit's safe-content origin.
+    _desktopWindow->setPosition(tabletLeft - leftInset, 0);
 #else
-    // Android's offscreen surface covers the complete display, so its tablet
-    // remains inset from the physical rounded-corner and status-bar edges.
-    _desktopWindow->setPosition(leftInset, topInset);
+    _desktopWindow->setPosition(tabletLeft, topInset);
 #endif
-    _desktopWindow->setSize(surfaceWidth - leftInset - rightInset,
+    _desktopWindow->setSize(surfaceWidth - tabletLeft - tabletRight,
                             surfaceHeight - topInset - bottomInset);
 #if defined(Q_OS_IOS)
     logIOSRuntimeMarker(
         "OVERTE_IOS_TOUCH_UI_GATE stage=tablet-resized",
-        "x=", 0,
+        "x=", tabletLeft - leftInset,
         "y=", 0,
-        "width=", surfaceWidth - leftInset - rightInset,
+        "width=", surfaceWidth - tabletLeft - tabletRight,
         "height=", surfaceHeight - topInset - bottomInset,
         "ime_bottom=", imeBottomInset,
         "coordinate_space=safe-content");
