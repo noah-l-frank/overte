@@ -26,8 +26,9 @@ with tempfile.TemporaryDirectory(prefix='overte-snapshot-qml-') as temporary:
     (boundary / 'qmldir').write_text('module TestSnapshot\nsingleton Snapshot 1.0 Snapshot.qml\n'
         'singleton KeyboardScriptingInterface 1.0 Keyboard.qml\n')
     (boundary / 'Snapshot.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject {'
+        ' property string selectedFormat: "png";'
         ' function getAvailableSnapshotFormats() { return ["png", "jpg", "webp"] }'
-        ' function getSnapshotFormat() { return "png" } function setSnapshotFormat(value) {}'
+        ' function getSnapshotFormat() { return selectedFormat } function setSnapshotFormat(value) { selectedFormat = value }'
         ' function snapshotFileUrl(path) { return "" } }\n')
     (boundary / 'Keyboard.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject {'
         ' property bool use3DKeyboard: true; property bool raised: false }\n')

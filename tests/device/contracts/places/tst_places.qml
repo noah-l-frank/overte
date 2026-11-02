@@ -128,6 +128,42 @@ TestCase {
         click("saveBookmark");
         compare(lastMessage("ADD_BOOKMARK").name, "Ä New Place");
     }
+    function test_bookmarkDialogFitsWrappedAddress_data() {
+        return [{tag: "narrow", width: 320, fontScale: 1},
+                {tag: "narrow-large-text", width: 320, fontScale: 1.5},
+                {tag: "tablet", width: 700, fontScale: 1}];
+    }
+    function test_bookmarkDialogFitsWrappedAddress(data) {
+        page.width = data.width;
+        page.height = 640;
+        var metrics = control("placesTouchMetrics");
+        metrics.profile.directTouch = true;
+        metrics.profile.fontScale = data.fontScale;
+        deliver("CURRENT_LOCATION", {data: "hifi://example-long-domain/123.456,234.567,345.678/"
+            + "0.000,0.707,0.000,0.707?bookmark-description=an-address-that-wraps"});
+        click("bookmarksTab");
+        click("addBookmark");
+        var dialog = control("bookmarkDialog");
+        var field = control("bookmarkName");
+        var save = control("saveBookmark");
+        wait(100);
+        verify(dialog.visible && dialog.height > 0);
+        verify(dialog.width <= page.width - 24 + 1);
+        verify(dialog.height <= page.height, "Wrapped dialog must remain inside the usable surface");
+        for (var i = 0; i < 2; ++i) {
+            var item = [field, save][i];
+            var pos = item.mapToItem(dialog.contentItem.parent, 0, 0);
+            verify(item.width > 0 && item.height >= rootMinimumControlHeight(metrics));
+            verify(pos.x >= 0 && pos.x + item.width <= dialog.width + 1);
+            verify(pos.y >= 0 && pos.y + item.height <= dialog.height + 1);
+        }
+        field.text = "Wrapped address";
+        click("saveBookmark");
+        compare(lastMessage("ADD_BOOKMARK").name, "Wrapped address");
+    }
+    function rootMinimumControlHeight(metrics) {
+        return Math.max(48, metrics.adaptiveMinimumControlHeight);
+    }
     function test_duplicateAndUnchangedBookmarkNames() {
         deliver("BOOKMARKS_DATA", {data: {One: "hifi://one", Two: "hifi://two"}});
         click("bookmarksTab");

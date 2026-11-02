@@ -76,6 +76,22 @@ Item {
             compare(web.currentUrl, "https://different.test/redirect");
             compare(web.url, "https://example.test/start");
         }
+        function test_inlineDescriptorForwardingAndReplacement() {
+            // QML forwards an opaque native value. A JavaScript object here
+            // tests delivery only; native authority/forgery is tested in C++.
+            var first = { marker: "first-native-boundary-value" };
+            var web = create(webComponent, { url: "data:text/html,original", inlineDocument: first });
+            tryVerify(function() { return web.backend !== null; });
+            compare(web.backend.inlineDocument, first);
+            compare(web.backend.initial.inlineDocument, first);
+            var replacement = { marker: "replacement-boundary-value" };
+            web.inlineDocument = replacement;
+            compare(web.backend.inlineDocument, replacement);
+            web.url = "data:text/html,replacement";
+            compare(web.backend.inlineDocument, replacement);
+            web.inlineDocument = null;
+            compare(web.backend.inlineDocument, null);
+        }
         function test_firstEventBeforeIdleAndSingleBidirectionalRelay() {
             var web = create(webComponent, { url: "https://example.test" });
             tryVerify(function() { return web.backend !== null; });
@@ -158,11 +174,12 @@ Item {
         }
         function test_worldHtmlAndClearSourceReleaseBackend() {
             var world = create(worldComponent, { url: "https://example.test/entity" });
-            tryVerify(function() { return world.item !== null && world.item.backend !== null; });
-            compare(world.item.backend.surface, "world-entity");
-            compare(world.item.backend.url, "https://example.test/entity");
+            tryVerify(function() { return world.item !== null && findChild(world.item, "FakeEmbeddedWebBackend") !== null; });
+            var backend = findChild(world.item, "FakeEmbeddedWebBackend");
+            compare(backend.surface, "world-entity");
+            compare(backend.url, "https://example.test/entity");
             world.scriptUrl = "https://example.test/script.js";
-            compare(world.item.backend.scriptUrl, world.scriptUrl);
+            compare(backend.scriptUrl, world.scriptUrl);
             world.url = Qt.resolvedUrl("FakeDocument.qml").toString();
             tryVerify(function() { return world.item !== null && typeof world.item.messages !== "undefined"; });
             var web = create(webComponent, { url: "https://example.test" });

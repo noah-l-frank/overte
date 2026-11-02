@@ -231,7 +231,8 @@ def ios_verifier():
     return module
 
 
-def verify_ios(candidate, context, plan, artifacts, needs, api, *, recompute, pause=time.sleep):
+def verify_ios(candidate, context, plan, artifacts, needs, api, *, recompute, pause=time.sleep,
+               api_factory=None, clock=time.monotonic, metadata_timeout=900):
     authenticate(candidate, context, plan, recompute)
     C.require(context["target"] == "apple-ios" and plan["ios_required"] is True,
               "unselected iOS product verification")
@@ -244,13 +245,19 @@ def verify_ios(candidate, context, plan, artifacts, needs, api, *, recompute, pa
     C.bookend(api, context)
     artifact = None
     if build:
+        import pr_ci_transport as transport
+        C.require(type(metadata_timeout) in (int, float) and 0 < metadata_timeout <= 900,
+                  "invalid iOS metadata observation budget")
+        factory = api_factory if api_factory is not None else lambda: type(api)()
         verifier = ios_verifier()
         run, attempt = int(os.environ["GITHUB_RUN_ID"]), int(os.environ["GITHUB_RUN_ATTEMPT"])
         C.require((run, attempt) == (context["run_id"], context["run_attempt"]),
                   "iOS artifact belongs to another execution")
-        deadline = time.monotonic() + 600
+        deadline = clock() + metadata_timeout
         while True:
-            rows = api.pages(f"actions/runs/{run}/attempts/{attempt}/jobs", field="jobs")
+            rows = transport.read_eventual(factory,
+                lambda client: client.pages(f"actions/runs/{run}/attempts/{attempt}/jobs", field="jobs"),
+                deadline=deadline, pause=pause, clock=clock)
             prefix = "iOS product owner / "
             jobs = [{**row, "name": row["name"].removeprefix(prefix)} for row in rows
                     if row.get("name", "").startswith(prefix)]
@@ -260,12 +267,32 @@ def verify_ios(candidate, context, plan, artifacts, needs, api, *, recompute, pa
                         "client / Static JITless V8 checkpoint", "client / Toolchain, dependencies, build and package"}
             selected = [row for row in jobs if row.get("name") in expected]
             if len(selected) == len(expected) and all(row.get("status") == "completed" for row in selected):
-                verifier.verify_build_execution(jobs, run, attempt, context["head"])
-                break
-            C.require(time.monotonic() < deadline, "iOS terminal job metadata did not become available")
-            pause(15)
+                try:
+                    verifier.verify_build_execution(jobs, run, attempt, context["head"])
+                except ValueError as error:
+                    required = transport.STEPS['ios-build']
+                    missing_messages = {f'selected build step missing, skipped or failed: {name}'
+                                        for name in required}
+                    if str(error) not in missing_messages:
+                        raise
+                    # The unchanged legacy verifier already checked all job IDs,
+                    # attempts and source identities before this exact diagnostic.
+                    # Only absent observations can wait; explicit skips/failures
+                    # and every other legacy refusal remain terminal.
+                    producer = next(row for row in jobs if row.get('name') ==
+                        'client / Toolchain, dependencies, build and package')
+                    try:
+                        transport.require_commands(producer.get('steps'), required)
+                    except transport.Pending:
+                        pass
+                    else:
+                        raise
+                else:
+                    break
+            C.require(clock() < deadline, "iOS terminal job metadata did not become available")
+            pause(min(15, deadline - clock()))
         artifact = verifier.verify_ipa(Path(artifacts), context["original_merge"], int(os.environ["GITHUB_RUN_NUMBER"]))
     authenticate(candidate, context, plan, recompute)
-    C.bookend(api, context)
+    C.bookend(factory() if build else api, context)
     return {"result": "success", "source": context["original_merge"], "tree": context["tree"],
             "application_build_required": build, "artifact": artifact, "device_acceptance": "not-performed"}

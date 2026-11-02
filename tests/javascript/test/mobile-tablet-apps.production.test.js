@@ -19,7 +19,7 @@ function start() {
 test("production tablet router registers and routes the first-party app buttons", () => {
     const { tablet } = start();
     assert.deepEqual(tablet.buttons.map((button) => button.properties.text),
-        ["AUDIO", "SETTINGS", "MENU"]);
+        ["AUDIO", "SETTINGS", "MENU", "SCRIPTS", "ASSETS"]);
 
     tablet.buttons[0].click();
     tablet.buttons[1].click();
@@ -59,6 +59,34 @@ test("production settings bridge accepts only allowlisted routes from Settings",
     tablet.fromQml.emit(null);
     tablet.fromQml.emit({ type: "switchApp", appUrl: 7 });
     assert.equal(tablet.navigation.length, acceptedCount);
+});
+
+test("production touch tablet exposes ordinary Scripts and Assets entries outside the filtered menu", () => {
+    const { tablet } = start();
+    for (const [name, target] of [["SCRIPTS", "hifi/dialogs/TabletRunningScripts.qml"],
+                                 ["ASSETS", "hifi/dialogs/TabletAssetServer.qml"]]) {
+        const buttons = tablet.buttons.filter((button) => button.properties.text === name);
+        assert.equal(buttons.length, 1, `${name} must be reachable without the hidden desktop Edit menu`);
+        const properties = JSON.stringify(buttons[0].properties);
+        buttons[0].click();
+        assert.equal(tablet.navigation.at(-1).type, "qml");
+        assert.equal(tablet.navigation.at(-1).args[0], target);
+        tablet.screenChanged.emit("QML", target);
+        buttons[0].click();
+        assert.equal(tablet.navigation.at(-1).type, "home");
+        assert.equal(JSON.stringify(buttons[0].properties), properties);
+    }
+});
+
+test("production Scripts and Assets screens cannot reuse the Settings navigation bridge", () => {
+    const { tablet } = start();
+    for (const target of ["hifi/dialogs/TabletRunningScripts.qml", "hifi/dialogs/TabletAssetServer.qml"]) {
+        tablet.screenChanged.emit("QML", target);
+        const before = tablet.navigation.length;
+        tablet.fromQml.emit({type: "switchApp", appUrl: "hifi/audio/Audio.qml"});
+        tablet.fromQml.emit({type: "switchApp", appUrl: "https://unowned.invalid/other.qml"});
+        assert.equal(tablet.navigation.length, before);
+    }
 });
 
 test("production tablet router disconnects handlers and removes buttons on shutdown", () => {

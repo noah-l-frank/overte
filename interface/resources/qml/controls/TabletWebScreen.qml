@@ -6,6 +6,8 @@ Item {
     HiFiControls.TouchUiMetrics { id: touchMetrics }
     property alias url: webroot.url
     property alias scriptURL: webroot.userScriptUrl
+    property alias inlineDocument: webroot.inlineDocument
+    property alias sourceIdentity: webroot.sourceIdentity
     property alias canGoBack: webroot.canGoBack;
     property var goBack: webroot.webViewCore.goBack;
     property alias urlTag: webroot.urlTag

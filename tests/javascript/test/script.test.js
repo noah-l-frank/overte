@@ -1,5 +1,8 @@
 "use strict";
 
+// Keep the native diagnostic cases within the existing script test owner.
+require("../support/scripts-management-fixture-cases");
+
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { createScriptApi } = require("../support");
@@ -31,3 +34,6 @@ test("ending signal supports production-style cleanup", () => {
     assert.equal(Script.runTimer(timer), false);
     assert.equal(Script.resolvePath("icons/a.svg"), "icons/a.svg");
 });
+
+// Read-only native entity diagnostics share the existing script test owner.
+require("../support/create-management-fixture-cases");

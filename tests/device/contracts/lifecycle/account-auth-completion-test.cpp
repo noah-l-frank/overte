@@ -28,6 +28,7 @@ public:
     int persisted = 0, profiles = 0;
     bool _isWaitingForTokenRefresh = true;
     bool _isWaitingForAccessToken = false;
+    bool _lastLoginTransportRejected = false;
     QString getMetaverseServerURLPath() { return "/api"; }
     void persistAccountToFile() { ++persisted; }
     void requestProfile() { ++profiles; }
@@ -62,7 +63,8 @@ int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     const QByteArray good("{\"access_token\":\"token-canary\",\"expires_in\":3600,\"token_type\":\"Bearer\"}");
     for (bool refreshing : {false, true}) {
-    auto check = [&](QByteArray payload, int status, bool error, bool accepted, bool timedOut = false) {
+    auto check = [&](QByteArray payload, int status, bool error, bool accepted, bool timedOut = false,
+                     bool transportRejected = false) {
         AccountManager manager;
         manager._accountInfo.tokens.insert("prior", true);
         int success = 0, failure = 0;
@@ -73,9 +75,11 @@ int main(int argc, char** argv) {
         const auto expectedToken = QJsonDocument::fromJson(payload).object().value("access_token");
         QPointer<Reply> reply = new Reply(std::move(payload), status, error);
         reply->setProperty("_overte_account_auth_timed_out", timedOut);
+        reply->setProperty("_overte_credential_transport_rejected", transportRejected);
         QObject::connect(reply.data(), &QNetworkReply::finished, &manager,
                          refreshing ? &AccountManager::refreshAccessTokenFinished : &AccountManager::requestAccessTokenFinished);
         reply->finish();
+        if (!refreshing) assert(manager._lastLoginTransportRejected == transportRejected);
         assert(success == int(accepted && !refreshing) && failure == int(!accepted && !refreshing));
         assert(manager.persisted == int(accepted) && manager.profiles == int(accepted && !refreshing));
         if (refreshing) assert(!manager._isWaitingForTokenRefresh);
@@ -98,6 +102,7 @@ int main(int argc, char** argv) {
     }
     check(good, 200, false, true);
     check(good, 200, false, false, true); // Abort with NoError cannot revive a timeout.
+    check(good, 403, true, false, false, true); // Explicit transport rejection is terminal.
     const auto goodObject = QJsonDocument::fromJson(good).object();
     for (const QString& invalid : {QString(" "), QString("a\r\nInjected: value"), QString("a b"),
                                   QString("a=b"), QString("="), QString("a:b"), QString::fromUtf8("t\xc3\xa9")}) {

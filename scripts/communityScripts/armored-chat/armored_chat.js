@@ -57,11 +57,25 @@
 
     startup();
 
+    function isMobileHost() {
+        if (typeof PlatformInfo === "undefined" || typeof PlatformInfo.getComputer !== "function") {
+            return false;
+        }
+        try {
+            var computer = JSON.parse(PlatformInfo.getComputer());
+            return !!computer && (computer.OS === "ANDROID" || computer.OS === "IOS");
+        } catch (error) {
+            return false;
+        }
+    }
+
     function startup() {
         tablet = Tablet.getTablet("com.highfidelity.interface.tablet.system");
         // Touch and headset clients use the normal system tablet. Script-engine
         // globals from defaultScripts are not available in this separate engine.
-        tabletMode = HMD.active || tablet.toolbarMode === false;
+        // A mobile screen-space presenter also sets toolbarMode=true; that
+        // presentation detail must not turn a restarted Chat into Desktop UI.
+        tabletMode = isMobileHost() || HMD.active || tablet.toolbarMode === false;
         readSettings();
 
         appButton = tablet.addButton({

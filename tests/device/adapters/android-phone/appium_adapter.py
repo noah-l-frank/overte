@@ -9,6 +9,10 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from adapter import PhoneAdapter, main, require
 from adapters.appium.adapter import AppiumAdapter
+from contracts import validate_operation_arguments
+from adapters.normal_ui import NativeUI
+from adapters.phone_navigation import PhoneNavigation
+from navigation_observation import OPERATIONS as NAVIGATION_OPERATIONS
 
 
 class PhoneAppiumAdapter(AppiumAdapter):
@@ -76,6 +80,37 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 result["role"] = "phone-emulator-e2e"
         return result
 
+    def advertised_capabilities(self, target):
+        values = super().advertised_capabilities(target)
+        if (getattr(self, 'candidate', None) is not None
+                and self.controlled_android_client(target)
+                and target.get('controls', {}).get('normalNavigation') is not None):
+            values = sorted(set(values) | NAVIGATION_OPERATIONS)
+        return values
+
+    def normal_navigation(self, selector, operation, values):
+        arguments = validate_operation_arguments(operation, values)
+        target = self.target(selector)
+        require(operation in self.advertised_capabilities(target), 'PHONE_NORMAL_NAVIGATION_NOT_ENABLED')
+        client, session, state = self.ensure_session(selector)
+        installed = self.installed_identity(selector)
+        process = self.process_state(selector, client, session, state, target)
+        require(process.get('running') is True and isinstance(process.get('identity'), str)
+                and bool(process['identity']), 'PHONE_NORMAL_NAVIGATION_PROCESS_REQUIRED')
+
+        def check():
+            require(self.query_app_state(client, session, target) == 4
+                    and self.process_state(selector, client, session, state, target) == process,
+                    'PHONE_NORMAL_NAVIGATION_PROCESS_CHANGED')
+
+        ui = NativeUI(client, session, check)
+        flow = PhoneNavigation(ui, target['controls']['normalNavigation'], state,
+            installed, process['identity'], lambda: self.save_session(selector, state))
+        result = flow.invoke(operation, arguments)
+        check()
+        require(self.installed_identity(selector) == installed, 'PHONE_NORMAL_NAVIGATION_INSTALL_CHANGED')
+        return result
+
     def ensure_session(self, selector):
         if self.candidate is not None:
             self.installed_identity(selector)
@@ -89,6 +124,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def invoke(self, selector, operation, values):
         PhoneAdapter.require_bound_operation(self, operation, values)
+        if operation.startswith('places.'):
+            return self.normal_navigation(selector, operation, values)
         result = super().invoke(selector, operation, values)
         if self.candidate is not None and operation == "app.install":
             self.installed_identity(selector)

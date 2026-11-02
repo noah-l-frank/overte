@@ -5,6 +5,7 @@ import QtQuick 2.7 as Quick
 
 // OS file selectors replace this type with the corresponding native backend.
 Item {
+    property var inlineDocument: null
     property string url: ""
     property string scriptUrl: ""
     property string userAgent: ""

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -15,9 +16,13 @@ from contracts import (contains_private_identity, validate_discovered_targets,
 
 
 def call(command: list[str], *arguments: str) -> object:
+    environment = os.environ.copy()
+    for name in ('OVERTE_E2E_TABLET_POLICY', 'OVERTE_E2E_WEB_VIDEO_ROIS',
+                 'OVERTE_E2E_SCRIPTS_CONTROL_TOKEN', 'OVERTE_E2E_CREATE_CONTROL_TOKEN'):
+        environment.pop(name, None)
     result = subprocess.run([*command, *arguments], text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            timeout=30, check=False)
+                            timeout=30, check=False, env=environment)
     if result.returncode != 0:
         detail = result.stderr.strip() or f"adapter {arguments[0]} failed"
         if "--target" in arguments:

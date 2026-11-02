@@ -95,7 +95,8 @@ class ProjectHealthTests(unittest.TestCase):
         setting_number = (
             ROOT / "scripts/system/settings/qml/SettingNumber.qml"
         ).read_text(encoding="utf-8")
-        self.assertTrue(setting_number.startswith("import QtQuick\nimport QtQuick.Controls\n"))
+        # Shared controls must load in both Qt5 Android and Qt6 iOS.
+        self.assertTrue(setting_number.startswith("import QtQuick 2.15\nimport QtQuick.Controls 2.15\n"))
         self.assertIn("RegularExpressionValidator", setting_number)
 
         custom_query = (

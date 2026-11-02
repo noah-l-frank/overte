@@ -61,6 +61,38 @@
       "operation": "collaboration.snapshot",
       "result": "{schemaVersion: 1, entityName, value, revision, actorId}; independently observe controlled shared entity state"
     },
+    "create.cube": {
+      "operation": "create.cube",
+      "result": "{performed: true}; arguments: {name: controlled unique name, properties: {color, dimensions}}; select My avatar and Cube, create through the normal Shape button and apply actual property fields"
+    },
+    "create.delete": {
+      "operation": "create.delete",
+      "result": "{performed: true}; arguments: {names: up to 3 unique names from one owned run}; delete only matching owned objects through ordinary UI, idempotent when absent"
+    },
+    "create.import": {
+      "operation": "create.import",
+      "result": "{performed: true}; arguments: {url: owned /create/<session>/entities.json or missing.json}; normal avatar-host Import URL controls only"
+    },
+    "create.redo": {
+      "operation": "create.redo",
+      "result": "{performed: true}; arguments: {}; activate the ordinary Create Redo control"
+    },
+    "create.reference.close": {
+      "operation": "create.reference.close",
+      "result": "{performed: true}; arguments: {scriptUrl: owned observer.js}; stop only the diagnostic through Running Scripts and dismiss owned panels/dialogs"
+    },
+    "create.reference.open": {
+      "operation": "create.reference.open",
+      "result": "{performed: true}; arguments: {scriptUrl: owned observer.js}; load the read-only diagnostic via ordinary script consent and open normal Create"
+    },
+    "create.undo": {
+      "operation": "create.undo",
+      "result": "{performed: true}; arguments: {}; activate the ordinary Create Undo control"
+    },
+    "create.update": {
+      "operation": "create.update",
+      "result": "{performed: true}; arguments: {name: controlled unique name, properties: {color, dimensions}}; select the actual owned entity and apply ordinary editor fields"
+    },
     "entity-script.review": {
       "operation": "entity-script.review",
       "result": "{performed: true}; arguments: {}; drive the displayed production consent dialog for the controlled entity script, retaining world/source binding"
@@ -101,6 +133,26 @@
       "operation": "permission.snapshot",
       "result": "{schemaVersion: 1, permissionId: microphone, state: denied|granted|unknown}"
     },
+    "places.back": {
+      "operation": "places.back",
+      "result": "{performed: true}; arguments: {}; activate normal Back history, reopening the panel if necessary"
+    },
+    "places.close": {
+      "operation": "places.close",
+      "result": "{performed: true}; arguments: {}; close only the owned Go To/Places panel and partial dialogs"
+    },
+    "places.forward": {
+      "operation": "places.forward",
+      "result": "{performed: true}; arguments: {}; activate normal Forward history, reopening the panel if necessary"
+    },
+    "places.goto": {
+      "operation": "places.goto",
+      "result": "{performed: true}; arguments: {url: controlled scene.json with one of the three owned viewpoint queries}; use the real address editor and Go control"
+    },
+    "places.open": {
+      "operation": "places.open",
+      "result": "{performed: true}; arguments: {}; open the normal Go To or Places entry"
+    },
     "probe.snapshot": {
       "operation": "probe.snapshot",
       "result": "Overte probe snapshot schema version 2; arguments: {afterSampleSequence?: positive integer}; result sequence must be greater when supplied"
@@ -117,9 +169,45 @@
       "operation": "scene.reload",
       "result": "{requested: true, commandId: string, verification?: fixture-markers}; arguments: {url: absolute URL}; explicitly resets an already controlled scene"
     },
+    "scripts.load-url": {
+      "operation": "scripts.load-url",
+      "result": "{performed: true}; arguments: {url: owned /script-management/<session>/client.js or missing.js}; use the real From URL dialog and normal script consent, never a probe load command"
+    },
+    "scripts.manager.close": {
+      "operation": "scripts.manager.close",
+      "result": "{performed: true}; arguments: {}; close only the owned Running Scripts panel and dialogs, including partial failures"
+    },
+    "scripts.manager.open": {
+      "operation": "scripts.manager.open",
+      "result": "{performed: true}; arguments: {}; open the ordinary Running Scripts panel"
+    },
+    "scripts.restart": {
+      "operation": "scripts.restart",
+      "result": "{performed: true}; arguments: {url: owned fixture client.js}; activate the matching owned row Restart control, never call a script service API"
+    },
+    "scripts.stop": {
+      "operation": "scripts.stop",
+      "result": "{performed: true}; arguments: {url: owned fixture client.js}; stop only the matching owned row through normal UI; idempotent if absent, never Stop All"
+    },
     "setting.set": {
       "operation": "setting.set",
       "result": "{performed: true}; arguments: {settingId: audio.warn-when-muted, enabled: boolean}; use the semantic product setting control"
+    },
+    "snapshot.capture": {
+      "operation": "snapshot.capture",
+      "result": "{performed: true}; arguments: {mode: still|animated|panorama|cubemap, format: png|jpg, name: bounded owned prefix}; select normal SNAP controls and deliver the capture action only"
+    },
+    "snapshot.close": {
+      "operation": "snapshot.close",
+      "result": "{performed: true}; arguments: {}; cancel/close only the owned capture through normal controls and restore the initial format selection"
+    },
+    "snapshot.files": {
+      "operation": "snapshot.files",
+      "result": "{files: [{basename, artifact}]}; arguments: {prefix: bounded owned prefix}; copy only observed original app SNAP files to private immutable run artifacts; never generate or re-encode"
+    },
+    "snapshot.open": {
+      "operation": "snapshot.open",
+      "result": "{performed: true}; arguments: {}; open the ordinary SNAP app and preserve its initial format selection for cleanup"
     },
     "sound.play": {
       "operation": "sound.play",
@@ -168,6 +256,26 @@
     "voice.exchange": {
       "operation": "voice.exchange",
       "result": "Voice test contract v1: execute a bounded native test-build command and return the exact fresh result; captured PCM is private and transient."
+    },
+    "web.reference.close": {
+      "operation": "web.reference.close",
+      "result": "{performed: true}; arguments: {surface: world|tablet}; close the owned reference through normal client controls and stop only its diagnostic script"
+    },
+    "web.reference.open": {
+      "operation": "web.reference.open",
+      "result": "{performed: true}; arguments: {surface: world|tablet, scriptUrl: HTTP(S) /parity/client.js}; load the owned diagnostic through Running Scripts and expose the selected normal Web surface"
+    },
+    "web.reference.pause": {
+      "operation": "web.reference.pause",
+      "result": "{performed: true}; arguments: {surface: world|tablet}; activate the real Pause control; stable encoded pixels are verified independently"
+    },
+    "web.reference.play": {
+      "operation": "web.reference.play",
+      "result": "{performed: true}; arguments: {surface: world|tablet}; activate the real Play control; playback is proved separately from native screenshot bytes"
+    },
+    "web.reference.seek": {
+      "operation": "web.reference.seek",
+      "result": "{performed: true}; arguments: {surface: world|tablet, seconds: 0|4}; use the owned reference's red/blue seek button; the actual target video frame is verified independently"
     }
   }
 }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include "InlineHtmlDocument.h"
 #include <QDir>
 #include <QFileInfo>
 #include <QString>
@@ -18,6 +19,10 @@ enum class Surface { Tablet, WorldEntity };
 // Interface's original, process-wide contained text-only NativeWebPolicy.
 // Callers own native permission prompts, input, network loading and source
 // consent. A page receives only its isolated EventBridge, never app QObjects.
+// Callers serialize session mutation/publication. Once openInline has validated
+// the real issuing-thread context and exact tuple, const policy reads need only
+// immutable session values and the descriptor's atomic lifetime lease. They do
+// not inspect QPointer/QObject/QQmlContext on native policy/IO threads.
 class EmbeddedWebSession {
 public:
     using Generation = std::uint64_t;
@@ -32,8 +37,25 @@ public:
         _surface = surface;
         _sourceIdentity = sourceIdentity;
         _packagedDocumentRoot = packagedDocumentRoot;
+        _inlineDocument = {};
+        _inlineMode = false;
         _opened = (isNetworkURL(url) || isPackagedURL(url, packagedDocumentRoot)) &&
             !sourceIdentity.trimmed().isEmpty();
+        return active() ? _generation : 0;
+    }
+
+    Generation openInline(const InlineHtmlDocument& document, const QObject* nativeContext,
+                          const QString& originalSource, Surface surface, const QString& sourceIdentity,
+                          const QString& sourceScriptURL = QString()) {
+        if (!advance()) { return 0; }
+        _url = document.transportURL();
+        _surface = surface;
+        _sourceIdentity = sourceIdentity;
+        _packagedDocumentRoot.clear();
+        _inlineMode = true;
+        _inlineDocument = document;
+        _opened = document.currentFor(nativeContext, sourceIdentity, originalSource) &&
+            document.scriptURL() == sourceScriptURL;
         return active() ? _generation : 0;
     }
 
@@ -43,6 +65,8 @@ public:
         _url = QUrl();
         _sourceIdentity.clear();
         _packagedDocumentRoot.clear();
+        _inlineDocument = {};
+        _inlineMode = false;
     }
 
     bool setVisible(bool visible) {
@@ -64,20 +88,33 @@ public:
     }
 
     Generation generation() const { return _generation; }
-    bool active() const { return _opened && _visible && _foreground && !_exhausted; }
+    bool active() const {
+        return _opened && _visible && _foreground && !_exhausted &&
+            (!_inlineMode || _inlineDocument.lifetimeCurrent());
+    }
     const QUrl& url() const { return _url; }
     Surface surface() const { return _surface; }
     const QString& sourceIdentity() const { return _sourceIdentity; }
     const QString& packagedDocumentRoot() const { return _packagedDocumentRoot; }
 
+    bool inlineDocument() const { return _opened && _inlineMode && _inlineDocument.lifetimeCurrent(); }
+    // Main-document responses are local and exact. Native adapters must block
+    // every other request in the reserved namespace without DNS fallback.
+    bool allowsInlineResponse(Generation generation, const QUrl& url, bool mainFrame,
+                              const QString& method) const {
+        const auto verb = method.toUpper();
+        return current(generation) && _inlineMode && mainFrame &&
+            (verb == "GET" || verb == "HEAD") && exactInlineURL(url);
+    }
+
     bool allowsNavigation(Generation generation, const QUrl& url, bool mainFrame,
                           const QString& method) const {
-        Q_UNUSED(mainFrame);
         // Cross-origin browsing/subframes are ordinary HTML capabilities.
         // Navigating does not grant a new page the original source's bridge.
         const auto verb = method.toUpper();
         return current(generation) &&
-            (isNetworkURL(url) || isPackagedURL(url, _packagedDocumentRoot)) &&
+            (isNetworkURL(url) || isPackagedURL(url, _packagedDocumentRoot) ||
+             (_inlineMode && mainFrame && (verb == "GET" || verb == "HEAD") && exactInlineURL(url))) &&
             (verb == "GET" || verb == "HEAD" || verb == "POST" || verb == "PUT" ||
              verb == "PATCH" || verb == "DELETE" || verb == "OPTIONS");
     }
@@ -86,7 +123,7 @@ public:
                       std::size_t utf8Bytes) const {
         return current(generation) && mainFrame && utf8Bytes > 0 &&
             utf8Bytes <= MAX_BRIDGE_BYTES &&
-            (sameOrigin(_url, frameURL) ||
+            ((_inlineMode && exactInlineURL(frameURL)) || sameOrigin(_url, frameURL) ||
              (isPackagedURL(_url, _packagedDocumentRoot) &&
               isPackagedURL(frameURL, _packagedDocumentRoot) &&
               _url.adjusted(QUrl::RemoveQuery | QUrl::RemoveFragment) ==
@@ -137,10 +174,16 @@ public:
         const auto scheme = url.scheme().toLower();
         return url.isValid() && !url.isRelative() &&
             (scheme == "http" || scheme == "https") && !url.host().isEmpty() &&
-            url.userInfo().isEmpty() && !containsControls(url.host(QUrl::FullyDecoded)) &&
+            url.userInfo().isEmpty() && !isInlineNamespace(url) && !containsControls(url.host(QUrl::FullyDecoded)) &&
             !containsControls(url.path(QUrl::FullyDecoded)) &&
             !containsControls(url.query(QUrl::FullyDecoded)) &&
             !containsControls(url.fragment(QUrl::FullyDecoded));
+    }
+
+    static bool isInlineNamespace(const QUrl& url) {
+        auto host = url.host().toLower();
+        while (host.endsWith('.')) { host.chop(1); }
+        return host == "overte-inline.invalid" || host.endsWith(".overte-inline.invalid");
     }
 
     static bool sameOrigin(const QUrl& left, const QUrl& right) {
@@ -151,6 +194,10 @@ public:
     }
 
 private:
+    bool exactInlineURL(const QUrl& url) const {
+        return _inlineDocument.lifetimeCurrent() && url.adjusted(QUrl::RemoveFragment) ==
+            _url.adjusted(QUrl::RemoveFragment);
+    }
     static bool containsControls(const QString& text) {
         for (const auto character : text) {
             if (character.unicode() < 32 || character.unicode() == 127) {
@@ -178,6 +225,8 @@ private:
     QUrl _url;
     QString _sourceIdentity;
     QString _packagedDocumentRoot;
+    InlineHtmlDocument _inlineDocument;
+    bool _inlineMode { false };
     Surface _surface { Surface::Tablet };
     bool _opened { false };
     bool _visible { true };
