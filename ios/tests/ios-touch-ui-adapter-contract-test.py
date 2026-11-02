@@ -253,8 +253,8 @@ assert "OVERTE_IOS_TOUCH_UI_GATE stage=virtual-pad-composited" in APPLICATION_OV
 for texture in ("analog_stick.png", "analog_stick_base.png", "fly.png", "handshake.png"):
     assert texture in APPLICATION_OVERLAY
 
-assert "_desktopWindow->setPosition(0, 0)" in TABLET_SOURCE
-assert "_desktopWindow->setPosition(leftInset, topInset)" in TABLET_SOURCE
+assert "_desktopWindow->setPosition(tabletLeft - leftInset, 0)" in TABLET_SOURCE
+assert "_desktopWindow->setPosition(tabletLeft, topInset)" in TABLET_SOURCE
 assert '"coordinate_space=safe-content"' in TABLET_SOURCE
 assert "screenSpaceOriginAtSafeArea: true" in PROFILE
 assert "x = surfaceGeometry.x" in WINDOW_ROOT

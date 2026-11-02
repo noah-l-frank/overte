@@ -35,5 +35,11 @@
     "request-progress": "1.0.2",
     "tar-fs": "^1.12.0",
     "yargs": "17.7.2"
+  },
+  "overrides": {
+    "@electron/asar": {
+      "glob": "14.0.3",
+      "minimatch": "11.0.4"
+    }
   }
 }
