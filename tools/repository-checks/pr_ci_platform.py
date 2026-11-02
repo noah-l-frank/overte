@@ -162,6 +162,34 @@ def android_compile_commands(target, plan, runtime, prepared_roots):
              "--runtime", str(runtime), "--product", product] for product in products]
 
 
+def pico_host_environment(prepared_roots, native_runtime):
+    """Bind the actual prepared JDK and sealed SDK for the Pico host catalog."""
+    import pr_ci_android_native as native
+    C.require(native_runtime is not None,
+              'Pico host contracts require the explicitly prepared sealed Android runtime')
+    roots = [R._directory(path, 'prepared Pico host input') for path in prepared_roots]
+    runtime = R._directory(native_runtime, 'prepared Pico native runtime')
+    C.require(any(runtime == root or root in runtime.parents for root in roots),
+              'Pico host SDK is outside explicit prepared inputs')
+    native.validate_prepared(runtime, native.A.policy())
+    jdks = [root for root in roots
+            if all((root / path).is_file() for path in
+                   ('bin/java', 'bin/javac', 'include/jni.h', 'include/linux/jni_md.h'))]
+    C.require(len(jdks) == 1, 'Pico host contracts require one explicit complete prepared JDK')
+    jdk = jdks[0]
+    for relative in ('bin/java', 'bin/javac', 'include/jni.h', 'include/linux/jni_md.h'):
+        C.require((jdk / relative).resolve(strict=True).is_relative_to(jdk),
+                  'Pico host JDK tool escapes its prepared root')
+    sdk = runtime / 'sdk'
+    for relative in ('build-tools/36.0.0/aapt', 'build-tools/36.0.0/aapt2',
+                     'platforms/android-36/android.jar',
+                     'cmdline-tools/22.0/bin/apkanalyzer'):
+        path = sdk / relative
+        C.require(path.is_file() and path.resolve(strict=True).is_relative_to(sdk),
+                  'Pico host SDK is missing its sealed resource/decoder inputs')
+    return {'JAVA_HOME': str(jdk), 'ANDROID_SDK_ROOT': str(sdk)}
+
+
 def execute(candidate, context, plan, lane, prepared_roots, *, recompute, android_runtime=None,
             android_native_runtime=None, android_groovy_runtime=None):
     candidate = authenticate(candidate, context, plan, recompute)
@@ -175,6 +203,10 @@ def execute(candidate, context, plan, lane, prepared_roots, *, recompute, androi
         C.require(any(root == Path(path).resolve(strict=True) or Path(path).resolve(strict=True) in root.parents
                       for path in prepared_roots), 'Android native runtime is outside explicit prepared inputs')
     selected_commands = commands(candidate, context["target"], lane, plan)
+    pico_catalog = ['bash', 'android/vr/pico/tests/pico-device-free-test.sh']
+    environment = None
+    if lane == 'android' and context['target'] == 'android-vr-pico' and pico_catalog in selected_commands:
+        environment = pico_host_environment(prepared_roots, android_native_runtime)
     groovy_script = 'android/vr/pico/native-ci/inputs_test.py'
     needs_groovy = lane == 'android' and any(arguments[1:] == [groovy_script] for arguments in selected_commands)
     C.require(needs_groovy == bool(plan.get('android_groovy_contracts', False)),
@@ -200,7 +232,7 @@ def execute(candidate, context, plan, lane, prepared_roots, *, recompute, androi
                 "OVERTE_HOST_TEST_NETWORK_RUNNER=/work/ios/ci/host-test-network.sh",
                 "OVERTE_QML_TEST_RUNNER=" + qml, *command]
         status = R.run(candidate, command, prepared_roots=prepared_roots,
-                       boundary="user-namespace", timeout=1200)
+                       environment=environment, boundary="user-namespace", timeout=1200)
         C.require(status == 0, "selected product command failed: " + " ".join(arguments))
         authenticate(candidate, context, plan, recompute)
         results.append({"command": arguments, "result": "success"})
