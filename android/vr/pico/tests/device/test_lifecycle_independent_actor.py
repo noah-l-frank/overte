@@ -21,5 +21,14 @@ class LifecycleActorOwnershipTests(unittest.TestCase):
     def test_actor_orphan_retains_canonical_cleanup_responsibility_without_root(self):
         self.retained('lifecycle-actor-originals.json.frame-000.json')
 
+    def test_actor_staging_and_pending_orphans_block_cleanup_without_main_root(self):
+        for name in ('lifecycle-actor-in-progress.json','lifecycle-actor-in-progress.json.frame-000.json',
+                'lifecycle-actor-in-progress.json.pending-'+'a'*32,'lifecycle-actor-originals.json.pending-'+'b'*32):
+            with self.subTest(name=name):
+                self.setUp()
+                self.retained(name)
+                root=self.adapter._lifecycle_world_store(self.transport.target).path.parent
+                self.assertFalse((root/'lifecycle-actor-originals.json').exists())
+
 
 if __name__=='__main__':unittest.main()

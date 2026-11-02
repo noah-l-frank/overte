@@ -2200,8 +2200,9 @@ def create_adapter(args, base_class):
             store._parent()
             for index,path in enumerate(store.path.parent.iterdir()):
                 _need(index<4096)
-                if path.name in ('lifecycle-primary-observation.json','lifecycle-primary-operations.json','lifecycle-primary-process-observation.json','lifecycle-actor-originals.json') or any(
-                        path.name.startswith(name+'.frame-') for name in ('lifecycle-primary-observation.json','lifecycle-primary-operations.json','lifecycle-primary-process-observation.json','lifecycle-actor-originals.json')):return True
+                if path.name in ('lifecycle-primary-observation.json','lifecycle-primary-operations.json','lifecycle-primary-process-observation.json','lifecycle-actor-originals.json','lifecycle-actor-in-progress.json') or any(
+                        path.name.startswith(name+'.frame-') for name in ('lifecycle-primary-observation.json','lifecycle-primary-operations.json','lifecycle-primary-process-observation.json','lifecycle-actor-originals.json','lifecycle-actor-in-progress.json')) or any(
+                        path.name.startswith(name+'.pending-') for name in ('lifecycle-actor-originals.json','lifecycle-actor-in-progress.json')):return True
             return False
 
         @_private
