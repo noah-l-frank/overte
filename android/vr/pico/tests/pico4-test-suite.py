@@ -85,6 +85,7 @@ TESTS = (
     test("activity-ingress", "android", PYTHON, "device/test_activity_ingress.py", requires=("javac", "java")),
     test("script-object-lifetimes", "interaction", PYTHON, "pico-script-object-lifetimes-test.py", requires=("c++", "pkg-config", "node")),
     test("create-model-peer", "interaction", PYTHON, "device/test_create_peer_source.py", "CreatePeerSourceTests"),
+    test("create-model-peer-cli", "interaction", PYTHON, "device/test_create_peer_cli.py", "CreatePeerCliTests"),
     test("tablet-web-owner", "interaction", PYTHON, "pico-tablet-web-owner-test.py"),
     test("tablet-web-journey", "interaction", PYTHON, "pico-tablet-web-journey-test.py"),
     test("tablet-web-actor-retirement", "interaction", PYTHON, "pico-browser-actor-retirement-test.py"),

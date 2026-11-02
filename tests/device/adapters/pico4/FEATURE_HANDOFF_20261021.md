@@ -40,8 +40,11 @@ with two independently owned role sources;5 canonical cases plus6 legacy
 Parent cases pass35.886s. The Audio recording cycle joins separately retained
 digital PC preview files, not physical acoustic evidence (10 cases/55.892s).
 The retained independent Create Model peer packet passes11 new source cases
-and19 legacy Parent cases; production observer integration remains next.
-The central catalog contains298 disjoint groups, including the new Create
+and19 legacy Parent cases. Its new production main/factory/CLI5 Model route
+passes8/52.761s, with11 legacy source cases40.218s and12 observer cases0.043s.
+An actual persistent Parent must own the child process; the persistent RPC/
+Jenkins launcher and complete common/GPU/stereo/archive remain open.
+The central catalog contains299 disjoint groups, including the new Create
 peer source group, four Avatar/Audio/Lifecycle groups, two G1 frame groups and
 the fast Actor storage group. The standalone capacity diagnostic stays outside
 default120s groups. Browser namespace and complete physical archive checks pass21 affected cases; previous complete

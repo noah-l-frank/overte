@@ -24,6 +24,7 @@ from adapters.observer_return import ObserverReturnReceiver
 from adapters.pico4.create_peer_source import FAMILY
 from adapters.pico4.create_peer_parent import admit_return
 from fixture.chat_observer_process import LinuxChatObserverProcess
+from adapters.script_journey.lock import ScriptSourceLock
 RUN=primary_source.RUN
 
 
@@ -52,7 +53,8 @@ class CreatePeerSourceTests(unittest.TestCase):
     def update(self,**flags):
         self.flags.update(flags);b=self.primary.b
         value=dict(clock=b.now(),rows=deepcopy(b.rows),births=deepcopy(b.domain_births),phase=self.primary.journal.phase(RUN,uuid.uuid4().hex),**self.flags)
-        self.world.write(value,self.world_previous);self.world_previous=deepcopy(value)
+        with ScriptSourceLock(self.directory/'fixture-replica.lock').held():
+            self.world.write(value,self.world_previous);self.world_previous=deepcopy(value)
 
     def start(self):
         entry=Path(__file__).with_name('create_peer_originals_host.py');config=PrivateFeatureState(self.directory/'config.json')

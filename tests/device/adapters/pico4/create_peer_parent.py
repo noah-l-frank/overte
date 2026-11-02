@@ -5,8 +5,11 @@ This does not launch a worker, select a target or supply Actor effect facts.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
 import hashlib
 import math
+import os
+import time
 from pathlib import Path
 import uuid
 
@@ -22,10 +25,14 @@ from feature_journeys.contract import typed_equal
 from feature_journeys.phase_fixture import validate as validate_phase
 
 
-def admit_return(raw,physical,original_scope):
+PARENT_VERSION=2
+
+
+def admit_return(raw,physical,original_scope,*,historical=False):
     primary=scope(original_scope);value=decode(raw.decode())
-    exact(value,{'createPeerReturnVersion','scope','actorBinding','workerHostProcessIdentity','sourcePath','sourceSha256','final','quiet'})
-    need(type(value['createPeerReturnVersion']) is int and value['createPeerReturnVersion']==VERSION
+    version=value.get('createPeerReturnVersion')
+    exact(value,{'createPeerReturnVersion','scope','actorBinding','workerHostProcessIdentity','sourcePath','sourceSha256','final','quiet'}|({'worker'} if version==2 else set()))
+    need(type(version) is int and version in (1,2)
         and typed_equal(value['scope'],original_scope) and value['workerHostProcessIdentity']!=original_scope['parentHostProcessIdentity'])
     source=PrivateFeatureState(Path(value['sourcePath']));root,source_raw,source_physical=physical_state(source)
     need(source_physical==physical and hashlib.sha256(source_raw).hexdigest()==value['sourceSha256'])
@@ -83,15 +90,49 @@ def admit_return(raw,physical,original_scope):
         actual=[decode(rows[record['originals'][kind]]['raw'])['capturedEpochMs'] for kind in ('entities','resources')]
         need(clocks==actual)
     phase=final['phaseOriginal'];need(phase['active'] and phase['activations'][-1]['stimulus']==dict(verb='cleanup',inputs={}))
+    if version==2:
+        from adapters.pico4.create_peer_actor import validate_worker
+        validate_worker(value,terminal=historical,historical=historical)
     history.verify();need(physical_state(source)[1:]==(source_raw,source_physical));return True
 
 
 class CreatePeerParent:
+    @contextmanager
+    def peer_input_boundary(self,configuration_path,worker_owner):
+        """Serialize provider activation plus normal input with this Actor.
+
+        The caller keeps the original persistent Parent and already acquired
+        live child. This gate supplies no product/permission/effect facts.
+        """
+        from adapters.pico4.create_peer_actor import configuration
+        from adapters.script_journey.lock import ScriptSourceLock
+        from fixture.chat_observer_process import LinuxChatObserverProcess
+        need(type(worker_owner) is LinuxChatObserverProcess)
+        with self.lock.held():
+            self.runtime();value=self.peer_state();need(value is not None and value['phase']=='issued')
+            store=PrivateFeatureState(Path(configuration_path));config,raw,physical=physical_state(store)
+            original=configuration(config)
+            need(config['peerOwner']==str(self.source_store('peer').path) and typed_equal(original,value)
+                and worker_owner.configuration==store.path and value['scope']['parentHostProcessIdentity']==host_identity())
+            worker_owner.guard()
+            directory=Path(config['artifactRoot'])
+            with ScriptSourceLock(directory/'script-sources.lock').held():
+                worker_owner.guard();journal=PrivateFeatureState(directory/'create-peer-worker.json').read()
+                need(journal is not None and journal['phase']=='watching' and journal['hostProcessIdentity']==worker_owner.process_identity
+                    and journal['program']==worker_owner.inputs() and journal['configurationSha256']==hashlib.sha256(raw).hexdigest()
+                    and journal['configurationStamp']==physical and journal['runId']==self.run)
+                need(time.monotonic()<journal['deadlineMonotonic'])
+                source=PrivateFeatureState(directory/'create-peer-originals.json').read()
+                need(source is not None and source['pending'] is None and source['records'])
+                yield
+                need(time.monotonic()<journal['deadlineMonotonic']);worker_owner.guard()
+
     def peer_state(self):
         value=self.source_store('peer').read()
         if value is not None:
-            exact(value,{'createPeerParentVersion','binding','runId','scope','phase','receipt','payload','sourceStamp'})
-            need(type(value['createPeerParentVersion']) is int and value['createPeerParentVersion']==VERSION
+            version=value.get('createPeerParentVersion')
+            exact(value,{'createPeerParentVersion','binding','runId','scope','phase','receipt','payload','sourceStamp'}|({'workerAcceptance'} if version==2 else set()))
+            need(type(version) is int and version in (1,PARENT_VERSION)
                 and context(value['binding'])==context(self.state()['binding']) and value['runId']==self.run
                 and value['phase'] in ('issued','returned'))
             scope(value['scope'])
@@ -132,13 +173,39 @@ class CreatePeerParent:
             phase=payload['final']['phaseOriginal'];active=self.phase_fence()
             need(phase['instance']==active['instance'] and phase['createdEpochMs']==active['createdEpochMs']
                 and typed_equal(phase['activations'],active['activations']))
+            worker_acceptance=None
+            if payload['createPeerReturnVersion']==2:
+                from adapters.pico4.create_peer_actor import validate_worker
+                worker=validate_worker(payload,terminal=True);identity=worker['identity']
+                need(worker['returnId']==receiver.scope['returnId'] and identity['issuedOwnerPath']==str(self.source_store('peer').path)
+                    and identity['program']==receiver.owner.inputs())
+                pid=int(identity['hostProcessIdentity'].split(':')[0]);key=(original['requestId'],identity['hostProcessIdentity'])
+                if getattr(self,'_peer_worker_wait',None) is None:
+                    actual=os.waitpid(pid,os.WNOHANG);need(actual[0]==pid);self._peer_worker_wait=key,actual
+                need(self._peer_worker_wait==(key,(pid,0)))
+                now=time.monotonic();need(number(now,identity['startedMonotonic'],identity['deadlineMonotonic']) and now<identity['deadlineMonotonic'])
+                worker_acceptance=dict(createPeerWorkerAcceptanceVersion=1,hostProcessIdentity=identity['hostProcessIdentity'],waitStatus=0,
+                    acceptedHostMonotonic=now,payloadSha256=hashlib.sha256(receiver.raw).hexdigest(),
+                    journalSha256=worker['journalSha256'],journalStamp=worker['journalStamp'])
             receipt=receiver.receipt();need(receiver.owner.close() is True)
             current=deepcopy(value);current.update(phase='returned',receipt=receipt,payload=receiver.raw.decode(),sourceStamp=receiver.scope['sourceStamp'])
+            if worker_acceptance is not None:current.update(createPeerParentVersion=PARENT_VERSION,workerAcceptance=worker_acceptance)
             self.source_store('peer').write(current,value);need(self.peer_state()==current)
             self.phase_fence();return deepcopy(receipt)
 
     def peer_cleanup_ready(self):
         value=self.peer_state()
         if value is not None:
-            need(value['phase']=='returned');admit_return(value['payload'].encode(),value['sourceStamp'],value['scope'])
+            need(value['phase']=='returned');admit_return(value['payload'].encode(),value['sourceStamp'],value['scope'],historical=True)
+            if value['createPeerParentVersion']==2:
+                from adapters.pico4.create_peer_actor import validate_worker
+                payload=decode(value['payload']);worker=validate_worker(payload,terminal=True,historical=True);proof=value['workerAcceptance']
+                exact(proof,{'createPeerWorkerAcceptanceVersion','hostProcessIdentity','waitStatus','acceptedHostMonotonic','payloadSha256','journalSha256','journalStamp'})
+                need(type(proof['createPeerWorkerAcceptanceVersion']) is int and proof['createPeerWorkerAcceptanceVersion']==1
+                    and proof['waitStatus']==0 and type(proof['waitStatus']) is int
+                    and proof['hostProcessIdentity']==worker['identity']['hostProcessIdentity']
+                    and proof['payloadSha256']==hashlib.sha256(value['payload'].encode()).hexdigest()
+                    and proof['journalSha256']==worker['journalSha256'] and proof['journalStamp']==worker['journalStamp']
+                    and number(proof['acceptedHostMonotonic'],worker['identity']['startedMonotonic'],worker['identity']['deadlineMonotonic'])
+                    and proof['acceptedHostMonotonic']<worker['identity']['deadlineMonotonic'])
 

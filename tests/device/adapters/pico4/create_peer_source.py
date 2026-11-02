@@ -19,7 +19,7 @@ from adapters.pico4.create_entities import NativeCreateEntities,validate as vali
 from adapters.pico4.create_model_resources import NativeCreateModelResources,retired as resources_retired
 from adapters.pico4.create_model_resource_join import ResourceJoinedCreateModels
 from adapters.script_journey.history import canonical
-from adapters.script_journey.lock import ScriptSourceLock
+from adapters.script_journey.lock import ScriptSourceLock,ScriptSourceBusy
 from adapters.token_create_ui import nonce
 from feature_journeys.contract import typed_equal
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as validate_phase
@@ -175,8 +175,10 @@ class PicoCreatePeerSource:
         need(integer(epoch,requested) and number(now,started,1e15));fresh(oldest,max(epoch,requested+math.ceil((now-started)*1000)))
 
     def read(self):
+        attempted=False
         try:
             with self.lock.held():
+                attempted=True
                 self.bound();need(self.disk['pending'] is None and len(self.disk['records'])<64)
                 started=self.monotonic();requested=self.entities.clock_ms();need(number(started,0,1e15) and integer(requested,1))
                 before=self.phases.read();need(before['status']['active'])
@@ -195,6 +197,9 @@ class PicoCreatePeerSource:
                 updated=deepcopy(self.disk);updated['records'].append(record);updated['pending']=None;self.save(updated)
                 result=deepcopy(record);result['phase']=deepcopy(after['status']);self.fresh()
             need(self.lock._owner is None);self.fresh();return result
+        except ScriptSourceBusy:
+            if not attempted:raise
+            self.failed=True;raise NativeUIError('Independent Create acquisition unresolved; originals retained') from None
         except Exception:
             self.failed=True
             raise NativeUIError('Independent Create peer originals unresolved; ownership retained, no query replayed') from None
@@ -217,15 +222,19 @@ class PicoCreatePeerSource:
             need(current-started<13 and attempt<66);self.sleep(.2)
         need(False)
 
-    def sender(self,store,ack_store):
+    def sender(self,store,ack_store,*,worker=None):
         self.fresh();need(self.disk['quiet'] is not None)
         current,raw,physical=physical_state(self.store);need(typed_equal(current,self.disk))
         rows=self.history.load(self.disk['chunks']);final=deepcopy(self.disk['records'][-1]);final['phaseOriginal']=rows[final['phase']]['packet']
-        payload=canonical(dict(createPeerReturnVersion=VERSION,scope=self.scope,actorBinding=self.binding,
+        payload=dict(createPeerReturnVersion=VERSION,scope=self.scope,actorBinding=self.binding,
             workerHostProcessIdentity=self.worker,sourcePath=str(self.store.path),sourceSha256=hashlib.sha256(raw).hexdigest(),
-            final=final,quiet=self.disk['quiet']))
+            final=final,quiet=self.disk['quiet'])
+        if worker is not None:
+            from adapters.pico4.create_peer_actor import PicoCreatePeerWorker,RETURN_VERSION
+            need(type(worker) is PicoCreatePeerWorker and worker.source is self)
+            payload.update(createPeerReturnVersion=RETURN_VERSION,worker=worker.proof())
         identity=dict(runId=self.run,family=FAMILY,producerHostProcessIdentity=self.worker,originalRequestId=self.scope['requestId'])
-        return ObserverReturnSender(store,ack_store,identity,payload,physical,guard=lambda:self.return_guard(raw,physical))
+        return ObserverReturnSender(store,ack_store,identity,canonical(payload),physical,guard=lambda:self.return_guard(raw,physical))
 
     def return_guard(self,raw,physical):
         self.bound();need(physical_state(self.store)[1:]==(raw,physical));return True

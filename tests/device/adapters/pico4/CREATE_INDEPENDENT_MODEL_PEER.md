@@ -135,14 +135,14 @@ PYTHONPATH=tests/device:android/vr/pico/tests/device \
 python3 -m unittest -v test_create_peer_source.CreatePeerSourceTests
 ```
 
-No production worker CLI/factory for Create is installed by this packet.
-`pico4/feature_observer.py` currently accepts authentication, scripts, graphics,
-chat and tablet-web, not Create. The existing private Pico source factories can
-construct readers for a separately prebound second Pico candidate, but no such
-candidate or physical peer was acquired here. There is no desktop foreign-client
-Create getter/factory in this checkout. Adding an already authorized laboratory
-worker binding and actual independent-client validation is the next integration
-boundary; a same-client worker must not be substituted.
+The later [CLI v5 packet](CREATE_PEER_WORKER.md) adds a Create-specific production
+main/factory/loop over these existing readers, original config/program ownership,
+the persistent Parent's input boundary and return-v2 terminal/kernel acceptance.
+It requires the original persistent Parent as actual OS parent; it does not make
+an independently launched Jenkins sibling or transient adapter RPC eligible.
+No persistent backend/job launcher or physical second client was acquired here.
+There is no desktop foreign-client Create getter/factory in this checkout; a
+same-client worker must not be substituted.
 
 The frozen Phone source `a7be274da152b9d0b77e2fe5bb9874c5b1e18a31`
 `overte_phone_create_actor.py`/`overte_phone_create_measurements.py` were reviewed.

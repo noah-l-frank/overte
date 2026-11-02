@@ -33,13 +33,13 @@ def native_domain_births(packet,births):
     return packet
 
 
-def main():
-    config=PrivateFeatureState(Path(sys.argv[2])).read();root=Path(sys.argv[2]).parent
+def model_inputs(config,root):
     world_store=PrivateFeatureState(Path(config['worldPath']));b=ResourceActor(root)
     b.binding=config['binding'];b.loaded=True;b.submitted=-10;b.known=set();world=None;phase_sequence=0
     def update():
         nonlocal world
-        world=world_store.read();b.ui.clock=max(b.now(),world['clock'])
+        with ScriptSourceLock(root/'fixture-replica.lock').held():world=world_store.read()
+        b.ui.clock=max(b.now(),world['clock'])
         if not world.get('ignoreDelete',False) or world['rows']:
             b.rows=[] if world.get('ignoreEntity',False) else deepcopy(world['rows'])
         present={row['id'] for row in b.rows};b.absent=sorted(set(b.absent)|(b.known-present));b.known.update(present)
@@ -79,6 +79,12 @@ def main():
             if world.get('foreignPhase',False):packet['instance']='d'*32
             packet.update(requestId=options['phase_nonce'],sequence=10000+phase_sequence,capturedEpochMs=b.epoch());return packet
     update()
+    return b,original_reader,Phases
+
+
+def main():
+    config=PrivateFeatureState(Path(sys.argv[2])).read();root=Path(sys.argv[2]).parent
+    b,original_reader,Phases=model_inputs(config,root)
     client=Phases(config['scope']['fixtureUrl'].split('/runs/')[0],'owned-fixture-model-'+'a'*32)
     phases=PhaseFixtureReader(client,config['scope']['runId'],'create',epoch_ms=b.epoch,monotonic=b.now)
     source=PicoCreatePeerSource(root/'create-peer-originals.json',config['scope'],config['binding'],original_reader('entities'),
