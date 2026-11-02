@@ -135,7 +135,7 @@ class _NativeMotionReference:
     Weak SDK/source/task pairing plus live journal membership is mandatory on
     EACH real original reread. No native verdict or product owner is retained.
     """
-    def __init__(self,owner,journal,reference,window_task,window_function,started,*,selected=None,selected_id=None):
+    def __init__(self,owner,journal,reference,window_task,window_function,started,*,selected=None,selected_id=None,deadline=None):
         source=owner.source;loop=asyncio.get_running_loop();creator=source._creator_task()
         need(type(source._native_motion_key) is object and isinstance(creator,asyncio.Task)
             and creator.get_loop() is loop and not creator.done() and source._loop is loop
@@ -151,6 +151,12 @@ class _NativeMotionReference:
         self._reference,self._window_task=deepcopy(reference),window_task
         self._window_function,self._window_session=window_function,owner.wda_session
         self._capture=weakref.ref(asyncio.current_task());self._started=started;self._deadline=started+1.5
+        if deadline is not None:
+            # A worker acquisition inherits its EARLIER end-to-end deadline;
+            # moving historical proof before the new native interval cannot
+            # grant later Down/Move or a longer receipt lifetime.
+            need(number(deadline,started,started+1.5) and deadline>started)
+            self._deadline=deadline
         self._target=None;self._failed=False;self._selected=selected;self._selected_id=selected_id;self._worker_guard=None;self._worker_phase=None
         self._selected_birth=None
         if selected is not None:
@@ -392,7 +398,7 @@ class _NativeMotionPassiveRead:
         need(type(resource) is LifecycleTouchResourceOwner and resource.version==4
             and type(resource._native_step) is _NativeMotionWorkerGuard and type(lease) is TouchLease
             and resource._lease() is lease and getattr(lease,'_original_motion_resource',None) is resource
-            and action in (world.ACTION,'feature-native-observe') and session==resource.binding['sessionId']
+            and action in (world.ACTION,'feature-native-observe','touch-resource-capture') and session==resource.binding['sessionId']
             and same(context(binding),resource.binding) and run==resource.run
             and isinstance(task,asyncio.Task) and task.get_loop() is owner.source._loop
             and owner.native_acquisition is None and owner.native_query_task is None and not owner.native_passive_tasks)
@@ -584,12 +590,24 @@ class _NativeMotionWorkerGuard:
 
 
 class LifecycleTouchResourceOwner:
-    def __init__(self,store,binding,run,lock,guard):
+    def __init__(self,store,binding,run,lock,guard,*,_observation_parent=None):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and callable(guard))
         self.store,self.binding,self.run,self.lock,self.check=store,deepcopy(context(binding)),identifier(run),lock,guard
-        need(store.path.name=='ios-lifecycle-touch-resources-'+run+'.json' and lock.path==store.path.parent/'script-feature-sources.lock')
+        self._observation_parent=None if _observation_parent is None else weakref.ref(_observation_parent)
+        self._observation_owner=None;self._observation_birth=None
+        if _observation_parent is not None:
+            parent=_observation_parent
+            need(type(parent) is LifecycleTouchResourceOwner and parent.version==4
+                and type(parent._native_step) is _NativeMotionWorkerGuard
+                and parent._native_step._worker() is asyncio.current_task()
+                and parent._loop is asyncio.get_running_loop()
+                and type(parent._source) is resources.TouchResourceObservation
+                and same(parent.binding,self.binding) and parent.run==self.run and lock is parent.lock)
+        name=('ios-lifecycle-touch-resource-observations-' if _observation_parent is not None else 'ios-lifecycle-touch-resources-')+run+'.json'
+        need(store.path.name==name and lock.path==store.path.parent/'script-feature-sources.lock')
         self.previous=store.read();self.state=None;self._source=None;self._lease=None;self._retained=None;self._factory=None;self._loop=None
         self.version=1 if self.previous is None else self.previous.get('iosLifecycleTouchResourceOwnerVersion')
+        if _observation_parent is not None:need(self.previous is None) # No archive may recreate this live observation owner.
         need(type(self.version) is int and self.version in (1,2,3,4))
         self._motion_source=self._motion_rsd=self._motion_loop=self._motion_current_function=self._motion_address=None
         self._motion_failed=False;self._motion_original=None;self._native_step=None
@@ -671,6 +689,7 @@ class LifecycleTouchResourceOwner:
         The existing real touch_session owns all operations. This wrapper only
         records the actual original lease and captures passive resource edges.
         """
+        need(self._observation_parent is None) # A passive recorder never owns another HID factory.
         if self.version==2:
             raise TouchTransportUnavailable('Original child native world/geometry/current deadline guard is not connected for motion')
         if self.version==3:
@@ -736,6 +755,7 @@ class LifecycleTouchResourceOwner:
                 need(lease is not None and lease.worker is asyncio.current_task() and lease._session_factory is self._factory)
                 self._source=resources.TouchResourceObservation(rsd);self._retained=RetainedTouchWorker(lease)
                 self._loop=asyncio.get_running_loop()
+                self._begin_motion_observation(lease) # Original worker BEFORE actual SDK/context opening.
                 actual=lambda:touch_session(rsd,local_address,observation=self._source,**options)
                 async with _MotionContext(actual,step._hid_start,step._hid_end,step.movement,
                         before_down=lambda:step.checkpoint('before-down')) as hid:yield hid
@@ -744,6 +764,87 @@ class LifecycleTouchResourceOwner:
             admit_begin=admit_begin,on_worker_birth=on_worker_birth)
         self._lease=weakref.ref(lease);lease._original_motion_resource=self
         step.bind_lease(lease,selected_factory);return lease
+
+    def _begin_motion_observation(self,lease):
+        # Reuse the existing v1 capture journal/codec, separate from the
+        # immutable v4 PREPARATION bytes. This creates no second SDK/HID owner.
+        need(self.version==4 and self._observation_owner is None
+            and type(lease) is TouchLease and self._lease() is lease
+            and lease.worker is asyncio.current_task() and self._native_step._worker() is lease.worker
+            and self._loop is asyncio.get_running_loop() and lease.previous['phase']=='opening')
+        source=self._motion_source();owner=self._motion_original._owner();observer=self._source
+        need(source is self._native_step._source() and owner is self._native_step._owner()
+            and owner.source is source and owner.touch_resources is self and owner.touch is lease
+            and type(observer) is resources.TouchResourceObservation
+            and observer._worker() is lease.worker and observer._loop() is self._loop
+            and observer._refs['rsd']() is self._motion_rsd()
+            and type(self._retained) is RetainedTouchWorker and self._retained._lease is lease)
+        row=next((row for row in source._born if row['lease'] is lease),None)
+        need(row is not None and row.get('motionResource') is self and row.get('motionStep') is self._native_step)
+        parent=weakref.ref(self)
+        def original_current():
+            actual=parent();need(type(actual) is LifecycleTouchResourceOwner)
+            return actual._motion_observation_identity(live=True)
+        recorder=LifecycleTouchResourceOwner(PrivateFeatureState(self.store.path.with_name('ios-lifecycle-touch-resource-observations-'+self.run+'.json')),
+            self.binding,self.run,self.lock,original_current,_observation_parent=self)
+        # Retain before the first journal CAS can lose its original return.
+        self._observation_owner=recorder
+        recorder._source=observer;recorder._retained=self._retained;recorder._lease=weakref.ref(lease)
+        recorder._factory=self._factory;recorder._loop=self._loop
+        need(row.get('motionObservation') is None)
+        recorder._observation_birth=(weakref.ref(source),weakref.ref(owner),weakref.ref(self._motion_rsd()),
+            weakref.ref(lease.worker),row,resources.TouchResourceObservation.snapshot,source.current.__func__,
+            recorder,recorder.store,recorder.files,recorder.store.path)
+        row['motionObservation']=recorder._observation_birth # SAME actual source-born row, before first CAS.
+        recorder.state=dict(phase='factory-issued',leaseFile=lease.store.path.name,leaseOpening=deepcopy(lease._opening),
+            sourceInstance=observer.instance,hostProcessId=os.getpid(),frames=[],pending=None)
+        owner_header(recorder.envelope(),self.binding,self.run);recorder.save()
+
+    def _motion_observation_identity(self,*,live):
+        need(type(live) is bool and self.version==4 and type(self._native_step) is _NativeMotionWorkerGuard)
+        recorder=self._observation_owner;lease=None if type(self._lease) is not weakref.ReferenceType else self._lease();observer=self._source;loop=asyncio.get_running_loop()
+        need(type(recorder) is LifecycleTouchResourceOwner and recorder.version==1
+            and recorder._observation_parent() is self and type(lease) is TouchLease
+            and type(observer) is resources.TouchResourceObservation and recorder._source is observer
+            and recorder._lease() is lease and recorder._retained is self._retained and recorder._factory is self._factory
+            and recorder._loop is self._loop is loop and lease.worker is self._native_step._worker()
+            and lease._session_factory is self._factory and self._retained._lease is lease)
+        source_ref,owner_ref,rsd_ref,worker_ref,row,snapshot,current,born,store,files,path=recorder._observation_birth
+        source,owner,rsd,worker=source_ref(),owner_ref(),rsd_ref(),worker_ref()
+        need(source is not None and owner is not None and rsd is not None and worker is not None
+            and source is self._motion_source() and owner is self._motion_original._owner()
+            and source._loop is loop and source.current.__func__ is current
+            and rsd is self._motion_rsd() and worker is lease.worker and worker.get_loop() is loop
+            and observer._loop() is loop and observer._worker() is worker and observer._refs['rsd']() is rsd
+            and observer.snapshot.__func__ is snapshot and observer.instance==recorder.state['sourceInstance']
+            and any(actual is row for actual in source._born) and row.get('motionObservation') is recorder._observation_birth
+            and born is recorder and store is recorder.store and files is recorder.files and store.path==path
+            and path==self.store.path.with_name('ios-lifecycle-touch-resource-observations-'+self.run+'.json')
+            and files.root==path.parent and files.binding==self.binding and files.run==self.run
+            and row['lease'] is lease and row['worker'] is worker
+            and row.get('motionResource') is self and row.get('motionStep') is self._native_step
+            and recorder.state['hostProcessId']==os.getpid())
+        self.file_guard();self._retained._status();row['owner']._status()
+        if live:
+            if asyncio.current_task() is worker:
+                need(lease.previous['phase']=='opening' and not lease.down_issued and not worker.done())
+                self._native_step.scope()
+            else:
+                scope=owner.native_passive_tasks.get(asyncio.current_task())
+                need(type(scope) is _NativeMotionPassiveRead and scope._resource() is self
+                    and scope._action=='touch-resource-capture');scope.current()
+        return True
+
+    def observation_header(self):
+        self._motion_observation_identity(live=False);recorder=self._observation_owner
+        recorder.file_guard();return deepcopy(recorder.previous)
+
+    def observation_original(self,reference):
+        self._motion_observation_identity(live=False);recorder=self._observation_owner;recorder.file_guard()
+        recorder.files.expand(reference);need(reference in recorder.state['frames'])
+        value=recorder.files.read(recorder.files.expand(reference))
+        index=reference['index'];previous=None if index==1 else recorder.files.read(recorder.files.expand(recorder.state['frames'][index-2]))
+        recorder.frame(value,previous=previous);recorder.file_guard();return value
 
     def intent(self,kind,reference):
         self.file_guard();need(kind=='original' and self.state is not None and len(self.state['frames'])<32 and reference['index']==len(self.state['frames'])+1)
@@ -755,6 +856,9 @@ class LifecycleTouchResourceOwner:
         else:need(reference['phase']=='planned')
         self.state['pending']=deepcopy(reference);self.save();return True
     def capture(self):
+        if self.version==4:
+            self._motion_observation_identity(live=True)
+            return self._observation_owner.capture()
         self.current();need(self.version==1 and self.state is not None and self.state['pending'] is None and len(self.state['frames'])<32)
         if self._source is None or self._retained is None:raise TouchLeasePending('Archived resource admission has no original retained source/worker')
         need(asyncio.get_running_loop() is self._loop)
@@ -763,6 +867,12 @@ class LifecycleTouchResourceOwner:
         self.frame(value,previous=previous);ref=self.files.write(len(self.state['frames'])+1,value)
         self.state['frames'].append(ref);self.state['pending']=None;self.save();self.current();return deepcopy(value)
     def recover_capture(self):
+        if self.version==4:
+            self._motion_observation_identity(live=False);recorder=self._observation_owner
+            if recorder.state['pending'] is not None:return recorder.recover_capture()
+            # An already committed original may have lost only its transport
+            # return. Reopen that SAME original, never snapshot or replay SDK.
+            need(recorder.state['frames']);return self.observation_original(recorder.state['frames'][-1])
         # Exact saved adoption only. No source/SDK query, input or factory.
         self.file_guard();need(self.version==1 and self.state is not None and len(self.state['frames'])<32 and self.state['pending'] is not None and self.state['pending']['phase']=='saved')
         ref=self.state['pending'];value=self.files.read(ref);previous=None if not self.state['frames'] else self.files.read(self.files.expand(self.state['frames'][-1]))

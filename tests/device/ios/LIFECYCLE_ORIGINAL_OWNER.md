@@ -386,3 +386,37 @@ Both successful runs have unchanged source/original inventories and complete
 actual task, thread, descriptor and process cleanup checks. Native, SDK and HID
 producers remain models. Canonical retained-input integration, native builds,
 devices and the complete Lifecycle adapter are not qualified by these cases.
+
+## Resource observations from the original worker
+
+The original motion worker creates its observation journal before the first
+SDK producer factory. The same source, worker and preparation original bind
+the receiver, drain task, display and HID resource events. Explicit resource
+capture and saved-only recovery use version-three resource replies and retain
+the original preparation bytes. They do not create another gesture or worker.
+The normal runtime reader transfers the original header and frame through its
+existing bounded file route. Version-one defaults remain readable.
+
+After the original Up and context return, each observation and file read takes
+the same resource lock itself. It cannot rely on the departed worker retaining
+that lock. Foreign preparation, owner or file identity still refuses admission;
+lost saved capture results recover without another snapshot, query or input.
+
+Historical anchor validation stays inside the original 1.5-second operation
+deadline. The new native interval begins after that historical proof, before
+its first task or query. Its receipt inherits the earlier overall deadline;
+moving the interval boundary grants no additional Down, Move or receipt time.
+The 250-millisecond clock agreement and all query/file limits are unchanged.
+
+Three deadline cases and nine observation/frontdoor cases pass, retaining 255
+files in 25 genuine temporary roots. Real 1.55-second delayed anchors prevent
+late Down and Move while the original Up still returns. Each case completes
+its actual async runner cleanup and descriptor/task/thread/process censuses;
+the stopped original inventories and source maps remain unchanged. Earlier
+clock, released-lock and controller-preflight failures remain retained failures.
+
+These are host models of SDK/native/HID producers. Resource retirement,
+authenticated device support and whole-feature admission remain false. The
+complete coordinator must still join independent actor/image/restoration
+evidence, repeated resource quiet and final process/SDK retirement. Lifecycle
+remains partial; the completed-area count remains five of fourteen.

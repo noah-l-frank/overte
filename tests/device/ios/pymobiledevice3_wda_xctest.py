@@ -1614,7 +1614,8 @@ class OriginalKeeperOperations:
             self._native_acquisition_save(journal,value);current();files.read(files.expand(reference));current()
             if _motion_window:
                 from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionReference
-                receipt=_NativeMotionReference(self,journal,reference,window_task,window_function,started,selected=selected,selected_id=selected_id)
+                receipt=_NativeMotionReference(self,journal,reference,window_task,window_function,started,selected=selected,selected_id=selected_id,
+                    deadline=None if current_cut is None else deadline)
                 if current_cut is not None:receipt._target=weakref.ref(_current_resource)
                 if worker_step is not None:receipt._worker_guard=worker_step;receipt._worker_phase=current_cut[5]
             payload=canonical(dict(binding=binding,runId=run,reference=reference)).decode('ascii')
@@ -1660,7 +1661,7 @@ class OriginalKeeperOperations:
         step.scope();lease=step._lease()
         if ((phase=='before-down' and (lease.down_issued or lease.previous['phase']!='down-issued'))
                 or (phase=='after-down' and (not lease.down_issued or lease.up_issued))):raise LaunchError('session-lifetime')
-        loop=asyncio.get_running_loop();started=loop.time();epoch=time.time()*1000;deadline=min(started+1.5,lease._deadline())
+        loop=asyncio.get_running_loop();operation_started=loop.time();deadline=min(operation_started+1.5,lease._deadline())
         original=resource._motion_original
         try:
             anchor=original.anchor(self.source,resource,self.instance);step.scope()
@@ -1670,6 +1671,12 @@ class OriginalKeeperOperations:
             async def acquire():
                 try:return await self.native_acquire(args,resource.binding['sessionId'],_motion_window=True,_current_resource=resource)
                 finally:self.native_current_cuts.pop(asyncio.current_task(),None)
+            # Full historical anchor proof remains inside the ORIGINAL overall
+            #1.5s operation deadline. Its old clocks are not fresh acquisition.
+            # Start this NEW native interval before its first request/task,
+            # after historical-only admission; never reset the overall budget.
+            started=loop.time();epoch=time.time()*1000
+            if started>=deadline:raise LaunchError('session-lifetime')
             task=asyncio.create_task(acquire(),name='original-native-motion-'+phase)
             self.native_current_cuts[task]=(resource,started,epoch,deadline,step,phase)
             self.source._native_current_tasks.append(task);self.operations.add(task);task.add_done_callback(self.operations.discard)
@@ -1799,6 +1806,7 @@ class OriginalKeeperOperations:
 
     def native_acquisition_read(self,args,session):
         """Historical immutable FD bytes; never a fresh native query/verdict."""
+        if type(args) is dict and 'nativeMotionResourceObservationVersion' in args:return self.resource_observation_read(args,session)
         if type(args) is dict and 'nativePassiveAcquisitionVersion' in args:return self.native_passive_acquisition_read(args,session)
         import base64,hashlib,os
         from copy import deepcopy
@@ -1914,6 +1922,144 @@ class OriginalKeeperOperations:
                     source='original-rsd-personalized-image-and-tcp',nativeTouchSupport=False,
                     resourceRetirementEstablished=False)
 
+    def _resource_observation_owner(self,args,session):
+        """Actual original birth only; no current Source/SDK required for saved bytes."""
+        from adapters.normal_feature_state import context
+        from adapters.script_feature.history import canonical
+        from ios.adapters.lifecycle_touch_resource_owner import LifecycleTouchResourceOwner
+        fields={'binding','runId','nativeMotionResourceObservationVersion','expectedOwnerInstance','preparationReferenceJson'}
+        if (type(args) is not dict or set(args)!=fields or type(args['nativeMotionResourceObservationVersion']) is not int
+                or args['nativeMotionResourceObservationVersion']!=1 or type(args['expectedOwnerInstance']) is not str
+                or args['expectedOwnerInstance']!=self.instance or type(args['preparationReferenceJson']) is not str
+                or len(args['preparationReferenceJson'])>2048):raise LaunchError('request')
+        birth=self.retained_motion_resource
+        if (type(birth) is not tuple or len(birth)!=9 or birth[0] is not self or birth[4]!=self.instance
+                or context(args['binding'])!=birth[5] or args['runId']!=birth[6] or session!=birth[5]['sessionId']
+                or canonical(birth[8]).decode('ascii')!=args['preparationReferenceJson']
+                or asyncio.get_running_loop() is not birth[3]
+                or type(birth[1]) is not LifecycleTouchResourceOwner or birth[1].version!=4):raise LaunchError('session-lifetime')
+        resource=birth[1]
+        # The born worker holds this shared lock only until its actual context
+        # returns. Passive capture/read/recover after ordinary Up must acquire
+        # the SAME original resource lock before its unchanged file/birth guard.
+        with resource.lock.held():resource._motion_observation_identity(live=False)
+        return resource,resource._observation_owner,birth
+
+    def _resource_observation_file(self,recorder,artifact,reference=None):
+        """Reuse actual OriginalFrameStore FD/byte guards on known owned paths."""
+        import os,hashlib
+        from copy import deepcopy
+        from adapters.script_feature.history import canonical
+        from ios.adapters.lifecycle_touch_resource_owner import owner_header
+        recorder.file_guard()
+        if artifact=='capture':
+            full=recorder.files.expand(reference)
+            if reference not in recorder.state['frames']:raise LaunchError('request')
+            path=recorder.files.path(full)
+            original=recorder.files.read(full)
+        elif artifact=='owner':path=recorder.store.path
+        else:raise LaunchError('request')
+        descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+        with os.fdopen(descriptor,'rb') as stream:
+            info=os.fstat(stream.fileno())
+            if artifact=='owner' and reference is None:
+                # PrivateFeatureState's existing64KiB bound, exact newline too.
+                raw=stream.read(65537)
+                if not 2<=len(raw)<=65536:raise LaunchError('request')
+                reference=dict(index=len(recorder.state['frames']),sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw),device=info.st_dev,inode=info.st_ino)
+            else:raw=stream.read((65536 if artifact=='owner' else 1024*1024)+1)
+            full=recorder.files.expand(reference);recorder.files.file(path,stream.fileno(),full)
+            if len(raw)!=reference['bytes'] or hashlib.sha256(raw).hexdigest()!=reference['sha256']:raise LaunchError('session-lifetime')
+            recorder.files.file(path,stream.fileno(),full)
+        body=decode_owner_packet(raw)
+        if artifact=='owner':
+            owner_header(body,recorder.binding,recorder.run)
+            if body!=recorder.previous or canonical(body)+b'\n'!=raw:raise LaunchError('session-lifetime')
+        elif canonical(body)!=raw or body.get('frame')!=original:raise LaunchError('session-lifetime')
+        recorder.file_guard();return deepcopy(reference),raw
+
+    async def resource_observation(self,operation,args,session):
+        """Existing capture/recover operations, explicit motion profile only."""
+        from copy import deepcopy
+        from adapters.script_feature.history import canonical
+        from ios.adapters.lifecycle_touch_resource_owner import _NativeMotionPassiveRead
+        resource,recorder,birth=self._resource_observation_owner(args,session)
+        task=asyncio.current_task();rows=[(key,row) for key,row in self.issued.items() if row.get('task') is task]
+        if len(rows)!=1 or rows[0][1]['request']['operation']!=operation or rows[0][1]['request']['args']!=args:
+            raise LaunchError('session-lifetime')
+        # Reserve the CURRENT real observation slot only for a new snapshot.
+        # Recovery reopens already-saved bytes; never snapshot/SDK/input/reclock.
+        scope=None
+        try:
+            if operation=='touch-resource-capture':
+                if self.source is not birth[2]:raise LaunchError('session-lifetime')
+                await self.fresh_touch_scope(resource.binding)
+                resource,recorder,again=self._resource_observation_owner(args,session)
+                if again is not birth:raise LaunchError('session-lifetime')
+                scope=_NativeMotionPassiveRead(self,session,'touch-resource-capture',args['binding'],args['runId'])
+                scope.current()
+            with resource.lock.held():
+                value=resource.capture() if operation=='touch-resource-capture' else resource.recover_capture()
+                reference=deepcopy(recorder.state['frames'][-1]);original=resource.observation_original(reference)
+                if original!=value:raise LaunchError('session-lifetime')
+                _,capture_raw=self._resource_observation_file(recorder,'capture',reference)
+                header_reference,header_raw=self._resource_observation_file(recorder,'owner')
+            if scope is not None:scope.current()
+            request_id,row=rows[0]
+            receipt=dict(owner=self,resource=resource,recorder=recorder,birth=birth,task=weakref.ref(task),row=row,
+                capture=deepcopy(reference),header=deepcopy(header_reference),function=self.resource_observation.__func__)
+            registry=getattr(self,'resource_observation_originals',None)
+            if registry is None:registry={};self.resource_observation_originals=registry
+            registry[reference['sha256']]=receipt # Source-local actual producer membership.
+            payload=canonical(dict(binding=deepcopy(resource.binding),runId=resource.run,
+                preparationReferenceJson=args['preparationReferenceJson'],reference=reference,ownerReference=header_reference)).decode('ascii')
+            result=dict(originalKeeperTouchResourceVersion=3,ownerInstance=self.instance,encoding='canonical-json-ascii',resourceJson=payload,
+                nativeTouchSupport=False,resourceRetirementEstablished=False)
+            if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:raise LaunchError('request')
+            return result
+        finally:
+            if scope is not None:scope.close()
+
+    def resource_observation_read(self,args,session):
+        """Same chunk operation/limits; original Source receipt before any read."""
+        import base64
+        from adapters.script_feature.history import canonical
+        fields={'artifact','referenceJson','ownerReferenceJson','offset'}
+        if (type(args) is not dict or not fields<=set(args) or type(args['artifact']) is not str or args['artifact'] not in ('capture','owner')
+                or type(args['referenceJson']) is not str or type(args['ownerReferenceJson']) is not str
+                or len(args['referenceJson'])>2048 or len(args['ownerReferenceJson'])>2048
+                or type(args['offset']) is not int or args['offset']<0 or args['offset']%4096):raise LaunchError('request')
+        selectors={key:value for key,value in args.items() if key not in fields}
+        resource,recorder,birth=self._resource_observation_owner(selectors,session)
+        reference=decode_owner_packet(args['referenceJson']);header=decode_owner_packet(args['ownerReferenceJson'])
+        if canonical(reference).decode('ascii')!=args['referenceJson'] or canonical(header).decode('ascii')!=args['ownerReferenceJson']:
+            raise LaunchError('request')
+        recorder.files.expand(reference);recorder.files.expand(header)
+        receipt=getattr(self,'resource_observation_originals',{}).get(reference['sha256'])
+        if (type(receipt) is not dict or receipt.get('owner') is not self or receipt.get('resource') is not resource
+                or receipt.get('recorder') is not recorder or receipt.get('birth') is not birth
+                or receipt.get('function') is not self.resource_observation.__func__ or receipt.get('capture')!=reference
+                or receipt.get('header')!=header):raise LaunchError('session-lifetime')
+        task=receipt['task']();row=receipt['row']
+        if (task is None or not task.done() or task.cancelled() or task.exception() is not None or task.get_loop() is not birth[3]
+                or row.get('task') is not task or not any(actual is row for actual in self.issued.values())):raise LaunchError('session-lifetime')
+        with resource.lock.held():
+            # Join BOTH actual originals on EVERY chunk, rejecting changed
+            # owner-WAL generation or atomically replaced capture bytes/inode.
+            resource.observation_original(reference)
+            self._resource_observation_file(recorder,'owner',header)
+            selected=reference if args['artifact']=='capture' else header
+            _,raw=self._resource_observation_file(recorder,args['artifact'],selected)
+            offset=args['offset']
+            if offset>=len(raw):raise LaunchError('request')
+            chunk=raw[offset:offset+4096]
+            self._resource_observation_file(recorder,'owner',header)
+        payload=canonical(dict(artifact=args['artifact'],reference=selected,offset=offset,contentBase64=base64.b64encode(chunk).decode('ascii'))).decode('ascii')
+        result=dict(originalKeeperNativeAcquisitionReadVersion=3,ownerInstance=self.instance,encoding='canonical-json-ascii',originalJson=payload,
+            nativeAcquisitionBound=False,installedCandidateBound=False,nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
+        if len(json.dumps(result,separators=(',',':'),ensure_ascii=True).encode('ascii'))>12000:raise LaunchError('request')
+        return result
+
     async def retained_resource_cleanup(self,operation,args,session):
         """Selectors bind actual pre-Down objects BEFORE any release/settle.
 
@@ -2015,6 +2161,8 @@ class OriginalKeeperOperations:
             if re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}',args['sessionId']) is None:raise LaunchError('request')
             self.source.current();self.session=dict(args)
             return dict(originalKeeperClaimVersion=1,ownerInstance=self.instance)
+        if operation in ('touch-resource-capture','touch-resource-recover') and type(args) is dict and 'nativeMotionResourceObservationVersion' in args:
+            return await self.resource_observation(operation,args,session)
         if operation in ('touch-release','touch-inspect','touch-settle'):
             if type(args) is dict and 'originalKeeperRetainedTouchProfileVersion' in args:
                 return await self.retained_resource_cleanup(operation,args,session)

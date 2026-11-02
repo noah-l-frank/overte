@@ -447,12 +447,16 @@ class IOSLifecycleWorldHoldRuntime:
             reference=deepcopy(reference),originalFrame=deepcopy(frame),nativeAcquisitionBound=False,installedCandidateBound=False,
             nativeMotionGuardAvailable=False,nativeTouchSupport=False,resourceRetirementEstablished=False)
 
-    def resource_metadata(self,selector,run,*,recover=False):
+    def resource_metadata(self,selector,run,*,recover=False,original_child=None):
         """Read the original child's passive resource DTO, never borrow auth.
 
         Actual loop/Task/RSD objects remain in that child. This consumer opens
         no lease/session, grants no input or native-end/production admission.
         """
+        if original_child is not None:
+            need(type(original_child) is _OriginalKeeperWorldConnection and original_child.runtime is self
+                and original_child.selector==selector and original_child.run==run)
+            return self._resource_metadata_original_child(original_child,recover)
         from ios.adapters.lifecycle_touch_resource_owner import owner_header,capture_original
         identifier(run);need(type(recover) is bool)
         source=IOSScriptRuntime(self.adapter)._sources(selector);source['check']()
@@ -487,6 +491,70 @@ class IOSLifecycleWorldHoldRuntime:
         return dict(originalKeeperTouchResourceVersion=2,ownerInstance=value['ownerInstance'],
                     capture=deepcopy(capture),owner=deepcopy(payload['owner']),
                     nativeTouchSupport=False,resourceRetirementEstablished=False)
+
+    async def _resource_metadata_original_child(self,connection,recover):
+        import asyncio
+        need(type(recover) is bool);connection.current()
+        lease=connection.retained_lease();need(lease is not None and connection.preparation is not None)
+        args=dict(binding=deepcopy(connection.binding),runId=connection.run,nativeMotionResourceObservationVersion=1,
+            expectedOwnerInstance=connection.owner,preparationReferenceJson=canonical(connection.preparation['reference']).decode('ascii'))
+        operation='touch-resource-recover' if recover else 'touch-resource-capture'
+        result=await lease._request(operation,args,forward=True);connection.current()
+        exact(result,{'originalKeeperTouchResourceVersion','ownerInstance','encoding','resourceJson','nativeTouchSupport','resourceRetirementEstablished'})
+        need(type(result['originalKeeperTouchResourceVersion']) is int and result['originalKeeperTouchResourceVersion']==3
+            and result['ownerInstance']==connection.owner and result['encoding']=='canonical-json-ascii'
+            and type(result['resourceJson']) is str and result['resourceJson'].isascii() and len(result['resourceJson'])<12000
+            and result['nativeTouchSupport'] is False and result['resourceRetirementEstablished'] is False)
+        value=json_document(result['resourceJson']);exact(value,{'binding','runId','preparationReferenceJson','reference','ownerReference'})
+        need(canonical(value).decode('ascii')==result['resourceJson'] and value['binding']==connection.binding and value['runId']==connection.run
+            and value['preparationReferenceJson']==args['preparationReferenceJson'])
+        task=asyncio.create_task(asyncio.to_thread(self._resource_metadata_original_read,connection.selector,args,result,value),name='original-child-resource-ref-read')
+        lease._requests.append(task);failure=None
+        while not task.done():
+            try:await asyncio.shield(task)
+            except BaseException as error:failure=failure or error
+        if failure is not None:raise failure
+        result=task.result();connection.current();return result
+
+    def _resource_metadata_original_read(self,selector,args,result,value):
+        import base64,time
+        from ios.adapters.lifecycle_touch_resource_owner import owner_header,capture_original
+        source=IOSScriptRuntime(self.adapter)._sources(selector);source['check']()
+        need(source['binding']==args['binding']);binding=source['binding'];run=args['runId']
+        codec=OriginalFrameStore(self.adapter.state_path(selector).parent,binding,run,'primary',source['check'],lambda *_:need(False),
+            namespace='lifecycle-touch-resource',schema_prefix='iosLifecycleTouchResource')
+        for reference in (value['reference'],value['ownerReference']):codec.expand(reference)
+        need(value['reference']['index']==value['ownerReference']['index'] and value['ownerReference']['bytes']<=65536)
+        flags={'nativeAcquisitionBound','installedCandidateBound','nativeMotionGuardAvailable','nativeTouchSupport','resourceRetirementEstablished'}
+        artifacts={};started=time.monotonic()
+        for artifact,reference in [('owner',value['ownerReference']),('capture',value['reference'])]:
+            blocks=[]
+            for offset in range(0,reference['bytes'],4096):
+                source['check']();need(0<=time.monotonic()-started<5)
+                chunk=source['client'].execute(source['session'],'mobile: overteOriginalKeeperOperation',dict(operation='touch-native-acquisition-read',
+                    args=dict(deepcopy(args),artifact=artifact,referenceJson=canonical(value['reference']).decode('ascii'),
+                        ownerReferenceJson=canonical(value['ownerReference']).decode('ascii'),offset=offset)))
+                source['check']();need(0<=time.monotonic()-started<5)
+                exact(chunk,{'originalKeeperNativeAcquisitionReadVersion','ownerInstance','encoding','originalJson'}|flags)
+                need(type(chunk['originalKeeperNativeAcquisitionReadVersion']) is int and chunk['originalKeeperNativeAcquisitionReadVersion']==3
+                    and chunk['ownerInstance']==result['ownerInstance'] and chunk['encoding']=='canonical-json-ascii'
+                    and type(chunk['originalJson']) is str and chunk['originalJson'].isascii() and len(chunk['originalJson'])<12000
+                    and all(chunk[k] is False for k in flags))
+                body=json_document(chunk['originalJson']);exact(body,{'artifact','reference','offset','contentBase64'})
+                need(canonical(body).decode('ascii')==chunk['originalJson'] and body['artifact']==artifact and body['reference']==reference
+                    and type(body['offset']) is int and body['offset']==offset and type(body['contentBase64']) is str and len(body['contentBase64'])<=5464)
+                block=base64.b64decode(body['contentBase64'],validate=True);need(len(block)==min(4096,reference['bytes']-offset));blocks.append(block)
+            raw=b''.join(blocks);need(len(raw)==reference['bytes'] and hashlib.sha256(raw).hexdigest()==reference['sha256']);artifacts[artifact]=raw
+        owner=json_document(artifacts['owner'].decode('utf-8'));need(canonical(owner)+b'\n'==artifacts['owner']);state=owner_header(owner,binding,run)
+        need(state['pending'] is None and state['frames'] and state['frames'][-1]==value['reference'])
+        body=json_document(artifacts['capture'].decode('utf-8'));need(canonical(body)==artifacts['capture'])
+        exact(body,{'iosLifecycleTouchResourceFrameVersion','kind','binding','runId','role','index','frame'})
+        need(type(body['iosLifecycleTouchResourceFrameVersion']) is int and body['iosLifecycleTouchResourceFrameVersion']==1
+            and body['kind']=='sources' and body['binding']==binding and body['runId']==run and body['role']=='primary'
+            and type(body['index']) is int and body['index']==value['reference']['index'])
+        capture=capture_original(body['frame'],state);source['check']()
+        return dict(originalKeeperTouchResourceVersion=3,ownerInstance=result['ownerInstance'],owner=deepcopy(owner),capture=deepcopy(capture),
+            reference=deepcopy(value['reference']),ownerReference=deepcopy(value['ownerReference']),nativeTouchSupport=False,resourceRetirementEstablished=False)
 
     def native_passive_world(self,selector,run,phase):
         """Existing child/pipe+chunk path. Four quiet calls are distinct originals.
