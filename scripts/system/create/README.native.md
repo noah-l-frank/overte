@@ -2,9 +2,11 @@
 
 The normal `edit.js` app loads `qml/Edit.qml`. On Android and iOS, this entry
 uses `NativeCreate.qml`; desktop tablets retain `EditDesktop.qml`. Start the
-editor as its own script engine and use the system tablet with `toolbarMode`
-set to `false` for touch clients. A startup script's JavaScript variables do
-not propagate into the editor's separate engine.
+editor as its own script engine. The native Android/iOS host identity selects
+the normal tablet route even when its screen-space presenter enables
+`toolbarMode`; that property alone must not select desktop tool windows.
+A startup script's JavaScript variables do not propagate into the editor's
+separate engine. Desktop presentation preferences retain their existing role.
 
 The native surface provides these user outcomes:
 

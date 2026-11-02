@@ -227,9 +227,14 @@ class SourceInputs(unittest.TestCase):
 
     def test_external_symlink_and_unbound_generator_are_rejected(self):
         qt = self.f.packages['target', 'qt']
-        (qt / 'escape').symlink_to('/etc/hosts')
-        with self.assertRaisesRegex(ValueError, 'PICO_PATH_ESCAPE'): self.f.resolve()
-        (qt / 'escape').unlink()
+        with tempfile.TemporaryDirectory(prefix='pico-external-source-input-') as external:
+            outside = Path(external) / 'existing-input.txt'
+            outside.write_text('outside the sealed source graph\n')
+            self.assertTrue(outside.is_file())
+            self.assertFalse(outside.is_relative_to(self.f.root))
+            (qt / 'escape').symlink_to(outside)
+            with self.assertRaisesRegex(ValueError, 'PICO_PATH_ESCAPE'): self.f.resolve()
+            (qt / 'escape').unlink()
         self.f.write('generators/foreign.cmake', '# not pinned\n')
         with self.assertRaisesRegex(ValueError, 'PICO_PAYLOAD_HASH'): self.f.resolve()
 

@@ -10,6 +10,8 @@
     var AUDIO_SOURCE = "hifi/audio/Audio.qml";
     var SETTINGS_SOURCE = Script.resolvePath("../settings/Settings.qml");
     var GENERAL_SETTINGS_SOURCE = "hifi/tablet/TabletGeneralPreferences.qml";
+    var SCRIPTS_SOURCE = "hifi/dialogs/TabletRunningScripts.qml";
+    var ASSETS_SOURCE = "hifi/dialogs/TabletAssetServer.qml";
     // Settings QML is packaged first-party content, but keep its navigation
     // boundary fail-closed as well. Never turn an arbitrary QML message into a
     // local or remote component load.
@@ -58,6 +60,22 @@
         text: "MENU",
         sortOrder: 3
     });
+    // The screen-space menu deliberately excludes the desktop Edit menu.
+    // Reach these existing native pages through ordinary first-party apps.
+    var scriptsButton = tablet.addButton({
+        icon: "icons/tablet-icons/scripts-i.svg",
+        activeIcon: "icons/tablet-icons/scripts-a.svg",
+        text: "SCRIPTS",
+        semanticId: "app.scripts",
+        sortOrder: 4
+    });
+    var assetsButton = tablet.addButton({
+        icon: "icons/tablet-icons/inventory-i.svg",
+        activeIcon: "icons/tablet-icons/inventory-a.svg",
+        text: "ASSETS",
+        semanticId: "app.assets",
+        sortOrder: 5
+    });
 
     function openAudio() {
         openOrReturnHome(AUDIO_SOURCE);
@@ -69,6 +87,14 @@
 
     function openMenu() {
         tablet.gotoMenuScreen();
+    }
+
+    function openScripts() {
+        openOrReturnHome(SCRIPTS_SOURCE);
+    }
+
+    function openAssets() {
+        openOrReturnHome(ASSETS_SOURCE);
     }
 
     function onScreenChanged(type, source) {
@@ -95,6 +121,8 @@
     audioButton.clicked.connect(openAudio);
     settingsButton.clicked.connect(openSettings);
     menuButton.clicked.connect(openMenu);
+    scriptsButton.clicked.connect(openScripts);
+    assetsButton.clicked.connect(openAssets);
     tablet.screenChanged.connect(onScreenChanged);
     tablet.fromQml.connect(fromQml);
 
@@ -102,10 +130,14 @@
         audioButton.clicked.disconnect(openAudio);
         settingsButton.clicked.disconnect(openSettings);
         menuButton.clicked.disconnect(openMenu);
+        scriptsButton.clicked.disconnect(openScripts);
+        assetsButton.clicked.disconnect(openAssets);
         tablet.screenChanged.disconnect(onScreenChanged);
         tablet.fromQml.disconnect(fromQml);
         tablet.removeButton(audioButton);
         tablet.removeButton(settingsButton);
         tablet.removeButton(menuButton);
+        tablet.removeButton(scriptsButton);
+        tablet.removeButton(assetsButton);
     });
 }());

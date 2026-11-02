@@ -22,6 +22,7 @@
 #include <iostream>
 #include <vector>
 #include "libraries/shared/src/EmbeddedWebPolicy.h"
+#include "libraries/shared/src/InlineHtmlDocument.h"
 
 using overte::web::EmbeddedWebSession;
 const QUrl DOCUMENT("https://world.example/app.html");
@@ -48,7 +49,6 @@ public:
         connect(this, &QQuickItem::visibleChanged, this, [this] { session.setVisible(isVisible()); });
     }
 };
-struct ContextBoundary { void setContextProperty(const char*, const QVariant&) {} };
 class OffscreenQmlSurface : public hifi::qml::OffscreenSurface {
     Q_OBJECT
 public:
@@ -56,10 +56,10 @@ public:
     QQuickWindow window;
     QQmlEngine engine;
     DocumentProbe* document {};
-    ContextBoundary context;
     int maxFps {};
+    QQmlContext* overrideContext {};
     QQuickItem* getRootItem() const { return root; }
-    ContextBoundary* getSurfaceContext() { return &context; }
+    QQmlContext* getSurfaceContext() { return overrideContext ? overrideContext : engine.rootContext(); }
     void resume() {}
     void resize(const QSize&) {}
     void setMaxFps(int value) { maxFps = value; }
@@ -84,6 +84,7 @@ public slots:
     void emitScriptEvent(const QVariant&) {}
 };
 struct EntityBoundary {
+    QUuid id { QUuid::createUuid() };
     bool visible { true };
     QString url { DOCUMENT.toString() };
     QString scriptUrl;
@@ -105,10 +106,10 @@ struct EntityBoundary {
     QString getUserAgent() const { return userAgent; }
     int getWorldPosition() const { return 0; }
     int getScaledDimensions() const { return 1; }
-    QString getID() const { return "entity-boundary"; }
+    QUuid getID() const { return id; }
 };
 using EntityItemPointer = QSharedPointer<EntityBoundary>;
-using EntityItemID = QString;
+using EntityItemID = QUuid;
 using ScenePointer = void*;
 struct Transaction {};
 struct TransformBoundary { void setScale(float) {} void postScale(int) {} };
@@ -120,7 +121,7 @@ struct AbstractViewStateInterface {
 class EntityScriptingInterface : public QObject {
     Q_OBJECT
 signals:
-    void webEventReceived(const QString&, const QVariant&);
+    void webEventReceived(const QUuid&, const QVariant&);
 };
 struct DependencyManager {
     template<class T> static QSharedPointer<T> get() { static auto value = QSharedPointer<T>::create(); return value; }
@@ -162,6 +163,7 @@ public:
         // Execute the actual application's HTML root initializer; acquisition
         // sets its URL, while the renderer owns script/background/user-agent.
         if (htmlContent) {
+            assert(url.isEmpty()); // No authored URL before its native source tuple.
             auto webSurface = surface;
 #include "production-acquire-root-initialization.inc"
             if (webSurface->getRootItem()) {
@@ -190,6 +192,7 @@ public:
     void buildWebSurface(const EntityItemPointer&, const QString&);
     void destroyWebSurface();
     void synchronizeWebVisibility(bool);
+    void synchronizeInlineDocument(const TypedEntityPointer&, const QString&);
     ~WebEntityRenderer() { destroyWebSurface(); }
 signals:
     void scriptEventReceived(const QVariant&);
@@ -214,8 +217,26 @@ static void update(WebEntityRenderer& renderer, const EntityItemPointer& entity)
     renderer.doRenderUpdateSynchronousTyped(nullptr, transaction, entity);
 }
 
+static bool absentInlineCarrier(const QSharedPointer<OffscreenQmlSurface>& surface) {
+    const auto value = surface->getSurfaceContext()->contextProperty("nativeInlineHtmlDocument");
+    return !value.isValid() || value.isNull();
+}
+
+static auto inlineDocument(const QSharedPointer<OffscreenQmlSurface>& surface) {
+    return surface->getSurfaceContext()->contextProperty("nativeInlineHtmlDocument")
+        .value<overte::web::InlineHtmlDocument>();
+}
+
+static QString identity(const EntityItemPointer& entity) {
+    return "web-entity:" + entity->getID().toString(QUuid::WithoutBraces);
+}
+
 int main(int argc, char** argv) {
     QGuiApplication app(argc, argv);
+    for (const auto& source : { "data:text/html,<p>hello</p>.qml", "DATA:text/html,last.qml#fragment" }) {
+        assert(WebEntityRenderer::getContentType(QString::fromLatin1(source)) == WebEntityRenderer::ContentType::HtmlContent);
+    }
+    assert(WebEntityRenderer::getContentType("https://world.example/authored.qml") == WebEntityRenderer::ContentType::QmlContent);
     assert(argc == 2);
     rootSchema = QString::fromLocal8Bit(argv[1]);
     {
@@ -226,6 +247,8 @@ int main(int argc, char** argv) {
         assert(!surface->root->isVisible() && !surface->document->isVisible());
         assert(!surface->document->session.active());
         entity->visible = true; update(renderer, entity);
+        assert(absentInlineCarrier(surface)); // Initial ordinary HTTPS supplies no inline grant.
+        assert(surface->root->property("url").toString() == DOCUMENT.toString());
         auto grant = surface->document->session.generation();
         assert(surface->root->isVisible() && surface->document->session.active());
         assert(surface->document->session.allowsBridge(grant, DOCUMENT, true, 10));
@@ -338,8 +361,104 @@ int main(int argc, char** argv) {
         assert(owner._webSurface == replacement && !replacement->root->isVisible());
         assert(!replacement->document->session.active());
     }
+    {
+        // Run the actual renderer issuance and destruction bodies, observing
+        // their values in a real QQmlContext rather than a no-op context stub.
+        const QByteArray html("<!doctype html><style>video{width:100%}</style>"
+                              "<video src='http://media.example/movie.mp4'></video>"
+                              "<script>window.payload='a+b?c';</script>");
+        auto surface = makeSurface();
+        auto entity = EntityItemPointer::create();
+        entity->url = "data:text/html;charset=UTF-8," + QString::fromLatin1(QUrl::toPercentEncoding(html));
+        WebEntityRenderer renderer;
+        update(renderer, entity);
+        auto first = inlineDocument(surface);
+        assert(first.currentFor(surface->getSurfaceContext(), identity(entity), entity->url));
+        assert(first.bytes() == html && first.charset() == "UTF-8");
+        assert(first.sha256() == QCryptographicHash::hash(html, QCryptographicHash::Sha256));
+        assert(surface->getSurfaceContext()->contextProperty("nativeWebSourceIdentity").toString() == identity(entity));
+        update(renderer, entity);
+        assert(inlineDocument(surface).token() == first.token());
+
+        entity->scriptUrl = "https://scripts.example/new-owner-script.js";
+        update(renderer, entity);
+        auto scripted = inlineDocument(surface);
+        assert(!first.current() && scripted.current());
+        assert(scripted.scriptURL() == entity->scriptUrl);
+        assert(scripted.bytes() == html && scripted.revision() > 1);
+        const auto scriptToken = scripted.token();
+        entity->url = "data:text/html;base64," + QString::fromLatin1(html.toBase64());
+        update(renderer, entity);
+        auto replaced = inlineDocument(surface);
+        assert(!scripted.current() && replaced.current() && replaced.token() != scriptToken);
+        assert(replaced.bytes() == html);
+
+        entity->url = "data:text/html;base64,invalid!";
+        update(renderer, entity);
+        assert(!replaced.current() && !inlineDocument(surface).current());
+        entity->url = "data:text/html,";
+        update(renderer, entity);
+        auto empty = inlineDocument(surface);
+        assert(empty.current() && empty.bytes().isEmpty());
+        entity->url = DOCUMENT.toString();
+        update(renderer, entity);
+        assert(!empty.current() && !inlineDocument(surface).current());
+        assert(absentInlineCarrier(surface)); // Inline -> HTTPS removes the supplied carrier.
+        assert(surface->root->property("url").toString() == DOCUMENT.toString());
+        assert(surface->getSurfaceContext()->contextProperty("nativeWebSourceIdentity").toString() == identity(entity));
+
+        entity->url = "data:text/html,old-owner";
+        update(renderer, entity);
+        auto oldOwner = inlineDocument(surface);
+        renderer.destroyWebSurface();
+        assert(!oldOwner.current() && !inlineDocument(surface).current());
+        assert(absentInlineCarrier(surface));
+        assert(surface->getSurfaceContext()->contextProperty("nativeWebSourceIdentity").toString().isEmpty());
+        // The actual cache boundary returns this same surface to a different
+        // native entity. A copied descriptor must not survive that handover.
+        WebEntityRenderer::nextSurface = surface;
+        auto nextEntity = EntityItemPointer::create(); nextEntity->url = entity->url;
+        WebEntityRenderer nextOwner;
+        update(nextOwner, nextEntity);
+        auto current = inlineDocument(surface);
+        assert(current.currentFor(surface->getSurfaceContext(), identity(nextEntity), nextEntity->url));
+        assert(!current.currentFor(surface->getSurfaceContext(), identity(entity), entity->url));
+        assert(!oldOwner.current());
+    }
+    {
+        auto surface = makeSurface(false);
+        auto entity = EntityItemPointer::create(); entity->url = "data:text/html,before-root";
+        WebEntityRenderer renderer;
+        QObject::connect(&renderer, &WebEntityRenderer::requestRenderUpdate, &renderer,
+                         [&] { update(renderer, entity); }, Qt::QueuedConnection);
+        update(renderer, entity);
+        entity->url = "data:text/html,current-at-root";
+        surface->createRoot();
+        QCoreApplication::processEvents(); QCoreApplication::processEvents();
+        const auto document = inlineDocument(surface);
+        assert(document.currentFor(surface->getSurfaceContext(), identity(entity), entity->url));
+        assert(document.bytes() == "current-at-root");
+        delete surface->root;
+        surface->root = nullptr;
+        assert(!document.current()); // Root death revokes before renderer teardown.
+        renderer.destroyWebSurface();
+        assert(!document.current());
+    }
+    {
+        auto surface = makeSurface();
+        auto ancestor = std::make_unique<QQmlContext>(surface->engine.rootContext());
+        QQmlContext context(ancestor.get());
+        surface->overrideContext = &context;
+        auto entity = EntityItemPointer::create(); entity->url = "data:text/html,ancestor-context";
+        WebEntityRenderer renderer; update(renderer, entity);
+        const auto document = inlineDocument(surface); assert(document.current());
+        ancestor.reset();
+        assert(!context.isValid() && !document.current());
+        renderer.destroyWebSurface();
+        surface->overrideContext = nullptr;
+    }
     WebEntityRenderer::nextSurface.reset(); // All Qt windows precede QApplication teardown.
     assert(_currentWebCount == 0);
     std::cout << "PASS Qt " << qVersion()
-              << " actual Entity.visible, native policy, namespace lookup, late root update, current-owner cache properties, deletion and source replacement\n";
+              << " actual Entity.visible, native policy, namespace lookup, late root update, current-owner cache properties, deletion, source replacement and native inline-document lifetime\n";
 }

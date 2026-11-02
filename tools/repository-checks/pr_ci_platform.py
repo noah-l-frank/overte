@@ -162,8 +162,37 @@ def android_compile_commands(target, plan, runtime, prepared_roots):
              "--runtime", str(runtime), "--product", product] for product in products]
 
 
+def pico_host_environment(prepared_roots, sdk_root):
+    """Bind the actual prepared JDK and sealed SDK for the Pico host catalog."""
+    import pr_ci_android_native as native
+    C.require(sdk_root is not None,
+              'Pico host contracts require an explicitly prepared sealed Android SDK')
+    roots = [R._directory(path, 'prepared Pico host input') for path in prepared_roots]
+    sdk = R._directory(sdk_root, 'prepared Pico host SDK')
+    C.require(any(sdk == root or root in sdk.parents for root in roots),
+              'Pico host SDK is outside explicit prepared inputs')
+    native.validate_host_sdk(sdk)
+    jdks = [root for root in roots
+            if all((root / path).is_file() for path in
+                   ('bin/java', 'bin/javac', 'include/jni.h', 'include/linux/jni_md.h'))]
+    C.require(len(jdks) == 1, 'Pico host contracts require one explicit complete prepared JDK')
+    jdk = jdks[0]
+    for relative in ('bin/java', 'bin/javac', 'include/jni.h', 'include/linux/jni_md.h'):
+        C.require((jdk / relative).resolve(strict=True).is_relative_to(jdk),
+                  'Pico host JDK tool escapes its prepared root')
+    for relative in ('build-tools/36.0.0/aapt', 'build-tools/36.0.0/aapt2',
+                     'platforms/android-36/android.jar',
+                     'cmdline-tools/22.0/bin/apkanalyzer'):
+        path = sdk / relative
+        C.require(path.is_file() and path.resolve(strict=True).is_relative_to(sdk),
+                  'Pico host SDK is missing its sealed resource/decoder inputs')
+    safe_path = R._environment(None, R._roots(prepared_roots))['PATH']
+    path = ':'.join(dict.fromkeys([str(jdk / 'bin'), *safe_path.split(':')]))
+    return {'JAVA_HOME': str(jdk), 'ANDROID_SDK_ROOT': str(sdk), 'PATH': path}
+
+
 def execute(candidate, context, plan, lane, prepared_roots, *, recompute, android_runtime=None,
-            android_native_runtime=None, android_groovy_runtime=None):
+            android_native_runtime=None, android_groovy_runtime=None, android_host_sdk=None):
     candidate = authenticate(candidate, context, plan, recompute)
     C.require(lane in {"android", "ios"} and plan[lane + "_required"] is True,
               "unselected platform execution")
@@ -175,6 +204,13 @@ def execute(candidate, context, plan, lane, prepared_roots, *, recompute, androi
         C.require(any(root == Path(path).resolve(strict=True) or Path(path).resolve(strict=True) in root.parents
                       for path in prepared_roots), 'Android native runtime is outside explicit prepared inputs')
     selected_commands = commands(candidate, context["target"], lane, plan)
+    pico_catalog = ['bash', 'android/vr/pico/tests/pico-device-free-test.sh']
+    environment = None
+    if lane == 'android' and context['target'] == 'android-vr-pico' and pico_catalog in selected_commands:
+        sdk = android_host_sdk
+        if sdk is None and android_native_runtime is not None:
+            sdk = Path(android_native_runtime) / 'sdk'
+        environment = pico_host_environment(prepared_roots, sdk)
     groovy_script = 'android/vr/pico/native-ci/inputs_test.py'
     needs_groovy = lane == 'android' and any(arguments[1:] == [groovy_script] for arguments in selected_commands)
     C.require(needs_groovy == bool(plan.get('android_groovy_contracts', False)),
@@ -200,7 +236,7 @@ def execute(candidate, context, plan, lane, prepared_roots, *, recompute, androi
                 "OVERTE_HOST_TEST_NETWORK_RUNNER=/work/ios/ci/host-test-network.sh",
                 "OVERTE_QML_TEST_RUNNER=" + qml, *command]
         status = R.run(candidate, command, prepared_roots=prepared_roots,
-                       boundary="user-namespace", timeout=1200)
+                       environment=environment, boundary="user-namespace", timeout=1200)
         C.require(status == 0, "selected product command failed: " + " ".join(arguments))
         authenticate(candidate, context, plan, recompute)
         results.append({"command": arguments, "result": "success"})
@@ -231,7 +267,8 @@ def ios_verifier():
     return module
 
 
-def verify_ios(candidate, context, plan, artifacts, needs, api, *, recompute, pause=time.sleep):
+def verify_ios(candidate, context, plan, artifacts, needs, api, *, recompute, pause=time.sleep,
+               api_factory=None, clock=time.monotonic, metadata_timeout=900):
     authenticate(candidate, context, plan, recompute)
     C.require(context["target"] == "apple-ios" and plan["ios_required"] is True,
               "unselected iOS product verification")
@@ -244,13 +281,19 @@ def verify_ios(candidate, context, plan, artifacts, needs, api, *, recompute, pa
     C.bookend(api, context)
     artifact = None
     if build:
+        import pr_ci_transport as transport
+        C.require(type(metadata_timeout) in (int, float) and 0 < metadata_timeout <= 900,
+                  "invalid iOS metadata observation budget")
+        factory = api_factory if api_factory is not None else lambda: type(api)()
         verifier = ios_verifier()
         run, attempt = int(os.environ["GITHUB_RUN_ID"]), int(os.environ["GITHUB_RUN_ATTEMPT"])
         C.require((run, attempt) == (context["run_id"], context["run_attempt"]),
                   "iOS artifact belongs to another execution")
-        deadline = time.monotonic() + 600
+        deadline = clock() + metadata_timeout
         while True:
-            rows = api.pages(f"actions/runs/{run}/attempts/{attempt}/jobs", field="jobs")
+            rows = transport.read_eventual(factory,
+                lambda client: client.pages(f"actions/runs/{run}/attempts/{attempt}/jobs", field="jobs"),
+                deadline=deadline, pause=pause, clock=clock)
             prefix = "iOS product owner / "
             jobs = [{**row, "name": row["name"].removeprefix(prefix)} for row in rows
                     if row.get("name", "").startswith(prefix)]
@@ -260,12 +303,32 @@ def verify_ios(candidate, context, plan, artifacts, needs, api, *, recompute, pa
                         "client / Static JITless V8 checkpoint", "client / Toolchain, dependencies, build and package"}
             selected = [row for row in jobs if row.get("name") in expected]
             if len(selected) == len(expected) and all(row.get("status") == "completed" for row in selected):
-                verifier.verify_build_execution(jobs, run, attempt, context["head"])
-                break
-            C.require(time.monotonic() < deadline, "iOS terminal job metadata did not become available")
-            pause(15)
+                try:
+                    verifier.verify_build_execution(jobs, run, attempt, context["head"])
+                except ValueError as error:
+                    required = transport.STEPS['ios-build']
+                    missing_messages = {f'selected build step missing, skipped or failed: {name}'
+                                        for name in required}
+                    if str(error) not in missing_messages:
+                        raise
+                    # The unchanged legacy verifier already checked all job IDs,
+                    # attempts and source identities before this exact diagnostic.
+                    # Only absent observations can wait; explicit skips/failures
+                    # and every other legacy refusal remain terminal.
+                    producer = next(row for row in jobs if row.get('name') ==
+                        'client / Toolchain, dependencies, build and package')
+                    try:
+                        transport.require_commands(producer.get('steps'), required)
+                    except transport.Pending:
+                        pass
+                    else:
+                        raise
+                else:
+                    break
+            C.require(clock() < deadline, "iOS terminal job metadata did not become available")
+            pause(min(15, deadline - clock()))
         artifact = verifier.verify_ipa(Path(artifacts), context["original_merge"], int(os.environ["GITHUB_RUN_NUMBER"]))
     authenticate(candidate, context, plan, recompute)
-    C.bookend(api, context)
+    C.bookend(factory() if build else api, context)
     return {"result": "success", "source": context["original_merge"], "tree": context["tree"],
             "application_build_required": build, "artifact": artifact, "device_acceptance": "not-performed"}

@@ -66,7 +66,9 @@
       "android/vr/pico/tests/pico-tablet-e2e-adapter-test.py",
       "android/vr/pico/tests/pico-tablet-settings-test.js",
       "interface/resources/qml/hifi/tablet/+android_picoInterface/TabletGeneralPreferencesPolicy.qml",
-      "interface/resources/qml/hifi/tablet/TabletHome.qml"
+      "interface/resources/qml/hifi/tablet/TabletHome.qml",
+      "android/vr/pico/tests/test_source_inputs.py",
+      "android/vr/pico/tests/pico-apk-verifier-test.py"
     ],
     "apple-ios": [
       ".github/workflows/ios-build-qualification.yml",

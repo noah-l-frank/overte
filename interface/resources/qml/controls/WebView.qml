@@ -7,6 +7,7 @@ Item {
 
     property alias url: webroot.url
     property alias scriptURL: webroot.userScriptUrl
+    property alias scriptUrl: webroot.userScriptUrl
     property alias canGoBack: webroot.canGoBack;
     property var goBack: webroot.webViewCore.goBack;
     property alias urlTag: webroot.urlTag
@@ -25,6 +26,9 @@ Item {
     property alias blurOnCtrlShift: webroot.blurOnCtrlShift
     property alias useBackground: webroot.useBackground
     property alias userAgent: webroot.userAgent
+    property alias surface: webroot.surface
+    property alias inlineDocument: webroot.inlineDocument
+    property alias sourceIdentity: webroot.sourceIdentity
 
     function stop() {
         webroot.stop();
@@ -46,6 +50,7 @@ Item {
 
     FlickableWebViewCore {
         id: webroot
+        surface: "world-entity"
         width: parent.width
         height: keyboardEnabled && keyboardRaised ? parent.height - keyboard.height : parent.height
 

@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -28,6 +29,11 @@ with tempfile.TemporaryDirectory(prefix="overte-places-qml-") as temporary:
     for name in types:
         shutil.copy2(ROOT / "interface/resources/qml/controlsUit" / f"{name}.qml", controls)
     shutil.copy2(Path(__file__).with_name("tst_places.qml"), stage)
-    subprocess.run([runner, "-import", str(stage), "-input", str(stage / "tst_places.qml")],
-                   check=True, timeout=90, env=os.environ | {
+    result = subprocess.run([runner, "-import", str(stage), "-input", str(stage / "tst_places.qml")],
+                   capture_output=True, text=True, timeout=90, env=os.environ | {
                        "QT_QPA_PLATFORM": "offscreen", "QT_QUICK_BACKEND": "software"})
+    print(result.stdout, end="")
+    print(result.stderr, end="", file=sys.stderr)
+    result.check_returncode()
+    if "Binding loop detected" in result.stdout + result.stderr:
+        raise SystemExit("Production Places controls must settle without geometry binding loops")

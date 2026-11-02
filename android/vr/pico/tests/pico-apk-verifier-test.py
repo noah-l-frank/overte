@@ -296,7 +296,11 @@ class PicoBinaryNetworkTests(unittest.TestCase):
         sdk = Path(os.environ.get("ANDROID_SDK_ROOT", str(Path.home() / "Android/Sdk")))
         self.aapt2 = sdk / "build-tools/36.0.0/aapt2"
         self.aapt = sdk / "build-tools/36.0.0/aapt"
-        self.analyzer = sdk / "cmdline-tools/latest/bin/apkanalyzer"
+        # The sealed CI SDK names its qualified tools explicitly; ordinary
+        # developer SDKs may instead expose the standard latest alias.
+        self.analyzer = sdk / "cmdline-tools/22.0/bin/apkanalyzer"
+        if not self.analyzer.is_file():
+            self.analyzer = sdk / "cmdline-tools/latest/bin/apkanalyzer"
         self.android = sdk / "platforms/android-36/android.jar"
         for path in (self.aapt, self.aapt2, self.analyzer, self.android):
             self.assertTrue(path.is_file(), "Actual SDK resource/decoder prerequisite missing")

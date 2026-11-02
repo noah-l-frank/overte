@@ -12,6 +12,8 @@ Item {
     property var parentStackItem: null
     property int headerHeight: 70
     property string scriptURL
+    property alias inlineDocument: web.inlineDocument
+    property alias sourceIdentity: web.sourceIdentity
     // Android screen-space presentation receives text through Qt's platform
     // input method; only non-system-IME surfaces need the QML keyboard.
     property bool keyboardEnabled: !touchMetrics.systemImeAvailable

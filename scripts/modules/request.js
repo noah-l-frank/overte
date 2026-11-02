@@ -56,7 +56,7 @@ module.exports = {
             options.method = 'GET';
         }
         if (options.body && (options.method === 'GET')) { // add query parameters
-            var params = [], appender = (-1 === options.uri.search('?')) ? '?' : '&';
+            var params = [], appender = (-1 === options.uri.indexOf('?')) ? '?' : '&';
             for (key in options.body) {
                 if (options.body.hasOwnProperty(key)) {
                     params.push(key + '=' + options.body[key]);

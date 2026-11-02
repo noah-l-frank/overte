@@ -22,12 +22,12 @@ class EmbeddedWebQmlTests(unittest.TestCase):
             tests = stage / "tests"
             for directory in (controls, world, tests):
                 directory.mkdir()
-            for name in ("EmbeddedWebView.qml", "NativeFlickableWebViewCore.qml", "FlickableWebViewCore.qml",
+            for name in ("EmbeddedWebView.qml", "WebView.qml", "NativeFlickableWebViewCore.qml", "FlickableWebViewCore.qml",
                          "TabletWebScreen.qml", "TabletWebView.qml", "TabletWebButton.qml"):
                 shutil.copy2(ROOT / "interface/resources/qml/controls" / name, controls / name)
             (controls / "qmldir").write_text('module controls\n' + ''.join(
                 name + ' 1.0 ' + name + '.qml\n' for name in (
-                    'EmbeddedWebView', 'NativeFlickableWebViewCore', 'FlickableWebViewCore',
+                    'EmbeddedWebView', 'WebView', 'NativeFlickableWebViewCore', 'FlickableWebViewCore',
                     'TabletWebScreen', 'TabletWebView', 'TabletWebButton')), encoding='utf-8')
             modules = {
                 "controlsUit": ("Keyboard", "Key", "TouchUiMetrics", "TouchUiProfileBase"),
@@ -52,15 +52,21 @@ class EmbeddedWebQmlTests(unittest.TestCase):
             backend_selector = controls / "+android_interface"
             backend_selector.mkdir()
             shutil.copy2(FIXTURES / "FakeEmbeddedWebBackend.qml", backend_selector / "EmbeddedWebBackend.qml")
+            # The second run selects only the native OS boundary. It executes
+            # the real generic world root and WebView, not the Android root.
+            generic_backend = controls / "+test_native"
+            generic_backend.mkdir()
+            shutil.copy2(FIXTURES / "FakeEmbeddedWebBackend.qml", generic_backend / "EmbeddedWebBackend.qml")
             shutil.copy2(ROOT / "interface/resources/qml/controls/EmbeddedWebBackend.qml", controls)
             shutil.copy2(ROOT / "interface/resources/qml/Web3DSurface.qml", stage)
             for name in ("Web3DSurface.qml", "Web3DSurfaceAndroid.qml"):
                 shutil.copy2(ROOT / "interface/resources/qml/+android_interface" / name, world / name)
             for name in ("FakeDocument.qml", "tst_embedded_web_view.qml"):
                 shutil.copy2(FIXTURES / name, tests / name)
-            subprocess.run([runner, "-file-selector", "android_interface", "-import", str(stage),
-                            "-input", str(tests)], check=True, timeout=60,
-                           env=os.environ | {"QT_QPA_PLATFORM": "offscreen", "QT_QUICK_BACKEND": "software"})
+            for selector in ("android_interface", "test_native"):
+                subprocess.run([runner, "-file-selector", selector, "-import", str(stage),
+                                "-input", str(tests)], check=True, timeout=60,
+                               env=os.environ | {"QT_QPA_PLATFORM": "offscreen", "QT_QUICK_BACKEND": "software"})
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@
 #include <QStandardItemModel>
 #include <QSortFilterProxyModel>
 #include <QQmlEngine>
+#include <QFileInfo>
 #include <QQmlContext>
 #include <QQuickWindow>
 #include <QQuickItem>
@@ -265,6 +266,35 @@ class Services : public QObject {
     Q_PROPERTY(int fileDialogCount READ fileDialogCount)
     Q_PROPERTY(int urlDialogCount READ urlDialogCount)
 public:
+    Q_INVOKABLE QString firstPartyAppSource(const QString& name) {
+        // Execute the original router; only the Script/tablet OS boundary is
+        // synthetic. The QML test loads the actual source selected by its tap.
+        const auto root = QDir(QFileInfo(QString::fromUtf8(__FILE__)).absolutePath());
+        QFile source(root.filePath("../../../../scripts/system/tablet-ui/mobileTabletApps.js"));
+        if (!source.open(QIODevice::ReadOnly)) { return QStringLiteral("source-unavailable"); }
+        QJSEngine engine;
+        engine.evaluate(R"JS(
+            function signal(){var listeners=[];return {connect:function(f){listeners.push(f)},
+                disconnect:function(f){listeners=listeners.filter(function(x){return x!==f})},
+                emit:function(){var args=arguments;listeners.slice().forEach(function(f){f.apply(null,args)})}}}
+            var selectedSource="";
+            var nativeTablet={buttons:[],screenChanged:signal(),fromQml:signal(),
+                addButton:function(p){var b={properties:p,clicked:signal()};this.buttons.push(b);return b},
+                removeButton:function(){},gotoHomeScreen:function(){selectedSource="home"},
+                gotoMenuScreen:function(){selectedSource="menu"},loadQMLSource:function(s){selectedSource=s}};
+            var Script={resolvePath:function(s){return s},scriptEnding:signal()};
+            var Tablet={getTablet:function(){return nativeTablet}};
+        )JS");
+        const auto loaded = engine.evaluate(QString::fromUtf8(source.readAll()), source.fileName());
+        if (loaded.isError()) { return QStringLiteral("router-error"); }
+        engine.globalObject().setProperty("requestedApp", name);
+        const auto selected = engine.evaluate(R"JS(
+            nativeTablet.buttons.forEach(function(button){
+                if(button.properties.text===requestedApp){button.clicked.emit()}
+            }); selectedSource;
+        )JS");
+        return selected.isError() ? QStringLiteral("selection-error") : selected.toString();
+    }
     ScriptApi scripts; AssetsApi assets; EntityScriptingInterface entities; NativeContext context;FileDialogHelper files;QTemporaryDir temporary;
     DesktopBoundary desktop;
     FileDialogHelper::DocumentSelection pending;QString pendingId;bool canceled{false};

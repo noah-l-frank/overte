@@ -397,6 +397,7 @@ Item {
                     }
 
                     MouseArea {
+                        objectName: "tabletPage." + (index + 1)
                         anchors.centerIn: parent
                         width: presentation.minimumTouchTarget
                         height: presentation.minimumTouchTarget

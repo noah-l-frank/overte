@@ -266,6 +266,40 @@ class RoutingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             SELECT.separately_qualified_names(wrong, ROOT)
 
+    def test_configure_includes_present_descendant_test_groups(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".github").mkdir()
+            (root / ".github/native-tests.json").write_text(json.dumps({
+                "tests": {"shared-RequiredTests": []},
+                "optional_tests": {"platform-DescendantTests": []},
+            }))
+            tools = root / "bin"
+            tools.mkdir()
+            cmake = tools / "cmake"
+            cmake.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\" > arguments\n")
+            cmake.chmod(0o755)
+            environment = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ["PATH"])
+            configure = ROOT / "tools/native-tests/configure.sh"
+            for present in (False, True):
+                if present:
+                    source = root / "tests/platform/src/DescendantTests.cpp"
+                    source.parent.mkdir(parents=True)
+                    source.write_text("int main() { return 0; }\n")
+                result = subprocess.run(["bash", str(configure), "full"], cwd=root,
+                                        env=environment, text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                groups = "platform;shared" if present else "shared"
+                self.assertIn("-DOVERTE_TEST_GROUPS=" + groups,
+                              (root / "arguments").read_text().splitlines())
+            # The core lane remains bounded even when a descendant exists.
+            environment["OVERTE_NATIVE_BUILD_DIR"] = "build/core"
+            result = subprocess.run(["bash", str(configure), "core"], cwd=root,
+                                    env=environment, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("-DOVERTE_TEST_GROUPS=shared",
+                          (root / "arguments").read_text().splitlines())
+
     def test_known_descendant_programs_are_required_whenever_their_source_exists(self):
         policy = {'tests': {'shared-RequiredTests': []},
                   'optional_tests': {'platform-DescendantTests': []}}
