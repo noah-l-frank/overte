@@ -377,7 +377,7 @@ class PicoPreparedHostInputsTests(unittest.TestCase):
                      'platforms/android-36/android.jar',
                      'cmdline-tools/22.0/bin/apkanalyzer'):
             self.file(self.runtime / 'sdk' / path)
-        self.prepared = patch.object(N, 'validate_prepared', return_value=self.runtime)
+        self.prepared = patch.object(N, 'validate_host_sdk', return_value=self.runtime / 'sdk')
         self.validate = self.prepared.start()
         self.addCleanup(self.prepared.stop)
 
@@ -386,15 +386,16 @@ class PicoPreparedHostInputsTests(unittest.TestCase):
         path.write_text('public test tool fixture\n')
 
     def environment(self, roots=None, runtime=None):
-        return P.pico_host_environment(roots or [self.jdk, self.runtime], runtime or self.runtime)
+        return P.pico_host_environment(roots or [self.jdk, self.runtime], runtime or self.runtime / 'sdk')
 
     def test_sealed_sdk_and_prepared_jdk_replace_ambient_defaults(self):
         with patch.dict('os.environ', {'JAVA_HOME': '/host/private-jdk',
                                       'ANDROID_SDK_ROOT': '/host/private-sdk',
                                       'GITHUB_TOKEN': 'credential-canary'}):
             actual = self.environment()
-        self.assertEqual(actual, {'JAVA_HOME': str(self.jdk),
-                                  'ANDROID_SDK_ROOT': str(self.runtime / 'sdk')})
+        self.assertEqual(actual['JAVA_HOME'], str(self.jdk))
+        self.assertEqual(actual['ANDROID_SDK_ROOT'], str(self.runtime / 'sdk'))
+        self.assertEqual(actual['PATH'].split(':')[0], str(self.jdk / 'bin'))
         self.validate.assert_called_once()
         self.assertNotIn('credential-canary', str(actual))
 
@@ -442,6 +443,21 @@ class PicoPreparedHostInputsTests(unittest.TestCase):
         self.assertEqual(host.call_args.kwargs['boundary'], 'user-namespace')
         self.assertNotIn('network', host.call_args.kwargs)
         native.assert_called_once()
+
+    def test_host_only_catalog_uses_sdk_without_selecting_a_native_build(self):
+        context = {'target': 'android-vr-pico', 'original_merge': '1' * 40, 'tree': '2' * 40}
+        plan = {'android_required': True, 'android_native_products': []}
+        commands = [['bash', 'android/vr/pico/tests/pico-device-free-test.sh']]
+        with patch.object(P, 'authenticate', return_value=ROOT), \
+             patch.object(P, 'commands', return_value=commands), \
+             patch.object(P.R, 'run', return_value=0) as host, \
+             patch.object(N, 'prerequisites') as prerequisites, patch.object(N, 'execute') as native:
+            result = P.execute(ROOT, context, plan, 'android', [self.jdk, self.runtime / 'sdk'],
+                               recompute=lambda *_: plan, android_host_sdk=self.runtime / 'sdk')
+        self.assertEqual(host.call_args.kwargs['environment'], self.environment())
+        self.assertEqual(len(result['commands']), 1)
+        prerequisites.assert_not_called()
+        native.assert_not_called()
 
 
 if __name__ == "__main__":

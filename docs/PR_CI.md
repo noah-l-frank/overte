@@ -114,9 +114,12 @@ alias; the existing launcher mounts only that leaf read-only for the unchanged
 offline DOM contracts. Tests never download a browser or mount host profiles.
 See the [Playwright headless-shell installation guide](https://playwright.dev/docs/browsers#chromium-headless-shell).
 
-The Pico device-free host catalog uses the explicitly prepared JDK and the
-sealed native runtime's Android SDK. The controller supplies `JAVA_HOME` and
-`ANDROID_SDK_ROOT` only after checking their prepared-root bindings, JNI
+The Pico device-free host catalog uses the explicitly prepared JDK and sealed
+Android SDK. A selected native build reuses its sealed SDK; a host-only Pico
+plan prepares only the SDK data, with a separate receipt granting no native or
+APK qualification. Host SDK requirements never select a native build. The
+controller supplies `JAVA_HOME`, its explicit `bin` path and `ANDROID_SDK_ROOT`
+only after checking their prepared-root bindings, JNI
 headers, Android 36 resource tools and the qualified command-line tools 22.0
 decoder. Candidate commands remain offline and credential-free; ambient SDK
 and JDK settings do not supply these inputs. The source-input escape fixture
