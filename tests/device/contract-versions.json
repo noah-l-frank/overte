@@ -343,6 +343,7 @@
     "pico-emote-sources": {"current": 2, "reads": [1, 2]},
     "native-script-work": {"current": 2, "reads": [1, 2]},
     "pico-emote-lifetime": {"current": 1, "reads": [1]},
+    "pico-emote-native-cycle": {"current": 1, "reads": [1]},
     "pico-emote-background": {"current": 1, "reads": [1]},
     "pico-emote-foreground-recovery": {"current": 1, "reads": [1]},
     "pico-emote-background-effect": {"current": 1, "reads": [1]},

@@ -3778,6 +3778,12 @@ def create_adapter(args, base_class):
 
         @_private
         def cleanup(self, target):
+            # A native-cycle intent (including an orphan prepared file) owns
+            # normal inputs and originals. Generic teardown cannot retire it.
+            # Check before any product query, input or base application stop.
+            if self.pico_configuration is not None:
+                from adapters.pico4.emote_native_cycle_state import native_cycle_owned
+                _need(not native_cycle_owned(self, target))
             # Base stop remains available, but cannot retire this private
             # owner or its original normal preference/UI journals.
             snapshot_error=False

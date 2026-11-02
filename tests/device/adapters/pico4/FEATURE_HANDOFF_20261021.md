@@ -44,7 +44,7 @@ and19 legacy Parent cases. Its new production main/factory/CLI5 Model route
 passes8/52.761s, with11 legacy source cases40.218s and12 observer cases0.043s.
 An actual persistent Parent must own the child process; the persistent RPC/
 Jenkins launcher and complete common/GPU/stereo/archive remain open.
-The central catalog contains299 disjoint groups, including the new Create
+The central catalog contains300 disjoint groups, including the new Create
 peer source group, four Avatar/Audio/Lifecycle groups, two G1 frame groups and
 the fast Actor storage group. The standalone capacity diagnostic stays outside
 default120s groups. Browser namespace and complete physical archive checks pass21 affected cases; previous complete
@@ -3330,3 +3330,25 @@ finite World/readonly/newProcess histories retain their original caps. This
 source does not grant action/Actor/image/public/cleanup authority. The next
 private normal1–4 dispatcher and complete16-action return/retirement remain
 separate integration work; source-complete3/14 and device0 remain unchanged.
+
+
+## Ordinary Emote native Parent selected on 2026-11-03
+
+[Native-cycle ownership](EMOTE_NATIVE_CYCLE.md) composes existing canonical
+Pico input, independent native effects and lifetime sources. Sixteen owning
+host cases pass52.654s; two legacy cases pass1.940s. All224 loaded source
+hashes remain unchanged in each packet. Parent intent precedes every normal
+action and original guards reach inside OpenXR/Qt delivery. Actual final
+neutral plus full three-second quiet retains every journal; unresolved or
+rootless child intent blocks generic cleanup before native queries or stop.
+The constructor keeps original OFDs reachable on partial failure. An actual
+recycled foreign descriptor remains strongly retained until test-host exit;
+this is not per-case resource retirement. Whole sequence, independent remote
+Actor, stereo and complete retirement remain open; source-complete stays3/14.
+
+A separate original native CurrentInput owning build passes1/20.924s. Its
+complete NativeWebViewItem translation unit compiles the new Consumption
+recorder, but existing tests assert only CurrentInput. Trace behavior and
+actual Keyboard/Application/Java edit callers still require owning checks.
+All52 explicitly named native/Java/harness source hashes stayed unchanged.
+The actual build directory is under retained /tmp, as set by the owning runner.
