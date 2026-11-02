@@ -99,7 +99,7 @@ and byte hashes remain unchanged. This read-only bill is
 live owner. Candidate/provenance originals remain in their original separately
 owned fixture root, not silently folded into these Actor-container units.
 
-The existing Pico wrapper now discovers18 cases:12 source,2 retained-root/
+At the original factory checkpoint, the Pico wrapper discovered18 cases:12 source,2 retained-root/
 orphan responsibility and these4 factory cases. There is no additional selector
 or registry entry; the branch's local257 catalog count is not Root's count.
 Final metadata checks pass coverage13/.067s,14/14 risks, registry, exact
@@ -112,13 +112,81 @@ they are not mislabeled as an18-case functional rerun. Dependencies are the
 fixed Stage1 chain05c287eca4→c965160ffa→ea2529fc12→2212b5b6da. Root's newer
 registry, catalog entries, risk rows and Pending partition must be preserved.
 
+## Canonical Create and draft observations: 2026-11-02
+
+The same private Actor source now accepts the exact existing Common16 prefix:
+one baseline activation, then `open-editor` with `editor=create`, then `type`
+with the existing run-owned Unicode input. Repeated source observations and
+publications under each unchanged activation remain valid. Skipped or repeated
+actions are refused before another native query or normal input. This changes
+neither the closed source-record grammar nor its private version, registry,
+catalog selector, public capability or acquisition limits.
+
+Phase metadata restricts ownership; it supplies no measured text or generation.
+The Actor still derives those facts from its own original UI inventory, joins
+the independently acquired Drive and Subject3 sources, and preserves the other
+three actual target responses. A rejected phase packet is now archived once
+before admission, so its full bytes survive worker exit without issuing a
+native-source intent. The root's `pending` remains null on this refusal.
+
+The canonical worker is now exercised before and after the existing durable
+Create editor's normal tablet/open/focus and token/Qt-IME draft call. The editor
+retains its pre-input intent, consumed cursor and the same original field. Its
+live owner and measured results never become Actor constructor arguments.
+The canonical positive acquires two samples at each of baseline, Create and
+type, publishes six independent source records, then exits normally with actual
+Linux kernel absence verified. No second mutating World owner is created.
+
+These tests retain explicit native/Qt/SDK/physics and input-effect models; they
+execute the real Python owners, canonical factory, raw loopback, original-file
+validators, fixture publisher and independent Linux worker. The existing
+normal Create owner permits its run-owned Unicode token/Qt-IME input only. This
+does not establish that the stock ASCII-only 3D keyboard produced Unicode, or
+that an actual compiled Qt/Android consumer executed on a headset.
+
+The first owning test genuinely fails at the first type observation after four
+retained baseline/Create records: the old source refuses that phase. It reports
+one failure in10.028s. After extending admission, the nine canonical cases pass
+42.313s. A subsequent source change retaining rejected phase originals is
+verified by the complete existing Actor wrapper:
+
+`PYTHONDONTWRITEBYTECODE=1 python3 android/vr/pico/tests/device/test_lifecycle_independent_actor.py -v`
+
+All23 cases pass56.721s (57.024s runner): the original12 source and2 retained-root
+cases, all4 prior canonical cases, and5 new canonical cases. New counters cover
+a type activation without Create, repeated Create activation, ignored normal
+IME that must stay empty in Actor facts despite the requested text, and changed
+original context after actual draft delivery. The latter retains the literal
+UI response and publishes no replacement fact or repeated input. Existing
+Subject2 refusal, unavailable-source retention, clock, root replacement and
+uncertain-publication cases remain green.
+
+Unique evidence is retained at
+`/home/user/.local/state/overte-pico-lifecycle-canonical-create-20261102-h0e92y1m`:
+`initial-owning-red.log`, `canonical-create-owning.log`,
+`complete-actor-owning.log` and their result/source manifests. Five owned
+runtime/test dependencies keep identical complete SHA-256 and physical
+signatures during the final run; concurrent unrelated feature edits are not
+claimed as a frozen whole checkout. No compiler, build, device or remote write
+was invoked.
+
+The final canonical positive contains6 records,84 parts,59,819 container raw
+bytes,117,605 logical original bytes and105,334 stored bytes over85 Actor files.
+A separate complete bundle/original read verifies unchanged byte hashes and
+physical signatures, including ctime. The original UI facts independently read
+from those records have phases baseline/baseline/Create/Create/type/type.
+The bill is `canonical-create-original-byte-bill.json`. Candidate-fixture and
+Parent editor originals stay separately owned and are not omitted from a claim
+about whole-run storage; no whole-run storage qualification is made here.
+
 ## Next same feature boundary
 
-This is canonical source construction and a fresh baseline, not a whole Parent/
-Actor input composition. The earlier normal Create independent-process proof
-uses the same source class, but must not be relabeled as a canonical-factory
-normal Create run. Full actual common-v16 Actor facts, same-call native budget,
-real source/normal-input lock integration, G1 independent birth/old-PID absence,
+The canonical source now observes normal Create and draft effects in the
+declared target model, but this is not a whole Parent/Actor input composition.
+The synthetic candidate namespace and Parent editor namespace in this fixture
+still have different lock paths and session metadata. Full PrimaryOperations/
+Actor input authority, same-call native budget, actual shared source/normal-input
+lock integration, G1 independent birth/old-PID absence,
 typed returned graph, image phases3/7/14/16 and actual tablet surface/stereo
 association, resource/file/IPC/archive/host closure and public wiring remain
 open. The next work extends the same Actor stage over the existing normal

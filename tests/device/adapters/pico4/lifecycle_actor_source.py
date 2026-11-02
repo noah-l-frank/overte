@@ -1,4 +1,4 @@
-"""Independent readonly initial/Create observations from original target queries.
+"""Independent readonly initial/Create/draft observations from target queries.
 
 This first closed source stage has no input, G1 handoff, image or public feature
 authority. A separate worker must own it; Primary results are not constructor
@@ -27,6 +27,8 @@ from adapters.pico4.lifecycle_world import PicoLifecycleWorld
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.contract import state as validate_state,typed_equal
 from feature_journeys.phase_fixture import PhaseFixtureReader
+from feature_journeys.fixtures import context as fixture_context
+from feature_journeys.scenarios import SCENARIOS,expand
 from feature_journeys.witness import projection
 
 VERSION=1
@@ -207,18 +209,31 @@ class PicoLifecycleActorSource:
             deferredInputs=len(pending['resources']['pendingRuns']),worldAttempts=len(attempts),staleAttempts=0)
         validate_state('lifecycle-input',facts,self.run);return facts
 
+    def admitted_phase(self,value):
+        # Phase rows restrict which already-owned normal inputs this bounded
+        # source may observe. They never provide editor/text/generation facts.
+        # Multiple independent acquisitions under the SAME phase remain valid.
+        rows=value['status']['activations'];need(1<=len(rows)<=3)
+        expected=[dict(verb='baseline',inputs={})]
+        expected.extend(dict(verb=row['verb'],inputs=expand(row['inputs'],fixture_context(self.run)))
+            for row in SCENARIOS['lifecycle-input']['steps'][:2])
+        need(all(typed_equal(row['stimulus'],stimulus) for row,stimulus in zip(rows,expected)))
+        if self.baseline is None:need(len(rows)==1)
+
     def read(self):
         try:
             with self.lock.held():
                 self.bound();need(self.disk['pending'] is None and len(self.disk['records'])<128)
                 need(self.disk['publication'] is None or self.disk['publication']['phase']=='delivered')
                 self.previous()
-                before=self.phases.read();need(before['verb']=='baseline' if self.baseline is None else
-                    before['verb']=='baseline' or before['verb']=='open-editor' and before['inputs']=={'editor':'create'})
+                before=self.phases.read()
+                # Retain the actual input metadata even when its stage cannot
+                # be admitted. A rejected phase must survive worker exit, but
+                # it does not issue a native source intent or another input.
+                phase=self.archive(before['status']);self.admitted_phase(before)
                 started=self.monotonic();requested=self.readers[4].clock_ms()
-                updated=deepcopy(self.disk);updated['pending']=dict(phase=None,gesture=None,drive=None,ui=None,
+                updated=deepcopy(self.disk);updated['pending']=dict(phase=phase,gesture=None,drive=None,ui=None,
                     world=None,pending=None,native=None,subject=None);self.save(updated)
-                self.retain('phase',before['status'])
                 world,packets,_start=self.triple.acquire();self.retain('world',dict(world=world))
                 pending_reader,native_reader,subject_reader=self.readers[3:]
                 pending,_raw=self.query('pending',pending_reader,lambda:pending_reader.read(self.run))
