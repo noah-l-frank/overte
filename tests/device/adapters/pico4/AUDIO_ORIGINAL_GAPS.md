@@ -1,10 +1,13 @@
 # Remaining independent Audio originals and cleanup boundary
 
 The normal dispatcher remains partial. This audit reads the current shared
-sources and fixed Phone revision
-`abb7f6b60d97daf17752aadf94e2b5df099bb7ba`; it runs no audio routes, peer, device
-or service. The pinned Phone normal Audio controls and voice transport do not
-supply a complete acoustic producer or a full normal Audio recipe owner.
+sources. The original audit pinned Phone revision
+`abb7f6b60d97daf17752aadf94e2b5df099bb7ba`. The later
+[digital original join](AUDIO_DIGITAL_PREVIEW_JOIN.md) selects a narrow shared
+provider/file-reader slice from frozen Phone
+`a7be274da152b9d0b77e2fe5bb9874c5b1e18a31`. Neither audit runs audio routes,
+peer services or devices. The reused digital monitor does not supply physical
+acoustic evidence or a complete independent Audio witness.
 
 ## Reusable original components
 
@@ -24,13 +27,17 @@ The existing [voice runtime](../../voice_peer/runtime.py), `AudioRoutes.capture`
 stream against the private receive sink. Its actual source is
 `self.names["rx"] + ".monitor"`: a digital client-output loopback. It cannot prove
 Pico physical microphone capture or loudspeaker acoustic output. The receive
-path (lines 372–407) currently chooses the default `voice-v1` signal/analyzer,
+legacy receive path chooses the default `voice-v1` signal/analyzer,
 requires that profile's longer capture interval, and replaces
-`receive-capture.wav/json` on the next receive. The [CLI](../../voice_peer/voice_peer.py)
-does not expose a recorded-preview profile selection. Before reuse as an
-independent digital-network channel it needs explicit profile selection plus
-immutable per-run/start-ticket/cycle original bytes and actual capture
-process-birth/route/timing ownership. Its loopback boundary must stay explicit.
+`receive-capture.wav/json` on the next receive. The additive
+`receive-preview`/`preview-files`/`preview-release` APIs now preserve the exact
+separately owned start-ticket WAV/JSON pair under the existing explicit test
+flag, with the closed recorded-preview profile. The same normal Pico recipe
+joins its retained cycle3 input/sink originals to these independently decoded
+digital bytes and retains full physical signatures and original JSON bytes.
+Actual microphone/loudspeaker acquisition, independent worker/process-birth
+and complete route/lifetime/Actor publication still need their own originals.
+No digital loopback is relabeled acoustic evidence.
 
 The actual existing PC virtual microphone send route is a digital network
 stimulus. Neither it, a requested challenge, `Audio.playSound`, native input tap

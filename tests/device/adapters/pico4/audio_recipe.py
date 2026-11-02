@@ -17,7 +17,8 @@ from feature_journeys.contract import arguments
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 from feature_journeys.scenarios import SCENARIOS,VERSION as COMMON_VERSION
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 # Only the shared ordinary input inventory is selected; assertions/evidence
 # requirements never enter this dispatcher or any child action.
 INPUTS=tuple((row['verb'],deepcopy(row['inputs'])) for row in SCENARIOS['audio']['steps'])
@@ -50,7 +51,7 @@ class PicoAudioRecipe:
         self.factories=dict(page=page_factory,capture=capture_factory,background=background_factory,final=final_factory)
         self.os_status,self.monotonic=os_status,monotonic
         self.sources=ChatSourceChunks(self.store,dict(runId=run,binding=self.binding,role='audio-recipe-originals'))
-        self.disk=self.state=None;self.frames=[];self.children={};self.current=None;self.last_clock=None;self.loaded=False
+        self.disk=self.state=None;self.version=VERSION;self.frames=[];self.children={};self.current=None;self.last_clock=None;self.loaded=False
         self.delivery_callback=self.before_send;self.stream_callback=self.before_stream;self.page_gate=self.page_input_gate;self.os_callback=self.before_os
         with lock.held():self.disk=self.store.read();self.load()
     def bound(self,*,host_only=False):
@@ -60,7 +61,7 @@ class PicoAudioRecipe:
             and all(now>=frame['hostMonotonic'] for frame in self.frames));self.last_clock=now
         return now
     def validate(self,state):
-        exact(state,{'cursor','baseline','steps','pending','lastPhase'})
+        exact(state,{'cursor','baseline','steps','pending','lastPhase'}|({'digitalPreview'} if self.version==2 else set()))
         need(integer(state['cursor'],0,len(PLAN)) and type(state['steps']) is list
             and len(state['steps']) in (state['cursor'],min(len(PLAN),state['cursor']+1)))
         def phase(value):
@@ -125,6 +126,9 @@ class PicoAudioRecipe:
                 expected=PLAN[state['cursor']][len(state['steps'][-1]['actions'])]
             action(pending,expected,pending=True)
         need(reference==len(self.frames))
+        if self.version==2:
+            from adapters.pico4.audio_recipe_evidence import validate as evidence
+            evidence(self,state['digitalPreview'],state=state)
     def check_original(self,frame):
         value=frame['original'];kind,cycle,operation=parts(frame['action'])
         if value is None:need(frame['stage']=='before' and operation=='prepare');return
@@ -176,7 +180,7 @@ class PicoAudioRecipe:
         self.bound();disk=self.store.read()
         if disk is None:need(self.state is None);self.sources.inventory(0);self.loaded=True;return
         exact(disk,{'audioRecipeVersion','runId','binding','fixtureUrl','phase','chunks','payload'})
-        need(type(disk['audioRecipeVersion']) is int and disk['audioRecipeVersion']==VERSION and disk['runId']==self.run
+        need(type(disk['audioRecipeVersion']) is int and disk['audioRecipeVersion'] in READS and disk['runId']==self.run
             and disk['binding']==self.binding and disk['fixtureUrl']==self.source.fixture_url
             and disk['phase'] in ('ready','issued','reading','partial-complete'))
         frames=self.sources.load(disk['chunks'])
@@ -184,12 +188,13 @@ class PicoAudioRecipe:
             exact(frame,{'action','stage','original','hostMonotonic'});need(number(frame['hostMonotonic'],0,1e15) and frame['stage'] in ('before','after') and type(frame['action']) is str
                 and (frame['original'] is None or type(frame['original']) is dict))
         need(all(b['hostMonotonic']>=a['hostMonotonic'] for a,b in zip(frames,frames[1:])))
+        self.version=disk['audioRecipeVersion']
         values=unpack(disk['payload']);need(len(values)==1);self.frames=frames;self.validate(values[0]);self.state=deepcopy(values[0]);self.disk=deepcopy(disk);self.loaded=True;self.bound()
         need((disk['phase'] in ('issued','reading'))==(self.state['pending'] is not None))
         need(disk['phase']!='partial-complete' or self.state['cursor']==len(PLAN) and self.state['pending'] is None)
     def save(self,state,*,phase=None,chunks=None):
         self.bound(host_only=True);self.validate(state)
-        value=dict(audioRecipeVersion=VERSION,runId=self.run,binding=self.binding,fixtureUrl=self.source.fixture_url,
+        value=dict(audioRecipeVersion=self.version,runId=self.run,binding=self.binding,fixtureUrl=self.source.fixture_url,
             phase=phase or self.disk['phase'],chunks=(self.disk['chunks'] if chunks is None else chunks),payload=pack([state]))
         self.store.write(value,self.disk);need(self.store.read()==value);self.state,self.disk=deepcopy(state),deepcopy(value);self.bound(host_only=True)
     def archive(self,action,stage,original):
@@ -286,6 +291,7 @@ class PicoAudioRecipe:
             self.load();need(self.state is None);source=self.source.status()
             need(source['active'] and source['activations'][-1]['stimulus']==dict(verb='baseline',inputs={}))
             state=dict(cursor=0,baseline=None,steps=[],pending=None,lastPhase=source)
+            if self.version==2:state['digitalPreview']=None
             # No existing immutable originals may be adopted by a new owner.
             self.save(state,phase='ready',chunks=[]);self.action('page.prepare',source)
     def invoke_child(self,name):
@@ -350,6 +356,7 @@ class PicoAudioRecipe:
         call=arguments('feature.audio.act',call);need(call['runId']==self.run and call['fixtureUrl']==self.source.fixture_url)
         with self.lock.held():
             self.load();need(self.state is not None and self.state['baseline'] is not None and self.disk['phase']!='reading');self.resources()
+            need(self.version!=2 or self.state['digitalPreview'] is None or self.state['digitalPreview']['phase']=='joined')
             if self.state['pending'] is not None:
                 need(self.matches(call,self.state['pending']['source']));return self.reconcile()
             index=self.state['cursor']
@@ -399,3 +406,7 @@ class PicoAudioRecipe:
         return dict(normalStagesDispatched=self.state['cursor'],normalRecipeStages=len(PLAN),
             pending=None if self.state['pending'] is None else self.state['pending']['name'],
             fullAudioQualified=False,acousticObserved=False,independentPeerObserved=False,journalsRetained=True)
+
+    def join_completed_preview(self,peer):
+        from adapters.pico4.audio_recipe_evidence import join
+        return join(self,peer)

@@ -1,6 +1,6 @@
 # Normal Audio recipe composition
 
-`PicoAudioRecipe` v1 composes the existing normal Page, Capture, Background and
+`PicoAudioRecipe` v2 (reads1/2) composes the existing normal Page, Capture, Background and
 FinalClose owners in the original shared v16 Audio input order. It selects only
 the common verb/input inventory. Assertion rows and requested outcomes never
 enter the dispatcher or its child observations. The private bound factory is
@@ -70,6 +70,15 @@ all original PCM files and all journals remain accurately retained. This is
 `partial-complete`, never whole Audio qualification or EngineCleanup retirement.
 The exact remaining [original acquisition and cleanup gaps](AUDIO_ORIGINAL_GAPS.md)
 are documented separately.
+
+The additive [digital PC original join](AUDIO_DIGITAL_PREVIEW_JOIN.md) consumes
+the exact already retained completed cycle3 and normal recording-start ticket.
+It validates original input/sink PCM and a separately retained PC monitor WAV
+through the existing shared analyzer. Its durable issued state blocks further
+normal input until a successful read-only join; it never arms or replays capture.
+Version1 roots retain their original schema and behavior without migration or
+adoption into this new join. Physical acoustic evidence, a full independent
+Actor and whole cleanup remain unavailable; all complete verdicts stay false.
 
 The `audio-normal-recipe-flow` selector runs a complete device-free composition
 and interrupted final read-only quiet/deferred recovery.

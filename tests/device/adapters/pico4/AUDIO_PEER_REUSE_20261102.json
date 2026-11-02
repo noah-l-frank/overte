@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "a7be274da152b9d0b77e2fe5bb9874c5b1e18a31",
+  "sourceRepository": "noah-l-frank/overte",
+  "selections": [
+    {
+      "path": "tests/device/voice_peer/runtime.py",
+      "selection": "Peer.preview method",
+      "wholeSourceSha256": "7663d46e79387f0c814620da35f87f7a8dc112a88136a50ac210c7bfbde6a1e3",
+      "selectionSha256": "ce54da15aea9f851c878511be6be5546775561660a13b01102083d159ad17a1f"
+    },
+    {
+      "path": "tests/device/adapters/android-phone/overte_phone_audio_peer.py",
+      "selection": "shared PC capture/session/retained original reader, class renamed PicoAudioPeer; no Phone UI or input",
+      "wholeSourceSha256": "6a38b9aae815808728ef96325e64e0adcc803c17c8291d5c25e0d32d92bdc2ae"
+    },
+    {
+      "path": "tests/device/adapters/android-phone/overte_phone_audio_files.py",
+      "selection": "WAV header wrapping of actual PCM and separate actual header/payload/provenance validation semantics; no Phone file store imported",
+      "wholeSourceSha256": "82b0db5b198f5dfe7dbfabb58d79a6bc04d3f5ece27b3d7182def6213d7c79b0",
+      "wavPrimitiveSha256": "c8441005c5e5839ad7642ba94e4d0ad261e943cabd1b94233d4f3dcb5959ff2c"
+    }
+  ],
+  "physicalAudioHardwareTested": false,
+  "serviceActivated": false,
+  "picoAdaptation": "Pinned PC session, bounded original reply history, full WAV/JSON physical signatures and exact sidecar bytes; explicit WAV geometry check in Pico because Phone used a separate file owner."
+}
