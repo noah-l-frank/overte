@@ -8,6 +8,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 from self_tests.test_lifecycle_independent_actor import LifecycleIndependentActorTests
 import test_lifecycle_readonly_factory as source_fixture
 from test_lifecycle_actor_factory import LifecycleActorFactoryTests
+from test_lifecycle_actor_composition import LifecycleActorCompositionTests
 
 
 class LifecycleActorOwnershipTests(unittest.TestCase):

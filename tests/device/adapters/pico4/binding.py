@@ -2226,15 +2226,18 @@ def create_adapter(args, base_class):
             from adapters.token_lifecycle_ui import TokenLifecycleUI
             from adapters.pico4.normal_create import PicoCreateIO
             from adapters.pico4.normal_lifecycle import PicoLifecycleIO
-            manager=self._scripts(target);native=self._native_feature_observer(target)
+            # Reuse the same candidate/process-bound normal input transport.
+            # Creating an unrelated Script manager would also sample inventory
+            # and reserve its journal before this editor's first normal input.
+            normal_ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
             native.guard();identity=self.require_pico_session_identity(target)
-            _need(identity==manager.binding['processIdentity'] and native.pid==int(identity.split(':')[0]))
+            _need(identity==binding['processIdentity'] and native.pid==int(identity.split(':')[0]))
             source_lock=self._script_journey()._lock(target,source_lock)
             def unavailable(_value):_need(False)
-            route=TokenCreateUI(PicoCreateIO(manager.ui.io),unavailable)
-            field=TokenLifecycleUI(PicoLifecycleIO(manager.ui.io),unavailable,run)
+            route=TokenCreateUI(PicoCreateIO(normal_ui.io),unavailable)
+            field=TokenLifecycleUI(PicoLifecycleIO(normal_ui.io),unavailable,run)
             return PicoLifecycleEditor(self._lifecycle_world_store(target).path.with_name('lifecycle-editor-owner.json'),run,
-                manager.binding,self._lifecycle_ui_source(target,source_lock=source_lock),self.pico_input_session(target),route,field,source_lock)
+                binding,self._lifecycle_ui_source(target,source_lock=source_lock),self.pico_input_session(target),route,field,source_lock)
 
         @_private
         def _lifecycle_create_world_back(self,target,run):

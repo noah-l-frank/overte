@@ -183,10 +183,11 @@ about whole-run storage; no whole-run storage qualification is made here.
 
 The canonical source now observes normal Create and draft effects in the
 declared target model, but this is not a whole Parent/Actor input composition.
-The synthetic candidate namespace and Parent editor namespace in this fixture
-still have different lock paths and session metadata. Full PrimaryOperations/
-Actor input authority, same-call native budget, actual shared source/normal-input
-lock integration, G1 independent birth/old-PID absence,
+The Create/draft fixture above has different synthetic candidate/Parent
+namespaces. The subsequent [same-namespace composition](LIFECYCLE_ACTOR_COMPOSITION.md)
+verifies the canonical normal editor and Actor under one actual binding, host
+session and shared kernel lock inode. Full PrimaryOperations/Actor input
+authority, same-call native budget, G1 independent birth/old-PID absence,
 typed returned graph, image phases3/7/14/16 and actual tablet surface/stereo
 association, resource/file/IPC/archive/host closure and public wiring remain
 open. The next work extends the same Actor stage over the existing normal
