@@ -184,6 +184,38 @@ def prepare_groovy(destination, cache):
     return {'root': str(destination), 'scope': 'selected-pico-host-groovy-contracts', 'build_qualified': False}
 
 
+def prepare_host_sdk(destination, cache):
+    """Prepare sealed SDK data for host contracts without a native build role."""
+    payload = A.policy()['assets']['sdk']
+    destination, cache = Path(destination), Path(cache)
+    cache.mkdir(mode=0o700, parents=True, exist_ok=True)
+    B.R._private_path(cache.resolve(strict=True), 'Android host SDK transport cache')
+    ledger_destination = destination.with_name(destination.name + '-inventory.json')
+    C.require(not ledger_destination.exists() and not ledger_destination.is_symlink(),
+              'Android host SDK inventory destination must be new')
+    archive = A.fetch(payload['archive'], cache)
+    ledger = A.fetch(payload['inventory'], cache)
+    R.extract(archive, destination, ledger, payload['inventory']['sha256'],
+              payload['archive']['sha256'], payload['archive']['bytes'])
+    with ledger_destination.open('xb') as output:
+        output.write(ledger.read_bytes())
+    result = {'kind': 'overte-android-host-sdk-preparation-v1', 'root': str(destination),
+              'sdk_inventory_sha256': payload['inventory']['sha256'],
+              'sdk_archive_sha256': payload['archive']['sha256'],
+              'execution': False, 'build_qualified': False}
+    receipt = destination.with_name(destination.name + '-preparation.json')
+    with receipt.open('x') as output:
+        json.dump(result, output, sort_keys=True)
+    return result
+
+
+def validate_host_sdk(root):
+    root = Path(root).resolve(strict=True)
+    identity = A.policy()['assets']['sdk']['inventory']['sha256']
+    R.verify(root, root.with_name(root.name + '-inventory.json'), identity)
+    return root
+
+
 def groovy_classpath(root):
     root = Path(root).resolve(strict=True)
     identity = A.policy()['assets']['groovy']['inventory']['sha256']
@@ -275,13 +307,16 @@ def main():
     parser.add_argument('--cache', type=Path, required=True)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--groovy-only', action='store_true')
+    mode.add_argument('--sdk-only', action='store_true',
+                      help='Prepare sealed host SDK data without native execution or qualification')
     mode.add_argument('--capacity-only', action='store_true',
                       help='Check cold bootstrap capacity before host setup and cache restore')
     args = parser.parse_args()
     if args.capacity_only:
         result = capacity_admission(A.policy(), args.destination, args.cache, 'bootstrap')
     else:
-        result = (prepare_groovy if args.groovy_only else prepare)(args.destination, args.cache)
+        operation = prepare_host_sdk if args.sdk_only else prepare_groovy if args.groovy_only else prepare
+        result = operation(args.destination, args.cache)
     print(json.dumps(result, sort_keys=True))
 
 

@@ -60,6 +60,38 @@ class NativeHostTests(unittest.TestCase):
             jar.write_bytes(b'modified fixture')
             with self.assertRaisesRegex(ValueError, 'payload differs'):
                 N.groovy_classpath(tools)
+
+    def test_host_sdk_inventory_rejects_modified_decoder_without_native_authority(self):
+        sdk = self.root / 'host-sdk'; sdk.mkdir()
+        tool = sdk / 'apkanalyzer'; tool.write_bytes(b'actual test payload')
+        ledger = sdk.with_name(sdk.name + '-inventory.json')
+        ledger.write_bytes(N.R.canonical(N.R.inventory(sdk)))
+        definition = {'assets': {'sdk': {'inventory': {'sha256': N.R.digest(ledger)}}}}
+        with patch.object(N.A, 'policy', return_value=definition):
+            self.assertEqual(N.validate_host_sdk(sdk), sdk)
+            tool.write_bytes(b'changed decoder payload')
+            with self.assertRaisesRegex(ValueError, 'payload differs'):
+                N.validate_host_sdk(sdk)
+
+    def test_sdk_only_preparation_fetches_no_image_runtime_or_qualification(self):
+        archive = self.root / 'sdk.tar'; archive.write_bytes(b'archive fixture')
+        ledger = self.root / 'sdk-inventory.json'; ledger.write_bytes(b'ledger fixture')
+        payload = {'archive': {'sha256': 'a' * 64, 'bytes': archive.stat().st_size},
+                   'inventory': {'sha256': 'b' * 64}}
+        sdk = self.root / 'host-sdk'
+        with patch.object(N.A, 'policy', return_value={'assets': {'sdk': payload}}), \
+             patch.object(N.A, 'fetch', side_effect=[archive, ledger]) as fetch, \
+             patch.object(N.R, 'extract', side_effect=lambda _a, output, *_: output.mkdir()) as extract, \
+             patch.object(N, 'load_image') as image, patch.object(N, 'execute') as execute:
+            result = N.prepare_host_sdk(sdk, self.root / 'sdk-cache')
+        self.assertEqual([call.args[0] for call in fetch.call_args_list],
+                         [payload['archive'], payload['inventory']])
+        extract.assert_called_once_with(archive, sdk, ledger, 'b' * 64, 'a' * 64, archive.stat().st_size)
+        self.assertEqual(result['kind'], 'overte-android-host-sdk-preparation-v1')
+        self.assertIs(result['execution'], False)
+        self.assertIs(result['build_qualified'], False)
+        self.assertEqual(json.loads(sdk.with_name(sdk.name + '-preparation.json').read_text()), result)
+        image.assert_not_called(); execute.assert_not_called()
     def test_changed_missing_and_aliased_dependency_declarations_fail_early(self):
         N.check_intent(self.candidate, self.intent)
         source = self.candidate / 'conanfile.py'

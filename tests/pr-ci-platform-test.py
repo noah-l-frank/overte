@@ -364,5 +364,101 @@ class IosNativeJobTests(unittest.TestCase):
             self.validate(rows, False)
 
 
+class PicoPreparedHostInputsTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix='pico-host-bindings-test-')
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.jdk = self.root / 'prepared-jdk'
+        self.runtime = self.root / 'prepared-native'
+        for path in ('bin/java', 'bin/javac', 'include/jni.h', 'include/linux/jni_md.h'):
+            self.file(self.jdk / path)
+        for path in ('build-tools/36.0.0/aapt', 'build-tools/36.0.0/aapt2',
+                     'platforms/android-36/android.jar',
+                     'cmdline-tools/22.0/bin/apkanalyzer'):
+            self.file(self.runtime / 'sdk' / path)
+        self.prepared = patch.object(N, 'validate_host_sdk', return_value=self.runtime / 'sdk')
+        self.validate = self.prepared.start()
+        self.addCleanup(self.prepared.stop)
+
+    def file(self, path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('public test tool fixture\n')
+
+    def environment(self, roots=None, runtime=None):
+        return P.pico_host_environment(roots or [self.jdk, self.runtime], runtime or self.runtime / 'sdk')
+
+    def test_sealed_sdk_and_prepared_jdk_replace_ambient_defaults(self):
+        with patch.dict('os.environ', {'JAVA_HOME': '/host/private-jdk',
+                                      'ANDROID_SDK_ROOT': '/host/private-sdk',
+                                      'GITHUB_TOKEN': 'credential-canary'}):
+            actual = self.environment()
+        self.assertEqual(actual['JAVA_HOME'], str(self.jdk))
+        self.assertEqual(actual['ANDROID_SDK_ROOT'], str(self.runtime / 'sdk'))
+        self.assertEqual(actual['PATH'].split(':')[0], str(self.jdk / 'bin'))
+        self.validate.assert_called_once()
+        self.assertNotIn('credential-canary', str(actual))
+
+    def test_missing_sdk_or_jdk_fails_before_any_candidate_command(self):
+        for path in (self.jdk / 'include/jni.h',
+                     self.runtime / 'sdk/cmdline-tools/22.0/bin/apkanalyzer'):
+            original = path.read_bytes()
+            path.unlink()
+            try:
+                with self.subTest(path=path), self.assertRaises(C.ContextError):
+                    self.environment()
+            finally:
+                path.write_bytes(original)
+
+    def test_unbound_runtime_and_tool_symlink_escape_are_rejected(self):
+        with self.assertRaisesRegex(C.ContextError, 'outside explicit prepared inputs'):
+            self.environment(roots=[self.jdk])
+        tool = self.runtime / 'sdk/cmdline-tools/22.0/bin/apkanalyzer'
+        outside = self.root / 'unbound-analyzer'
+        self.file(outside)
+        tool.unlink()
+        tool.symlink_to(outside)
+        with self.assertRaisesRegex(C.ContextError, 'sealed resource/decoder inputs'):
+            self.environment()
+
+    def test_two_prepared_jdks_are_ambiguous(self):
+        other = self.root / 'another-jdk'
+        for path in ('bin/java', 'bin/javac', 'include/jni.h', 'include/linux/jni_md.h'):
+            self.file(other / path)
+        with self.assertRaisesRegex(C.ContextError, 'one explicit complete prepared JDK'):
+            self.environment(roots=[self.jdk, other, self.runtime])
+
+    def test_full_pico_catalog_receives_inputs_before_the_native_owner(self):
+        context = {'target': 'android-vr-pico', 'original_merge': '1' * 40, 'tree': '2' * 40}
+        plan = {'android_required': True, 'android_native_products': ['pico']}
+        commands = [['bash', 'android/vr/pico/tests/pico-device-free-test.sh']]
+        with patch.object(P, 'authenticate', return_value=ROOT), \
+             patch.object(P, 'commands', return_value=commands), \
+             patch.object(P.R, 'run', return_value=0) as host, \
+             patch.object(N, 'prerequisites'), \
+             patch.object(N, 'execute', return_value={'product': 'pico', 'result': 'success'}) as native:
+            P.execute(ROOT, context, plan, 'android', [self.jdk, self.runtime],
+                      recompute=lambda *_: plan, android_native_runtime=self.runtime)
+        self.assertEqual(host.call_args.kwargs['environment'], self.environment())
+        self.assertEqual(host.call_args.kwargs['boundary'], 'user-namespace')
+        self.assertNotIn('network', host.call_args.kwargs)
+        native.assert_called_once()
+
+    def test_host_only_catalog_uses_sdk_without_selecting_a_native_build(self):
+        context = {'target': 'android-vr-pico', 'original_merge': '1' * 40, 'tree': '2' * 40}
+        plan = {'android_required': True, 'android_native_products': []}
+        commands = [['bash', 'android/vr/pico/tests/pico-device-free-test.sh']]
+        with patch.object(P, 'authenticate', return_value=ROOT), \
+             patch.object(P, 'commands', return_value=commands), \
+             patch.object(P.R, 'run', return_value=0) as host, \
+             patch.object(N, 'prerequisites') as prerequisites, patch.object(N, 'execute') as native:
+            result = P.execute(ROOT, context, plan, 'android', [self.jdk, self.runtime / 'sdk'],
+                               recompute=lambda *_: plan, android_host_sdk=self.runtime / 'sdk')
+        self.assertEqual(host.call_args.kwargs['environment'], self.environment())
+        self.assertEqual(len(result['commands']), 1)
+        prerequisites.assert_not_called()
+        native.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
