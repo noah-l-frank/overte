@@ -78,9 +78,15 @@ for line in sys.stdin:
 class ChatRemotePublicationTests(unittest.TestCase):
     def setUp(self):
         temporary=tempfile.TemporaryDirectory()
-        if self._testMethodName=='test_actual_oversize_original_publication_roundtrips_across_all_parts':temporary._finalizer.detach()
+        retained=('test_actual_oversize_original_publication_roundtrips_across_all_parts',
+            'test_original_directory_window_checks_every_child_and_closes_both_original_handles',
+            'test_changed_original_child_refuses_and_closes_only_verified_directory_pair',
+            'test_late_directory_observation_failure_keeps_reader_unqualified',
+            'test_same_inode_recycled_directory_fd_is_retained_until_actual_fault_host_exit')
+        if self._testMethodName in retained:temporary._finalizer.detach()
         else:self.addCleanup(temporary.cleanup)
         self.root=Path(temporary.name);self.root.chmod(0o700);(self.root/'tmp').mkdir(mode=0o700)
+        if self._testMethodName in retained:print('Retained remote source originals:',self.root,flush=True)
         self.entry=self.root/'original-publication-source.py'
         self.entry.write_text(WORKER.replace('DEVICE_PATH',repr(str(Path(__file__).resolve().parents[1]))));self.entry.chmod(0o600)
         config=PrivateFeatureState(self.root/'config.json');self.metadata=PrivateFeatureState(self.root/'metadata.json')
@@ -363,6 +369,73 @@ class ChatRemotePublicationTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):owner.acquire(row['sequence'])
         self.assertFalse(owner.failed);self.assertEqual(1,len(owner.rows))
         self.assertNotIn('stopCommand',self.stores['actor'].read())
+
+    def test_original_directory_window_checks_every_child_and_closes_both_original_handles(self):
+        import adapters.chat_journey.remote_publication as module
+        owner=self.owner;owner.acquire(0);observed=[];windows=[];original=module.os.stat
+        def inspect(path,*args,**kwargs):
+            if kwargs.get('dir_fd') is not None:
+                directory=owner.directory_window;self.assertIsNotNone(directory)
+                directory.require(kwargs['dir_fd']);windows.append(directory)
+                self.assertIs(False,kwargs['follow_symlinks']);self.assertEqual(os.path.basename(path),path)
+                observed.append(str(owner.store.path.parent/path))
+            return original(path,*args,**kwargs)
+        with patch.object(module.os,'stat',side_effect=inspect):owner.physical_children()
+        self.assertEqual(set(owner.admitted),set(observed));self.assertEqual(len(owner.admitted),len(observed))
+        self.assertEqual(1,len({id(window) for window in windows}));self.assertTrue(windows[0].closed)
+        self.assertEqual((-1,-1),(windows[0].fd,windows[0].anchor));self.assertIsNone(owner.directory_window)
+        owner.control();self.assertFalse(owner.failed)
+
+    def test_changed_original_child_refuses_and_closes_only_verified_directory_pair(self):
+        owner=self.owner;owner.acquire(0)
+        path=Path(next(iter(owner.admitted)));info=path.stat();os.utime(path,ns=(info.st_atime_ns,info.st_mtime_ns+1_000_000))
+        with self.assertRaises(NativeUIError):owner.physical_children()
+        self.assertTrue(owner.failed);self.assertIsNone(owner.directory_window)
+        self.assertTrue(path.exists());self.assertEqual(1,owner.row_count())
+
+    def test_late_directory_observation_failure_keeps_reader_unqualified(self):
+        import adapters.chat_journey.remote_publication as module
+        owner=self.owner;owner.acquire(0);calls=[];require=module.require_directory
+        def unavailable(directory,path,**kwargs):
+            calls.append(directory);require(directory,path,**kwargs)
+            if len(calls)==2:raise NativeUIError('Explicit unavailable final original directory observation')
+        with patch.object(module,'require_directory',side_effect=unavailable),self.assertRaises(NativeUIError):owner.physical_children()
+        self.assertEqual(2,len(calls));self.assertIs(calls[0],calls[1]);self.assertTrue(calls[0].closed)
+        self.assertTrue(owner.failed);self.assertIsNone(owner.directory_window)
+
+    def test_same_inode_recycled_directory_fd_is_retained_until_actual_fault_host_exit(self):
+        import adapters.chat_journey.remote_publication as module
+        owner=self.owner;owner.acquire(0);read_fd,write_fd=os.pipe();pid=os.fork()
+        if pid==0:
+            os.close(read_fd)
+            try:
+                original=module.os.stat;changed=[]
+                def recycle(path,*args,**kwargs):
+                    descriptor=kwargs.get('dir_fd')
+                    if descriptor is not None and not changed:
+                        directory=owner.directory_window;replacement=os.open(owner.store.path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
+                        os.dup2(replacement,descriptor);os.close(replacement);changed.append(directory)
+                    return original(path,*args,**kwargs)
+                with patch.object(module.os,'stat',side_effect=recycle):
+                    try:owner.physical_children()
+                    except NativeUIError:pass
+                    else:raise AssertionError('Recycled same-inode directory fd qualified')
+                directory=owner.directory_window
+                result=dict(failed=owner.failed,retained=directory is changed[0],lost=directory.lost,
+                    closed=directory.closed,foreignStillOpen=os.fstat(directory.fd).st_ino==directory.node[1],
+                    anchorStillOpen=os.fstat(directory.anchor).st_ino==directory.node[1])
+                os.write(write_fd,json.dumps(result).encode());os.close(write_fd)
+                os._exit(0)
+            except BaseException:os._exit(1)
+        os.close(write_fd)
+        try:
+            raw=os.read(read_fd,4096)
+        finally:os.close(read_fd)
+        waited,status=os.waitpid(pid,0);self.assertEqual(pid,waited);self.assertEqual(0,status)
+        self.assertEqual(dict(failed=True,retained=True,lost=True,closed=False,foreignStillOpen=True,anchorStillOpen=True),json.loads(raw))
+        # Fault-only inherited handles disappear through actual child exit;
+        # the original Parent/Actor/source files and their owners stay intact.
+        self.assertFalse(owner.failed);self.assertIsNone(owner.directory_window);owner.control()
 
 
 def remote_publication_component_tests():

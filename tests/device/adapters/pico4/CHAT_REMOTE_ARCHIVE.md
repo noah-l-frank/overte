@@ -398,3 +398,62 @@ entire reduction from 31.771 s. The measured decoder benefit remains limited
 to already admitted transcript processing after every original physical read.
 No I/O, native, clock, quiet, cadence, source budget or timeout check was
 removed; no new whole-run result or public Chat qualification follows.
+
+## Fresh original-directory child checks
+
+The2026-11-02 source revalidation confirms that the real Common16 executor,
+global primary/Actor cursors, cleanup slot and typed consumed-source return
+are already composed in the existing whole diagnostic. Its latest unchanged
+whole timeout remains historical; no second journey or shorter quiet window
+is substituted to obtain a passing result.
+
+The actual warm-source measurement identifies repeated Parent child-path
+resolution as a narrower cost. `ChatRemotePublication.physical_control` now
+checks every admitted immutable child through one short-lived original
+directory open-file description. It reuses the reviewed shared
+`native_fd_owner.require_directory` proof: fresh canonical kernel path,
+original descriptor/anchor association, named/held directory metadata and
+the exact original Parent baseline. Each child still receives a new nofollow
+relative stat and all eight original device/inode/size/UID/mode/link/mtime/ctime
+fields must match. The same canonical/OFD proof runs after the complete pass.
+Nothing caches a stat, skips a child, removes an inventory or replaces a full
+original byte read. Existing manifests, decoders, source/raw admission, native
+guards, clocks and query histories remain unchanged.
+
+The directory pair is closed through its original verified owner. A lost or
+recycled descriptor leaves that exact owner attached to the failed reader;
+both uncertain handles remain retained and no foreign handle is force-closed.
+The actual same-inode recycling counter runs in a separate fault host and
+confirms those handles remain open until its genuine process exit. Ordinary
+successful read windows retain no extra directory descriptor or journal.
+
+The same61-query original source diagnostic passes before32.766s and
+after30.791s. Its one profiled Parent transaction's12 physical-control calls
+measure0.081064s before and0.056664s after; Parent acquisition measures0.546634s
+and0.529569s. All54 Primary and143 Actor complete source-history checks,
+seven Parent original loads and19 cache digests remain. Other fsync/physical
+timings vary, so the total difference is not attributed entirely to this
+change. Its limited benefit does not justify another unchanged whole retry.
+
+Four new directory/full-child/changed-original/late-proof/recycled-FD cases
+pass4/2.206s. The existing `remote-publication` selector, now including them,
+passes40/28.642s. The existing full false-common baseline/Stop2/extra-tail/
+independent nonce/actual Actor kernel return/both seals/complete catalog case
+passes1/38.033s. Its `sequenceSucceeded` remains the real false value; it
+does not authorize application restart or whole finalization.
+
+Evidence roots under `/home/user/.local/state/`:
+
+- `pico-chat-dir-stat-before-20261102-sasaou0q`
+- `pico-chat-dir-stat-after-20261102-um_fxswp`
+- `pico-chat-dir-window-guards-20261102-h3i17y3l`
+- `pico-chat-dir-reader-20261102-of9vvwpo`
+- `pico-chat-dir-returned-prefix-20261102-k7nf2o_n`
+
+Each run records unchanged named source hashes. Reader/returned-prefix runs
+use a retention-only runner that removes only their already owned temporary
+directory cleanup callbacks; real descriptor/Actor/process cleanup still runs.
+No native product, widget, actual device freshness or full25-input execution
+is qualified by these modeled producers. No compiler or device/service run
+is part of this packet. The measured current-source JSON processing and the
+remaining true Common/app/archive/host closure stay open.

@@ -6,6 +6,8 @@ from copy import deepcopy
 import base64
 import hashlib
 import math
+import os
+import stat
 import time
 
 from adapters.chat_journey.actor_stop import validate_publication_return
@@ -19,6 +21,7 @@ from adapters.chat_journey.remote_actor_graph import GRAPH,ChatSourceGraphPrefix
 from adapters.chat_journey.source_chunks import ChatSourceChunks,digest
 from adapters.chat_journey import source_bundles
 from adapters.native_feature_observation import exact,fresh,integer,need,number
+from adapters.native_fd_owner import OriginalDescriptor,require_directory
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.observer_return import state,parent_node,raw_file
@@ -93,6 +96,7 @@ class ChatRemotePublication:
         self.history=ChatSourceChunks(store,self.scope);self.history.inventory(0)
         self.previous=None;self.root_stamp=None;self.originals=self._originals=ChatOriginalMemory(self.scope);self.admitted={};self.roots={}
         self.stop_intent=None;self.failed=False;self.grammar=self._grammar=ChatSourceGraphPrefix()
+        self.directory_window=None
         self.decoders=self._decoders={};self.decoder_sha=digest({})
         self.cache_sha=self.cache_digest();self.control()
 
@@ -132,7 +136,7 @@ class ChatRemotePublication:
         """Original warm JSON/path identity only; no live process observation."""
         need(digest(self.decoder_signature())==self.decoder_sha)
         need(type(self.grammar) is ChatSourceGraphPrefix and self.grammar is self._grammar);self.grammar.control()
-        need(not self.failed and self.cache_digest()==self.cache_sha and digest(self.expected)==self.expected_sha
+        need(not self.failed and self.directory_window is None and self.cache_digest()==self.cache_sha and digest(self.expected)==self.expected_sha
             and parent_node(self.store)==self.parent and self.process.process_identity==self.expected['hostProcessIdentity']
             and {key:str(value.path) for key,value in self.stores.items()}==self.paths
             and [str(lock.path) for lock in self.locks]==self.lock_paths
@@ -160,9 +164,40 @@ class ChatRemotePublication:
                     need(count==len(self.history.identities)==base+pending['parts']
                         and hashlib.sha256(canonical(self.row(self.row_count()-1))).hexdigest()==pending['sha256'])
         if self.root_stamp is not None:need(stamp(self.store.path.lstat())==self.root_stamp)
-        for path,signature in self.admitted.items():
-            info=PrivateFeatureState(path).path.lstat()
-            need([info.st_dev,info.st_ino,info.st_size,info.st_uid,info.st_mode,info.st_nlink,info.st_mtime_ns,info.st_ctime_ns]==signature)
+        self.physical_children()
+
+    def physical_children(self):
+        """Fresh full child stats through one exact original directory OFD.
+
+        No signature or canonical proof is cached and no child is skipped.
+        An uncertain/recycled pair remains attached to this failed reader for
+        host finalization; an unverified foreign descriptor is never closed.
+        """
+        need(self.directory_window is None)
+        if not self.admitted:return
+        path=self.store.path.parent
+        owner=OriginalDescriptor(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+        self.directory_window=owner
+        try:
+            mode=stat.S_IMODE(self.parent[3]);require_directory(owner,path,mode=mode)
+            held=os.fstat(owner.fd)
+            need((held.st_dev,held.st_ino,held.st_uid,held.st_mode)==self.parent)
+            prefix=os.fspath(path)+os.sep
+            for original,signature in self.admitted.items():
+                need(type(original) is str and original.startswith(prefix))
+                name=original[len(prefix):]
+                need(name not in ('','.','..') and os.path.basename(name)==name)
+                info=os.stat(name,dir_fd=owner.fd,follow_symlinks=False)
+                need([info.st_dev,info.st_ino,info.st_size,info.st_uid,info.st_mode,info.st_nlink,info.st_mtime_ns,info.st_ctime_ns]==signature)
+            need(self.directory_window is owner)
+            require_directory(owner,path,mode=mode)
+        except BaseException:
+            self.failed=True;raise
+        finally:
+            if OriginalDescriptor.close(owner):self.directory_window=None
+            else:
+                self.failed=True
+                need(False)
 
     def control(self):
         # Preserve the live query's original guard/check order. Historical
