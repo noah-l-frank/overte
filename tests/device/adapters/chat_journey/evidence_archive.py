@@ -63,6 +63,7 @@ class ChatArchiveCatalog:
     def __init__(self,*,hold_files=True):
         need(type(hold_files) is bool)
         self.rows={};self.parents={};self.failed=False;self.hold_files=hold_files;self.uncertain=[]
+        self._json_originals=self._sealed_json_originals=();self._json_positions={}
 
     def add(self,label,store,expected):
         need(not self.failed and isinstance(store,PrivateFeatureState) and expected is not None
@@ -71,6 +72,7 @@ class ChatArchiveCatalog:
         if label in self.rows:
             row=self.rows[label];need(row['store'].path==store.path and same(row['expected'],expected));self.verify(row);return
         need(len(self.rows)<LIMIT_FILES and all(row['store'].path!=store.path for row in self.rows.values()))
+        expected_original=deepcopy(expected)
         owner=None
         try:
             store._parent()
@@ -80,15 +82,22 @@ class ChatArchiveCatalog:
             if self.hold_files:
                 owner=OriginalDescriptor(store.path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
                 info=os.fstat(owner.fd);private(info);raw=os.pread(owner.fd,65537,0)
-                need(len(raw)==info.st_size and same(store.read(),expected) and stamp(store.path.lstat())==stamp(os.fstat(owner.fd))==stamp(info))
+                need(len(raw)==info.st_size and same(store.read(),expected_original) and stamp(store.path.lstat())==stamp(os.fstat(owner.fd))==stamp(info))
                 original_stamp=stamp(info)
             else:
                 owner=ClosedOriginalFile(store.path,0o600,lambda:self.verify_parent(store.path.parent))
                 def validate(raw):
-                    need(owner.path==store.path);original_json(raw,expected);need(owner.path==store.path)
+                    need(owner.path==store.path);original_json(raw,expected_original);need(owner.path==store.path)
                 raw,original_stamp=owner.read(validate)
                 need(owner.path==store.path)
-            row=dict(label=label,store=store,expected=deepcopy(expected),owner=owner,stamp=original_stamp,raw=raw,sha256=hashlib.sha256(raw).hexdigest())
+            row=dict(label=label,store=store,expected=expected_original,owner=owner,stamp=original_stamp,raw=raw,sha256=hashlib.sha256(raw).hexdigest())
+            if type(owner) is ClosedOriginalFile:
+                need(self._json_originals is self._sealed_json_originals)
+                self._json_positions[label]=len(self._json_originals)
+                # Exact admitted JSON bytes and their canonical decoded value
+                # are immutable. Only parsing is reused; every read below is a
+                # fresh original file/OFD/full-stamp window.
+                self._json_originals=self._sealed_json_originals=self._json_originals+((label,row,raw,canonical(expected_original)),)
             self.rows[label]=row;self.verify(row)
             need(sum(len(value['raw']) for value in self.rows.values())<=LIMIT_BYTES)
         except BaseException:
@@ -103,11 +112,18 @@ class ChatArchiveCatalog:
         self.verify_parent(row['store'].path.parent)
         owner=row['owner']
         if type(owner) is ClosedOriginalFile:
-            need(owner.path==row['store'].path)
+            need(self._json_originals is self._sealed_json_originals and type(self._json_originals) is tuple)
+            position=self._json_positions[row['label']]
+            need(type(position) is int and 0<=position<len(self._json_originals))
+            label,original_row,original_raw,expected_bytes=self._json_originals[position]
+            need(label==row['label'] and self.rows.get(label) is row is original_row
+                and type(original_raw) is bytes and row['raw'] is original_raw and owner.raw is original_raw
+                and type(expected_bytes) is bytes and canonical(row['expected'])==expected_bytes
+                and owner.path==row['store'].path)
             def validate(raw):
-                need(owner.path==row['store'].path);original_json(raw,row['expected']);need(owner.path==row['store'].path)
+                need(owner.path==row['store'].path and raw==original_raw)
             raw,original_stamp=owner.read(validate)
-            need(owner.path==row['store'].path and raw==row['raw'] and original_stamp==row['stamp']);return
+            need(owner.path==row['store'].path and raw==original_raw and original_stamp==row['stamp']);return
         owner.require(owner.fd);info=os.fstat(owner.fd);private(info)
         need(stamp(info)==row['stamp']==stamp(row['store'].path.lstat()) and os.pread(owner.fd,65537,0)==row['raw']
             and same(row['store'].read(),row['expected']))

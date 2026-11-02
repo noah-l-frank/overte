@@ -75,3 +75,41 @@ cost measurements are private under
 `/home/user/.local/state/overte-pico-resume-integration-20261102-24qkewqw`.
 Shared reconciliation remains additive: no persisted format/version or Phone/
 iOS source changes.
+
+## Reuse original JSON admission, never current bytes (2026-11-03)
+
+The open/close component profile identifies repeated catalog JSON decoding
+inside full original file windows before the final archive. Its instrumented
+case passes15.034s with190 loaded source files unchanged. Only the Parent
+profile was collected; the worker profiler epilogue produced no profile and
+the original fixture did not retain its stderr/exit status. That worker profile
+is unavailable, rather than inferred from the passing component. No whole
+Journey or speed qualification follows from that instrumented diagnostic.
+
+`ChatArchiveCatalog` now pins each admitted closed file's exact immutable raw
+bytes and canonical decoded JSON with its row identity. Initial admission
+retains the strict duplicate-key/UTF-8/dictionary comparison. Every warm verify
+still checks current mutable expected JSON against that original pin and opens
+its fresh original FD pair, reads all current bytes and checks all original
+physical stamps/path/parent guards before and after. Cached row/owner fields
+cannot replace the original bytes or expected value. Ordinary held-file mode
+retains its existing full parse path; no persisted version changes.
+
+A cost-only fixture creates80 new private copies from retained historical JSON
+(2,005,619 bytes), without adopting any warm source. Each measured pass performs
+1,200 complete original byte windows. The prior method costs0.268/0.268s;
+the candidate costs0.176/0.176s, about34% less for this method. All bytes/full
+physical stamps remain identical. This does not predict a whole Journey result.
+
+All55 affected archive/index/unlink/Browser namespace cases pass1.068s with128
+loaded SHA-256 and full physical identities unchanged. The additional real
+rewrite counter preserves the original bytes separately, changes the actual
+file, and changes mutable cached fields to match it; both original and forged
+expected-JSON variants refuse before any archive/delete starts. Existing
+same-byte inode, parent, FD, late-source and full-current-copy counters remain.
+
+Exact cost inputs, retained fixtures, source maps, Parent-only profile and its
+explicit missing-worker-profile audit are in the same private Root evidence
+folder cited above. All source query counts, original clocks, quiet/unlink
+windows and file/byte limits remain unchanged; complete Browser acceptance is
+still open.

@@ -8,10 +8,11 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from adapters.chat_journey.archive_file import ClosedOriginalFile
+from adapters.chat_journey.archive_file import ClosedOriginalFile,signature
 from adapters.chat_journey.evidence_archive import ChatArchiveCatalog,ChatEvidenceArchive,completed_archive
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
+from adapters.script_journey.history import canonical
 from self_tests import test_chat_archive_unlink_fence as source_seams
 from self_tests import test_restart_inputs as restart_seams
 
@@ -80,6 +81,25 @@ class ChatArchiveIndexTests(unittest.TestCase):
                 self.assertTrue((archive.directory/'original-0000.json').exists())
                 self.assertFalse((archive.directory/'original-0001.json').exists())
                 self.assertTrue(all(row['store'].path.exists() for row in self.h.catalog.rows.values()))
+
+    def test_original_json_admission_survives_real_rewrite_and_mutated_inspection_fields(self):
+        for expected_changed in (False,True):
+            with self.subTest(expected_changed=expected_changed):
+                self.setUp();archive=self.h.make(indexed=True)
+                row=next(iter(self.h.catalog.rows.values()));path=row['store'].path
+                original=path.read_bytes();preserved=self.h.root/'preserved-before-rewrite.json'
+                preserved.write_bytes(original);preserved.chmod(0o600)
+                changed=canonical(dict(consumed=999))+b'\n'
+                with path.open('wb') as stream:
+                    stream.write(changed);stream.flush();os.fsync(stream.fileno())
+                # Inspection fields cannot replace the immutable admission,
+                # even when they describe the actual newly rewritten inode.
+                physical=signature(path.lstat());row.update(raw=changed,sha256=hashlib.sha256(changed).hexdigest(),stamp=physical)
+                row['owner'].raw=changed;row['owner'].stamp=physical
+                if expected_changed:row['expected']=dict(consumed=999)
+                with self.assertRaises(NativeUIError):self.h.catalog.verify(row)
+                self.assertEqual(original,preserved.read_bytes());self.assertEqual(changed,path.read_bytes())
+                self.assertEqual([],archive.deleted);self.assertFalse(archive.started)
 
     def test_original_archive_directory_swap_during_held_fd_inventory_never_touches_foreign_files(self):
         archive=self.h.make(indexed=True);scandir=os.scandir;moved=[];saved=archive.directory.with_name('held-original-archive')
