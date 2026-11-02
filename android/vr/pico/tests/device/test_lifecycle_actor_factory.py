@@ -9,6 +9,7 @@ import uuid
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.pico4.lifecycle_actor_originals import ActorOriginals
 from self_tests import test_lifecycle_independent_actor as actor_fixture
 from self_tests.test_vr_graphics_subject import framework_source
 from adapters.host_process_identity import host_identity
@@ -65,12 +66,8 @@ class LifecycleActorFactoryTests(unittest.TestCase):
         return PrivateFeatureState(Path(stage.waiting['root'])/'lifecycle-actor-originals.json').read()
 
     def rejected_phase(self,stage):
-        store=PrivateFeatureState(Path(stage.waiting['root'])/'lifecycle-actor-originals.json');original=store.read()
-        keys=('picoLifecycleActorSourceVersion','runId','binding','role','stage','producerHostProcessIdentity',
-            'parentHostProcessIdentity','fixtureUrl')
-        history=ChatSourceChunks(store,{key:original[key] for key in keys});history.load(original['chunks'])
-        packet,_=source_bundles.original(history,original['chunks'],original['bundles'],len(original['bundles'])-1)
-        self.assertIsNone(original['pending']);return packet
+        store=PrivateFeatureState(Path(stage.waiting['root'])/'lifecycle-actor-originals.json')
+        return ActorOriginals(store).last('phase-before')
 
     def test_canonical_actor_measures_normal_create_and_actual_ime_text_from_same_original_field(self):
         stage=self.stage()
@@ -132,7 +129,7 @@ class LifecycleActorFactoryTests(unittest.TestCase):
         before=len(stage.native_calls());stage.failed_worker()
         self.assertEqual(['gesture','drive','ui'],stage.native_calls()[before:])
         original=self.originals(stage);self.assertEqual(2,len(original['records']))
-        self.assertIsNotNone(original['pending']['ui']);self.assertEqual(2,len(stage.client.observe()['entries']))
+        self.assertIn('ui',[row['key'] for row in ActorOriginals(PrivateFeatureState(Path(stage.waiting['root'])/'lifecycle-actor-originals.json')).pending()]);self.assertEqual(2,len(stage.client.observe()['entries']))
         self.assertEqual(2,len(stage.editor.field.calls));self.assertEqual('typed',stage.editor.owner.state['phase'])
 
     def test_foreign_factory_fingerprint_refuses_before_any_target_source_query(self):
@@ -145,11 +142,8 @@ class LifecycleActorFactoryTests(unittest.TestCase):
         self.assertEqual(['gesture','drive','ui','pending','feature','subject'],stage.native_calls())
         self.assertEqual([],stage.client.observe()['entries']);self.assertEqual([],stage.editor.transport.envelopes)
         store=PrivateFeatureState(Path(stage.waiting['root'])/'lifecycle-actor-originals.json');original=store.read()
-        self.assertEqual([],original['records']);self.assertIsNotNone(original['pending']['subject'])
-        keys=('picoLifecycleActorSourceVersion','runId','binding','role','stage','producerHostProcessIdentity',
-            'parentHostProcessIdentity','fixtureUrl')
-        history=ChatSourceChunks(store,{key:original[key] for key in keys});history.load(original['chunks'])
-        bundle,_=source_bundles.original(history,original['chunks'],original['bundles'],original['pending']['subject'])
+        self.assertEqual([],original['records'])
+        bundle=ActorOriginals(store).last('subject')
         self.assertEqual(2,decode(bundle['subject']['raw'])['source']['subjectVersion'])
 
     def test_same_host_factory_caller_refuses_before_candidate_or_native_access(self):

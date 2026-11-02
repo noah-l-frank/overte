@@ -1,5 +1,11 @@
 # Canonical private Lifecycle Actor source factory
 
+Current storage follow-up: [Actor source storage V2](LIFECYCLE_ACTOR_STORAGE_V2.md)
+versions the private source layout and consolidates exact staged originals.
+The V1 format/count/pending statements below describe their retained historical
+checkpoints. A rejected V2 phase has a durable pending staging scope; V1
+originals remain passively readable and are never reopened as a live V2 owner.
+
 The additive private `_lifecycle_actor_source` method now constructs the same
 Stage1 source through the actual canonical Pico adapter in a real separate
 worker process. Its existing selector gains four factory cases, without a new

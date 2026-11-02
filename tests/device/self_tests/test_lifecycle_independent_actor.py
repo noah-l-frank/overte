@@ -22,6 +22,7 @@ import uuid
 
 from adapters.host_process_identity import host_identity
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.pico4.lifecycle_actor_originals import ActorOriginals
 from adapters.normal_ui import NativeUIError
 from feature_journeys.server import make_server
 from feature_journeys.witness import Client,Journal
@@ -142,7 +143,7 @@ class LifecycleIndependentActorTests(unittest.TestCase):
         self.client.activate(uuid.uuid4().hex,'open-editor',dict(editor='create'))
         self.start();original=self.failed_worker()
         self.assertEqual([],self.native_calls());self.assertEqual([],original['records'])
-        self.assertEqual([],self.editor.transport.envelopes);self.assertIsNone(original['pending'])
+        self.assertEqual([],self.editor.transport.envelopes);self.assertIsNotNone(original['pending'])
         self.assertEqual([],self.client.observe()['entries'])
 
     def test_original_ui_cursor_regression_refuses_before_another_actual_native_query(self):
@@ -154,7 +155,7 @@ class LifecycleIndependentActorTests(unittest.TestCase):
     def test_independent_subject_disagrees_with_original_drive_after_actual_target_progress(self):
         self.products.move_before_subject=True;self.start();original=self.failed_worker()
         self.assertEqual(['gesture','drive','ui','pending','feature','subject'],self.native_calls())
-        self.assertIsNotNone(original['pending']['subject']);self.assertEqual([],original['records'])
+        self.assertIn('subject',[row['key'] for row in ActorOriginals(PrivateFeatureState(self.root/'lifecycle-actor-originals.json')).pending()]);self.assertEqual([],original['records'])
         self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)
 
     def test_landed_publication_lost_reply_retains_issued_scope_and_blocks_next_query(self):
@@ -171,23 +172,31 @@ class LifecycleIndependentActorTests(unittest.TestCase):
     def test_same_bytes_new_root_after_real_outer_exit_cannot_publish_original_record(self):
         self.start();original=self.failed_worker('sample-replace-root-exit')
         self.assertEqual(6,len(self.native_calls()));self.assertEqual(1,len(original['records']))
-        self.assertIsNone(original['pending']);self.assertIsNone(original['publication'])
+        self.assertIsNotNone(original['pending']);self.assertIsNone(original['publication'])
         self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)
 
     def test_actual_ui_producer_failure_keeps_complete_prior_gesture_and_drive_originals(self):
         self.products.fail_ui=True;self.start();original=self.failed_worker()
         self.assertEqual(['gesture','drive','ui'],self.native_calls());self.assertEqual([],original['records'])
-        self.assertIn('gesture',original['pending']);self.assertIn('drive',original['pending'])
-        from adapters.chat_journey import source_bundles
-        from adapters.chat_journey.source_chunks import ChatSourceChunks
-        keys=('picoLifecycleActorSourceVersion','runId','binding','role','stage','producerHostProcessIdentity',
-            'parentHostProcessIdentity','fixtureUrl')
-        history=ChatSourceChunks(PrivateFeatureState(self.root/'lifecycle-actor-originals.json'),{key:original[key] for key in keys})
-        history.load(original['chunks'])
+        historical=ActorOriginals(PrivateFeatureState(self.root/'lifecycle-actor-originals.json'))
         for key,raw in (('gesture',self.native.axes.read()),('drive',self.native.drive.read())):
-            bundle,_bytes=source_bundles.original(history,original['chunks'],original['bundles'],original['pending'][key])
+            bundle=historical.last(key)
             self.assertEqual(raw,bundle['original']['raw'])
             self.assertEqual(hashlib.sha256(raw.encode()).hexdigest(),bundle['original']['sha256'])
+        self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)
+
+    def test_original_candidate_dies_after_ui_response_before_retention_without_losing_any_acquired_raw(self):
+        # The original declared native model transitions at its actual getter
+        # return boundary. This is candidate-loss evidence, not native/SDK exit.
+        config=self.configuration.read();self.configuration.write(dict(config,candidateRetiresAfterUiOriginal=True),config)
+        self.start();original=self.failed_worker()
+        self.assertEqual(['gesture','drive','ui'],self.native_calls());self.assertEqual(1,self.products.retired_after_original)
+        self.assertEqual([],original['records']);self.assertIsNotNone(original['pending'])
+        passive=ActorOriginals(PrivateFeatureState(self.root/'lifecycle-actor-originals.json'))
+        self.assertEqual(7,len(passive.pending()))
+        for key,raw in (('gesture',self.native.axes.read()),('drive',self.native.drive.read()),('ui',self.native.ui.read())):
+            retained=passive.last(key)['original'];self.assertEqual(raw,retained['raw'])
+            self.assertEqual(hashlib.sha256(raw.encode()).hexdigest(),retained['sha256'])
         self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)
 
     def test_original_known_gesture_frame_cannot_borrow_new_capture_after_late_publication_cas(self):
@@ -203,14 +212,8 @@ class LifecycleIndependentActorTests(unittest.TestCase):
         ordered=['gesture','drive','ui','pending','feature','subject']
         self.assertEqual(ordered[:ordered.index(channel)+1],self.native_calls())
         self.assertEqual(1,len(self.products.unavailable_producer.commands))
-        self.assertEqual([],original['records']);self.assertIsNotNone(original['pending'][key])
-        from adapters.chat_journey import source_bundles
-        from adapters.chat_journey.source_chunks import ChatSourceChunks
-        scope=('picoLifecycleActorSourceVersion','runId','binding','role','stage','producerHostProcessIdentity',
-            'parentHostProcessIdentity','fixtureUrl')
-        history=ChatSourceChunks(PrivateFeatureState(self.root/'lifecycle-actor-originals.json'),{name:original[name] for name in scope})
-        history.load(original['chunks'])
-        bundle,_=source_bundles.original(history,original['chunks'],original['bundles'],original['pending'][key])
+        self.assertEqual([],original['records'])
+        bundle=ActorOriginals(PrivateFeatureState(self.root/'lifecycle-actor-originals.json')).last(key)
         self.assertEqual('{}',bundle[key]['raw']);self.assertEqual(hashlib.sha256(b'{}').hexdigest(),bundle[key]['sha256'])
         self.assertEqual(self.products.unavailable_producer.commands[0],bundle['request'])
         self.assertEqual([],self.client.observe()['entries']);self.assertEqual([],self.editor.transport.envelopes)

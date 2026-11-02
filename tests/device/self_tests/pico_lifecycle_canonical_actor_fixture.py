@@ -227,4 +227,4 @@ WORKER=WORKER.replace("  print(json.dumps({'event':'published','sequence':value[
     "  with source.lock.held():\n"
     "   locked=os.fstat(source.lock._owner[1])\n"
     "   audit={'path':str(source.lock.path),'device':locked.st_dev,'inode':locked.st_ino,'ownerPid':source.lock._owner[2]}\n"
-    "  print(json.dumps({'event':'published','sequence':value['actorSequence'],'sourceLock':audit}),flush=True)")
+    "  print(json.dumps({'event':'published','sequence':value['actorSequence'],'sourceLock':audit,'sourceStorage':source.storage.highwater}),flush=True)")

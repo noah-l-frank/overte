@@ -1799,7 +1799,15 @@
         "tests/device/self_tests/pico_lifecycle_canonical_actor_fixture.py",
         "tests/device/self_tests/pico_lifecycle_actor_operations_fixture.py",
         "android/vr/pico/tests/device/test_lifecycle_actor_composition.py",
-        "android/vr/pico/tests/device/test_lifecycle_actor_operations.py"
+        "android/vr/pico/tests/device/test_lifecycle_actor_operations.py",
+        "android/vr/pico/tests/device/test_lifecycle_actor_factory.py",
+        "android/vr/pico/tests/device/test_lifecycle_actor_storage.py",
+        "android/vr/pico/tests/device/test_lifecycle_actor_storage_capacity.py",
+        "tests/device/adapters/pico4/LIFECYCLE_ACTOR_FACTORY.md",
+        "tests/device/adapters/pico4/LIFECYCLE_ACTOR_STORAGE_V2.md",
+        "tests/device/adapters/pico4/lifecycle_actor_originals.py",
+        "tests/device/adapters/pico4/lifecycle_actor_storage.py",
+        "tests/device/self_tests/test_lifecycle_actor_storage.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1844,7 +1852,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Finish and qualify V2 Actor storage before extending Common16 past normal Create/type: the existing14 parts per observation would require714 parts for the minimum51 observations, exceeding512. Preserve all raw originals, original clocks, strict staged-transfer/retirement and unchanged512-part/16MiB limits; the new draft remains incomplete and unqualified. Then join step3 World-envelope/native gesture ownership, later generations/G1/native birth, stereo/typed return and full resource/archive/IPC/host closure. Canonical editor and independent Actor already share candidate/session/native binding and actual lock inode; the separate3-case Common operations group passed82.939s plus10 legacy operations14.699s. Stock VR Unicode remains open.",
+      "nextExecutableStep": "Extend the existing Common16/OverteSession/PrimaryOperations graph into step3 actual World-envelope/native gesture ownership. The V2 storage capacity obstacle is resolved: one real worker observes81 fresh groups/486 source packets with243 main parts and256 live-part highwater under512; all originals/1215child plus81root retirement receipts reconstruct. Fast14 storage checks pass3.079s; existing central Actor30 passes87.892s under its unchanged120s bound. Capacity1/322.257s is a separate standalone raw-storage diagnostic, not registered in default groups and not a fullCommon effect-time proof. HistoricalV1/V2 reads are passive only. Original Parent-host death during archival remains an explicit failure boundary; stockVR Unicode, laterG1/nativebirth, stereo/typed return and complete callback/resource/archive/IPC/host closure remain open.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

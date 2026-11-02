@@ -40,6 +40,7 @@ class LifecycleProducts(ProductSources):
     def __init__(self,case):
         self.case=case;self.native=case.editor.native;self.subject=SubjectBoundary();self.move_before_subject=False;self.fail_ui=False
         self.hold_gesture_publication=False;self.publication_host_work=0.
+        self.retired_after_original=0
         self.unavailable=None;self.unavailable_producer=UnavailableLifecycleProducer()
         # One original target physics object, read by independent native getter
         # endpoints. There is no second Actor-side pose or expected-state model.
@@ -57,6 +58,9 @@ class LifecycleProducts(ProductSources):
             need(type(value) in (float,int) and 0<=value<=.25);native.sleep(value);return None
         if action=='candidate':
             need(value is None);return dict(binding=deepcopy(self.case.editor.binding),alive=native.alive)
+        if action=='candidate-retired-after-ui-original':
+            need(value is None and native.alive and self.retired_after_original==0)
+            self.retired_after_original+=1;native.alive=False;return None
         if action=='publication-host-work':
             need(value==1.4 and self.publication_host_work==0.)
             self.publication_host_work+=value;return None
@@ -243,6 +247,14 @@ try:
   if command not in ({'operation':'sample'},{'operation':'sample-regress-ui'},{'operation':'sample-lost-reply'},{'operation':'sample-replace-root-exit'},{'operation':'sample-late-publication'},{'operation':'sample-foreign-factory-fingerprint'}):raise ValueError('Source-only worker command')
   if command['operation']=='sample-foreign-factory-fingerprint':transport.binding=dict(transport.binding,targetFingerprint='0'*64)
   if source is None:source=transport.source(client)
+  if config.get('candidateRetiresAfterUiOriginal'):
+   original=source.readers[0].original;retired=[False]
+   def received_before_retirement():
+    raw=original()
+    if not retired[0]:
+     retired[0]=True;transport.rpc.call('candidate-retired-after-ui-original')
+    return raw
+   source.readers[0].original=received_before_retirement
   if command['operation']=='sample-replace-root-exit':
    from contextlib import contextmanager
    import os,tempfile
@@ -254,21 +266,21 @@ try:
      with held():yield
     finally:
      depth[0]-=1
-    if depth[0]==0 and not replaced[0] and source.disk['records'] and source.disk['pending'] is None:
+    if depth[0]==0 and not replaced[0] and source.disk['records'] and source.disk['publication'] is None:
      replaced[0]=True
      fd,path=tempfile.mkstemp(dir=source.store.path.parent,prefix='owned-actor-exit-')
      with os.fdopen(fd,'wb') as stream:stream.write(source.store.path.read_bytes());stream.flush();os.fsync(stream.fileno())
      os.replace(path,source.store.path)
    source.lock.held=replaced_exit
   if command['operation']=='sample-late-publication':
-   write=source.store.write;spent=[False]
+   write=source.storage.write_root;spent=[False]
    def slow_publication(value,expected):
     result=write(value,expected)
     publication=value['publication']
     if not spent[0] and publication and publication['phase']=='issued' and publication['fixture'] is not None:
      spent[0]=True;transport.rpc.call('publication-host-work',1.4)
     return result
-   source.store.write=slow_publication
+   source.storage.write_root=slow_publication
   if command['operation']=='sample-regress-ui':
    source.readers[0].previous=dict(source.readers[0].previous)
    source.readers[0].previous['sequence']-=1
@@ -283,5 +295,8 @@ try:
   source.delivered(reply)
   print(json.dumps({'event':'published','sequence':value['actorSequence']}),flush=True)
   if command['operation']=='sample-late-publication':break
-finally:transport.close()
+finally:
+ try:
+  if source is not None and not source.close_host():raise ValueError('Original Actor host descriptions remain uncertain')
+ finally:transport.close()
 '''

@@ -9,6 +9,7 @@ import uuid
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.pico4.lifecycle_actor_originals import ActorOriginals
 from adapters.normal_ui import NativeUIError
 from adapters.chat_journey.source_chunks import ChatSourceChunks
 from adapters.chat_journey import source_bundles
@@ -74,7 +75,8 @@ class LifecycleActorPhaseFenceTests(unittest.TestCase):
         self.assertEqual([],self.stage.editor.os.inputs);self.assertEqual([],self.stage.editor.transport.envelopes)
         self.assertEqual([],self.graph.operations.state['steps']);self.assertEqual([],self.stage.client.observe()['entries'])
         source=PrivateFeatureState(self.stage.root/'lifecycle-actor-originals.json').read()
-        self.assertEqual([],source['records']);self.assertIsNotNone(source['pending']['subject'])
+        self.assertEqual([],source['records'])
+        self.assertEqual('{}',ActorOriginals(PrivateFeatureState(self.stage.root/'lifecycle-actor-originals.json')).last('subject')['subject']['raw'])
 
     def test_changed_phase_after_actual_normal_intent_is_retained_before_input_refusal(self):
         self.baseline();fields=self.fields(0);save=self.stage.editor.owner.save;changed=[];received=[]

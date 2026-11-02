@@ -9,19 +9,19 @@ arguments. Later recipe stages require their own reviewed source admission.
 from copy import deepcopy
 import math
 
-from adapters.chat_journey import source_bundles
-from adapters.chat_journey.source_chunks import ChatSourceChunks,json_digest
+from adapters.chat_journey.source_chunks import json_digest
 from adapters.host_process_identity import host_identity
-from adapters.native_feature_observation import NativeFeatureObservation,decode,integer,need,number
+from adapters.native_feature_observation import NativeFeatureObservation,decode,integer,need,number,LIMIT
 from adapters.native_graphics_subject import NativeGraphicsSubject
 from adapters.native_chat_view import measured_keyboard
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
-from adapters.observer_return import parent_node,state as file_state,host
+from adapters.observer_return import parent_node,host
 from adapters.pending_commit_owner import NativePendingCommitOwner
 from adapters.pico4 import lifecycle_source as ui,lifecycle_gesture as gesture,lifecycle_drive as drive
 from adapters.pico4.lifecycle_back import frame
 from adapters.pico4.lifecycle_process import identity
+from adapters.pico4.lifecycle_actor_storage import LifecycleActorStorage,VERSION
 from adapters.pico4.lifecycle_readonly import LifecycleReadOnlyAcquisition
 from adapters.pico4.lifecycle_world import PicoLifecycleWorld
 from adapters.script_journey.lock import ScriptSourceLock
@@ -30,8 +30,6 @@ from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.fixtures import context as fixture_context
 from feature_journeys.scenarios import SCENARIOS,expand
 from feature_journeys.witness import projection
-
-VERSION=1
 
 
 class ActorReadOnlyTriple:
@@ -53,13 +51,17 @@ class ActorReadOnlyTriple:
         callbacks=[]
         try:
             for key,reader in (('gesture',self.axes),('drive',self.avatar),('ui',self.source)):
-                original=reader.original;callbacks.append((reader,original))
+                original,send=reader.original,reader.send;callbacks.append((reader,original,send))
+                def issued(value,key=key,send=send):
+                    self.owner.bound();self.owner.reserve_original()
+                    self.owner.retain(key,dict(request=deepcopy(value)));return send(value)
                 def received(key=key,original=original):
+                    self.owner.reserve_original()
                     raw=original();self.owner.retain(key,dict(original=frame(raw)));return raw
-                reader.original=received
+                reader.send,reader.original=issued,received
             return PicoLifecycleWorld.acquire(self)
         finally:
-            for reader,original in callbacks:reader.original=original
+            for reader,original,send in callbacks:reader.original,reader.send=original,send
 
 
 class PicoLifecycleActorSource:
@@ -89,27 +91,26 @@ class PicoLifecycleActorSource:
             role='actor',stage='before-input-create',producerHostProcessIdentity=self.host,
             parentHostProcessIdentity=parent_host,fixtureUrl=phases.fixture_url)
         self.scope_sha=json_digest(self.scope);self.parent=parent_node(self.store)
-        self.history=ChatSourceChunks(self.store,self.scope);self.disk=self.stamp=None
-        self.parts=();self.raw_bytes=2;self.failed=False;self.anchor=None
+        self.failed=False;self.anchor=None
         self.last_world=None;self.origin=None;self.baseline=None
         self.last_world_sha=json_digest(None);self.baseline_sha=json_digest(None)
         self.pending_floor=self.native_floor=self.subject_floor=None
         self.original_phases,self.original_client=phases,phases.client
         self.triple=ActorReadOnlyTriple(self,source,axes,avatar)
         with self.lock.held():
-            need(self.store.read() is None);self.history.load([])
-            self.disk=dict(self.scope,phase='reading',chunks=[],bundles=[],records=[],pending=None,publication=None)
-            self.store.write(self.disk,None);self.pin()
+            self.storage=LifecycleActorStorage(self.store,self.scope,self.lock,self.ownership,self.storage_fresh)
+        self.history=self.storage.history
         self.bound()
 
-    def pin(self):
-        value,_raw,stamp=file_state(self.store);need(typed_equal(value,self.disk))
-        self.stamp=tuple(stamp);self.disk_sha=json_digest(self.disk)
+    @property
+    def disk(self):return self.storage.disk
 
-    def bound(self):
+    def ownership(self):
+        # Archiving an already acquired literal must not query the candidate
+        # again. This original warm host/scope/namespace owns only storage.
         need(not self.failed and self.host==host_identity() and self.host!=self.parent_host)
         host(self.parent_host);host(self.host,current=True)
-        need(json_digest(self.scope)==self.scope_sha==self.history.scope
+        need(json_digest(self.scope)==self.scope_sha
             and self.scope['binding']==self.binding and self.scope['runId']==self.run
             and self.phases is self.original_phases and self.phases.client is self.original_client
             and self.phases.fixture_url==self.scope['fixtureUrl'] and parent_node(self.store)==self.parent
@@ -120,11 +121,14 @@ class PicoLifecycleActorSource:
             and all(reader.pid==self.pid for reader in self.readers)
             and all(reader.source_lock is self.lock for reader in self.readers[:3])
             and self.readers[3].intent is None and self.readers[3]._before_send is None)
-        value,_raw,stamp=file_state(self.store)
-        need(json_digest(value)==json_digest(self.disk)==self.disk_sha and tuple(stamp)==self.stamp)
-        self.history.verify();need(tuple(self.history.identities)==self.parts and self.history.raw_bytes==self.raw_bytes)
+
+    def identity(self):
+        self.ownership()
         need(self.guard() is not False)
         for reader in self.readers:need(reader.guard() is not False)
+
+    def bound(self):
+        self.identity();self.storage.verify()
 
     def previous(self):
         for key,reader in zip(('ui','gesture','drive'),self.readers[:3]):
@@ -141,21 +145,14 @@ class PicoLifecycleActorSource:
         need((native.instance,native.sequence)==((None,0) if self.native_floor is None else self.native_floor))
         need(json_digest(subject.last)==json_digest(self.subject_floor))
 
-    def save(self,value):
-        self.lock.assert_held();self.bound();self.store.write(value,self.disk)
-        self.disk=deepcopy(value);self.pin()
-
-    def archive(self,value):
-        reference,parts=source_bundles.prepare(value,len(self.disk['bundles']),self.disk['bundles'])
-        for part in parts:
-            self.bound();manifest=self.history.append(part,self.disk['chunks'])
-            self.parts=tuple(self.history.identities);self.raw_bytes=self.history.raw_bytes
-            updated=deepcopy(self.disk);updated['chunks']=manifest;self.save(updated)
-        index=len(self.disk['bundles']);updated=deepcopy(self.disk);updated['bundles'].append(reference);self.save(updated)
-        return index
-
     def fresh(self):
-        self.bound();need(self.anchor is not None)
+        self.bound();self.clock_fresh()
+
+    def storage_fresh(self):
+        self.storage.verify();self.clock_fresh()
+
+    def clock_fresh(self):
+        need(self.anchor is not None)
         started,requested,oldest=self.anchor;epoch=self.readers[4].clock_ms();ended=self.monotonic()
         need(integer(epoch,1) and number(ended,started,started+1.5) and -250<=epoch-oldest
             and max(epoch-oldest,requested-oldest+(ended-started)*1000)<=1500)
@@ -166,10 +163,12 @@ class PicoLifecycleActorSource:
         # Pending's input intent and before-send ownership remain untouched.
         send,original=reader.send,reader.original;request=[None];received=[]
         def issued(value):
+            self.bound();self.reserve_original()
             request[0]=deepcopy(value)
             self.retain(key,dict(request=deepcopy(value)))
             return send(value)
         def response():
+            self.reserve_original()
             raw=original();self.retain(key,{key:frame(raw),'request':deepcopy(request[0])})
             received.append(raw);return raw
         try:
@@ -220,36 +219,53 @@ class PicoLifecycleActorSource:
         need(all(typed_equal(row['stimulus'],stimulus) for row,stimulus in zip(rows,expected)))
         if self.baseline is None:need(len(rows)==1)
 
+    def phase(self,key,previous=None,*,publication=False):
+        # Retain each decoded endpoint response before the shared reader can
+        # reject it. Phase metadata carries no native/editor facts.
+        # Client caps the actual HTTP body at1MiB; canonical JSON can expand
+        # UTF8 astral codepoints threefold. Literal native frames below use
+        # sixfold escaping of the original262144-byte reader bound.
+        self.bound();self.storage.reserve(3*1024*1024+4096)
+        client=self.phases.client;request=client.request
+        path='/runs/'+self.run+'/phase'
+        def received(actual,*args,**kwargs):
+            value=request(actual,*args,**kwargs)
+            if actual==path and 'phase_nonce' in kwargs:
+                if publication:self.storage.publication_phase(deepcopy(value))
+                else:self.retain(key,deepcopy(value))
+            return value
+        try:
+            client.request=received;return self.phases.read(previous)
+        finally:client.request=request
+
     def read(self):
         try:
             with self.lock.held():
                 self.bound();need(self.disk['pending'] is None and len(self.disk['records'])<128)
                 need(self.disk['publication'] is None or self.disk['publication']['phase']=='delivered')
                 self.previous()
-                before=self.phases.read()
+                self.storage.begin()
+                before=self.phase('phase-before')
                 # Retain the actual input metadata even when its stage cannot
                 # be admitted. A rejected phase must survive worker exit, but
                 # it does not issue a native source intent or another input.
-                phase=self.archive(before['status']);self.admitted_phase(before)
+                self.admitted_phase(before)
                 started=self.monotonic();requested=self.readers[4].clock_ms()
-                updated=deepcopy(self.disk);updated['pending']=dict(phase=phase,gesture=None,drive=None,ui=None,
-                    world=None,pending=None,native=None,subject=None);self.save(updated)
                 world,packets,_start=self.triple.acquire();self.retain('world',dict(world=world))
                 pending_reader,native_reader,subject_reader=self.readers[3:]
                 pending,_raw=self.query('pending',pending_reader,lambda:pending_reader.read(self.run))
                 native,received=self.query('native',native_reader,lambda:native_reader.read(native_reader.sequence))
-                raw=native_reader.original()
+                self.bound();self.reserve_original();raw=native_reader.original()
                 if raw!=received:self.retain('native',dict(native=frame(raw)))
                 need(raw==received and decode(raw)==native)
                 subject,received=self.query('subject',subject_reader,lambda:subject_reader.read(self.run,require_avatar=True))
-                raw=subject_reader.original()
+                self.bound();self.reserve_original();raw=subject_reader.original()
                 if raw!=received:self.retain('subject',dict(subject=frame(raw)))
                 need(raw==received and decode(raw)==subject)
                 need(native['instance']==subject['instance'])
                 if self.last_world is not None:self.triple.advance(self.triple.originals(self.last_world),packets)
                 facts=self.measurement(packets,pending,subject)
-                after=self.phases.read(before['status']);need(typed_equal(after['status']['activations'],before['status']['activations']))
-                phase=self.archive(after['status'])
+                after=self.phase('phase-after',before['status']);need(typed_equal(after['status']['activations'],before['status']['activations']))
                 epochs=[packet['capturedEpochMs'] for packet in packets.values()]
                 if packets['gesture']['source']['known']:epochs.append(packets['gesture']['source']['frameEpochMs'])
                 for packet in (pending,native,subject):
@@ -259,8 +275,7 @@ class PicoLifecycleActorSource:
                 self.anchor=started,requested,oldest
                 value=dict(ticket=before['ticket'],actor='owned-observer',actorSequence=len(self.disk['records'])+1,
                     capturedEpochMs=oldest,facts=projection('lifecycle-input',facts))
-                updated=deepcopy(self.disk);updated['records'].append(dict(originals=deepcopy(updated['pending']),phase=phase,publication=deepcopy(value)))
-                updated['pending']=None;self.save(updated)
+                self.storage.native_record(dict(phase=deepcopy(after['status']),publication=deepcopy(value)))
                 self.last_world=deepcopy(world);self.last_world_sha=json_digest(self.last_world)
                 self.pending_floor=dict(sha256=json_digest(pending),raw=pending_reader.last_raw,
                     requestSha256=json_digest(pending_reader.last_request))
@@ -271,22 +286,19 @@ class PicoLifecycleActorSource:
             self.failed=True
             raise NativeUIError('Independent Lifecycle initial source unresolved; originals retained, no query replayed') from None
 
-    def retain(self,key,value):
-        index=self.archive(value);updated=deepcopy(self.disk);updated['pending'][key]=index;self.save(updated)
+    def retain(self,key,value):self.storage.retain(key,value)
+
+    def reserve_original(self):self.storage.reserve(6*LIMIT+4096)
 
     def before_publication(self,value):
         try:
             with self.lock.held():
-                self.bound();need(self.disk['records'] and typed_equal(value,self.disk['records'][-1]['publication'])
-                    and (self.disk['publication'] is None or self.disk['publication']['phase']=='delivered'))
-                index=len(self.disk['records'])-1
-                need(self.disk['publication'] is None or self.disk['publication']['record']<index)
-                updated=deepcopy(self.disk);updated['publication']=dict(phase='issued',record=index,valueSha256=json_digest(value),fixture=None,reply=None)
-                self.save(updated)
-                expected,_=source_bundles.original(self.history,self.disk['chunks'],self.disk['bundles'],self.disk['records'][-1]['phase'])
-                current=self.phases.read(expected);need(typed_equal(current['status']['activations'],expected['activations']))
-                phase=self.archive(current['status']);updated=deepcopy(self.disk);updated['publication']['fixture']=phase;self.save(updated)
-                self.fresh()
+                self.bound();self.storage.issue_publication(value)
+                expected=self.storage.latest()['phase']
+                current=self.phase('publication-phase',expected,publication=True)
+                need(typed_equal(current['status']['activations'],expected['activations']))
+                self.fresh();self.storage.retire_stage();self.fresh()
+                self.storage.reserve(3*1024*1024+4096)
             self.fresh()
         except Exception:
             self.failed=True
@@ -295,11 +307,12 @@ class PicoLifecycleActorSource:
     def delivered(self,reply):
         try:
             with self.lock.held():
-                self.bound();need(self.disk['publication'] is not None and self.disk['publication']['phase']=='issued')
-                original=self.archive(dict(transportReply=deepcopy(reply)))
-                updated=deepcopy(self.disk);updated['publication'].update(phase='delivered',reply=original);self.save(updated)
-                self.fresh()
+                # The actual returned transport literal precedes any current
+                # candidate rejection. Its durable receipt grants no verdict.
+                self.storage.retain_reply(reply);self.bound();self.storage.delivered(reply);self.fresh()
             self.fresh()
         except Exception:
             self.failed=True
             raise NativeUIError('Independent Lifecycle publication receipt unresolved; originals retained') from None
+
+    def close_host(self):return self.storage.close_host()

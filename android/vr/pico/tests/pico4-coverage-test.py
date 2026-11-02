@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 297
+EXPECTED_CATALOG_CASES = 298
 
 
 def catalog_entries() -> list[str]:
@@ -31,6 +31,19 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_actor_storage_capacity_does_not_enter_default_bounded_groups(self):
+        selected=[]
+        for node in ast.walk(RUNNER_TREE):
+            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test':
+                self.assertNotIn('test_lifecycle_actor_storage_capacity.py',ast.unparse(node))
+                if node.args[0].value=='lifecycle-actor-storage':selected.append(node)
+        self.assertEqual(1,len(selected));self.assertEqual(4,len(selected[0].args))
+        self.assertEqual('device/test_lifecycle_actor_storage.py',selected[0].args[3].value)
+        for path in ('test_lifecycle_actor_storage.py','test_lifecycle_independent_actor.py'):
+            tree=ast.parse((TEST_DIR/'device'/path).read_text())
+            imports=[node.module or '' for node in ast.walk(tree) if isinstance(node,ast.ImportFrom)]
+            self.assertFalse(any('storage_capacity' in module for module in imports))
+
     def test_navigation_frame_wrappers_keep_each_owning_case_once(self):
         expected={
             'navigation-generation-frames':'device/test_navigation_generation_frames.py',
