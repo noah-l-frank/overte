@@ -47,3 +47,28 @@ activation, the full installed journey, terminal worker process exit and
 paired end remain open. SDK, Qt and native sources in owner tests are declared
 host models. No native build or device test was performed. The complete-area
 count remains 5/14.
+
+## Role source admission
+
+Preparation now acquires fresh observations from both SDK connections while
+holding the existing ordered pair of source locks. It releases those locks
+before the ordinary role login and tablet close. Role-local inputs reacquire
+their own current Source and check the peer's existing bound admission without
+issuing another native query into the peer's connection. Paired observations
+continue to acquire both current Sources under both locks.
+
+Three host checks passed using independent OS lock instances and real host
+threads: a busy peer prevents preparation before either native query; an own
+input leaves the locked peer's originals unchanged; a changed peer process
+Source refuses admission without querying that peer. They retained 16 files in
+13 genuine temporary roots, with 8,236 source and launcher pins unchanged.
+Actual fixture threads, the certificate process and its streams closed; both
+post-stop original censuses agreed. The tests are in
+[the role-source counterexamples](self_tests/test_ios_avatar_role_source_serialization.py).
+The local receipt is
+`.ios-host-tmp/avatar-paired-role-source3-actual-ready-pin-root-preparation-20261102/roleSource3-report.json`.
+
+These checks qualify source serialization only. The separate normal native
+producer run still fails Account observation chronology during login; its
+exception context and original files remain retained. Full Avatar integration,
+native compilation and device qualification remain open.

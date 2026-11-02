@@ -492,12 +492,20 @@ class IOSAvatarFeature:
         return parts|dict(scope=scope,samples=samples,surfaces=surfaces,observer=observer)
 
     def prepare(self):
-        with self.held():
+        # initialize() acquires fresh Installed/native originals from BOTH
+        # SDKs. Use the same ordered pair as every other paired acquisition;
+        # role-only locks would let concurrent workers overwrite each other's
+        # nonce files and race the Installed observation CAS.
+        with self.held(paired=True):
             # A failed preparation has entered a separate lifecycle. Do not
             # complete setup or renew any original input merely to clean it.
             abort=PrivateFeatureState(self.store.path.with_name('ios-avatar-'+self.role+'-'+self.run+'-abort.json'))
             need(abort.read() is None)
             _actual,current=self.initialize()
+        # Login and close can wait for ordinary account/UI effects. They hold
+        # only this role, so the independent participant can still sign in.
+        with self.held():
+            self.load();current=self.phase.read()
             if self.state['phase']=='preparing':
                 need(current['verb']=='baseline');self.login();self.close_preparation_tablet()
         with self.held(paired=True):
@@ -572,7 +580,18 @@ class IOSAvatarFeature:
         return dict(sessionId=self.state['sessions']['input']['sessions'][other],username='e2e-'+status['accounts'][other]['runId'])
 
     def own_source(self):
-        self.lock.assert_held();self.actual()
+        self.lock.assert_held();need(self.state is not None)
+        # Ordinary role-local inputs must not issue fresh commands into the
+        # peer's SDK while its independent role owns that lock. Reopen this
+        # actual Source and the peer's already-bound read-only admission;
+        # paired observations still freshly acquire BOTH under both locks.
+        actual=self.runtime._sources(self.selector)
+        need(same(context(actual['binding']),self.state['bindings'][self.role])
+            and actual['check']() is not False)
+        other='actor' if self.role=='primary' else 'primary'
+        admission=admit_existing_peer(self.runtime,self.selectors[other],actual['binding'],
+            epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+        need(same(admission['binding'],self.state['bindings'][other]))
         return self.runtime._avatar_sources(self.selector,self.client,self.run,self.role,self.root,self.lock)
 
     @api_operation
