@@ -1,7 +1,7 @@
 # JavaScript API documentation generation
 
-Use the Node.js 22 host-tool baseline in [BUILD.md](../../BUILD.md) and this
-directory's committed npm lockfile. A global JSDoc installation is not needed.
+Use the pinned Node.js 22.23.3 host-tool baseline in [BUILD.md](../../BUILD.md)
+and this directory's committed npm lockfile. A global JSDoc installation is not needed.
 From the repository root:
 
 ```bash
@@ -28,6 +28,16 @@ node --max-old-space-size=2048 node_modules/jsdoc/jsdoc.js \
 The bounded dependency verification used by CI additionally audits all npm
 severities and generates documentation into a temporary directory. Its entry
 point is documented in [project testing](../../tests/PROJECT_TESTING.md#host-prerequisites).
+
+The optional Grav export retains `pretty`'s HTML function and `rimraf.sync`
+cleanup APIs with current dependency consumers. Scoped overrides select
+`js-beautify` 2.0.3 beneath `pretty` and patched `glob` 14.0.3 beneath both
+consumers; EditorConfig also uses patched `minimatch` 11.0.4. Their former glob
+versions rely on matcher internals removed in patched `minimatch`, so overriding
+only the matcher is incompatible. JSDoc's
+version and template APIs stay unchanged. The dependency graph requires Node.js
+22.22.2 or newer within the supported Node.js 22 series. Verify HTML formatting,
+wildcard matching, cleanup, and actual documentation generation after updates.
 
 ## Historical Grav export
 
