@@ -7,6 +7,7 @@ Mode/Format/Close input is separately exercised by snapshot-close-owner.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
 import json
 from pathlib import Path
 import sys
@@ -46,6 +47,71 @@ class ClosedSettingsBoundary:
 
 
 class SnapshotSettingsCloseTests(unittest.TestCase):
+    def test_actual_outer_exit_expiry_keeps_original_and_refuses_cold_without_requery(self):
+        m=ClosedSettingsBoundary(self);owner=m.owner();held=m.close.lock.held;epoch=m.m.h.clock();exits=[]
+        @contextmanager
+        def delayed_exit():
+            outer=m.close.lock._owner is None
+            with held():yield
+            if outer:
+                exits.append(True);m.m.h.adb.clock+=2
+        with patch.object(m.close.lock,'held',side_effect=delayed_exit),patch.object(m.close.native,'clock_ms',return_value=epoch):
+            with self.assertRaises(NativeUIError):owner.observe()
+        self.assertEqual([True],exits);self.assertIsNone(m.close.lock._owner)
+        self.assertEqual('observed',owner.state['stage']);self.assertTrue(m.path.exists())
+        self.assertEqual(1,len(m.lease.state['observations']));queries=m.m.sequence;raw=m.path.read_bytes()
+        with patch.object(m.close.native,'clock_ms',return_value=epoch),self.assertRaises(NativeUIError):m.owner().observe()
+        self.assertEqual(queries,m.m.sequence);self.assertEqual(raw,m.path.read_bytes());self.assertEqual(1,len(m.m.h.h.transport.envelopes))
+
+    def test_actual_outer_exit_changed_checkpoint_refuses_and_recovers_only_same_original(self):
+        m=ClosedSettingsBoundary(self);owner=m.owner();held=m.close.lock.held;original=[]
+        @contextmanager
+        def changed_exit():
+            outer=m.close.lock._owner is None
+            with held():yield
+            if outer:
+                original.append(m.path.read_bytes());value=json.loads(original[-1]);value['foreign']=True;m.path.write_text(json.dumps(value))
+        with patch.object(m.close.lock,'held',side_effect=changed_exit),self.assertRaises(NativeUIError):owner.observe()
+        self.assertEqual(1,len(original));self.assertEqual('observed',owner.state['stage']);self.assertIsNone(m.close.lock._owner)
+        queries=m.m.sequence;m.path.write_bytes(original[0]);result=m.owner().observe()
+        self.assertTrue(result['originalClosedBookends']);self.assertEqual(queries,m.m.sequence)
+        self.assertEqual(1,len(m.lease.state['observations']));self.assertEqual(1,len(m.m.h.h.transport.envelopes))
+
+    def test_post_exit_original_guard_mutation_cannot_replace_the_baseline(self):
+        m=ClosedSettingsBoundary(self);owner=m.owner();guard=m.close.native.guard;changed=[]
+        def final_guard():
+            result=guard()
+            if m.close.lock._owner is None:
+                changed.append(m.lease.store.path.read_bytes());value=json.loads(changed[-1]);value['foreign']=True
+                m.lease.store.path.write_text(json.dumps(value))
+            return result
+        with patch.object(m.close.native,'guard',side_effect=final_guard),self.assertRaises(NativeUIError):owner.observe()
+        self.assertEqual(1,len(changed));self.assertEqual('observed',owner.state['stage']);queries=m.m.sequence
+        self.assertEqual(1,len(m.lease.state['observations']));m.lease.store.path.write_bytes(changed[0])
+        result=m.owner().observe();self.assertTrue(result['originalClosedBookends']);self.assertEqual(queries,m.m.sequence)
+        self.assertEqual(1,len(m.m.h.h.transport.envelopes))
+
+    def test_final_post_exit_epoch_read_delay_cannot_hide_behind_frozen_epoch(self):
+        m=ClosedSettingsBoundary(self);owner=m.owner();epoch=m.m.h.clock();outside=[]
+        def delayed_epoch():
+            if m.close.lock._owner is None:
+                outside.append(True);m.m.h.adb.clock+=2
+            return epoch
+        with patch.object(m.close.native,'clock_ms',side_effect=delayed_epoch),self.assertRaises(NativeUIError):owner.observe()
+        self.assertEqual([True],outside);self.assertEqual('observed',owner.state['stage']);self.assertTrue(m.path.exists())
+        self.assertEqual(1,len(m.lease.state['observations']));self.assertEqual(1,len(m.m.h.h.transport.envelopes))
+
+    def test_post_exit_guard_changed_original_closed_bookend_cannot_be_admitted(self):
+        m=ClosedSettingsBoundary(self);owner=m.owner();guard=m.close.native.guard;changed=[]
+        def final_guard():
+            result=guard()
+            if m.close.lock._owner is None:
+                index=owner.state['after']['index'];m.close.state['frames'][index]['base']['ui']['open']=True;changed.append(index)
+            return result
+        with patch.object(m.close.native,'guard',side_effect=final_guard),self.assertRaises(NativeUIError):owner.observe()
+        self.assertEqual([owner.state['after']['index']],changed);self.assertEqual('observed',owner.state['stage'])
+        self.assertEqual(1,len(m.lease.state['observations']));self.assertEqual(1,len(m.m.h.h.transport.envelopes))
+
     def test_actual_preinput_original_and_current_raw_difference_are_bound_to_closed_bookends_without_restore(self):
         m=ClosedSettingsBoundary(self);m.m.dirty=True;before=deepcopy(m.lease.packet(m.lease.state['original']));inputs=len(m.m.h.h.transport.envelopes)
         result=m.close.observe_settings();self.assertTrue(result['originalPreinputBaseline']);self.assertTrue(result['originalClosedBookends'])

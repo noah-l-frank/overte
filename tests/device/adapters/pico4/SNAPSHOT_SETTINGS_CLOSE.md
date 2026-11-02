@@ -33,6 +33,17 @@ CAS. A native jump in the final guard rejects the result. All originals and
 the unresolved checkpoint remain. Its filename independently blocks ordinary
 base cleanup, including when no other parent journal survives.
 
+Final admission also follows the actual outer source-lock exit. It requires
+that no enclosing acquisition remains, freshly verifies this checkpoint, the
+original baseline header and its immutable raw-source children, and checks the
+same closed-frame references and parent state after the final candidate guard.
+The final native-clock read is followed by the host-clock read, so time spent
+in that read is charged to the original raw-settings query and original Close
+phase fence. Neither lock release, physical verification nor cold reopening
+renews an anchor. A delayed exit or changed original refuses with the observed
+checkpoint and raw answer retained; recovery can only validate that same
+answer, without another source query or normal input.
+
 The result exposes exact typed-state equality, changed entry projections and
 changed cache projection. `settingsRestored`, `continuousQuiet`, whole recipe
 and device acceptance stay false. The checkpoint neither reuses an earlier
@@ -112,3 +123,32 @@ No new native compiler, device, installed client, system chooser or remote
 service was used for this packet. Native raw-settings serialization/source
 ownership remains covered by the separate `snapshot-settings-originals`
 compiler suite; it is not reclassified as a complete product run here.
+
+## Outer-exit correction (2026-11-02)
+
+Two new counters first failed against the previous owner: an actual outer lock
+exit delayed by two host seconds while the native clock stayed frozen, and
+replacement of the checkpoint after actual release. Both previously returned
+success. The corrected existing owner rejected both, including an expired cold
+reopen with no repeated source query or input. Two additional counters cover
+baseline replacement during the post-exit candidate guard and a delayed final
+native-clock read with a frozen returned epoch. The first ten-case run passed
+in 11.511 seconds with all 148 loaded local source files unchanged.
+
+Review then found a further concrete post-guard boundary: changing an original
+closed bookend after exit could still return the earlier report. That separate
+counter failed in 1.194 seconds; final admission now checks the original parent
+state hash and validates the same bookend references after the guard. The final
+eleven-case owning run passed in 12.871 seconds; all 148 loaded local source
+files remained unchanged. Its exact hashes and full output are retained in
+`/home/user/.local/state/pico-snapshot-close-exit-final-20261102-iwypcent`.
+The original two-case RED, intermediate ten-case
+GREEN and separate bookend RED remain preserved; no failed run is discarded.
+
+These are the existing explicit closed-native/Qt/SDK/time producer seams with
+actual private files, factories, source lock, raw-source history, normal first
+Open and original controller Session. This correction adds no wire version or
+selector, setter, chooser driver, hardware observation, permission, upload,
+callback retirement or physical Actor proof. The separate whole warm chain's
+120.118-second failure remains unresolved and was not retried. Raw-state
+restoration and complete Snapshot qualification remain false.

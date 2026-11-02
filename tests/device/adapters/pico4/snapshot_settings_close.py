@@ -92,11 +92,12 @@ class PicoSnapshotSettingsClose:
     def seal(self):
         # The last exact Close phase/guard is after report construction and all
         # checkpoint CAS work. Only clock/host validation follows it.
-        self.parent.fence();packet=self.baseline.packet(self.state['settings'])
+        fence_completed,fence_age=self.parent.fence();packet=self.baseline.packet(self.state['settings'])
         original=self.baseline.originals.get('settings',self.state['settings']);anchor=original['anchor']
         epoch=self.parent.native.clock_ms();completed=self.bound();oldest=min(packet['capturedEpochMs'],packet['source']['entriesEpochMs'])
         need(number(epoch,1,1e15) and number(completed,anchor['hostMonotonic'],1e15) and -250<=epoch-oldest
             and max(epoch-oldest,anchor['nativeEpochMs']-oldest+(completed-anchor['hostMonotonic'])*1000)<=1500)
+        return deepcopy(anchor),oldest,epoch,completed,fence_completed,fence_age
 
     def observe(self):
         with self.lock.held():
@@ -113,7 +114,26 @@ class PicoSnapshotSettingsClose:
                 state=deepcopy(self.state);state.update(stage='captured',settings=deepcopy(self.baseline.state['observations'][index]));self.save(state)
             if self.state['stage']=='captured':
                 self.parent.observe();state=deepcopy(self.state);state.update(stage='observed',after=self.reference());self.save(state)
-            result=self.report();self.seal();return result
+            result=self.report();seal=self.seal()
+            expected=deepcopy(self.disk);baseline_expected=deepcopy(self.baseline.disk)
+            closed_sha=sha(self.parent.state)
+        # Include the actual outer lock release and fresh physical originals in
+        # the same original query/Close fence. Nothing here renews an anchor or
+        # sends another getter, normal input or cleanup operation.
+        need(self.lock._owner is None and typed_equal(self.store.read(),expected)
+            and typed_equal(self.baseline.store.read(),baseline_expected))
+        self.baseline.originals.verify();need(self.parent.native.guard() is not False)
+        need(typed_equal(self.store.read(),expected) and typed_equal(self.disk,expected)
+            and typed_equal(self.baseline.store.read(),baseline_expected) and typed_equal(self.baseline.disk,baseline_expected)
+            and sha(self.state)==self.state_sha and sha(self.baseline.state)==self.baseline.state_sha and sha(self.parent.state)==closed_sha)
+        self.validate(self.state)
+        self.baseline.originals.verify()
+        anchor,oldest,epoch,completed,fence_completed,fence_age=seal
+        final_epoch=self.parent.native.clock_ms();now=self.parent.native.monotonic()
+        need(number(final_epoch,epoch,1e15) and number(now,completed,1e15) and -250<=final_epoch-oldest
+            and max(final_epoch-oldest,anchor['nativeEpochMs']-oldest+(now-anchor['hostMonotonic'])*1000,
+                    fence_age+(now-fence_completed)*1000)<=1500)
+        return result
 
     def report(self):
         self.bound();need(self.state is not None and self.state['stage']=='observed');self.validate(self.state)
