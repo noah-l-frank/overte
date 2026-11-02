@@ -63,6 +63,24 @@ class ChatArchiveIndexTests(unittest.TestCase):
                 with self.assertRaises(NativeUIError):archive.retire()
                 self.assertEqual([],archive.deleted);self.assertTrue(all(row['store'].path.exists() for row in self.h.catalog.rows.values()))
 
+    def test_changed_index_before_next_copy_cannot_reseal_the_previous_admission(self):
+        for fault in ('digest-chain','index-tuple'):
+            with self.subTest(fault=fault):
+                self.setUp();archive=self.h.make(indexed=True);original=archive.original;changed=[]
+                def change(name,raw):
+                    value=original(name,raw)
+                    if name=='original-0000.json':
+                        changed.append(True)
+                        if fault=='digest-chain':archive.cache_digest='f'*64
+                        else:archive.index_rows=tuple(list(archive.index_rows))
+                    return value
+                archive.original=change
+                with self.assertRaises(NativeUIError):archive.retire()
+                self.assertEqual([True],changed);self.assertEqual([],archive.deleted)
+                self.assertTrue((archive.directory/'original-0000.json').exists())
+                self.assertFalse((archive.directory/'original-0001.json').exists())
+                self.assertTrue(all(row['store'].path.exists() for row in self.h.catalog.rows.values()))
+
     def test_original_archive_directory_swap_during_held_fd_inventory_never_touches_foreign_files(self):
         archive=self.h.make(indexed=True);scandir=os.scandir;moved=[];saved=archive.directory.with_name('held-original-archive')
         def restore():

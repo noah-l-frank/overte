@@ -143,7 +143,7 @@ class ChatEvidenceArchive:
         need(directory.parent in catalog.parents);self.parent_owner=catalog.parents[directory.parent]
         self.guard,self.inventory=guard,inventory;self.previous=None;self.started=False;self.archived={};self.deleted=[]
         self.root=None;self.manifest=None;self.receipt=None;self.complete=False
-        self.admitted={};self.cache_digest='';self.labels=tuple(catalog.rows)
+        self.admitted={};self.cache_digest=self._sealed_cache_digest='';self.labels=tuple(catalog.rows)
         self.index_rows=self._sealed_index_rows=()
         self.positions={label:index for index,label in enumerate(self.labels)}
         catalog.verify_all();inventory(set(row['store'].path for row in catalog.rows.values()))
@@ -156,6 +156,11 @@ class ChatEvidenceArchive:
         need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def original(self,name,raw):
+        if self.indexed_verify:
+            # The next immutable append must extend the admitted chain, never
+            # reseal a caller-replaced index or digest as its new authority.
+            need(self.index_rows is self._sealed_index_rows
+                and type(self.cache_digest) is str and self.cache_digest==self._sealed_cache_digest)
         path=self.directory/name;need(not path.exists())
         self.root.require(self.root.fd)
         descriptor=os.open(name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600,dir_fd=self.root.fd)
@@ -180,7 +185,7 @@ class ChatEvidenceArchive:
                 # stamp, current-copy read, or an observed source verdict.
                 entry=(self.admitted[name],path,canonical(snapshot))
                 self.index_rows=self._sealed_index_rows=self.index_rows+((name,entry),)
-                self.cache_digest=digest((self.cache_digest,snapshot))
+                self.cache_digest=self._sealed_cache_digest=digest((self.cache_digest,snapshot))
                 self.verify_root()
             else:self.verify_archive()
             return row
@@ -218,7 +223,8 @@ class ChatEvidenceArchive:
         """
         need(self.indexed_verify and tuple(self.catalog.rows)==self.labels
             and self.index_rows is self._sealed_index_rows and type(self.index_rows) is tuple
-            and len(self.index_rows)==len(self.archived))
+            and len(self.index_rows)==len(self.archived)
+            and type(self.cache_digest) is str and self.cache_digest==self._sealed_cache_digest)
         self.verify_root()
         # Enumeration can leave the owned directory OFD at end-of-directory;
         # reset only this still kernel-verified original before every pass.
@@ -229,7 +235,6 @@ class ChatEvidenceArchive:
         with os.scandir(self.root.fd) as scan:
             entries={entry.name:entry for entry in scan}
             need(set(entries)==set(self.archived)==set(self.admitted))
-            chain=''
             for (name,row),(original_name,entry) in zip(self.archived.items(),self.index_rows):
                 admitted,path,encoded=entry
                 need(name==original_name and self.admitted[name] is admitted)
@@ -238,13 +243,13 @@ class ChatEvidenceArchive:
                 need(current==snapshot and type(raw) is bytes and row['raw'] is raw and row['owner'] is owner
                     and type(owner) is ClosedOriginalFile and owner.path is row['path'] is path
                     and type(owner_raw) is bytes and owner.raw is owner_raw and owner.stamp==row['stamp'] and not owner.failed and owner.active is None)
-                # This is exactly canonical((chain, snapshot)): the chain is
-                # empty or lowercase SHA256 hex, and encoded is the pinned original
-                # canonical snapshot. Keep the original chain value/verification.
-                chain=hashlib.sha256(b'["'+chain.encode('ascii')+b'",'+encoded+b']').hexdigest()
+                # The complete immutable tuple is still the original index.
+                # Its digest chain was computed at each admitted append and
+                # remains pinned above. Every mutable row and fresh physical
+                # observation is checked on EVERY pass; no stat is cached.
                 info=entries[name].stat(follow_symlinks=False);private(info,0o400)
                 need(stamp(info)==row['stamp'])
-        need(chain==self.cache_digest);self.verify_root()
+        self.verify_root()
 
     def verify_current(self,label):
         self.verify_index();index=self.positions[label]

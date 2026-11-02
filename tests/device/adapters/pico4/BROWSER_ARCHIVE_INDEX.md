@@ -15,7 +15,7 @@ namespaces10–11ms. Release admission strict JSON/digest validation costs37ms
 and its complete original control41–42ms. These are historical host costs,
 not new source observations or a complete cleanup execution.
 
-The archive now pins each exact admitted tuple, original Path object and its
+The earlier optimization pinned each exact admitted tuple, original Path object and its
 immutable canonical snapshot bytes. Verification still visits every physical
 file through the held original directory, checks the complete namespace and
 full stamps, original byte/owner identities, and recomputes the same SHA256
@@ -43,3 +43,35 @@ Shared Phone reconciliation: only the shared ChatEvidenceArchive v4 warm
 in-memory verification index and its original file/cursor counterexamples
 change. Existing v1/v2/v3 writers/readers and every persisted schema remain
 unchanged. No Phone or iOS file is edited.
+
+## Pinned immutable chain, fresh physical checks (2026-11-02)
+
+The original canonical chain is now computed and pinned at each immutable
+append. Every pass still verifies the exact sealed immutable index tuple and
+admission identities, every mutable row/owner/raw/stamp field, complete fresh
+held-directory enumeration and every fresh physical file stamp. Current-copy
+and manifest byte windows, original source/phase guards, query counts, clocks,
+quiet windows and unlink/file/byte bounds remain unchanged. This avoids
+rehashing immutable canonical tuple bytes on every physical pass; it does not
+cache a physical observation or source verdict. A changed digest or replaced
+index refuses before the next copy can reseal it.
+
+A private cost-only fixture held 1,070 actual immutable files. Fifty complete
+passes cost0.274/0.273s before and0.218/0.218s with the candidate, about20% less
+for this index method alone. All original bytes and complete physical stamps
+match before/after. The fixture performs no unlink or product observation and
+cannot establish a complete Journey speedup or cleanup result.
+
+The new append-boundary counter genuinely failed for both digest and tuple
+replacement before the fix. Its retained rerun contains the same two failures;
+the initial diagnostic retained its log but not its temporary originals.
+After the fix, all54 affected index, original-unlink, legacy archive and Browser
+namespace cases pass in1.036s with128 loaded source SHA-256 and full physical
+signatures unchanged. This is separate component evidence; the previous120s
+whole Browser failures are not reclassified.
+
+Exact scripts, source manifests, logs, retained failure/success originals and
+cost measurements are private under
+`/home/user/.local/state/overte-pico-resume-integration-20261102-24qkewqw`.
+Shared reconciliation remains additive: no persisted format/version or Phone/
+iOS source changes.
