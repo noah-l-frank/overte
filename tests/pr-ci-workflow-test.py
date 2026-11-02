@@ -159,6 +159,23 @@ class WorkflowContracts(unittest.TestCase):
         self.assertIn("github.event_name", self.workflow["concurrency"]["group"])
         self.assertIn("github.run_id", self.workflow["concurrency"]["group"])
 
+    def test_pico_host_sdk_preparation_does_not_require_or_select_a_native_build(self):
+        job = self.jobs['android']
+        sdk_steps = [step for step in job['steps'] if 'Pico host SDK' in step.get('name', '')]
+        self.assertEqual(len(sdk_steps), 3)
+        for step in sdk_steps:
+            self.assertIn("needs.plan.outputs.target == 'android-vr-pico'", step['if'])
+            self.assertIn("needs.plan.outputs.android_native_products == '[]'", step['if'])
+        prepare = next(step for step in sdk_steps if 'run' in step)
+        self.assertIn('--sdk-only', prepare['run'])
+        self.assertNotIn('workflow_dispatch', prepare['run'])
+        validation = next(step for step in job['steps']
+                          if step.get('name') == 'Require the selected Android product validation')
+        self.assertIn('--android-host-sdk "$RUNNER_TEMP/pr-ci-android-native/sdk"', validation['run'])
+        self.assertIn('--android-host-sdk "$RUNNER_TEMP/pr-ci-pico-host-sdk"', validation['run'])
+        self.assertIn('"$NATIVE_PRODUCTS" !=', validation['run'])
+        self.assertIn("android_native_products != '[]'", job['runs-on'])
+
     def test_context_and_plan_outputs_are_explicit_cli_transports(self):
         outputs = self.jobs["plan"]["outputs"]
         self.assertTrue({"active", "context_json", "controller", "source", "base", "head",
