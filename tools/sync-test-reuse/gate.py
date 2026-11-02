@@ -2904,46 +2904,86 @@ def _callback_sync_recipe():
 
 
 def _dispatch_terminal_roles(api, prefix, run, source):
-    """Validator success is mandatory; notifier result is administrative data."""
-    response = api.json(f"{prefix}/actions/runs/{run['id']}/attempts/1/jobs?per_page=100")
+    """Use the list for discovery, then authenticate each direct job/check."""
+    endpoint = f"{prefix}/actions/runs/{run['id']}/attempts/1/jobs?per_page=100"
+    response = api.json(endpoint)
+    names = {'Validate exact synchronization', 'Notify completed synchronization cleanup'}
     if (not isinstance(response, dict) or type(response.get('total_count')) is not int
-            or response['total_count'] != 2 or not isinstance(response.get('jobs'), list)
-            or len(response['jobs']) != 2 or not all(isinstance(job, dict) for job in response['jobs'])
-            or {job.get('name') for job in response['jobs']} != {
-                'Validate exact synchronization', 'Notify completed synchronization cleanup'}
-            or len({job.get('id') for job in response['jobs']}) != 2):
-        raise GateError('validation callback generation requires its exact two native roles')
+            or not 0 <= response['total_count'] <= 2 or not isinstance(response.get('jobs'), list)
+            or len(response['jobs']) > response['total_count']
+            or not all(isinstance(job, dict) for job in response['jobs'])
+            or any(type(job.get('id')) is not int or job['id'] <= 0
+                or type(job.get('name')) is not str or job['name'] not in names for job in response['jobs'])
+            or len({job['id'] for job in response['jobs']}) != len(response['jobs'])
+            or len({job['name'] for job in response['jobs']}) != len(response['jobs'])):
+        raise GateError(f'validation callback native role inventory differs (endpoint={endpoint}; fields=roles/ids/count)')
+    pending = []
+    def fields(value, expected, resource, *, discovery=False, field_prefix=""):
+        if not isinstance(value, dict):
+            raise GateError(f'validation callback native identity differs (endpoint={resource}; fields=response)')
+        invalid, missing = [], []
+        for key, wanted in expected.items():
+            if value.get(key) is None:
+                if not discovery: missing.append(field_prefix + key)
+            elif type(value[key]) is not type(wanted) or value[key] != wanted:
+                invalid.append(field_prefix + key)
+        if invalid:
+            raise GateError(f'validation callback native identity differs (endpoint={resource}; fields={",".join(invalid)})')
+        pending.extend(resource + ':' + key for key in missing)
+    def lifecycle(value, resource, *, validator=False, discovery=False):
+        status, conclusion = value.get('status'), value.get('conclusion')
+        if validator and conclusion is not None and conclusion != 'success':
+            raise GateError(f'validation workload did not succeed (endpoint={resource}; fields=conclusion)')
+        if status is not None and type(status) is not str or status not in {None, 'queued', 'in_progress', 'waiting', 'pending', 'requested', 'completed'}:
+            raise GateError(f'validation callback native lifecycle differs (endpoint={resource}; fields=status)')
+        if conclusion is not None and (type(conclusion) is not str or conclusion not in {
+                'success', 'failure', 'cancelled', 'skipped', 'timed_out', 'neutral', 'action_required', 'startup_failure'}):
+            raise GateError(f'validation callback native lifecycle differs (endpoint={resource}; fields=conclusion)')
+        if not discovery and (status != 'completed' or conclusion is None):
+            pending.append(resource + ':status/conclusion')
     roles = {}
-    for job in response['jobs']:
-        identifier = job.get('id')
-        if (type(identifier) is not int or identifier <= 0
-                or type(job.get('run_id')) is not int or job['run_id'] != run['id']
-                or type(job.get('run_attempt')) is not int or job['run_attempt'] != 1
-                or job.get('head_sha') != source or job.get('status') != 'completed'
-                or job.get('url') != f'{prefix.replace("repos/", "https://api.github.com/repos/", 1)}/actions/jobs/{identifier}'
-                or job.get('html_url') != f'https://github.com/noah-l-frank/overte/actions/runs/{run["id"]}/job/{identifier}'):
-            raise GateError('validation callback native job source or identity changed')
-        check_url = job.get('check_run_url')
-        match = (re.fullmatch(r'https://api\.github\.com/repos/noah-l-frank/overte/check-runs/([1-9][0-9]*)', check_url)
-                 if type(check_url) is str else None)
-        if match is None:
-            raise GateError('validation callback native job check URL changed')
-        check = api.json(prefix + '/check-runs/' + match[1])
-        if (not isinstance(check, dict) or type(check.get('id')) is not int
-                or check['id'] != int(match[1]) or check['id'] != identifier
-                or check.get('head_sha') != source
-                or check.get('name') != job['name'] or check.get('status') != 'completed'
-                or check.get('conclusion') != job.get('conclusion')
-                or not isinstance(check.get('app'), dict) or type(check['app'].get('id')) is not int
-                or check['app']['id'] != 15368
-                or not isinstance(check.get('check_suite'), dict)
-                or type(check['check_suite'].get('id')) is not int
-                or check['check_suite']['id'] != run['check_suite_id']
-                or check.get('details_url') != job['html_url']
-                or not {'started_at','completed_at'} <= set(job) & set(check)
-                or check.get('started_at') != job.get('started_at')
-                or check.get('completed_at') != job.get('completed_at')):
-            raise GateError('validation callback native job check or App changed')
+    for listed in response['jobs']:
+        identifier, name = listed['id'], listed['name']
+        resource = f'{prefix}/actions/jobs/{identifier}'
+        expected = {'id':identifier, 'name':name, 'run_id':run['id'], 'run_attempt':1,
+            'head_sha':source, 'url':'https://api.github.com/' + resource,
+            'html_url':f'https://github.com/noah-l-frank/overte/actions/runs/{run["id"]}/job/{identifier}',
+            'check_run_url':f'https://api.github.com/{prefix}/check-runs/{identifier}'}
+        # Never mask a present foreign identity behind incomplete registration.
+        # The list's status/clocks are not the direct job's terminal authority.
+        fields(listed, expected, endpoint, discovery=True)
+        lifecycle(listed, endpoint, validator=name == 'Validate exact synchronization', discovery=True)
+        job = api.json(resource)
+        fields(job, expected, resource)
+        lifecycle(job, resource, validator=name == 'Validate exact synchronization')
+        check_endpoint = f'{prefix}/check-runs/{identifier}'
+        check = api.json(check_endpoint)
+        fields(check, {'id':identifier, 'head_sha':source, 'name':name,
+            'details_url':expected['html_url']}, check_endpoint)
+        for key, wanted in (('app', 15368), ('check_suite', run['check_suite_id'])):
+            value = check.get(key)
+            if value is not None and not isinstance(value, dict):
+                raise GateError(f'validation callback native identity differs (endpoint={check_endpoint}; fields={key})')
+            fields(value or {}, {'id':wanted}, check_endpoint, field_prefix=key + '.')
+        lifecycle(check, check_endpoint, validator=name == 'Validate exact synchronization')
+        if job.get('status') == check.get('status') == 'completed':
+            if job.get('conclusion') is not None and check.get('conclusion') is not None \
+                    and check['conclusion'] != job['conclusion']:
+                raise GateError(f'validation callback native result differs (endpoint={check_endpoint}; fields=conclusion)')
+            not_started = (name == 'Notify completed synchronization cleanup'
+                and job.get('conclusion') in {'failure','cancelled','skipped','timed_out','startup_failure'}
+                and job.get('started_at') is None and job.get('steps') == [])
+            for key in ('started_at', 'completed_at'):
+                if key not in job or key not in check or not not_started and (job.get(key) is None or check.get(key) is None):
+                    pending.append(check_endpoint + ':' + key)
+                elif check.get(key) != job.get(key):
+                    raise GateError(f'validation callback native clock differs (endpoint={check_endpoint}; fields={key})')
+        roles[name] = job
+    if set(roles) != names:
+        pending.append(endpoint + ':missing-role-registration')
+    if pending:
+        raise _DispatchRegistrationPending('validation terminal metadata incomplete (endpoint/fields=' + ','.join(pending) + ')', run['check_suite_id'])
+    for job in roles.values():
         not_started = (job['name'] == 'Notify completed synchronization cleanup'
             and job.get('conclusion') in {'failure','cancelled','skipped','timed_out','startup_failure'}
             and job.get('started_at') is None and job.get('steps') == [])
@@ -2955,8 +2995,7 @@ def _dispatch_terminal_roles(api, prefix, run, source):
                     job.get('completed_at'), 'native callback job completion'):
                 raise EvidenceError('native callback job chronology is reversed')
         except EvidenceError as error:
-            raise GateError('validation callback native job chronology is invalid') from error
-        roles[job['name']] = job
+            raise GateError('validation callback native job chronology is invalid (fields=started_at/completed_at)') from error
     validator = roles['Validate exact synchronization']
     if validator.get('conclusion') != 'success':
         raise GateError('validation workload did not succeed')
@@ -3040,53 +3079,80 @@ def _dispatch_run(value, run_id, source, correlation, *, allow_pending=False, en
                                        "head_branch", "head_sha", "run_attempt", "display_title", "url", "html_url"))
 
 
-def _dispatch_native(api, prefix, run, source, correlation, identity, *, allow_pending=False, deadline=None):
-    run_id = run["id"]
-    attempt = api.json(f"{prefix}/actions/runs/{run_id}/attempts/1")
-    if deadline is not None and time.monotonic() >= deadline:
-        raise GateError("validation initial registration did not complete before timeout (endpoint=attempts/1; fields=registration_deadline)")
-    current = _dispatch_run(attempt, run_id, source, correlation,
-                            allow_pending=allow_pending, endpoint="attempts/1", known_suite_id=identity[2])
-    if current != identity:
-        keys = ("id", "workflow_id", "check_suite_id", "path", "event", "head_branch", "head_sha",
-                "run_attempt", "display_title", "url", "html_url")
-        fields = ",".join(key for key, before, after in zip(keys, identity, current) if before != after)
-        raise GateError(f"validation native attempt identity changed (endpoint=attempts/1; fields={fields})")
-    suite = api.json(f"{prefix}/check-suites/{run['check_suite_id']}")
-    if deadline is not None and time.monotonic() >= deadline:
-        raise GateError("validation initial registration did not complete before timeout (endpoint=check-suite; fields=registration_deadline)")
-    invalid, missing = [], []
-    if not isinstance(suite, dict):
-        raise GateError("validation native suite or App differs (endpoint=check-suite; fields=response)")
-    for key, wanted in (("id", run["check_suite_id"]), ("head_sha", source)):
-        if suite.get(key) is None:
-            missing.append(key)
-        elif type(suite[key]) is not type(wanted) or suite[key] != wanted:
-            invalid.append(key)
-    for key, fields in (("app", (("id", 15368),)),
-                        ("repository", (("id", 1319052603), ("full_name", "noah-l-frank/overte")))):
-        value = suite.get(key)
-        if value is None:
-            missing.append(key)
-        elif not isinstance(value, dict):
-            invalid.append(key)
-        else:
-            for field, wanted in fields:
-                if value.get(field) is None:
-                    missing.append(key + "." + field)
-                elif type(value[field]) is not type(wanted) or value[field] != wanted:
-                    invalid.append(key + "." + field)
-    pending = run.get("status") in ("queued", "in_progress", "waiting", "pending", "requested")
-    if invalid or missing and not (allow_pending and pending):
-        fields = ",".join(sorted(set(invalid + missing)))
-        raise GateError(f"validation native suite or App differs (endpoint=check-suite; fields={fields})")
-    if missing:
-        fields = ",".join(sorted(missing))
-        raise _DispatchRegistrationPending(f"validation registration incomplete (endpoint=check-suite; fields={fields})", run["check_suite_id"])
-    if run["status"] == "completed" and (attempt.get("status"), attempt.get("conclusion")) != ("completed", "success"):
-        raise GateError("validation terminal native attempt did not succeed (endpoint=attempts/1; fields=status/conclusion)")
-    if run['status'] == 'completed' and _callback_sync_recipe():
-        _dispatch_terminal_roles(api, prefix, run, source)
+def _dispatch_native(api, prefix, run, source, correlation, identity, *, allow_pending=False,
+                     deadline=None, check_terminal=True):
+    terminal = (check_terminal and run.get('status') == 'completed'
+        and run.get('conclusion') == 'success' and _callback_sync_recipe())
+    terminal_deadline = deadline if deadline is not None else time.monotonic() + 300
+    terminal_error = None
+    while True:
+        if terminal and time.monotonic() >= terminal_deadline:
+            raise GateError('validation terminal metadata timeout: ' + str(terminal_error or 'endpoint=terminal-roles; fields=deadline'))
+        try:
+            run_id = run["id"]
+            attempt = api.json(f"{prefix}/actions/runs/{run_id}/attempts/1")
+            if deadline is not None and time.monotonic() >= deadline:
+                raise GateError("validation initial registration did not complete before timeout (endpoint=attempts/1; fields=registration_deadline)")
+            current = _dispatch_run(attempt, run_id, source, correlation,
+                                    allow_pending=allow_pending, endpoint="attempts/1", known_suite_id=identity[2])
+            if current != identity:
+                keys = ("id", "workflow_id", "check_suite_id", "path", "event", "head_branch", "head_sha",
+                        "run_attempt", "display_title", "url", "html_url")
+                fields = ",".join(key for key, before, after in zip(keys, identity, current) if before != after)
+                raise GateError(f"validation native attempt identity changed (endpoint=attempts/1; fields={fields})")
+            suite = api.json(f"{prefix}/check-suites/{run['check_suite_id']}")
+            if deadline is not None and time.monotonic() >= deadline:
+                raise GateError("validation initial registration did not complete before timeout (endpoint=check-suite; fields=registration_deadline)")
+            invalid, missing = [], []
+            if not isinstance(suite, dict):
+                raise GateError("validation native suite or App differs (endpoint=check-suite; fields=response)")
+            for key, wanted in (("id", run["check_suite_id"]), ("head_sha", source)):
+                if suite.get(key) is None:
+                    missing.append(key)
+                elif type(suite[key]) is not type(wanted) or suite[key] != wanted:
+                    invalid.append(key)
+            for key, fields in (("app", (("id", 15368),)),
+                                ("repository", (("id", 1319052603), ("full_name", "noah-l-frank/overte")))):
+                value = suite.get(key)
+                if value is None:
+                    missing.append(key)
+                elif not isinstance(value, dict):
+                    invalid.append(key)
+                else:
+                    for field, wanted in fields:
+                        if value.get(field) is None:
+                            missing.append(key + "." + field)
+                        elif type(value[field]) is not type(wanted) or value[field] != wanted:
+                            invalid.append(key + "." + field)
+            pending = run.get("status") in ("queued", "in_progress", "waiting", "pending", "requested")
+            if invalid or missing and not (allow_pending and pending):
+                fields = ",".join(sorted(set(invalid + missing)))
+                raise GateError(f"validation native suite or App differs (endpoint=check-suite; fields={fields})")
+            if missing:
+                fields = ",".join(sorted(missing))
+                raise _DispatchRegistrationPending(f"validation registration incomplete (endpoint=check-suite; fields={fields})", run["check_suite_id"])
+            if run["status"] == "completed" and (attempt.get("status"), attempt.get("conclusion")) != ("completed", "success"):
+                attempt_pending = (attempt.get("status") in ("queued", "in_progress", "waiting", "pending", "requested")
+                    and attempt.get("conclusion") is None)
+                if attempt_pending and terminal:
+                    raise _DispatchRegistrationPending(
+                        "validation terminal attempt metadata incomplete (endpoint=attempts/1; fields=status/conclusion)",
+                        run["check_suite_id"])
+                if not (attempt_pending and not check_terminal):
+                    raise GateError("validation terminal native attempt did not succeed (endpoint=attempts/1; fields=status/conclusion)")
+            if terminal:
+                _dispatch_terminal_roles(api, prefix, run, source)
+            if terminal and time.monotonic() >= terminal_deadline:
+                raise GateError('validation terminal metadata timeout (endpoint=terminal-roles; fields=deadline)')
+            return
+        except _DispatchRegistrationPending as error:
+            if not terminal:
+                raise
+            terminal_error = str(error)
+            remaining = terminal_deadline - time.monotonic()
+            if remaining <= 0:
+                raise GateError('validation terminal metadata timeout: ' + str(error)) from error
+            time.sleep(min(2, remaining))
 
 
 def dispatch_and_wait(args: argparse.Namespace) -> int:
@@ -3138,7 +3204,6 @@ def dispatch_and_wait(args: argparse.Namespace) -> int:
             raise GateError("validation run did not reach a terminal success before timeout (endpoint=run; fields=deadline)")
         if identity is None and time.monotonic() >= registration_deadline:
             raise GateError("validation initial registration did not complete before timeout (endpoint=run; fields=registration_deadline)")
-        native_checked = False
         try:
             current = _dispatch_run(run, run_id, source, correlation, allow_pending=identity is None,
                                     endpoint="run", known_suite_id=known_suite_id)
@@ -3151,11 +3216,11 @@ def dispatch_and_wait(args: argparse.Namespace) -> int:
                 if run["status"] == "completed" and run.get("conclusion") != "success":
                     raise GateError(f"{args.mode} validation did not succeed")
                 _dispatch_native(api, prefix, run, source, correlation, current,
-                                 allow_pending=run["status"] != "completed", deadline=registration_deadline)
+                                 allow_pending=run["status"] != "completed", deadline=registration_deadline,
+                                 check_terminal=False)
                 if time.monotonic() >= registration_deadline or time.monotonic() >= deadline:
                     raise GateError("validation initial registration did not complete before timeout (endpoint=native; fields=registration_deadline)")
                 identity = current
-                native_checked = True
             elif current != identity:
                 raise GateError("validation run identity changed during monitoring (endpoint=run; fields=check_suite_id)")
         except _DispatchRegistrationPending as error:
@@ -3173,8 +3238,7 @@ def dispatch_and_wait(args: argparse.Namespace) -> int:
         if run["status"] == "completed":
             if run.get("conclusion") != "success":
                 raise GateError(f"{args.mode} validation did not succeed")
-            if not native_checked:
-                _dispatch_native(api, prefix, run, source, correlation, identity)
+            _dispatch_native(api, prefix, run, source, correlation, identity, deadline=deadline)
             if _dispatch_checkout_source() != source:
                 raise GateError("trusted dispatch checkout source changed")
             _dispatch_source(api, config, args.repository, source)

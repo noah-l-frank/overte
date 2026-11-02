@@ -19,6 +19,75 @@ import pr_ci_android_native as N
 
 
 class ProductOwnershipTests(unittest.TestCase):
+    def ios_build_fixture(self):
+        context = {'target': 'apple-ios', 'original_merge': '1' * 40, 'head': '2' * 40,
+                   'tree': '3' * 40, 'run_id': 123, 'run_attempt': 1}
+        names = ['iOS host contracts', 'qt / qt-ios-source', 'client / Host contracts',
+                 'client / Static JITless V8 checkpoint', 'client / Toolchain, dependencies, build and package']
+        rows = [{'id': 100 + i, 'run_id': 123, 'run_attempt': 1, 'head_sha': context['head'],
+                 'name': 'iOS product owner / ' + name, 'status': 'completed', 'conclusion': 'success',
+                 'steps': []} for i, name in enumerate(names)]
+        rows[-1]['steps'] = [{'name': name, 'status': 'completed', 'conclusion': 'success'}
+                            for name in T.STEPS['ios-build']]
+        return context, {'ios_required': True, 'ios_build_required': True}, rows
+
+    def run_ios_metadata_fixture(self, snapshots, *, authenticate=None, timeout=30):
+        context, plan, _ = self.ios_build_fixture()
+        elapsed, clients = [0], []
+        needs = {name: {'result': 'success'} for name in ('host', 'qt', 'client')}
+        class Client:
+            def pages(self, endpoint, *, field):
+                self_endpoint = f'actions/runs/123/attempts/1/jobs'
+                if endpoint != self_endpoint or field != 'jobs':
+                    raise AssertionError('Unexpected metadata source')
+                return deepcopy(snapshots[min(len(clients) - 2, len(snapshots) - 1)])
+        def factory():
+            value = Client(); clients.append(value); return value
+        verifier = P.ios_verifier()
+        initial = Client()
+        def pause(seconds):
+            elapsed[0] += seconds
+        with patch.object(P, 'authenticate', side_effect=authenticate or [ROOT, ROOT]), \
+                patch.object(C, 'bookend') as bookend, patch.object(P, 'ios_verifier', return_value=verifier), \
+                patch.object(verifier, 'verify_ipa', return_value={'qualified': True}) as artifact, \
+                patch.dict('os.environ', {'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_RUN_NUMBER': '7'}):
+            # Factories also produce the final fresh source-bookend client.
+            clients.append(initial)
+            result = P.verify_ios(ROOT, context, plan, ROOT, needs, initial, recompute=lambda *_: plan,
+                api_factory=factory, pause=pause, clock=lambda: elapsed[0], metadata_timeout=timeout)
+            self.assertEqual(bookend.call_count, 2)
+            self.assertIsNot(bookend.call_args.args[0], initial)
+            artifact.assert_called_once()
+        return result, elapsed[0]
+
+    def test_ios_completed_build_waits_for_real_step_metadata(self):
+        _, _, ready = self.ios_build_fixture()
+        delayed = deepcopy(ready); delayed[-1]['steps'] = []
+        result, waited = self.run_ios_metadata_fixture([delayed, ready])
+        self.assertTrue(result['application_build_required'])
+        self.assertEqual(waited, 15)
+
+    def test_ios_missing_metadata_times_out_without_artifact_authority(self):
+        _, _, missing = self.ios_build_fixture(); missing[-1]['steps'] = []
+        with self.assertRaisesRegex(ValueError, 'budget exhausted'):
+            self.run_ios_metadata_fixture([missing], timeout=30)
+
+    def test_ios_explicit_skips_failures_and_wrong_sources_never_wait(self):
+        _, _, ready = self.ios_build_fixture()
+        for conclusion in ('skipped', 'failure'):
+            bad = deepcopy(ready); bad[-1]['steps'][0]['conclusion'] = conclusion
+            with self.subTest(conclusion=conclusion), self.assertRaises(ValueError):
+                self.run_ios_metadata_fixture([bad])
+        bad = deepcopy(ready); bad[-1]['head_sha'] = 'f' * 40
+        with self.assertRaisesRegex(ValueError, 'another run, attempt or PR head'):
+            self.run_ios_metadata_fixture([bad])
+
+    def test_ios_reauthenticates_the_source_after_waiting(self):
+        _, _, ready = self.ios_build_fixture()
+        delayed = deepcopy(ready); delayed[-1]['steps'] = []
+        with self.assertRaisesRegex(C.ContextError, 'source moved'):
+            self.run_ios_metadata_fixture([delayed, ready], authenticate=[ROOT, C.ContextError('source moved')])
+
     def selected(self, target, paths, regular=True):
         profile = P.policy()["android"][target]
         return {suite["name"] for suite in P.android_suites(ROOT, target, profile,

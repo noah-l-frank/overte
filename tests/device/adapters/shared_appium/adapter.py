@@ -264,6 +264,10 @@ class AppiumAdapter:
                                  "relativePath": self.ANDROID_DEBUG_PROBE}
                     or process.get("kind") != "adb"):
                 fail("Android clientControl requires the fixed controlled debug-build channel")
+            if entry.get("controls", {}).get("normalNavigation") is not None:
+                from adapters.phone_navigation import PACKAGE
+                if entry["appId"] != PACKAGE or not self.controlled_android_client(entry):
+                    fail("Normal Phone navigation requires the controlled Phone application")
             if entry["platform"] == "ios":
                 self.validate_ios_host_strategy(entry)
                 self.validate_ios_test_build(entry)
@@ -273,8 +277,14 @@ class AppiumAdapter:
 
     @staticmethod
     def validate_controls(controls: dict) -> None:
-        if set(controls) - {"look", "move", "tablet", "primary", "mute", "jump"}:
+        if set(controls) - {"look", "move", "tablet", "primary", "mute", "jump", "normalNavigation"}:
             fail("Appium target contains unsupported shared controls")
+        if "normalNavigation" in controls:
+            from adapters.phone_navigation import validate_profile
+            try:
+                validate_profile(controls["normalNavigation"])
+            except ValueError:
+                fail("Normal Phone navigation configuration is invalid")
         for name in ("primary", "mute", "jump"):
             if name in controls:
                 AppiumAdapter.validate_fractional_point(controls[name], "controls." + name)
@@ -666,7 +676,7 @@ class AppiumAdapter:
         except (OSError, json.JSONDecodeError):
             fail("Appium session state is unreadable")
         allowed = {"generation", "processIdentity", "sessionId", "targetFingerprint",
-                   "microphoneOriginalMode", "microphoneOriginalUidMode"}
+                   "microphoneOriginalMode", "microphoneOriginalUidMode", "normalNavigation"}
         if (not isinstance(value, dict) or set(value) - allowed
                 or not isinstance(value.get("sessionId"), str) or not value["sessionId"]
                 or not isinstance(value.get("generation", 0), int)
@@ -683,6 +693,12 @@ class AppiumAdapter:
             if (key in value and (not isinstance(value[key], str)
                     or value[key] not in {"allow", "default", "foreground", "ignore", "deny"})):
                 fail("Appium session microphone restore mode is invalid")
+        if "normalNavigation" in value:
+            from adapters.phone_navigation import validate_state
+            try:
+                validate_state(value["normalNavigation"])
+            except ValueError:
+                fail("Appium normal navigation ownership state is invalid")
         return value
 
     def save_session(self, selector: str, value: dict) -> None:

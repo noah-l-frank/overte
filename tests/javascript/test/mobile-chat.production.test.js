@@ -5,7 +5,7 @@ const test = require("node:test");
 const { FakeSignal, createScriptApi, createTabletApi, createMessagesApi, runProductionScript } = require("../support");
 const source = path.resolve(__dirname, "../../../scripts/communityScripts/armored-chat/armored_chat.js");
 
-function start({ desktop = false, config = {} } = {}) {
+function start({ desktop = false, config = {}, operatingSystem } = {}) {
     const Script = createScriptApi();
     const Tablet = createTabletApi();
     const tablet = Tablet.getTablet("com.highfidelity.interface.tablet.system");
@@ -22,6 +22,7 @@ function start({ desktop = false, config = {} } = {}) {
         windows.push(value); return value;
     }
     runProductionScript(source, { Script, Tablet, Messages, Controller,
+        PlatformInfo: { getComputer: () => JSON.stringify({ OS: operatingSystem }) },
         HMD: { active: false }, Settings: {
             getValue(key, fallback) { return values.has(key) ? values.get(key) : fallback; },
             setValue(key, value) { values.set(key, value); }
@@ -50,6 +51,24 @@ test("normal mobile CHAT opens the actual tablet QML and exchanges real chat pac
     assert.equal(s.tablet.qmlMessages.at(-1).message, "from touch");
     assert.equal(s.Messages.sent.filter(p => p.channel === "Chat").length, 1);
 });
+for (const operatingSystem of ["ANDROID", "IOS"]) {
+    test(operatingSystem + " CHAT restart retains its normal tablet after the presenter enables toolbarMode", () => {
+        // Phone/iOS showAndroidTablet sets toolbarMode=true. A separately
+        // restarted Chat engine must not mistake that presenter for Desktop.
+        const s = start({ desktop: true, operatingSystem, config: { external_window: true } });
+        assert.equal(s.windows.length, 0);
+        s.open();
+        assert.equal(s.tablet.navigation[0].type, "qml");
+        assert.equal(s.tablet.qmlMessages[0].tabletMode, true);
+        s.tablet.fromQml.emit({ type: "send_message", message: "after restart ä漢", channel: "domain" });
+        assert.equal(s.tablet.qmlMessages.at(-1).message, "after restart ä漢");
+        s.tablet.fromQml.emit({ type: "setting_change", setting: "external_window", value: false });
+        assert.equal(s.windows.length, 0);
+        s.Script.end();
+        assert.equal(s.tablet.fromQml.listenerCount, 0);
+        assert.equal(s.Messages.subscriptions.size, 0);
+    });
+}
 test("closed apps keep bounded history and replay it exactly once on reopen", () => {
     const s = start({ config: { maximum_messages: 2 } });
     s.open(); s.tablet.gotoHomeScreen();
@@ -104,7 +123,7 @@ test("typing and signal ownership end on hide, close and script shutdown", () =>
     assert.equal(s.Messages.subscriptions.size, 0); assert.equal(s.Controller.keyPressEvent.listenerCount, 0);
 });
 test("desktop retains external window and Enter quick-message behavior", () => {
-    const s = start({ desktop: true }); assert.equal(s.windows.length, 2);
+    const s = start({ desktop: true, operatingSystem: "MACOS" }); assert.equal(s.windows.length, 2);
     s.tablet.buttons[0].click(); assert.equal(s.windows[1].visible, true);
     s.Controller.keyPressEvent.emit({ key: 16777220 });
     assert.equal(s.windows[0].packets.at(-1).type, "change_visibility");

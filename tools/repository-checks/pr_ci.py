@@ -440,8 +440,13 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
               and workflow.get("path") == ".github/workflows/repository-checks.yml",
               "native worker workflow registration changed")
     deadline, run, last_state = time.monotonic() + timeout, None, None
+    def read_jobs(run_id, attempt):
+        return transport.read_eventual(lambda: API(deadline=deadline),
+            lambda client: client.pages(f"actions/runs/{run_id}/attempts/{attempt}/jobs", field="jobs"),
+            deadline=deadline, pause=pause)
+
     while time.monotonic() < deadline:
-        api = API()
+        api = API(deadline=deadline)
         if run is None:
             if event_name in {"workflow_dispatch", "pull_request"}:
                 run = api.get("actions/runs/" + str(int(os.environ["GITHUB_RUN_ID"])))
@@ -451,7 +456,7 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                 candidates = sorted((row for row in listing if row.get("head_sha") == first["head"]),
                                     key=lambda row: row.get("id", 0), reverse=True)
                 for candidate in candidates:
-                    jobs = api.pages(f"actions/runs/{candidate['id']}/attempts/{candidate['run_attempt']}/jobs", field="jobs")
+                    jobs = read_jobs(candidate['id'], candidate['run_attempt'])
                     # A title/body event has no execution owner. It may observe
                     # the original result, but cannot invent a replacement PASS.
                     if jobs and all(job.get("conclusion") == "skipped" for job in jobs):
@@ -473,7 +478,7 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                       and suite.get("app", {}).get("id") == 15368
                       and suite.get("repository", {}).get("id") == C.REPOSITORY_ID,
                       "native worker check suite or GitHub Actions app changed")
-            jobs = api.pages(f"actions/runs/{identity['id']}/attempts/{identity['run_attempt']}/jobs", field="jobs")
+            jobs = read_jobs(identity['id'], identity['run_attempt'])
             C.require(not any(job.get("conclusion") in {"failure", "cancelled", "timed_out", "action_required"}
                               for job in jobs),
                       "a native candidate worker job failed; no new execution was requested")
@@ -522,7 +527,7 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                     C.require(base_commit.get("sha") == context["base"], "protected base metadata changed")
                     transport.validate_sources(actual_tree, trusted_tree,
                         protected_base=remote_tree(api, base_commit["tree"]["sha"]))
-                jobs = api.pages(f"actions/runs/{identity['id']}/attempts/{identity['run_attempt']}/jobs", field="jobs")
+                jobs = read_jobs(identity['id'], identity['run_attempt'])
                 try:
                     transport.validate_jobs(jobs, expected_owners(plan), plan=plan, context=context)
                 except transport.Pending:
@@ -543,7 +548,7 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                             run_id=identity["id"], run_attempt=identity["run_attempt"], head_sha=first["head"])
                     codeql = observer.verify_codeql(api, context, plan["codeql_languages"], uploads)
                     if codeql["state"] == "complete":
-                        closing = API()
+                        closing = API(deadline=deadline)
                         final_run = closing.get("actions/runs/" + str(identity["id"]))
                         transport.validate_run(final_run, context, workflow_id=workflow["id"],
                                                controller=controller, execution_event=execution_event)
@@ -559,12 +564,20 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                                   and final_suite.get("app", {}).get("id") == 15368
                                   and final_suite.get("repository", {}).get("id") == C.REPOSITORY_ID,
                                   "native worker check suite changed before acceptance")
-                        final_jobs = closing.pages(
-                            f"actions/runs/{identity['id']}/attempts/{identity['run_attempt']}/jobs", field="jobs")
-                        transport.validate_jobs(final_jobs, expected_owners(plan), plan=plan, context=context)
+                        final_jobs = read_jobs(identity['id'], identity['run_attempt'])
+                        try:
+                            transport.validate_jobs(final_jobs, expected_owners(plan), plan=plan, context=context)
+                        except transport.Pending:
+                            state = "waiting for indexed final native step metadata"
+                            if state != last_state:
+                                print(state, flush=True)
+                                last_state = state
+                            pause(15)
+                            continue
                         C.bookend(API(), context)
                         if event_name != "workflow_dispatch":
                             current_controller(API(), controller)
+                        C.require(time.monotonic() < deadline, "native execution observation budget exhausted")
                         print(json.dumps({"result": "success", "run_id": identity["id"],
                             "run_attempt": identity["run_attempt"], "source": original,
                             "tree": context["tree"], "owners": expected_owners(plan)}, sort_keys=True))

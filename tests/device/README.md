@@ -53,6 +53,25 @@ assertion failure.
   activation remains pending. See [`ASSET_LOAD_E2E.md`](ASSET_LOAD_E2E.md).
 - `sound-smoke`: controlled WAV request, decode readiness, and observable
   in-client injector lifecycle; see [`SOUND_E2E.md`](SOUND_E2E.md).
+- `web-video-parity`: normal world/tablet Web entry followed by independent
+  native capture analysis of play/pause/seek/resumed video pixels. Implemented modules are
+  hardware-free tested; native adapter activation and device acceptance remain
+  pending. See [`WEB_VIDEO_E2E.md`](WEB_VIDEO_E2E.md).
+- `snapshot-output-parity`: normal SNAP controls followed by fresh original
+  PNG/JPEG/GIF/panorama/cubemap file decoding. Native adapter activation and
+  device acceptance remain pending. See [`SNAPSHOT_E2E.md`](SNAPSHOT_E2E.md).
+- `scripts-management-parity`: normal Running Scripts URL load/restart/stop
+  controls and independent execution/companion/failed-load observations. Native
+  adapter activation and device acceptance remain pending. See
+  [`SCRIPTS_MANAGEMENT_E2E.md`](SCRIPTS_MANAGEMENT_E2E.md).
+- `create-management-parity`: normal avatar Cube create/edit/history/delete and
+  parent-child JSON import with fresh read-only entity observations. Native
+  adapter activation and device acceptance remain pending. See
+  [`CREATE_MANAGEMENT_E2E.md`](CREATE_MANAGEMENT_E2E.md).
+- `places-navigation-parity`: normal Go To and Back/Forward with independently
+  observed controlled scene addresses, grounded avatar arrivals and advancing
+  presentation. Native adapter activation and device acceptance remain pending.
+  See [`PLACES_NAVIGATION_E2E.md`](PLACES_NAVIGATION_E2E.md).
 - `e2e-core`: launch, controlled scene and grounded spawn, signed look in four
   directions, body-relative movement in four directions, neutral input,
   collision, jump, flight, tablet transitions and input isolation, and scene

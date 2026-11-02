@@ -74,6 +74,29 @@ test("non-image selections remain text diagnostics and never become document sou
     assert.equal(s.node("fileStatus").innerHTML, undefined);
 });
 
+test("the real reference controls play, pause and seek to distinct encoded phases", () => {
+    const s = startDocument(), video = s.node("video");
+    let plays = 0, pauses = 0;
+    video.play = () => { plays += 1; video.paused = false; };
+    video.pause = () => { pauses += 1; video.paused = true; };
+    s.node("play").onclick();
+    assert.equal(plays, 1);
+    assert.equal(video.muted, false);
+    assert.equal(video.volume, 1);
+    s.node("pause").onclick();
+    assert.equal(pauses, 1);
+    s.node("seek").onclick();
+    assert.equal(video.currentTime, 4);
+    assert.equal(video.paused, true);
+    s.node("seekStart").onclick();
+    assert.equal(video.currentTime, 0);
+    assert.equal(video.paused, true);
+    const html = fs.readFileSync(path.resolve(__dirname, "../../device/fixture/parity/index.html"), "utf8");
+    for (const id of ["play", "pause", "seek", "seekStart"]) {
+        assert.match(html, new RegExp('<button id="' + id + '"'));
+    }
+});
+
 test("reference uses the real API entry points and only one local source-owned entity", () => {
     const s = start(), properties = s.created[0].properties;
     assert.equal(s.created.length, 1);

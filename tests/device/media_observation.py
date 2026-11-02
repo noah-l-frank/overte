@@ -80,13 +80,7 @@ def inspect_reference_video(content, roi):
             "unexpectedWhiteFraction": extra_white_fraction}
 
 
-def inspect_playback(samples, roi):
-    """Observe playback from (monotonic seconds, native capture bytes) samples.
-
-    Report only fixture pixels. A single frozen video frame, DOM motion, or a
-    player-clock update cannot satisfy this observation. Native camera/ROI must
-    remain fixed. Pause/resume/seek and sound are separate acceptance actions.
-    """
+def _inspect_samples(samples, roi):
     if not isinstance(samples, (tuple, list)) or not 6 <= len(samples) <= 96:
         raise ValueError("Six to 96 independent native samples required")
     observations = []
@@ -98,6 +92,17 @@ def inspect_playback(samples, roi):
             raise ValueError("Independent samples require increasing capture times")
         times.append(when)
         observations.append(inspect_reference_video(content, roi))
+    return times, observations
+
+
+def inspect_playback(samples, roi):
+    """Observe playback from (monotonic seconds, native capture bytes) samples.
+
+    Report only fixture pixels. A single frozen video frame, DOM motion, or a
+    player-clock update cannot satisfy this observation. Native camera/ROI must
+    remain fixed. Pause/resume/seek and sound have separate assertions.
+    """
+    times, observations = _inspect_samples(samples, roi)
     frames = [row["encodedFrame"] for row in observations if row["referencePixelsMatch"]]
     observed = (len(frames) == len(samples) and len(set(frames)) >= 6
                 and {n // 24 for n in frames} == {0, 1, 2} and times[-1] - times[0] >= 5)
@@ -105,3 +110,26 @@ def inspect_playback(samples, roi):
             "movingReferenceVideoPixelsObserved": observed,
             "samples": observations, "deviceAcceptance": False,
             "limitations": "Capture provenance, source/artifact binding, fixed camera/ROI, pause/seek/lifecycle and physically audible output require independent evidence."}
+
+
+def inspect_paused_video(samples, roi, *, expected_frame=None):
+    """Require actual stable encoded pixels, optionally at a sought frame.
+
+    This is a positive still-frame observation, not the negation of successful
+    playback. Black captures, missing video and varying counter/square pixels
+    cannot establish pause or seek. The caller must first prove live playback.
+    """
+    if expected_frame is not None and (type(expected_frame) is not int or not 0 <= expected_frame < 72):
+        raise ValueError('Expected reference frame must be an integer from 0 through 71')
+    times, observations = _inspect_samples(samples, roi)
+    frames = [row['encodedFrame'] for row in observations if row['referencePixelsMatch']]
+    stable = (len(frames) == len(samples) and len(set(frames)) == 1
+              and times[-1] - times[0] >= 2)
+    if expected_frame is not None:
+        stable = stable and frames[0] == expected_frame
+    return {'qualification': 'REFERENCE_VIDEO_STILL_PIXEL_OBSERVATION_ONLY',
+            'pausedReferenceVideoPixelsObserved': stable,
+            'encodedFrame': frames[0] if stable else None,
+            'expectedEncodedFrame': expected_frame,
+            'samples': observations, 'deviceAcceptance': False,
+            'limitations': 'A prior live playback observation, native capture/source binding, resumed motion and physically audible output remain independent requirements.'}

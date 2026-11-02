@@ -28,6 +28,7 @@
  * @hifi-avatar
  *
  * @property {Render.RenderMethod} renderMethod - The render method being used.
+ * @property {boolean} deferredRenderingAvailable - Whether this native renderer supports deferred rendering.
  * @property {boolean} shadowsEnabled - <code>true</code> if shadows are enabled, <code>false</code> if they're disabled.
  * @property {boolean} hazeEnabled - <code>true</code> if haze (fog) is enabled, <code>false</code> if it's disabled.
  * @property {boolean} bloomEnabled - <code>true</code> if bloom is enabled, <code>false</code> if it's disabled.
@@ -36,6 +37,7 @@
  * <code>false</code> if they're disabled.
  * @property {boolean} proceduralMaterialsEnabled - <code>true</code> if procedural shaders are enabled, <code>false</code> if
  *     they're disabled.
+ * @property {boolean} mirrorsEnabled - Whether world mirror rendering is enabled. The choice is saved across restarts.
  * @property {integer} antialiasingMode - The active anti-aliasing mode.
  * @property {number} viewportResolutionScale - The view port resolution scale, <code>&gt; 0.0</code>.
  * @property {boolean} cameraClippingEnabled - <code>true</code> if third person camera clipping is enabled, <code>false</code> if it's disabled.
@@ -43,6 +45,7 @@
 class RenderScriptingInterface : public QObject {
     Q_OBJECT
     Q_PROPERTY(RenderMethod renderMethod READ getRenderMethod WRITE setRenderMethod NOTIFY settingsChanged)
+    Q_PROPERTY(bool deferredRenderingAvailable READ isDeferredRenderingAvailable CONSTANT)
     Q_PROPERTY(bool shadowsEnabled READ getShadowsEnabled WRITE setShadowsEnabled NOTIFY settingsChanged)
     Q_PROPERTY(bool hazeEnabled READ getHazeEnabled WRITE setHazeEnabled NOTIFY settingsChanged)
     Q_PROPERTY(bool bloomEnabled READ getBloomEnabled WRITE setBloomEnabled NOTIFY settingsChanged)
@@ -50,6 +53,7 @@ class RenderScriptingInterface : public QObject {
     Q_PROPERTY(bool localLightingEnabled READ getLocalLightingEnabled WRITE setLocalLightingEnabled NOTIFY settingsChanged)
     Q_PROPERTY(AntialiasingSetupConfig::Mode antialiasingMode READ getAntialiasingMode WRITE setAntialiasingMode NOTIFY settingsChanged)
     Q_PROPERTY(bool proceduralMaterialsEnabled READ getProceduralMaterialsEnabled WRITE setProceduralMaterialsEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(bool mirrorsEnabled READ getMirrorsEnabled WRITE setMirrorsEnabled NOTIFY settingsChanged)
     Q_PROPERTY(float viewportResolutionScale READ getViewportResolutionScale WRITE setViewportResolutionScale NOTIFY settingsChanged)
     Q_PROPERTY(float verticalFieldOfView READ getVerticalFieldOfView WRITE setVerticalFieldOfView NOTIFY settingsChanged)
     Q_PROPERTY(bool cameraClippingEnabled READ getCameraClippingEnabled WRITE setCameraClippingEnabled NOTIFY settingsChanged)
@@ -88,8 +92,40 @@ public:
     // Need to be called on start up to re-initialize the runtime to the saved setting states
     void loadSettings();
 
+    // C++ startup/debug overrides may change the effective pipeline without
+    // replacing the user's saved choices. Hold the recursive setting lock for
+    // the complete scope so other threads cannot inherit transient behavior.
+    // Use only write-setter paths inside this scope. loadSettings() acquires a
+    // read lock and must run before the scope (Qt cannot change lock modes).
+    class ScopedSettingsOverride {
+    public:
+        explicit ScopedSettingsOverride(RenderScriptingInterface& render);
+        ~ScopedSettingsOverride();
+        ScopedSettingsOverride(const ScopedSettingsOverride&) = delete;
+        ScopedSettingsOverride& operator=(const ScopedSettingsOverride&) = delete;
+    private:
+        RenderScriptingInterface& _render;
+        bool _previousPersistenceEnabled;
+    };
 
 public slots:
+    // Android registers a direct forward task rather than a deferred switch.
+    bool isDeferredRenderingAvailable() const;
+
+    /*@jsdoc
+     * Gets whether world mirror passes are enabled.
+     * @function Render.getMirrorsEnabled
+     * @returns {boolean} Whether mirrors are enabled.
+     */
+    bool getMirrorsEnabled() const;
+
+    /*@jsdoc
+     * Enables or disables complete mirror passes in both rendering methods and camera views, and saves the choice.
+     * @function Render.setMirrorsEnabled
+     * @param {boolean} enabled - Whether to enable mirrors.
+     */
+    void setMirrorsEnabled(bool enabled);
+
     /*@jsdoc
      * Gets the configuration for a rendering job by name.
      * <p><strong>Warning:</strong> For internal, debugging purposes. Subject to change.</p>
@@ -323,9 +359,16 @@ private:
     bool _ambientOcclusionEnabled { true };
     bool _localLightingEnabled { true };
     bool _proceduralMaterialsEnabled { true };
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    bool _mirrorsEnabled { false };
+#else
+    bool _mirrorsEnabled { true };
+#endif
     AntialiasingSetupConfig::Mode _antialiasingMode { AntialiasingSetupConfig::Mode::NONE };
     float _viewportResolutionScale { 1.0f };
     QString _fullScreenScreen;
+
+    bool _settingsPersistenceEnabled { true };
 
     // Actual settings saved on disk
     Setting::Handle<int> _renderMethodSetting { "renderMethod", RENDER_FORWARD ? render::Args::RenderMethod::FORWARD : render::Args::RenderMethod::DEFERRED };
@@ -335,6 +378,12 @@ private:
     Setting::Handle<bool> _ambientOcclusionEnabledSetting { "ambientOcclusionEnabled", true };
     Setting::Handle<bool> _localLightingSetting { "localLightingEnabled", true };
     Setting::Handle<bool> _proceduralMaterialsEnabledSetting { "proceduralMaterialsEnabled", true };
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    // Preserve the established Phone setting and safe initial profile.
+    Setting::Handle<bool> _mirrorsEnabledSetting { "phone/graphics/mirrors", false };
+#else
+    Setting::Handle<bool> _mirrorsEnabledSetting { "mirrorsEnabled", true };
+#endif
     Setting::Handle<int> _antialiasingModeSetting { "antialiasingMode", (int)AntialiasingSetupConfig::Mode::NONE };
     Setting::Handle<float> _viewportResolutionScaleSetting { "viewportResolutionScale", 1.0f };
     Setting::Handle<QString> _fullScreenScreenSetting { "fullScreenScreen", "" };
@@ -347,6 +396,7 @@ private:
     void forceAmbientOcclusionEnabled(bool enabled);
     void forceLocalLightingEnabled(bool enabled);
     void forceProceduralMaterialsEnabled(bool enabled);
+    void forceMirrorsEnabled(bool enabled);
     void forceAntialiasingMode(AntialiasingSetupConfig::Mode mode);
     void forceViewportResolutionScale(float scale);
 

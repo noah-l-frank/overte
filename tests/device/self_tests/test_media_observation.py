@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, UnidentifiedImageError
 
 DEVICE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(DEVICE))
-from media_observation import inspect_playback, inspect_reference_video
+from media_observation import inspect_paused_video, inspect_playback, inspect_reference_video
 
 spec = importlib.util.spec_from_file_location("reference_generator", DEVICE / "fixture/parity/generate_video.py")
 generator = importlib.util.module_from_spec(spec)
@@ -53,6 +53,18 @@ class ReferenceVideoObservation(unittest.TestCase):
     def test_frozen_texture_with_moving_dom_does_not_count(self):
         result = inspect_playback([(i, capture(0, dom=i)) for i in range(6)], ROI)
         self.assertFalse(result["movingReferenceVideoPixelsObserved"])
+
+    def test_pause_and_seek_require_positive_stable_reference_pixels(self):
+        stable = [(i * 0.5, capture(48, dom=i)) for i in range(6)]
+        result = inspect_paused_video(stable, ROI, expected_frame=48)
+        self.assertTrue(result['pausedReferenceVideoPixelsObserved'])
+        self.assertFalse(result['deviceAcceptance'])
+        self.assertFalse(inspect_paused_video(stable, ROI, expected_frame=0)
+                         ['pausedReferenceVideoPixelsObserved'])
+        moving = [(i * 0.5, capture(48 + i, dom=i)) for i in range(6)]
+        self.assertFalse(inspect_paused_video(moving, ROI)['pausedReferenceVideoPixelsObserved'])
+        self.assertFalse(inspect_paused_video(stable, (80, 0, 176, 54))
+                         ['pausedReferenceVideoPixelsObserved'])
 
     def test_counter_and_color_cannot_hide_a_frozen_encoded_square(self):
         result = inspect_playback([(i, capture(i * 12, frozen_square=0)) for i in range(6)], ROI)

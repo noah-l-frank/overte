@@ -127,6 +127,126 @@ class ProbeCommandChannelTest(unittest.TestCase):
             self.assertEqual(error.exception.code, 400)
             error.exception.close()
 
+    def test_normal_ui_channel_round_trips_only_closed_native_input(self):
+        observe = {"schemaVersion": 1, "commandId": "ios-" + "b" * 32,
+                   "action": "normal-ui-input", "operation": "observe"}
+        self.assertEqual(observe, self.post_command(observe))
+        native = {"schemaVersion": 1, "commandId": "11111111-2222-3333-4444-555555555555",
+                  "instance": "11111111-2222-3333-4444-666666666666", "sequence": 1,
+                  "observedElapsedMs": 23, "fieldToken": "11111111-2222-3333-4444-777777777777",
+                  "operation": "replace", "text": "ordinary Grüße 🌍"}
+        edit = observe | {"operation": "edit", "input": native}
+        self.assertEqual(edit, self.post_command(edit))
+        submit = {key: value for key, value in native.items() if key != "text"} | {"operation": "submit"}
+        self.assertEqual(edit | {"input": submit}, self.post_command(edit | {"input": submit}))
+        # UTF-16 input bounds are independent of JSON's escaped byte length.
+        large = edit | {"input": native | {"text": "🌍" * 2048}}
+        self.assertEqual(large, self.post_command(large))
+        for violation in ({"schemaVersion": True}, {"commandId": "foreign"}, {"instance": "foreign"},
+                          {"fieldToken": "foreign"}, {"sequence": True}, {"sequence": 0},
+                          {"observedElapsedMs": -1}, {"operation": "navigate"}, {"operation": []},
+                          {"text": "x\ncommand"}, {"text": "x" * 4097}, {"text": "\ud800"},
+                          {"featurePassed": True}, {"href": "http://injected.invalid"}):
+            with self.subTest(violation=violation), self.assertRaises(HTTPError) as rejected:
+                self.post_command(edit | {"input": native | violation})
+            self.assertEqual(400, rejected.exception.code)
+            rejected.exception.close()
+        for violation in ({"input": {}}, {"observation": {}}, {"operation": []}, {"schemaVersion": True}):
+            with self.subTest(violation=violation), self.assertRaises(HTTPError) as rejected:
+                self.post_command(observe | violation)
+            self.assertEqual(400, rejected.exception.code)
+            rejected.exception.close()
+        with self.assertRaises(HTTPError) as rejected:
+            self.post_command({"schemaVersion": 1, "commandId": "long-scene", "action": "scene-load",
+                               "url": "http://controlled.invalid/" + "x" * 5000})
+        self.assertEqual(400, rejected.exception.code)
+        rejected.exception.close()
+
+    def test_actual_probe_delegates_ui_input_without_fabricating_native_results(self):
+        start = self.source.index("    function applyClientCommand(command) {")
+        end = self.source.index("    function pollClientCommand()", start)
+        harness = r'''
+const assert=require('assert');
+let lastClientCommandId='',lastTextCommandId='',calls=[],accepted=false;
+const applyVoice=()=>false;
+const objectKeysMatch=(v,k)=>Object.keys(v).sort().join('|')===k.sort().join('|');
+const Test={iosNormalUiRequest:v=>{calls.push(v);return accepted;},
+ saveObject:()=>{throw new Error('only the real native producer may save the result');}};
+FUNCTION
+const observe={schemaVersion:1,commandId:'ios-'+'a'.repeat(32),action:'normal-ui-input',operation:'observe'};
+applyClientCommand(observe);
+assert.equal(calls.length,1);assert.equal(lastClientCommandId,'');
+accepted=true;applyClientCommand(observe);
+assert.equal(calls.length,2);assert.equal(lastClientCommandId,observe.commandId);
+applyClientCommand(observe);assert.equal(calls.length,2);
+for(const invalid of [{...observe,commandId:'foreign'}, {...observe,schemaVersion:true},
+ {...observe,commandId:'ios-'+'b'.repeat(32),operation:'navigate'},
+ {...observe,commandId:'ios-'+'b'.repeat(32),featurePassed:true}]) {
+ applyClientCommand(invalid);assert.equal(calls.length,2);
+}
+const edit={...observe,commandId:'ios-'+'b'.repeat(32),operation:'edit',input:{native:'validates this'}};
+applyClientCommand(edit);assert.strictEqual(calls[2],edit);
+assert.equal(lastClientCommandId,edit.commandId);
+delete Test.iosNormalUiRequest;
+applyClientCommand({...observe,commandId:'ios-'+'c'.repeat(32)});
+assert.equal(lastClientCommandId,edit.commandId);
+'''.replace('FUNCTION', self.source[start:end])
+        subprocess.run(['node', '-e', harness], check=True, timeout=5)
+
+    def test_snapshot_original_file_channel_cannot_capture_supply_paths_or_claim_bytes(self):
+        listed = {"schemaVersion": 1, "commandId": "ios-" + "f" * 32,
+                  "action": "snapshot-files", "operation": "list",
+                  "prefix": "parity-0123456789abcdef-still-png"}
+        read = listed | {"operation": "read", "name": listed["prefix"] + "-snap_123_1.png",
+                         "revision": "a" * 64, "offset": 65536}
+        for command in (listed, read):
+            self.assertEqual(command, self.post_command(command))
+        for violation in ({"operation": "capture"}, {"schemaVersion": True}, {"commandId": "foreign"},
+                          {"prefix": "foreign"}, {"prefix": listed["prefix"] + "\n"},
+                          {"root": "/Documents"}, {"files": []}, {"capturePassed": True},
+                          {"name": "arbitrary.png"}, {"data": "aW5qZWN0ZWQ="}):
+            with self.subTest(violation=violation), self.assertRaises(HTTPError) as rejected:
+                self.post_command(listed | violation)
+            self.assertEqual(400, rejected.exception.code)
+            rejected.exception.close()
+        for violation in ({"name": "../other.png"}, {"name": read["name"] + "\n"},
+                          {"name": "parity-fedcba9876543210-still-png-snap_123_1.png"},
+                          {"offset": -1}, {"offset": True}, {"offset": 0.5}, {"offset": 268435457},
+                          {"revision": "a" * 63}, {"revision": "a" * 64 + "\n"}):
+            with self.subTest(violation=violation), self.assertRaises(HTTPError) as rejected:
+                self.post_command(read | violation)
+            self.assertEqual(400, rejected.exception.code)
+            rejected.exception.close()
+
+    def test_actual_probe_snapshot_transport_requires_native_producer_acceptance(self):
+        start = self.source.index("    function applyClientCommand(command) {")
+        end = self.source.index("    function pollClientCommand()", start)
+        harness = r'''
+const assert=require('assert');
+let lastClientCommandId='',lastTextCommandId='',calls=[],accepted=false;
+const applyVoice=()=>false;
+const objectKeysMatch=(v,k)=>Object.keys(v).sort().join('|')===k.sort().join('|');
+const Test={iosSnapshotFilesRequest:v=>{calls.push(v);return accepted;},
+ saveObject:()=>{throw new Error('only native original bytes may produce receipts');}};
+FUNCTION
+const list={schemaVersion:1,commandId:'ios-'+'a'.repeat(32),action:'snapshot-files',operation:'list',
+ prefix:'parity-0123456789abcdef-still-png'};
+applyClientCommand(list);assert.equal(calls.length,1);assert.equal(lastClientCommandId,'');
+accepted=true;applyClientCommand(list);assert.equal(calls.length,2);assert.equal(lastClientCommandId,list.commandId);
+applyClientCommand(list);assert.equal(calls.length,2);
+for(const invalid of [{...list,commandId:'foreign'}, {...list,schemaVersion:true},
+ {...list,commandId:'ios-'+'b'.repeat(32),operation:'capture'},
+ {...list,commandId:'ios-'+'b'.repeat(32),root:'/Documents'}]) {
+ applyClientCommand(invalid);assert.equal(calls.length,2);
+}
+const read={...list,commandId:'ios-'+'b'.repeat(32),operation:'read',name:list.prefix+'-snap_1_1.png',
+ revision:'a'.repeat(64),offset:0};
+applyClientCommand(read);assert.strictEqual(calls[2],read);assert.equal(lastClientCommandId,read.commandId);
+delete Test.iosSnapshotFilesRequest;
+applyClientCommand({...list,commandId:'ios-'+'c'.repeat(32)});assert.equal(lastClientCommandId,read.commandId);
+'''.replace('FUNCTION', self.source[start:end])
+        subprocess.run(['node', '-e', harness], check=True, timeout=5)
+
     def test_native_crash_command_cannot_choose_a_process_or_claim_a_result(self):
         command = {"schemaVersion": 1, "commandId": "ios-" + "d" * 32, "action": "native-crash"}
         self.assertEqual(self.post_command(command), command)
