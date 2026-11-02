@@ -6,6 +6,7 @@
     "asset-smoke": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "smoke"},
     "audio-controls": {"artifacts": [], "fixture": "none", "requiredEnvironment": [], "session": "reusable", "tabletPolicy": false, "tier": "smoke"},
     "crash-recovery-under-load": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
+    "create-management-parity": {"artifacts": [], "fixture": "scene", "requiredEnvironment": ["OVERTE_E2E_CREATE_CONTROL_TOKEN", "OVERTE_E2E_CREATE_FIXTURE_URL"], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "domain-recovery": {"artifacts": [], "fixture": "domain", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "domain-smoke": {"artifacts": [], "fixture": "domain", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "smoke"},
     "e2e-core": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "smoke"},
@@ -17,17 +18,21 @@
     "multi-user-smoke": {"artifacts": [], "fixture": "domain", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "network-fault-recovery": {"artifacts": [], "fixture": "domain", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "permission-recovery": {"artifacts": [], "fixture": "none", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
+    "places-navigation-parity": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "portable-smoke": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "smoke"},
     "render-health": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "smoke"},
     "scripted-entity-smoke": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "reusable", "tabletPolicy": false, "tier": "extended"},
+    "scripts-management-parity": {"artifacts": [], "fixture": "none", "requiredEnvironment": ["OVERTE_E2E_SCRIPTS_CONTROL_TOKEN", "OVERTE_E2E_SCRIPTS_FIXTURE_URL"], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "settings-persistence": {"artifacts": [], "fixture": "none", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "smoke": {"artifacts": [], "fixture": "none", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "smoke"},
+    "snapshot-output-parity": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "sound-smoke": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "smoke"},
     "stability": {"artifacts": [], "fixture": "none", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "soak"},
     "tablet-e2e": {"artifacts": [], "fixture": "none", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": true, "tier": "extended"},
     "text-input-smoke": {"artifacts": [], "fixture": "none", "requiredEnvironment": [], "session": "reusable", "tabletPolicy": false, "tier": "smoke"},
     "update-upgrade": {"artifacts": ["candidate", "source"], "fixture": "scene", "requiredEnvironment": ["OVERTE_E2E_UPGRADE_FROM_VERSION", "OVERTE_E2E_UPGRADE_TO_VERSION"], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
     "vertical-locomotion": {"artifacts": [], "fixture": "scene", "requiredEnvironment": [], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
-    "voice-roundtrip": {"artifacts": [], "fixture": "domain", "requiredEnvironment": ["OVERTE_E2E_VOICE_PEER_CONFIG", "OVERTE_E2E_VOICE_TESTS"], "session": "fresh", "tabletPolicy": false, "tier": "extended"}
+    "voice-roundtrip": {"artifacts": [], "fixture": "domain", "requiredEnvironment": ["OVERTE_E2E_VOICE_PEER_CONFIG", "OVERTE_E2E_VOICE_TESTS"], "session": "fresh", "tabletPolicy": false, "tier": "extended"},
+    "web-video-parity": {"artifacts": [], "fixture": "none", "requiredEnvironment": ["OVERTE_E2E_WEB_REFERENCE_SCRIPT_URL", "OVERTE_E2E_WEB_VIDEO_ROIS"], "session": "fresh", "tabletPolicy": false, "tier": "extended"}
   }
 }

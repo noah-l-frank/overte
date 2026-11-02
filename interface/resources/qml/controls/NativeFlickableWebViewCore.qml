@@ -12,6 +12,9 @@ Item {
     property alias useBackground: webView.useBackground
     property alias userAgent: webView.userAgent
     property alias userScriptUrl: webView.scriptUrl
+    property alias surface: webView.surface
+    property alias sourceIdentity: webView.sourceIdentity
+    property alias inlineDocument: webView.inlineDocument
     property string urlTag: "noDownload=false"
     property bool interactive: true
     property bool blurOnCtrlShift: true
@@ -71,7 +74,7 @@ Item {
         anchors { left: parent.left; right: parent.right; top: navigation.bottom; bottom: parent.bottom }
         enabled: flick.enabled && flick.interactive
         surface: "tablet"
-        onLoadingChangedWithStatus: {
+        onLoadingChangedWithStatus: function(change) {
             flick.onLoadingChanged(change);
             flick.loadingChangedCallback(change);
         }

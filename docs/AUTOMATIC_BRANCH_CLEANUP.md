@@ -4,6 +4,11 @@ The `Automatic branch cleanup` GitHub Actions workflow retires fully integrated
 working branches in `noah-l-frank/overte`. It runs on GitHub-hosted Ubuntu runners and
 continues operating while the maintainer's computers are switched off.
 
+Automatic closed-PR, completion and scheduled assessments were restored on
+2026-10-23 after the temporary selective-CI rollout pause. The existing ancestry,
+consumer, activity, checked history-adoption and verified-backup requirements
+remain mandatory.
+
 There is no branch-age requirement or waiting period. A closed pull request wakes
 the cleanup immediately. Manual runs and a fifteen-minute schedule catch other
 eligible branches. Twelve fixed branch-push owners and twenty exact manual

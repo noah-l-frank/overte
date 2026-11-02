@@ -25,6 +25,11 @@ Item {
 
     property string userAgent: webViewCore.profile.httpUserAgent
     property string userScriptUrl: ""
+    // Shared WebView metadata; native peers use this to bind source grants.
+    // Desktop WebEngine retains its existing profile and channel ownership.
+    property string surface: "tablet"
+    property string sourceIdentity: ""
+    property var inlineDocument: null
     property string urlTag: "noDownload=false";
 
     signal newViewRequestedCallback(var request)

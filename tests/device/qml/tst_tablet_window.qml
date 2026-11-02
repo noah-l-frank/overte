@@ -76,6 +76,51 @@ TestCase {
         return window
     }
 
+    function test_centeredReopenAndKeyboard_data() {
+        return [
+            {tag: "left-cutout", w: 2400, h: 1080, l: 132, r: 0, scale: 2.5},
+            {tag: "right-cutout", w: 2400, h: 1080, l: 0, r: 132, scale: 2.5},
+            {tag: "compact", w: 640, h: 360, l: 24, r: 8, scale: 1},
+            {tag: "portrait", w: 768, h: 1024, l: 8, r: 12, scale: 1}
+        ]
+    }
+
+    function test_centeredReopenAndKeyboard(data) {
+        var window = createTemporaryObject(windowFactory, testCase)
+        currentWindow = window
+        var profile = findChild(window, "tabletTouchProfile")
+        profile.directTouch = true
+        profile.centerScreenSpaceHorizontally = true
+        profile.surfaceWidth = data.w
+        profile.surfaceHeight = data.h
+        profile.safeInsetLeft = data.l
+        profile.safeInsetRight = data.r
+        profile.safeInsetTop = 12
+        profile.safeInsetBottom = 24
+        profile.screenSpaceContentScale = data.scale
+        window.setScreenSpaceMode(true)
+        window.loadSource(homeSource)
+        var inset = Math.max(data.l, data.r)
+        for (var cycle = 0; cycle < 3; ++cycle) {
+            window.setShown(true)
+            proxy.tabletShown = true
+            tryCompare(window, "opacity", 1)
+            tryCompare(window, "x", inset)
+            compare(window.width, data.w - 2 * inset)
+            compare(window.x + window.width / 2, data.w / 2)
+            profile.keyboardVisible = true
+            profile.imeInsetBottom = 180
+            tryCompare(window, "height", data.h - 12 - 180)
+            compare(window.x, inset)
+            compare(window.width, data.w - 2 * inset)
+            profile.keyboardVisible = false
+            profile.imeInsetBottom = 0
+            tryCompare(window, "height", data.h - 12 - 24)
+            window.setShown(false)
+            tryCompare(window, "visible", false)
+        }
+    }
+
     function test_windowHideReleasesTabletState() {
         var window = openTablet()
         // A host/window close bypasses the footer's hideAndroidTablet call.

@@ -26,7 +26,7 @@ Repeat the same actions on each exact built artifact:
    sent through the echo protocol or stored by the fixture server.
 4. Press Play. Hear the tone and observe the encoded square moving, changing
    colors and **video** frame numbers. Observe several cycles in both surfaces,
-   seek to four seconds, pause and resume. Browser `currentTime` alone cannot
+   seek to zero and four seconds, pause and resume. Browser `currentTime` alone cannot
    establish that native world capture composites moving video pixels.
 5. Press Send echo request. The displayed response must come through the real
    native EventBridge into the ordinary Overte script and back. Check that

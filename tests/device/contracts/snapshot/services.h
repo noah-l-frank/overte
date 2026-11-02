@@ -45,6 +45,10 @@ public:
     Snapshot();
     bool nativeReviewEnabled() const { return true; }
     QString getSnapshotsLocation();
+    QString getSnapshotFormat();
+    void setSnapshotFormat(const QString&);
+    QStringList getAvailableSnapshotFormats();
+    QStringList getAvailableSnapshotFormatsWithDescriptions();
     QUrl snapshotFileUrl(const QString&) const;
     QFile* savedFileForSnapshot(QImage& shot,bool temporary,const QString& filename=QString(),const QString& pathname=QString());
     Setting::Handle<QString> _snapshotFormat {"format"}, _snapshotsLocation {"location"};

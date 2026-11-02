@@ -34,6 +34,7 @@
         if (playing && playing.catch) playing.catch(function (error) { show("mediaStatus", "Play failed: " + error.name); });
     };
     node("pause").onclick = function () { video.pause(); };
+    node("seekStart").onclick = function () { video.currentTime = 0; };
     node("seek").onclick = function () { video.currentTime = 4; };
     function receive(message) {
         var packet;

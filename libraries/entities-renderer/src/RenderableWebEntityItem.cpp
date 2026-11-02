@@ -123,7 +123,7 @@ WebEntityRenderer::ContentType WebEntityRenderer::getContentType(const QString& 
 
     const QUrl url(urlString);
     auto scheme = url.scheme();
-    if (urlString.toLower().endsWith(".qml")) {
+    if (scheme != URL_SCHEME_DATA && urlString.toLower().endsWith(".qml")) {
         return ContentType::QmlContent;
     }
 
@@ -267,14 +267,16 @@ void WebEntityRenderer::doRenderUpdateSynchronousTyped(const ScenePointer& scene
 
         if (_webSurface) {
             if (_webSurface->getRootItem()) {
+                synchronizeInlineDocument(entity, newSourceURL);
                 if (_contentType == ContentType::HtmlContent && _sourceURL != newSourceURL) {            
                     if (localSafeContext) {
                         ::hifi::scripting::setLocalAccessSafeThread(true);
                     }
-                    _webSurface->getRootItem()->setProperty(URL_PROPERTY, newSourceURL);
+                    _scriptURL = entity->getScriptURL();
                     _webSurface->getRootItem()->setProperty(SCRIPT_URL_PROPERTY, _scriptURL);
                     _webSurface->getRootItem()->setProperty(USE_BACKGROUND_PROPERTY, _useBackground);
                     _webSurface->getRootItem()->setProperty(USER_AGENT_PROPERTY, _userAgent);
+                    _webSurface->getRootItem()->setProperty(URL_PROPERTY, newSourceURL);
                     _webSurface->getSurfaceContext()->setContextProperty(GLOBAL_POSITION_PROPERTY, vec3toVariant(_contextPosition));
                     _webSurface->setMaxFps((QUrl(newSourceURL).host().endsWith("youtube.com", Qt::CaseInsensitive)) ? YOUTUBE_MAX_FPS : _maxFPS);
                     ::hifi::scripting::setLocalAccessSafeThread(false);
@@ -422,7 +424,9 @@ void WebEntityRenderer::buildWebSurface(const EntityItemPointer& entity, const Q
     if (isHTML) {
         ++_currentWebCount;
     }
-    WebEntityRenderer::acquireWebSurface(newSourceURL, isHTML, _webSurface, _cachedWebSurface);
+    // Acquisition must not navigate an authored HTML URL before this owner
+    // has installed its descriptor and exact source/script tuple.
+    WebEntityRenderer::acquireWebSurface(isHTML ? QString() : newSourceURL, isHTML, _webSurface, _cachedWebSurface);
     // A cached surface can return to the same renderer with a different owner
     // lifetime. Keep queued root creation from an earlier acquisition inert.
     _webSurfaceLease = QSharedPointer<int>::create(0);
@@ -460,6 +464,18 @@ void WebEntityRenderer::buildWebSurface(const EntityItemPointer& entity, const Q
 void WebEntityRenderer::destroyWebSurface() {
     QSharedPointer<OffscreenQmlSurface> webSurface;
     withWriteLock([&] {
+        _inlineDocumentOwner.revoke();
+        _inlineDocument = {};
+        if (_inlineDocumentContext) {
+            auto* context = static_cast<QQmlContext*>(_inlineDocumentContext.data());
+            context->setContextProperty("nativeInlineHtmlDocument", QVariant());
+            context->setContextProperty("nativeWebSourceIdentity", QString());
+        }
+        QObject::disconnect(_inlineDocumentRootConnection);
+        for (const auto& connection : _inlineDocumentContextConnections) { QObject::disconnect(connection); }
+        _inlineDocumentContextConnections.clear();
+        _inlineDocumentContext.clear(); _inlineDocumentRoot.clear();
+        _inlineDocumentSource.clear(); _inlineDocumentIdentity.clear(); _inlineDocumentScript.clear();
         _webSurfaceLease.reset();
         webSurface.swap(_webSurface);
 
@@ -487,6 +503,47 @@ void WebEntityRenderer::synchronizeWebVisibility(bool visible) {
     if (_webSurface && _webSurface->getRootItem()) {
         _webSurface->getRootItem()->setVisible(visible);
     }
+}
+
+void WebEntityRenderer::synchronizeInlineDocument(const TypedEntityPointer& entity, const QString& source) {
+    auto* context = _webSurface ? _webSurface->getSurfaceContext() : nullptr;
+    if (!context || !context->isValid()) { return; }
+    const auto identity = "web-entity:" + entity->getID().toString(QUuid::WithoutBraces);
+    const auto script = entity->getScriptURL();
+    auto* root = _webSurface->getRootItem();
+    if (_inlineDocumentContext.data() == context && _inlineDocumentRoot.data() == root && _inlineDocumentSource == source &&
+            _inlineDocumentIdentity == identity && _inlineDocumentScript == script) { return; }
+    _inlineDocumentOwner.revoke();
+    _inlineDocument = {};
+    if (source.startsWith("data:", Qt::CaseInsensitive)) {
+        _inlineDocument = _inlineDocumentOwner.issue(context, identity, source, script);
+    }
+    QObject::disconnect(_inlineDocumentRootConnection);
+    _inlineDocumentRoot = root;
+    const auto revoke = [this] {
+        _inlineDocumentOwner.revoke();
+        _inlineDocument = {};
+        _inlineDocumentRoot.clear();
+        auto* currentContext = static_cast<QQmlContext*>(_inlineDocumentContext.data());
+        if (currentContext && currentContext->isValid()) {
+            currentContext->setContextProperty("nativeInlineHtmlDocument", QVariant());
+        }
+    };
+    _inlineDocumentRootConnection = QObject::connect(root, &QObject::destroyed, this, revoke);
+    for (const auto& connection : _inlineDocumentContextConnections) { QObject::disconnect(connection); }
+    _inlineDocumentContextConnections.clear();
+    for (auto* ancestor = context; ancestor; ancestor = ancestor->parentContext()) {
+        _inlineDocumentContextConnections.push_back(QObject::connect(ancestor, &QObject::destroyed, this, revoke));
+    }
+    _inlineDocumentContext = context; _inlineDocumentSource = source;
+    _inlineDocumentIdentity = identity; _inlineDocumentScript = script;
+    // These are native context values, not browser- or QML-issued grants.
+    // Deliver source ownership before a root URL triggers its first load.
+    context->setContextProperty("nativeWebSourceIdentity", identity);
+    // No issued document means no supplied grant. A typed empty/revoked
+    // descriptor is an explicit denied carrier at native client boundaries.
+    context->setContextProperty("nativeInlineHtmlDocument",
+        _inlineDocument.current() ? QVariant::fromValue(_inlineDocument) : QVariant());
 }
 
 glm::vec2 WebEntityRenderer::getWindowSize(const TypedEntityPointer& entity) const {

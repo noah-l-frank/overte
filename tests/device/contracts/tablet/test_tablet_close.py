@@ -1,5 +1,6 @@
 """Execute the production close handler for each tablet platform variant."""
 from pathlib import Path
+import os
 import subprocess
 import shlex
 import tempfile
@@ -83,6 +84,65 @@ int main() {
                                     f"-DOVERTE_TABLET_SCREEN_SPACE_MEMBER={SCREEN_SPACE_MEMBER}", str(cpp),
                                     "-o", str(binary)], check=True, timeout=30)
                     subprocess.run([str(binary)], check=True, timeout=5)
+
+
+class NativeFieldInputTests(unittest.TestCase):
+    def test_actual_focused_field_keyboard_and_ime_events(self):
+        major = os.environ.get("OVERTE_NATIVE_QT_MAJOR", "6")
+        if major not in {"5", "6"}:
+            raise ValueError("OVERTE_NATIVE_QT_MAJOR must be 5 or 6")
+        environment = dict(os.environ)
+        library_paths = []
+        if major == "5" and environment.get("OVERTE_QT5_HOST_ROOT"):
+            prefix = Path(environment["OVERTE_QT5_HOST_ROOT"]).resolve(strict=True)
+            environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),
+                PKG_CONFIG_LIBDIR=str(prefix / "usr/lib64/pkgconfig"),
+                LD_LIBRARY_PATH=str(prefix / "usr/lib64"),
+                QT_PLUGIN_PATH=str(prefix / "usr/lib64/qt5/plugins"),
+                QML2_IMPORT_PATH=str(prefix / "usr/lib64/qt5/qml"),
+                QML_IMPORT_PATH=str(prefix / "usr/lib64/qt5/qml"))
+            # Fedora's Qt 5 pkg-config files omit the default /usr/lib64
+            # search flag; the relocated SDK needs its actual library path.
+            library_paths = ["-L" + str(prefix / "usr/lib64")]
+        flags = shlex.split(subprocess.check_output(["pkg-config", "--cflags", "--libs",
+            "Qt" + major + "Core", "Qt" + major + "Gui", "Qt" + major + "Qml",
+            "Qt" + major + "Quick", "Qt" + major + "Test"], text=True, env=environment))
+        here = Path(__file__).parent
+        native = ROOT / "libraries/ui/src/ui"
+        with tempfile.TemporaryDirectory(prefix="overte-native-field-input-") as temporary:
+            binary = Path(temporary) / "test"
+            source = (ROOT / "interface/resources/qml/hifi/tablet/TabletHome.qml").read_text()
+            marker = source.index('objectName: "tabletPage."')
+            start = source.rfind("MouseArea {", 0, marker)
+            end, depth = start + len("MouseArea {"), 1
+            while depth:
+                depth += (source[end] == "{") - (source[end] == "}")
+                end += 1
+            # Keep the actual pointer/accessibility/key handlers intact; only
+            # their surrounding presentation/model boundary is controlled.
+            pager = Path(temporary) / "pager.qml"
+            pager.write_text('''import QtQuick 2.12
+import QtQuick.Controls 2.5
+Item {
+ id: root; width: 640; height: 260
+ property bool directTouch: false
+ readonly property int currentPage: swipeView.currentIndex
+ QtObject { id: presentation; property int minimumTouchTarget: 60; property bool touchOptimized: root.directTouch }
+ QtObject { id: pageIndicator; property int currentIndex: swipeView.currentIndex }
+ SwipeView { id: swipeView; x: 10; y: 0; width: 200; height: 80; Item {} Item {} }
+ Row { x: 10; y: 120
+  Repeater { model: 2
+   Item { width: 60; height: 60; property bool isHovered: false; ORIGINAL }
+  }
+ }
+}'''.replace("ORIGINAL", source[start:end]))
+            subprocess.run(["c++", "-std=c++17", "-fPIC", "-UNDEBUG", "-pthread",
+                "-I" + str(native), str(native / "NativeFieldInput.cpp"),
+                str(here / "native-field-input-test.cpp"), "-o", str(binary), *library_paths, *flags],
+                check=True, timeout=60, env=environment)
+            subprocess.run(["unshare", "--user", "--map-root-user", "--net", str(binary), str(pager)],
+                check=True, timeout=30, env={**environment, "QT_QPA_PLATFORM": "offscreen",
+                                            "QT_QUICK_BACKEND": "software", "QT_FORCE_STDERR_LOGGING": "1"})
 
 
 if __name__ == "__main__":

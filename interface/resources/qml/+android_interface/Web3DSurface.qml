@@ -83,7 +83,7 @@ Item {
             if (loader.item.stop) { loader.item.stop(); }
         }
 
-        if (/\.qml(?:[?#].*)?$/.test(url)) {
+        if (!/^data:/i.test(url) && /\.qml(?:[?#].*)?$/.test(url)) {
             root.webViewLoaded = false;
             loader.setSource(url);
         } else {
