@@ -9,14 +9,14 @@ baseline grants no new input, sampling epoch, controller or quiet-window proof.
 from copy import deepcopy
 from pathlib import Path
 
-from adapters.chat_journey.source_chunks import ChatSourceChunks,json_digest
-from adapters.native_feature_observation import exact,need
+from adapters.chat_journey.source_chunks import ChatSourceChunks
+from adapters.native_feature_observation import exact,need,number
 from adapters.navigation_frames import NavigationFrames
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.pico4.navigation_close import NavigationTabletClose
 from adapters.pico4.navigation_generation_page import NavigationGenerationPage
 from adapters.pico4.navigation_bookmark_join import NavigationBookmarkJoin
-from adapters.pico4.navigation_originals import read_original
+from adapters.pico4.navigation_originals import read_original,signature
 from adapters.pico4.normal_scripts import PicoScriptIO
 from adapters.pico4.tablet_home import PicoTabletHome
 from adapters.script_journey.history import same
@@ -51,7 +51,7 @@ class NavigationGenerationFrames:
         self.close_path=self.link.path.with_name('navigation-prefix-generation-1-'+self.role+'-frame-close.json')
         self.frames_path=self.link.path.with_name('navigation-prefix-generation-1-'+self.role+'-frames.json')
         self.status_store=PrivateFeatureState(self.link.path.with_name('navigation-prefix-generation-1-'+self.role+'-frame-statuses.json'))
-        self.closed=self.frames=None;self.pins=None;self.link_pin=None
+        self.closed=self.frames=None;self.pins=None;self.link_pin=None;self.directory_pin=None
         self.namespace=(self.role,self.root,self.link.path,self.close_path,self.frames_path,self.status_store.path)
 
     def control(self):
@@ -63,7 +63,13 @@ class NavigationGenerationFrames:
         if self.pins is not None:
             need(same(self.originals(),self.pins))
         if self.link_pin is not None:need(same(read_original(self.link.path),self.link_pin))
+        if self.directory_pin is not None:need(self.directory_identity()==self.directory_pin)
         return True
+
+    def directory_identity(self):
+        PrivateFeatureState(self.root/'boundary.json')._parent()
+        info=self.root.lstat()
+        return [info.st_dev,info.st_ino,info.st_mode,info.st_uid]
 
     def originals(self):
         return [read_original(self.lock.path.with_name('navigation-prefix-generation-1-'+name+'.json'))
@@ -75,19 +81,23 @@ class NavigationGenerationFrames:
         original=p.close_owner.close_owner()
         need(original.state['phase']=='closed' and original.state['quiet'])
         pins=self.originals();need(all(row['present'] for row in pins))
-        expected=dict(navigationGenerationFrameCloseVersion=VERSION,scope=p.scope(),role=self.role,
-            artifactRoot=str(self.root),originals=pins,original=deepcopy(original.disk),
-            continuationPath=str(self.close_path),framesPath=str(self.frames_path),statusPath=str(self.status_store.path))
         body=self.link.read()
         if body is None:
             # An orphan continuation is unresolved ownership, never an implicit
             # permission to adopt, overwrite, restart or repeat a Close.
-            need(self.close_path.exists() is False and self.frames_path.exists() is False)
+            need(all(PrivateFeatureState(path).read() is None for path in (self.close_path,self.frames_path,self.status_store.path)))
+            ChatSourceChunks(self.status_store,dict(scope=p.scope(),role=self.role,originals=pins)).inventory(0)
             try:self.root.mkdir(mode=0o700)
             except FileExistsError:pass
             PrivateFeatureState(self.root/'boundary.json')._parent();need(not any(self.root.iterdir()))
+        directory=self.directory_identity()
+        expected=dict(navigationGenerationFrameCloseVersion=VERSION,scope=p.scope(),role=self.role,
+            artifactRoot=str(self.root),artifactRootIdentity=directory,originals=pins,original=deepcopy(original.disk),
+            continuationPath=str(self.close_path),framesPath=str(self.frames_path),statusPath=str(self.status_store.path))
+        if body is None:
             self.link.write(expected,None);body=expected
-        exact(body,set(expected));need(same(body,expected));self.pins=deepcopy(pins);self.link_pin=read_original(self.link.path)
+        exact(body,set(expected));need(same(body,expected));self.pins=deepcopy(pins)
+        self.link_pin=read_original(self.link.path);self.directory_pin=directory
         if self.close_path.exists() is False:
             # A link without its next CAS is an unresolved original operation.
             # Only the owner that just created this link may seed its baseline.
@@ -103,7 +113,23 @@ class NavigationGenerationFrames:
         frames=self.factory(p,self.closed,self.frames_path,self.root,self.role)
         need(isinstance(frames,NavigationFrames) and frames.closed is self.closed and frames.role==self.role
             and frames.binding==p.binding and frames.run==p.run and frames.root==self.root and frames.store.path==self.frames_path)
-        self.frames=frames;self.control()
+        self.frames=frames;self.control();self.artifact_namespace()
+
+    def artifact_namespace(self):
+        """Current complete namespace before a continuation can acquire again.
+
+        A pending source may have only its exact metadata/image intent names;
+        no existence observation adopts its bytes or supplies a fresh frame.
+        The existing typed source validates those originals independently.
+        """
+        required={self.root/row['name'] for record in self.frames.state['records']
+            for row in self.frames.owner(record['journalId']).artifacts(record['sequence'])}
+        allowed=set(required);pending=self.frames.state['pending']
+        if pending is not None:
+            owner=self.frames.owner(pending['journalId']);allowed.add(owner.store.path)
+            if owner.state is not None and owner.state['image'] is not None:
+                allowed.add(self.root/owner.state['image']['name'])
+        actual=set(self.root.iterdir());need(required<=actual<=allowed);self.control()
 
     def statuses(self):
         p=self.parent;scope=dict(scope=p.scope(),role=self.role,originals=self.pins)
@@ -118,6 +144,7 @@ class NavigationGenerationFrames:
         for row in rows:
             exact(row,{'status','hostMonotonic'})
             need(NavigationBookmarkJoin.neutral(row['status'],envelope)
+                and number(row['hostMonotonic'],0,1e15)
                 and (previous is None or row['hostMonotonic']>=previous));previous=row['hostMonotonic']
         return body,chunks,scope,manifest
 
@@ -157,9 +184,13 @@ class NavigationGenerationFrames:
             self.control();self.baseline(p.close_owner.close_owner())
             guards=(runtime['source'].guard,runtime['native'].guard);pins=p.pin_current(runtime)
             evidence=self.evidence();captured=answer['capturedEpochMs']
+            names=sorted(Path(row['path']).name for row in evidence if Path(row['path']).parent==self.root)
+            directory=signature(self.root.lstat());need(sorted(path.name for path in self.root.iterdir())==names)
         # No fresh query, new source or retiming after the actual outer exit.
         p.finalize(runtime,requested,started,captured,guards,pins)
         need(same(self.originals(),self.pins)
+            and self.root.resolve(strict=True)==self.root and signature(self.root.lstat())==directory
+            and sorted(path.name for path in self.root.iterdir())==names
             and same([read_original(row['path']) for row in evidence],evidence))
         p.finalize(runtime,requested,started,captured,guards,pins)
         return answer

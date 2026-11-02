@@ -26,8 +26,12 @@ lock with the normal Create editor; the same Common16/OverteSession graph
 passes peer readiness and its first two actions in3 cases/82.939s. Its next
 required boundary is lossless storage capacity: the current14-part observation
 format cannot fit the minimum51 observations under the unchanged512-part cap.
-The committed V2 storage and G1 Navigation continuations remain unfinished WIP
-as recorded in the [consolidation checkpoint](CONSOLIDATION_CHECKPOINT_20261102.md).
+The V2 Actor storage remains under implementation. The retained G1 Navigation
+continuation now passes fresh per-role stereo and original release through two
+disjoint groups (6/95.388s and4/110.313s);20 unchanged G0/Close/Browser cases
+pass106.066s. Actual changed-eye scenes, maturity/origin and full final closure
+remain open. The [consolidation checkpoint](CONSOLIDATION_CHECKPOINT_20261102.md)
+records the earlier WIP boundary.
 
 Normal People request/cancellation is integrated through canonical Pico binding
 with two independently owned role sources;5 canonical cases plus6 legacy
@@ -35,11 +39,15 @@ Parent cases pass35.886s. The Audio recording cycle joins separately retained
 digital PC preview files, not physical acoustic evidence (10 cases/55.892s).
 The retained independent Create Model peer packet passes11 new source cases
 and19 legacy Parent cases; production observer integration remains next.
-The central catalog contains295 disjoint groups, including the new Create
-peer source group and the four Avatar/Audio/Lifecycle groups. Browser namespace
+The central catalog contains297 disjoint groups, including the new Create
+peer source group, four Avatar/Audio/Lifecycle groups and two G1 frame groups. Browser namespace
 and complete physical archive checks pass21 affected cases; previous complete
 owning Journeys still time out120s. See the
 [retained Browser diagnostics](BROWSER_CAPTURE_RETIREMENT.md).
+The latest whole Browser remains RED/120s after266 confirmed source unlinks
+and one pending unlink; no failed owner is adopted. A newer
+[fixed Phone source review](PHONE_REUSE_REVIEW_20261102.md) covers5e8ff8aa
+and records existing and candidate reuse without transferring qualification.
 No new feature or device qualification is claimed. Source-complete areas remain
 3/14; host models and native/device qualification remain separate.
 

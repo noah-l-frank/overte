@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 295
+EXPECTED_CATALOG_CASES = 297
 
 
 def catalog_entries() -> list[str]:
@@ -31,6 +31,24 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_navigation_frame_wrappers_keep_each_owning_case_once(self):
+        expected={
+            'navigation-generation-frames':'device/test_navigation_generation_frames.py',
+            'navigation-generation-frame-fences':'device/test_navigation_generation_frame_fences.py'}
+        selected={}
+        for node in ast.walk(RUNNER_TREE):
+            if (isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test'
+                    and node.args and isinstance(node.args[0],ast.Constant) and node.args[0].value in expected):
+                self.assertEqual(4,len(node.args));selected[node.args[0].value]=node.args[3].value
+        self.assertEqual(expected,selected)
+        cases=[]
+        for path in selected.values():
+            tree=ast.parse((TEST_DIR/path).read_text())
+            declarations=[node for node in tree.body if isinstance(node,ast.Assign)
+                and any(isinstance(target,ast.Name) and target.id=='CASE_NAMES' for target in node.targets)]
+            self.assertEqual(1,len(declarations));cases.extend(ast.literal_eval(declarations[0].value))
+        self.assertEqual(10,len(cases));self.assertEqual(len(cases),len(set(cases)))
+
     def test_process_handoff_partitions_keep_each_complete_case_once(self):
         root=TEST_DIR.parents[3]
         tree=ast.parse((root/'tests/device/self_tests/test_lifecycle_operations_process.py').read_text())

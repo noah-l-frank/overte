@@ -25,6 +25,8 @@ REQUIRED = {
     "pico-world-web-stereo-join": 1,
     "pico-world-web-source-pass": 2,
     "pico-world-web-source-return": 2,
+    "pico-navigation-generation-frame-close": 1,
+    "pico-navigation-generation-frame-statuses": 1,
     "pico-world-web-prefix": 3,
     "pico-browser-actor-export": 1,
     "pico-browser-actor-graph": 1,

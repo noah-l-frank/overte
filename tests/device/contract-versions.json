@@ -17,6 +17,8 @@
     "pico-world-web-stereo-join": {"current": 1, "reads": [1]},
     "pico-world-web-source-pass": {"current": 2, "reads": [1, 2]},
     "pico-world-web-source-return": {"current": 2, "reads": [1, 2]},
+    "pico-navigation-generation-frame-close": {"current": 1, "reads": [1]},
+    "pico-navigation-generation-frame-statuses": {"current": 1, "reads": [1]},
     "pico-world-web-prefix": {"current": 3, "reads": [1, 2, 3]},
     "pico-browser-actor-export": {"current": 1, "reads": [1]},
     "pico-browser-actor-graph": {"current": 1, "reads": [1]},

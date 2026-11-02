@@ -146,7 +146,14 @@
         "tests/device/adapters/pico4/navigation_generation_close.py",
         "tests/device/adapters/pico4/NAVIGATION_GENERATION_JOIN.md",
         "tests/device/self_tests/test_pico_navigation_generation_prefix.py",
-        "android/vr/pico/tests/device/test_navigation_generation_prefix.py"
+        "android/vr/pico/tests/device/test_navigation_generation_prefix.py",
+        "tests/device/adapters/pico4/navigation_generation_frames.py",
+        "tests/device/adapters/pico4/NAVIGATION_GENERATION_FRAMES.md",
+        "tests/device/self_tests/test_pico_navigation_generation_frames.py",
+        "tests/device/self_tests/test_pico_navigation_capture_namespaces.py",
+        "tests/device/self_tests/test_pico_navigation_generation_frame_catalog.py",
+        "android/vr/pico/tests/device/test_navigation_generation_frames.py",
+        "android/vr/pico/tests/device/test_navigation_generation_frame_fences.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -191,7 +198,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Normal unchanged v16 actions through15 now compose on the actual original restart lineage: G1 Open/Entry/bookmark adoption/Delete/Tab0/Home/Close and both independent role source brackets. Root passes all7 generation cases in68.929s plus legacy Close compatibility, preserving all13,519 source hashes. Next join actual fresh G1 scene/stereo capture through the admitted new runtime and a new generation namespace; old global G0 UI/capture files remain immutable. Original maturity/origin restoration, independent publisher, actual changed eye/scene evidence, public whole coordinator and final resource/Host/journal closure remain open.",
+      "nextExecutableStep": "Compose original maturity/origin restoration and independent publication around the normal15-action restart lineage and newly qualified G1 passive stereo route. New per-role factories use the admitted G1 runtime and distinct durable read-only Close continuation; old G0 and completed G1 Close originals remain pinned. Two disjoint owning groups pass6/95.388s and4/110.313s, with20 G0/Close/Browser compatibility cases106.066s; all complete loaded-source SHA/physical freezes match. Foreign capture guards cover allfour G0/G1 Primary/Actor stores. Actual changed-eye/A-B scene evidence, full common coordinator and final resource/Host/journal closure remain open. Review complete newer frozen Phone5e8ff8aa architecture selectively; touch/mono/Common18 cannot substitute for Pico source authority.",
       "nativeCompilation": "Selected full NativeEnvironment header, original passive Settings::Manager getter and Qt thread/lock modes compile and pass host checks. Complete native application/APK, VM/OS/GPU/device boundaries remain unqualified.",
       "deviceQualification": "untested"
     },

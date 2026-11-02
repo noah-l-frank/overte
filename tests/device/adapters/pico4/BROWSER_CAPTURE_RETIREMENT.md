@@ -317,3 +317,36 @@ not a whole-journey prediction. Evidence:
 `/home/user/.local/state/overte-pico-browser-path-fence-cost-20261102-qjh_rwo1`.
 No second whole run is claimed after this path-group change. Complete Browser
 archive/host finalization and the full feature remain open.
+
+## Whole owner after namespace and immutable-index selections
+
+A new single owning run on2026-11-02 retains the unchanged120s outer deadline.
+The complete28-phase Common sequence finishes at73.883s; final Browser archive
+entry occurs at101.297s. The run remains RED/124 at120s, with266 confirmed
+source unlinks and one unresolved issued unlink. All1,069 original source
+copies and the additional manifest files remain retained. The warm owner is
+not retried or adopted.
+
+Lightweight host timers record269 complete Browser inventories,535 full fresh
+physical index passes,267 current-copy/manifest checks and19 original source
+acquisitions. Their cumulative costs are1.612s,3.035s,3.114s and1.658s
+respectively; these nested measurements must not be summed as disjoint costs.
+The complete Common path and the capture/return transition before archive are
+still material costs. The isolated20% index improvement does not qualify a
+whole Journey speedup or successful retirement.
+
+All205 loaded source files have identical SHA-256 and complete physical stamps
+before/after; no initial source is missing. The terminal audit finds no process
+matching the actual owned worker entry and verifies all2,000 retained files'
+bytes/full physical stamps unchanged across two passes. Its first copy count
+used a glob that missed the run-prefixed archive directory; the corrected audit
+records1,069 copies. The original diagnostic remains unchanged.
+
+Exact runner, log, source maps, original120s result and corrected terminal audit
+are private under
+`/home/user/.local/state/overte-pico-resume-integration-20261102-24qkewqw`;
+the original runtime remains
+`/tmp/overte-pico-browser-namespace-whole-20261102-rq8jb52a`.
+No compiler, physical device, source/cursor reset, additional fixture input,
+renewed deadline or increased cap was used. Full Browser and public final
+capability composition remain open.

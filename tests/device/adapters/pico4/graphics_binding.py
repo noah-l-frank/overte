@@ -57,6 +57,9 @@ class PicoGraphicsBinding(PicoScriptJourney):
         native=self._native_feature_observer(target,read_only=True)
         stores=[self.world_render_store(target,role=value) for value in ('primary','actor')]
         stores.append(self.original._world_render_store(target))
+        navigation=getattr(self.original,'_navigation_world_render_stores',None)
+        if navigation is not None:
+            need(callable(navigation));stores.extend(navigation(target))
         return observer(proof,lock,binding,native,guard,stores,
             lambda:self.original.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
             previous=previous)

@@ -161,6 +161,9 @@ class PicoTabletWebBinding(PicoScriptJourney):
         for role in ('primary','actor'):
             stores.extend((self.original._browser_world_render_store(target,role),
                 self.original._emote_world_render_store(target,role),graphics.world_render_store(target,role=role)))
+        navigation=getattr(self.original,'_navigation_world_render_stores',None)
+        if navigation is not None:
+            need(callable(navigation));stores.extend(navigation(target))
         return stores
 
     def _tablet_web_capture_guard(self,target,lock):

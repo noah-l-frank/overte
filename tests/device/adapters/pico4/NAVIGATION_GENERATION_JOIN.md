@@ -64,9 +64,11 @@ Private generation flow/open/close/page DTOs are version 1. The one new
 
 Every new journal, status original and role frame uses `navigation-prefix-`
 within the original Script source root. Existing `_navigation_prefix_owned`
-therefore retains Base cleanup refusal, including an orphan file. This packet
-adds no world-capture namespace and needs no new Browser/Emote/Graphics capture
-admission exception. It does not remove or retire any prior owner obligation.
+therefore retains Base cleanup refusal, including an orphan file. The original
+fifteen-action packet added no world-capture namespace. Its later
+[passive G1 stereo continuation](NAVIGATION_GENERATION_FRAMES.md) uses separate
+generation/role capture owners and includes them in acquisition and retired
+inspection guards. It removes no prior owner obligation.
 
 ## Actual first positive and failures
 
@@ -104,7 +106,8 @@ this earlier whole-manifest hash is not presented as that later stand.
 
 The host Qt/VM/native/OS/GPU producers are explicit models. No native compiler,
 headset, SDK device run, independent physical peer, Scene v2 changed-image or
-new post-restart stereo image was produced by this packet. The earlier generic
+new post-restart stereo image was produced by the original fifteen-action
+packet. The later passive continuation is documented above. The earlier generic
 host PNGs still do not prove visually different A/B scenes. The complete
 Source/Actor/Public wiring, final original settings restoration and genuine
 new-process resource/work retirement remain open. No capability or true common
