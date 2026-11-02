@@ -22,14 +22,12 @@ test('ASAR packaging preserves traversal, symlinks and unpack patterns', async f
     fs.writeFileSync(path.join(source, 'native', 'addon.node'), 'native-addon');
     fs.writeFileSync(path.join(source, 'native', 'support.txt'), 'native-support');
     fs.writeFileSync(path.join(source, 'external.node'), 'external-addon');
-    fs.symlinkSync('nested/content.txt', path.join(source, 'content-link'));
     const archive = path.join(directory, 'app.asar');
     await asar.createPackageWithOptions(source, archive, {
         unpack: '**/*.node',
         unpackDir: 'native'
     });
     assert.equal(asar.extractFile(archive, 'nested/content.txt').toString(), 'overte');
-    assert.equal(asar.statFile(archive, 'content-link', false).link, 'nested/content.txt');
     for (const file of ['native/addon.node', 'native/support.txt', 'external.node']) {
         assert.equal(asar.statFile(archive, file).unpacked, true);
         assert.equal(fs.readFileSync(path.join(archive + '.unpacked', file), 'utf8'),
@@ -37,8 +35,24 @@ test('ASAR packaging preserves traversal, symlinks and unpack patterns', async f
     }
     const extracted = path.join(directory, 'extracted');
     asar.extractAll(archive, extracted);
-    assert.equal(fs.readFileSync(path.join(extracted, 'content-link'), 'utf8'), 'overte');
     assert.equal(fs.readFileSync(path.join(extracted, 'native/support.txt'), 'utf8'), 'native-support');
+    await t.test('symlink traversal and extraction', async function(t) {
+        try {
+            fs.symlinkSync('nested/content.txt', path.join(source, 'content-link'));
+        } catch (error) {
+            if (process.platform === 'win32' && error.code === 'EPERM') {
+                t.skip('Creating symlinks requires Windows Developer Mode or administrator rights');
+                return;
+            }
+            throw error;
+        }
+        const linkedArchive = path.join(directory, 'linked.asar');
+        await asar.createPackageWithOptions(source, linkedArchive, {});
+        assert.equal(asar.statFile(linkedArchive, 'content-link', false).link, 'nested/content.txt');
+        const linkedExtracted = path.join(directory, 'linked-extracted');
+        asar.extractAll(linkedArchive, linkedExtracted);
+        assert.equal(fs.readFileSync(path.join(linkedExtracted, 'content-link'), 'utf8'), 'overte');
+    });
 });
 
 test('request replacement preserves callback and stream APIs', async function(t) {
