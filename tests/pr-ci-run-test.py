@@ -219,6 +219,19 @@ class DockerCommandTests(unittest.TestCase):
         self.assertEqual("/usr/bin:/bin", self.environment(
             self.command(environment={"PATH": "/usr/bin:/bin"}))["PATH"])
 
+    def test_android_sdk_binding_is_explicit_and_stays_inside_prepared_inputs(self):
+        with patch.dict(os.environ, {"ANDROID_SDK_ROOT": "/host/unbound-sdk",
+                                    "GITHUB_TOKEN": "credential-canary"}):
+            argv = self.command(prepared_roots=[self.tools],
+                                environment={"ANDROID_SDK_ROOT": str(self.tools)})
+        values = self.environment(argv)
+        self.assertEqual(str(self.tools), values["ANDROID_SDK_ROOT"])
+        self.assertNotIn("/host/unbound-sdk", " ".join(argv))
+        self.assertNotIn("credential-canary", " ".join(argv))
+        for value in ("/host/unbound-sdk", "/usr/../home/private", "relative"):
+            with self.subTest(value=value), self.assertRaises(R.RunError):
+                self.command(environment={"ANDROID_SDK_ROOT": value})
+
     def test_only_explicit_dependency_network_uses_bridge(self):
         self.assertIn("--network=none", self.command())
         self.assertIn("--network=bridge", self.command(network=True))

@@ -649,6 +649,25 @@ jobs:
           python3 -I -S -B trusted/tools/repository-checks/pr_ci_android_native.py \
             --destination "$RUNNER_TEMP/pr-ci-android-native" \
             --cache "$RUNNER_TEMP/pr-ci-android-native-cache"
+      - name: Restore sealed Pico host SDK transport without a native build
+        if: needs.plan.outputs.target == 'android-vr-pico' && needs.plan.outputs.android_native_products == '[]'
+        id: pico-host-sdk-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25
+        with:
+          path: ${{ runner.temp }}/pr-ci-pico-host-sdk-cache
+          key: pr-ci-pico-host-sdk-v1-${{ hashFiles('trusted/.github/pr-ci-android-native.json') }}
+      - name: Prepare sealed Pico host SDK data without native execution
+        if: needs.plan.outputs.target == 'android-vr-pico' && needs.plan.outputs.android_native_products == '[]'
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci_android_native.py \
+            --sdk-only --destination "$RUNNER_TEMP/pr-ci-pico-host-sdk" \
+            --cache "$RUNNER_TEMP/pr-ci-pico-host-sdk-cache"
+      - name: Save verified Pico host SDK transport
+        if: needs.plan.outputs.target == 'android-vr-pico' && needs.plan.outputs.android_native_products == '[]' && steps.pico-host-sdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25
+        with:
+          path: ${{ runner.temp }}/pr-ci-pico-host-sdk-cache
+          key: pr-ci-pico-host-sdk-v1-${{ hashFiles('trusted/.github/pr-ci-android-native.json') }}
       - name: Restore the small Pico Groovy transport cache
         if: needs.plan.outputs.android_groovy_contracts == 'true'
         id: android-groovy-cache
@@ -682,6 +701,7 @@ jobs:
           COMPILE_PRODUCTS: ${{ needs.plan.outputs.android_compile_products }}
           NATIVE_PRODUCTS: ${{ needs.plan.outputs.android_native_products }}
           GROOVY_CONTRACTS: ${{ needs.plan.outputs.android_groovy_contracts }}
+          PRODUCT_TARGET: ${{ needs.plan.outputs.target }}
           PR_CI_ANDROID_NATIVE_EXPORT: ${{ runner.temp }}/pr-ci-android-export
         run: |
           node_root=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
@@ -694,6 +714,13 @@ jobs:
           fi
           if test "$NATIVE_PRODUCTS" != '[]'; then
             prepared+=(--prepared-root "$RUNNER_TEMP/pr-ci-android-native" --android-native-runtime "$RUNNER_TEMP/pr-ci-android-native")
+          fi
+          if test "$PRODUCT_TARGET" = 'android-vr-pico'; then
+            if test "$NATIVE_PRODUCTS" != '[]'; then
+              prepared+=(--android-host-sdk "$RUNNER_TEMP/pr-ci-android-native/sdk")
+            else
+              prepared+=(--prepared-root "$RUNNER_TEMP/pr-ci-pico-host-sdk" --android-host-sdk "$RUNNER_TEMP/pr-ci-pico-host-sdk")
+            fi
           fi
           if test "$GROOVY_CONTRACTS" = 'true'; then
             prepared+=(--prepared-root "$RUNNER_TEMP/pr-ci-android-groovy" --android-groovy-runtime "$RUNNER_TEMP/pr-ci-android-groovy")
