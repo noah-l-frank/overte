@@ -641,6 +641,7 @@ def main():
                 command.add_argument('--android-runtime', type=Path)
                 command.add_argument('--android-native-runtime', type=Path)
                 command.add_argument('--android-groovy-runtime', type=Path)
+                command.add_argument('--android-host-sdk', type=Path)
         if name == "complete":
             command.add_argument("--needs-json", required=True)
         if name == "verify-ios":
@@ -736,7 +737,8 @@ def main():
             import pr_ci_platform
             receipt = pr_ci_platform.execute(args.candidate, context, plan, args.lane,
                 args.prepared_root, recompute=selection, android_runtime=args.android_runtime,
-                android_native_runtime=args.android_native_runtime, android_groovy_runtime=args.android_groovy_runtime)
+                android_native_runtime=args.android_native_runtime, android_groovy_runtime=args.android_groovy_runtime,
+                android_host_sdk=args.android_host_sdk)
             if args.out:
                 write_json(args.out, receipt)
         elif args.command == "verify-ios":
