@@ -164,3 +164,41 @@ reads and actual independent phase queries for each unlink. Those requirements
 remain in force; faster isolated serialization has not established a faster
 whole result. No unchanged whole retry is justified without a material next
 change or a separately scoped diagnostic.
+
+## Sealed PNG projection and bounded continuation on 2026-11-02
+
+Physical checks and namespace membership now read the already sealed immutable
+PNG projection directly. Full metadata remains byte-for-byte in the admission;
+every physical stamp, complete current image read and namespace scan still runs
+at its original boundary. This removes repeated JSON decoding, without caching
+a current file observation or changing any native query, retirement policy,
+budget, quiet window or deadline.
+
+The focused metadata/original-file group passes15 cases/0.574s, including a
+same-byte replacement of the last original and replacement of the sealed
+projection. The complete existing capture-retirement group passes11 cases/
+43.391s; its200 loaded repository sources remain unchanged. The retained
+originals are in `/tmp/overte-pico-browser-png-owning-20261102-dyitl31p`.
+
+A separate host-only comparison uses80 modeled image metadata records and
+actual retained files, with1,047,661 unchanged metadata bytes. Median physical
+stamp-pass cost is6.510ms before and0.571ms with the projection; name projection
+is5.955ms versus0.0023ms. These are metadata/physical-file measurements, not
+rendering, native or complete-journey performance evidence.
+
+The new complete owning Journey remains **RED at the unchanged120s outer
+bound** (exit124). Its1,087 immutable copies/manifests are retained,223 unlinks
+are confirmed, and one further unlink is still issued with an uncertain
+outcome. The source sentry remains archiving; final host release is not proved.
+The2,040 terminal files retain stable full hashes and physical signatures;
+no process remains with the unique root in its command line. Concurrent World,
+Avatar and Lifecycle edits mean this run is not a frozen-whole-checkout claim.
+The failed owner cannot be adopted, retried or resumed from its directory.
+
+Unique logs, source manifests, measurements and complete terminal inventory:
+`/home/user/.local/state/overte-pico-browser-png-projection-20261102-mconlui2`.
+The complete-case originals remain under
+`/tmp/overte-pico-browser-png-whole-20261102-p1nyck3d`.
+Full capture-history validation and the mandatory per-unlink copy, namespace,
+PNG and independent-source checks remain the next measured boundary. There is
+no whole-feature or device completion claim and no unchanged full retry.

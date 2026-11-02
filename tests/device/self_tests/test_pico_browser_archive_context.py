@@ -198,6 +198,33 @@ class BrowserArchivePngWindowTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):captures.append_png(original[0])
         self.assertEqual(original,captures.pngs);self.plan.pngs()
 
+    def test_physical_png_pass_checks_every_original_again_and_retains_full_metadata(self):
+        from adapters.chat_journey.archive_file import signature
+        captures=self.plan.captures;captures.primary=self.plan.primary
+        first=captures.pngs[0]
+        for index in range(2):
+            path=self.root/('later-'+str(index)+'.png')
+            path.write_bytes(self.raw);path.chmod(0o600);info=path.stat()
+            row=deepcopy(first);row['value'].update(name=path.name,
+                file=dict(device=info.st_dev,inode=info.st_ino),
+                capture=dict(originalMetadata=['complete',{'label':'ä Ω 東京'}]))
+            row['stamp']=signature(info);captures.append_png(row)
+        original=captures._png_bytes;before=captures.pngs
+        captures.verify_png_stamps();self.assertEqual(before,captures.pngs)
+        self.assertIs(original,captures._png_bytes)
+        last=self.root/before[-1]['value']['name'];replacement=self.root/'same-bytes-replacement'
+        replacement.write_bytes(last.read_bytes());replacement.chmod(0o600);replacement.replace(last)
+        with self.assertRaises(NativeUIError):captures.verify_png_stamps()
+        self.assertEqual(before,captures.pngs)
+        self.assertTrue(all((self.root/row['value']['name']).exists() for row in before))
+
+    def test_replaced_sealed_png_projection_cannot_authorize_a_physical_pass(self):
+        captures=self.plan.captures;captures.primary=self.plan.primary
+        captures.verify_png_stamps()
+        captures._png_windows=tuple(list(captures._png_windows))
+        with self.assertRaises(NativeUIError):captures.verify_png_stamps()
+        self.assertEqual(self.raw,self.path.read_bytes());self.assertFalse(self.directory.closed)
+
 
 class BrowserArchiveNamespaceTests(unittest.TestCase):
     """Actual namespace/marker files; context/source/PNG producers are seams."""

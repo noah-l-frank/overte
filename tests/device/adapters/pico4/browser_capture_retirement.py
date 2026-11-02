@@ -81,6 +81,14 @@ class PicoBrowserCaptureRetirement:
         return self._png_sha,tuple((dict(name=name,bytes=size,sha256=sha,file=dict(device=device,inode=inode)),list(stamp))
             for name,size,sha,device,inode,stamp in self._png_windows)
 
+    def verify_png_stamps(self):
+        # Read every current physical stamp against the same sealed original.
+        # Complete metadata stays in admission_bytes(); decoding it again is
+        # unnecessary for this physical comparison.
+        self.immutable_pngs()
+        for name,_size,_sha,_device,_inode,stamp in self._png_windows:
+            need(signature((self.primary.artifact_root/name).lstat())==list(stamp))
+
     def add(self,store,value,role):
         need(value is not None)
         for row in self.catalog.rows.values():
@@ -148,7 +156,7 @@ class PicoBrowserCaptureRetirement:
         metadata={path for path in artifacts.iterdir() if path.name.startswith('tablet-web-'+self.primary.run+'-')}
         need(metadata=={path for path in expected if path.parent==artifacts})
         pngs={path.name for path in artifacts.iterdir() if path.name.startswith('graphics-'+self.primary.run+'-')}
-        need(pngs=={row['value']['name'] for row in self.pngs})
+        self.immutable_pngs();need(pngs=={window[0] for window in self._png_windows})
 
     def admission(self):
         return dict(scope=self.scope,proofs=self.proofs,pngs=self.pngs,owner=self.owner,
@@ -189,8 +197,7 @@ class PicoBrowserCaptureRetirement:
                 and owner.path==path and row['raw'] is raw and owner.raw is raw
                 and row['stamp']==owner.stamp==list(stamp)==signature(path.lstat())
                 and json_digest(row['expected'])==expected_sha)
-        for row in self.pngs:
-            need(signature((self.primary.artifact_root/row['value']['name']).lstat())==list(row['stamp']))
+        self.verify_png_stamps()
         self.inventory()
         if self.chunks is not None:
             self.chunks.verify();need(same(self.store.read(),self.previous))
@@ -203,7 +210,8 @@ class PicoBrowserCaptureRetirement:
         # second immediate reread of every historical JSON adds no new native
         # observation; changed paths/stamps/DTOs still refuse at either end.
         self.physical_index();self.catalog.verify_all()
-        for row in self.pngs:self.primary._original_image_bytes(row['value'],expected=row['stamp'])
+        _sha,windows=self.original_png_windows()
+        for value,stamp in windows:self.primary._original_image_bytes(value,expected=stamp)
         self.physical_index()
 
     def write(self,phase,chunks,*,pending=None,complete=False):
@@ -241,8 +249,7 @@ class PicoBrowserCaptureRetirement:
             need(type(owner) is ClosedOriginalFile and not owner.failed and owner.active is None
                 and owner.path==row['store'].path and type(row['raw']) is bytes and owner.raw is row['raw']
                 and owner.stamp==row['stamp']==signature(row['store'].path.lstat()))
-        for row in self.pngs:
-            need(signature((self.primary.artifact_root/row['value']['name']).lstat())==list(row['stamp']))
+        self.verify_png_stamps()
         self.inventory();self.chunks.verify();need(same(self.store.read(),self.previous))
         for parent in self.catalog.parents:self.catalog.verify_parent(parent)
 
