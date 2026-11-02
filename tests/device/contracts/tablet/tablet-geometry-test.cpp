@@ -23,12 +23,13 @@ class TabletProxy : public QObject {
     Q_OBJECT
 public:
     using QObject::QObject;
-    bool _androidScreenSpaceMode { true };
+    bool OVERTE_TABLET_SCREEN_SPACE_MEMBER { true };
     DesktopWindow window;
     DesktopWindow* _desktopWindow { &window };
 public slots:
     void resizeAndroidTablet(int width, int height);
 };
+template<typename... Args> void logIOSRuntimeMarker(Args&&...) {}
 #include "tablet-geometry-test.moc"
 #include "production.inc"
 
@@ -65,13 +66,23 @@ int main(int argc, char** argv) {
                     root.setProperty("screenSpaceImeInsetBottom", ime);
                     // Valid runtime measurements win over a caller's stale/reduced size.
                     tablet.resizeAndroidTablet(c.w + (runtime ? 123 : 0), c.h + (runtime ? 456 : 0));
-                    assert(root.x() == c.x && root.width() == c.width);
-                    assert(root.y() == 12 && root.height() == c.h - 12 - std::max(24, ime));
+#if defined(Q_OS_IOS)
+                    assert(root.x() == c.x - c.left && root.y() == 0);
+#else
+                    assert(root.x() == c.x && root.y() == 12);
+#endif
+                    assert(root.width() == c.width);
+                    assert(root.height() == c.h - 12 - std::max(24, ime));
                 }
             }
             root.setProperty("screenSpaceCenterHorizontally", false);
             tablet.resizeAndroidTablet(c.w, c.h);
-            assert(root.x() == c.left && root.width() == c.w - c.left - c.right);
+#if defined(Q_OS_IOS)
+            assert(root.x() == 0 && root.y() == 0);
+#else
+            assert(root.x() == c.left && root.y() == 12);
+#endif
+            assert(root.width() == c.w - c.left - c.right);
         }
     }
 }
