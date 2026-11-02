@@ -1,5 +1,10 @@
 # Complete original browser capture retirement
 
+The latest whole Browser diagnostic remains incomplete under the unchanged
+120-second limit. The source/host components below do not grant a complete
+feature capability or device qualification. The current continuation branch is
+`test/android-pico/consolidated-adapters-20261027`.
+
 `PicoBrowserCaptureRetirement` version1 is the warm durable owner of the
 complete original capture manifest and its fresh three-second absence window.
 The actual primary feature retains this owner before admission can open any
@@ -202,3 +207,113 @@ The complete-case originals remain under
 Full capture-history validation and the mandatory per-unlink copy, namespace,
 PNG and independent-source checks remain the next measured boundary. There is
 no whole-feature or device completion claim and no unchanged full retry.
+
+## Fresh held-directory guards and the bounded archive diagnostic
+
+The selected shared packet `87763fdd77` retains every existing full copy read,
+physical index, namespace, digest/memory, final-intent and clock check. Each
+Linux held-directory guard now makes a fresh canonical pathname observation
+through the independently kernel-verified original directory OFD. The current
+named and held directories must both have the original device/inode, owner,
+type and exact private mode; the original OFD is required before and after.
+Renamed/deleted paths, same-node aliases and an unavailable Linux observation
+refuse. Other platforms keep their strict path-resolution behavior. No current
+pathname or stat is cached. `OriginalDescriptor` itself is unchanged.
+
+Archive indexes use new held-directory `scandir` entries on each pass and read
+every entry's complete fresh `stat` while that scan is open. No entry survives
+a pass. The existing ordered deletion history remains complete; constructing
+its current membership set once avoids quadratic list membership without
+changing any admission or actual source/phase query.
+
+The shared archive/index/fence/files/plan selection passes 45 cases in 15.849
+seconds. After extracting the exact directory guard into
+`native_fd_owner.require_directory`, 20 affected index/OFD cases pass in 2.635
+seconds, including real ancestor move/symlink, directory exchange, same-node
+alias, same-byte copy replacement between index passes, unavailable Linux
+observation, and same-inode descriptor recycling during the guard. The
+separately recorded source freezes match bytes and full physical signatures.
+
+A cost comparison uses fresh, explicitly historical-byte private fixtures, not
+an adopted Browser owner. The same 1,069 files/6,657,016 original bytes on `/tmp`
+exercise the actual old/current shared archive methods with a declared small
+native/phase model: 24.324 versus 21.851 seconds, with exactly 39,696 parent
+checks, 2,142 physical index entries, 1,069 current-copy checks and 1,071
+inventories in each. This limited approximately 10% cost reduction is not a
+whole Browser speed result. Index time alone increases in this measurement;
+no isolated speed benefit is attributed to `DirEntry`. The preceding persistent
+storage comparison is slower overall and is retained separately, rather than
+substituted for the matching-storage result.
+
+One subsequent whole diagnostic keeps the original external 120-second bound
+and enables `cProfile` only on entering the real Browser archive. It terminates
+at that bound: 1,087 immutable copies/manifests, 119 confirmed unlinks, one
+uncertain issued unlink, no final host-release proof. No source bytes or
+physical signatures change; 205 loaded source files are accounted for. The
+terminal audit retains all 2,138 original files and finds no process matching
+that exact owned runtime. Profiling adds overhead and interrupted stack timings
+are diagnostic only; neither its progress count nor its timings establish a
+speedup or whole success. No failed owner is resumed or adopted.
+
+The diagnostic enters the archive at approximately 99.56 seconds. Its recorded
+entered calls include 39,426 parent guards, 240 physical index checks, 120
+current-copy checks, 119 fresh phase queries, 1,548 source controls, 734 source
+finals and 10 source calls. One index call is still in flight at termination;
+completed profiler counts differ accordingly. The profile exposes repeated
+partitioning of the same admitted catalog paths during actual namespace checks.
+
+Evidence directories:
+
+- `/home/user/.local/state/overte-pico-browser-archive-guards-20261102-6pjp8ru0`
+- `/home/user/.local/state/overte-pico-directory-helper-20261102-l_7mw196`
+- `/home/user/.local/state/overte-pico-browser-unlink-tmpfs-cost-20261102-og_ui2hb`
+- `/home/user/.local/state/overte-pico-browser-profiled-whole-20261102-g02i6v8r`
+
+The last directory contains the exact runner, complete before/after source
+manifests, profiler data/text, entered-call counters and terminal SHA-256/full
+physical inventory. Its retained runtime is
+`/tmp/overte-pico-browser-profiled-whole-20261102-us0rjq_r`; those files remain
+historical evidence, not a new warm owner.
+
+## Sealed admitted path groups with current final-source pins
+
+The Browser archive now pins its exact explicitly admitted catalog paths,
+state/artifact parents, Primary path, prefix/run and original row/store/path
+identities. Immutable group tuples/frozensets partition incoming `remaining`
+sets by intersection. Every incoming set must be a subset of those same
+original paths; omissions still fail the actual complete namespace scans.
+Foreign files, directories and symlinks are still enumerated and rejected.
+No files are discovered for adoption and no physical namespace/stat verdict is
+cached. The complete marker, context, source-root, image-byte and source-clock
+checks retain their original boundaries.
+
+A one-time immutable namespace-control callback is bound into the existing
+Browser archive source before its first source journal/query. Its identity,
+current parents/root/prefix/run, exact catalog rows/stores/paths and immutable
+groups are checked at every existing `control()` call. The existing final
+source guards and original clocks therefore also cover a scope mutation after
+the final unlink-intent CAS. No query, scan, PNG read or existing guard is
+removed, replaced or renewed; an unbound source-only owner retains its prior
+behavior. Rebinding, late binding or replacing the callback refuses.
+
+Twenty context/PNG/namespace cases pass in 1.259 seconds, including actual
+final-marker-CAS mutations of roots, prefixes, group aliases, same-label store
+carriers, store paths and row order: zero unlinks, retained issued intent and
+all original sources. A separate positive real shared-archive copy/unlink/
+final-source case passes in 0.160 seconds. Native/Parent acquisition in those
+cases is explicitly modeled; no complete Pico source or whole flow is claimed.
+Their evidence is under
+`/home/user/.local/state/overte-pico-browser-path-groups-20261102-ztr605e5` and
+`/home/user/.local/state/overte-pico-browser-path-positive-20261102-a0zgk35m`.
+
+On fresh private file-cost fixtures derived from verified historical bytes,
+the actual partition plus current-pin method takes approximately 0.178 ms
+versus 6.172 ms with all 1,069 originals remaining; after 534 deletions it takes
+0.156 versus 2.831 ms. Each additional existing source-control callback costs
+approximately 0.138 ms and checks all original catalog identities, including
+already retired members. At the final one-file remainder, the new pin check
+costs more than the old partition. These are explicit local cost measurements,
+not a whole-journey prediction. Evidence:
+`/home/user/.local/state/overte-pico-browser-path-fence-cost-20261102-qjh_rwo1`.
+No second whole run is claimed after this path-group change. Complete Browser
+archive/host finalization and the full feature remain open.

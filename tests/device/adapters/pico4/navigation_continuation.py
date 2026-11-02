@@ -158,6 +158,12 @@ class NavigationContinuation:
         self.finalize(seal)
         return result
 
+    def frames(self,after_sequence):
+        need(self.prefix.lock._owner is None)
+        with self.prefix.lock.held():
+            self.load_continuation();owner=self.generation()
+        return owner.frames(after_sequence)
+
     def seal(self,owner,runtime,requested,started,captured,*,samples=None):
         self.runtime_scope(owner,runtime['source'])
         need(number(requested,1,1e15) and number(started,0,1e15) and number(captured,1,1e15))

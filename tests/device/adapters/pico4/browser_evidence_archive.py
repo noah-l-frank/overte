@@ -65,6 +65,43 @@ class PicoBrowserEvidenceArchive:
         need(all(store.read() is None for store in (self.marker,self.context,self.store,self.sentry)) and not self.directory.exists())
         self.parent=parent_node(self.store)
         self.source=None
+        self.namespace=self._sealed_namespace=None
+        self.namespace_rows=self._sealed_namespace_rows=None
+
+    def freeze_namespace(self):
+        """Pin only explicit already-admitted paths; never discover originals."""
+        need(self.namespace is None and self.namespace_rows is None and self.archive is None
+            and type(self.catalog) is ChatArchiveCatalog and not self.catalog.hold_files and self.catalog.rows)
+        state_parent=self.primary.store.path.parent;root=self.root;prefix=self.prefix
+        rows=tuple((label,row,row['store'],row['store'].path) for label,row in self.catalog.rows.items())
+        need(all(row['store'] is store and row['owner'].path is path for _label,row,store,path in rows))
+        paths=frozenset(path for _label,_row,_store,path in rows)
+        state_paths=frozenset(path for path in paths if path.parent==state_parent)
+        artifact_paths=frozenset(path for path in paths if path.parent==root)
+        need(len(paths)==len(rows) and state_parent!=root and paths==state_paths|artifact_paths
+            and all(path.name.startswith('pico-tablet-web-') for path in state_paths)
+            and all(path.name.startswith(prefix) for path in artifact_paths)
+            and prefix=='tablet-web-'+self.primary.run+'-' and self.primary.artifact_root==root)
+        self.namespace=self._sealed_namespace=(self.primary.store.path,state_parent,root,prefix,self.primary.run,
+            paths,state_paths,artifact_paths)
+        self.namespace_rows=self._sealed_namespace_rows=rows
+        self.namespace_control()
+
+    def namespace_control(self,remaining=None):
+        """Current mutable scope pins, independent of current namespace scans."""
+        need(self.namespace is self._sealed_namespace and type(self.namespace) is tuple and len(self.namespace)==8
+            and self.namespace_rows is self._sealed_namespace_rows and type(self.namespace_rows) is tuple
+            and len(self.namespace_rows)==len(self.catalog.rows))
+        primary_path,state_parent,root,prefix,run,paths,state_paths,artifact_paths=self.namespace
+        need(all(type(group) is frozenset for group in (paths,state_paths,artifact_paths))
+            and self.primary.store.path==primary_path and self.primary.store.path.parent==state_parent
+            and self.root==root and self.primary.artifact_root==root and self.prefix==prefix
+            and self.primary.run==run and prefix=='tablet-web-'+run+'-')
+        for (label,row),(original_label,original_row,store,path) in zip(self.catalog.rows.items(),self.namespace_rows):
+            need(label==original_label and row is original_row and row['store'] is store and store.path is path)
+        if remaining is not None:
+            need(type(remaining) is set and remaining<=paths)
+        return state_paths,artifact_paths
 
     def admit(self):
         primary,captures=self.primary,self.captures
@@ -92,6 +129,7 @@ class PicoBrowserEvidenceArchive:
             capturesSha256=digest(self.source.capture_receipt),actorReturnSha256=digest(self.source.return_receipt),
             pngsSha256=json_digest(captures.pngs),pngCount=len(captures.pngs))
         need(same(metadata_pngs(self.metadata,data),captures.pngs))
+        self.freeze_namespace();self.source.bind_namespace_guard(self.namespace_control)
         self.fence=PicoBrowserArchiveUnlinkFence(self.source)
         self.archive=ChatEvidenceArchive(self.catalog,self.directory,self.marker,self.metadata,self.source,self.inventory,
             unlink_fence=self.fence,indexed_verify=True)
@@ -113,12 +151,13 @@ class PicoBrowserEvidenceArchive:
     def inventory(self,remaining):
         """Actual complete namespace scans reject extra or missing originals."""
         p=self.primary
-        actual=namespace_names(p.store.path.parent,'pico-tablet-web-')
-        expected_state={path for path in remaining if path.parent==p.store.path.parent}
+        state_paths,artifact_paths=self.namespace_control(remaining)
+        actual=namespace_names(self.namespace[1],'pico-tablet-web-')
+        expected_state=remaining&state_paths
         if self.sentry.path.exists():expected_state.add(self.sentry.path)
         need(actual=={path.name for path in expected_state} and same(self.sentry.read(),self.sentry_value)
             and parent_node(self.sentry)==self.sentry_parent)
-        expected={path for path in remaining if path.parent==self.root}
+        expected=remaining&artifact_paths
         expected.update({self.context.path,self.source.store.path})
         expected.update(store.path for store in self.context_owner.stores())
         expected.update(self.source.chunks.store(index).path for index in range(len(self.source.chunks.identities)))

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "contractVersion": 16,
-  "branch": "test/android-pico/feature-adapters-parallel-20261021",
+  "branch": "test/android-pico/consolidated-adapters-20261027",
   "sourceBase": "de7587093406a49573189e626bd350a12cb3d31f",
   "sharedFoundationsVerified": [
     "7636452f2124029798948aafae70ecff5c5fa7d0",
@@ -301,7 +301,13 @@
         "tests/device/adapters/pico4/AVATAR_ORIGINAL_MODEL_SOURCE.md",
         "android/vr/pico/tests/device/avatar-original-model-prepare.py",
         "android/vr/pico/tests/device/avatar-original-model-inputs.h",
-        "android/vr/pico/tests/device/avatar-original-model-receiver.h"
+        "android/vr/pico/tests/device/avatar-original-model-receiver.h",
+        "tests/device/adapters/pico4/avatar_people.py",
+        "tests/device/adapters/pico4/AVATAR_PEOPLE_CONSENT_SOURCE.md",
+        "android/vr/pico/tests/device/test_avatar_people_owner.py",
+        "android/vr/pico/tests/device/test_avatar_people_binding.py",
+        "android/vr/pico/tests/device/avatar-people-protocol-host.js",
+        "tests/javascript/support/people-world.js"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -345,7 +351,7 @@
         "Delete only owned wearable/bookmark/connection",
         "Confirm both participants have no pending request and observe quiet restoration"
       ],
-      "nextExecutableStep": "After the user resumes, join the same Avatar Parent to actual normal People Request/cancellation plus independently observed original peer consent/quiet, reusing frozen PhoneA7be role/credential/durable-publication architecture and existing Pico token controls/Pal protocol. Model/Watcher/FST/FBX/Draco/Baker/HFM CPU A/return is integrated and independently host-verified. Full constructors/Rig/Scene/Renderer/EntityTree/Wearables/People/peer/stereo and complete nine-field observation/public triple remain open, as do whole-storage/cache admission (Root136files/21,680,381bytes>16MiB), exact raw-data restoration and retained final ownership. User requested pause after the current integration.",
+      "nextExecutableStep": "Continue the same Parent beyond normal request/cancel/Close to independently authenticated account/backend, accept/reject/remove, page restoration, loaded-model/stereo and final retirement. Canonical role resolution occurs separately before Parent reservation; waits hold neither role lock and every issued input rechecks the exact reserved Parent bytes/full physical identity. Ten component cases and five canonical-binding plus six legacy Parent cases pass with declared SDK/QML/transport/time models. Parent reads1/2, retaining v1 until actual People reservation. No complete nine-field observation or cleanup capability is advertised.",
       "nativeCompilation": "Original NavigationUi/QML/script, MyAvatar preference/model-setter/save/Scale/cached Favorite, Bookmarks and Setting Handle/Manager/WriteWorker/JSON sources host-compiled. Existing common16/OverteSession/URL3/Favorites1 Parent remains independently verified with retained owners; old no-op/persistence30 limits unchanged. New separate actual selected Avatar/Model methods, GeometryResourceWatcher/copy/ModelCache and full FST/FBX/Draco/Baker/HFM/material/Texture CPU chain compile in82 original/generated TUs plus link (81.449s Ninja), agent owning106.341s/actual native23.916s under original combined90 and outer120/remaining service<=60. Genuine2meshes/69joints and clone weak death observed; resource QObjects/LRU remain alive, distinct from expired old shared-control handles. Full constructors/AvatarData/Rig/Scene/Renderer/EntityTree/SDK/OS are explicit seams. Peer/stereo, full storage21,634,937bytes>16MiB and complete final retirement remain open. Root ae304b035b independently passes1/108.417s (109.050external),82freshTUs+link84.511s/native23.136s of remaining34.739s; all13,635 checkout hashes/physical identities unchanged, default Draco discovery203 package files hash/physical matched. Complete Root disjoint runtime/source bill136files/21,680,381bytes remains above16MiB; no whole storage/cache or feature retirement.",
       "deviceQualification": "untested"
     },
@@ -922,7 +928,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Address measured complete capture-history and mandatory per-unlink physical copy/namespace/PNG/independent-source costs without dropping checks. Sealed PNG metadata projection passes15 focused cases and11 capture-owner cases; metadata-only measurement improves while the complete owning Journey still times out at120s (exit124):1087 immutable copies/manifests,223 confirmed unlinks and one unresolved issued unlink, no final host release. The2040 terminal files retain full stable hashes/physical signatures and no matching process remains. Concurrent unrelated feature edits are disclosed; no whole-checkout freeze or whole success is claimed. Failed originals remain historical and cannot be cold-adopted; do not retry the unchanged whole case.",
+      "nextExecutableStep": "Continue measured Browser-specific immutable namespace/path-group admission costs while preserving actual complete scans, PNG/full-byte/current-source checks. The one profiled whole diagnostic reaches unchanged120s with1087 immutable copies/manifests,119 confirmed unlinks plus one uncertain issued unlink, no final host release;2138 originals remain hash/physical stable and no matching worker remains. Profiling begins only at archive entry and adds overhead; no speed or whole completion claim. Shared guard/index changes pass legacy/new counterexamples but their limited cost savings do not close the larger gap. Failed originals cannot be adopted/resumed, and no further unchanged whole retry is authorized by this result.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested"
     },
@@ -1116,7 +1122,13 @@
         "tests/device/adapters/pico4/AUDIO_NORMAL_RECIPE.md",
         "tests/device/adapters/pico4/AUDIO_ORIGINAL_GAPS.md",
         "tests/device/self_tests/test_pico_audio_recipe.py",
-        "android/vr/pico/tests/device/test_audio_normal_recipe.py"
+        "android/vr/pico/tests/device/test_audio_normal_recipe.py",
+        "tests/device/adapters/pico4/audio_peer.py",
+        "tests/device/adapters/pico4/audio_recipe_evidence.py",
+        "tests/device/adapters/pico4/AUDIO_DIGITAL_PREVIEW_JOIN.md",
+        "tests/device/adapters/pico4/AUDIO_PEER_REUSE_20261102.json",
+        "tests/device/self_tests/test_pico_audio_recipe_evidence.py",
+        "android/vr/pico/tests/device/test_audio_digital_preview.py"
       ],
       "declaredCheckpoints": 14,
       "inputVerbs": [
@@ -1156,7 +1168,7 @@
         "Release native E2E PCM/history files after product quiet state",
         "Independently inspect actual memory/files and restore original mute/echo/permission"
       ],
-      "nextExecutableStep": "Supply independently owned physical acoustic and peer original producers, then the public/independent full Audio coordinator around the joined normal recipe. Resolve the documented executed v16 same-process/empty-history cleanup incompatibility through an explicitly reviewed shared architecture change; never synthesize idle/absence or hide a restart. Original retained capacity/context/history/PCM and host-journal retirement remain required.",
+      "nextExecutableStep": "Compose independently owned Actor capture arming with the existing normal Start outside shared locks, retain actual worker/route/process-birth originals, and provide genuine physical acoustic evidence. The same normal recipe now joins actual cycle3 input/sink PCM and independently retained digital PC WAV/JSON using its original Start ticket;10 new cases,16 legacy recipe,4 canonical factory and15 shared Voice cases pass separately. Digital monitor evidence is explicitly not physical speaker/microphone or whole-peer qualification. Old recipe1 reads without migration;2 retains issued/joined evidence and blocks new normal input on unresolved evidence. Preserve the existing same-process empty-history cleanup incompatibility and all retained originals; no hidden restart or product repair.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "nativeComponentCompilation": "Original AudioClient recorded preview/pause/poll/deferred callback lifetime bodies pass real Qt5 fragment checks; full application/TUs, physical capture/playback and devices remain unqualified."
@@ -1350,7 +1362,7 @@
         "Restore peer position and owned mixer service",
         "Close view and observe keyboard, peer work and capture ownership fully retired"
       ],
-      "nextExecutableStep": "Retain the latest unchanged whole timeout after 19 steps and its incomplete 2.000/3.000-s mixer quiet originals. Root decoder/Reader owning group passes 36 cases 29.245 s with unchanged complete physical/native/clock checks; actual fixed f9 61-query profile passes 29.821 s with 54/143 verification counts unchanged. Its roughly 26-ms historical load saving is only about 2% of a source pair and does not justify a whole success claim. Whole true common/App/archive/host and independent Chat surface/stereo remain open; continue other executable platform features.",
+      "nextExecutableStep": "Continue actual true Common execution and final app/archive/host composition; existing Common/global-cursor/cleanup-slot/typed-return composition is present and its whole120s timeout after step19 remains historical. The40-case source reader and actual false-common Stop2/typed Actor return/kernel absence/both seals/catalog prefix pass with false sequenceSucceeded preserved. Fresh full child stats now use the exact original directory read window, retaining uncertain descriptor pairs; original54/143 history checks and7/19 load/digest counts remain. The measured limited saving does not justify another unchanged whole retry.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1476,7 +1488,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Preserve and profile the one continuous pre-input13-key-lease/Cancel/Still/Save/offline/TLS-upload/Background/Return/normal-Mode-Format-Close diagnostic without replay or setters. Latest corrected actual whole remains red120.118s: upload106.490s, BGquiet-issued12frames, no Return/Close journal. Exact header/inode memo guards pass owning checks; no demonstrated whole throughput gain. The real raw-default/Href/cache restoration boundary remains; continue other authorized features while no concrete performance/source fix is ready.",
+      "nextExecutableStep": "Retain the historical whole120.118s timeout and complete raw settings restoration/OS chooser/independent receiver/upload/Actor/stereo/resource retirement. Closed-settings admission now verifies original receipts/parent/bookends and original query/Close ages after actual lock release and final candidate guard;11 affected cases pass with148 loaded source hashes unchanged. Delayed exit, baseline/checkpoint/bookend replacement and late final clock remain refused without replay. This component result does not qualify full Snapshot or justify an unchanged whole retry.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
@@ -1769,7 +1781,13 @@
         "tests/device/adapters/pico4/lifecycle_actor_source.py",
         "tests/device/self_tests/pico_lifecycle_actor_fixture.py",
         "tests/device/self_tests/test_lifecycle_independent_actor.py",
-        "android/vr/pico/tests/device/test_lifecycle_independent_actor.py"
+        "android/vr/pico/tests/device/test_lifecycle_independent_actor.py",
+        "tests/device/adapters/pico4/LIFECYCLE_ACTOR_COMPOSITION.md",
+        "tests/device/adapters/pico4/LIFECYCLE_ACTOR_OPERATIONS.md",
+        "tests/device/self_tests/pico_lifecycle_canonical_actor_fixture.py",
+        "tests/device/self_tests/pico_lifecycle_actor_operations_fixture.py",
+        "android/vr/pico/tests/device/test_lifecycle_actor_composition.py",
+        "android/vr/pico/tests/device/test_lifecycle_actor_operations.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1814,7 +1832,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Connect the reviewed independent readonly Actor Source1 to the actual private Pico factory/runtime, then extend the same normal16-action flow through independently proven G1, original stereo/surface and typed graph/resource/file/archive/IPC/host return. Root integrates88b1a38de6/efa08bb95f/ac2859b7ad/e016e2ddbb and independently passes14 owning cases with all13,630 source hashes/physical signatures unchanged. The real separate-process baseline/Create path retains84parts/94,533logical bytes, not the earlier48-part bill. Per-response failures retain actual raws; originalKnownFrame and capture/request clocks cover publication CAS. Qt/native/SDK/physics remain declared target models. Earlier real Primary G1/twice-cleanup/seven-axis quiet evidence remains separate. No public/whole capability.",
+      "nextExecutableStep": "Extend the actual Common16/OverteSession/PrimaryOperations graph beyond first normal Create/type into exact original World-envelope/native gesture ownership for step3. Canonical editor and independent Actor now share candidate/session/native binding and actual lock inode; original Common peer readiness, lifecycle/continuity waits and consumed global cursors are retained. The separate3-case operations group passes82.939s, legacy PrimaryOperations10/14.699s, with57 frozen dependencies; Actor28 remains a separate selection. Changed phase originals are retained before refusal with no repeated input. Actual stock VR Unicode, later generations/G1/native birth, stereo/typed return and full resource/archive/IPC/host closure remain open.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

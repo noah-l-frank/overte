@@ -521,7 +521,7 @@ def create_adapter(args, base_class):
                 guard();_need(native.pid==int(binding['processIdentity'].split(':')[0]))
                 store=facade.world_render_store(target,role=role)
             foreign=[facade.world_render_store(target,role=value) for value in ('primary','actor') if value!=role]
-            foreign.extend(self._navigation_world_render_store(target,value) for value in ('primary','actor'))
+            foreign.extend(self._navigation_world_render_stores(target))
             if role is not None:foreign.append(self._world_render_store(target))
             foreign.extend(self._emote_world_render_store(target,value) for value in ('primary','actor'))
             foreign.extend(self._browser_world_render_store(target,value) for value in ('primary','actor'))
@@ -934,7 +934,7 @@ def create_adapter(args, base_class):
             foreign=[self._emote_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
             foreign.extend(facade.world_render_store(target,role=value) for value in ('primary','actor'))
             foreign.extend(self._browser_world_render_store(target,value) for value in ('primary','actor'))
-            foreign.extend(self._navigation_world_render_store(target,value) for value in ('primary','actor'))
+            foreign.extend(self._navigation_world_render_stores(target))
             def world_guard():
                 lock.assert_held();native.guard();_need(source.guard() is not False and all(store.read() is None for store in foreign));return True
             owner=WorldRenderOwner(self._emote_world_render_store(target,role),binding,world_guard,role=role)
@@ -1261,27 +1261,55 @@ def create_adapter(args, base_class):
                 self.pico_input_session(target),role=role,monotonic=native.monotonic,transit_factory=transit_factory,missing_factory=missing_factory,dismissal_factory=dismissal_factory,bookmark_factory=bookmark_factory)
             return compose(self,target,parent)
 
-        def _navigation_world_render_store(self,target,role):
-            _need(role in ('primary','actor'))
-            return PrivateFeatureState(self._script_journey().state_path(target).with_name('navigation-prefix-world-render-'+role+'.json'))
+        def _navigation_world_render_store(self,target,role,*,generation=0):
+            _need(role in ('primary','actor') and type(generation) is int and generation in (0,1))
+            prefix='navigation-prefix-'+('generation-1-' if generation else '')+'world-render-'
+            return PrivateFeatureState(self._script_journey().state_path(target).with_name(prefix+role+'.json'))
+
+        def _navigation_world_render_stores(self,target):
+            return tuple(self._navigation_world_render_store(target,role,generation=generation)
+                for generation in (0,1) for role in ('primary','actor'))
+
+        def _navigation_generation_guard(self,runtime):
+            from adapters.native_feature_observation import exact
+            from copy import deepcopy
+            exact(runtime,{'source','native','presence','session'})
+            source,native=runtime['source'],runtime['native'];binding=deepcopy(source.binding)
+            _need(source.arrival.binding==binding and native.pid==int(binding['processIdentity'].split(':',1)[0]))
+            def guard():
+                _need(runtime['source'] is source and runtime['native'] is native
+                    and source.binding==binding and source.arrival.binding==binding)
+                _need(source.guard() is not False and native.guard() is not False)
+                return True
+            guard();return binding,native,guard
 
         @_private
-        def _navigation_world_render_capture(self,target,*,role,source_lock):
+        def _navigation_world_render_capture(self,target,*,role,source_lock,generation_runtime=None,generation_guard=None):
             from adapters.pico4.graphics_binding import PicoGraphicsBinding,SerializedWorldCapture
             from adapters.world_render_receipts import NativeWorldReceiptInventory,NativeWorldReceiptBatchFiles,INVENTORY_FILE
             _need(role in ('primary','actor'))
             lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
-            _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            if generation_runtime is None:
+                _need(generation_guard is None)
+                _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+                generation=0;current=native.guard
+            else:
+                _need(callable(generation_guard))
+                binding,native,current=self._navigation_generation_guard(generation_runtime);generation=1
             _need(native.pid==int(binding['processIdentity'].split(':',1)[0]))
             facade=PicoGraphicsBinding(self)
-            foreign=[self._navigation_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
+            store=self._navigation_world_render_store(target,role,generation=generation)
+            foreign=[value for value in self._navigation_world_render_stores(target) if value.path!=store.path]
+            foreign.append(self._world_render_store(target))
             foreign.extend(facade.world_render_store(target,role=value) for value in ('primary','actor'))
             for name in ('_browser_world_render_store','_emote_world_render_store'):
                 factory=getattr(self,name,None)
                 if factory is not None:foreign.extend(factory(target,value) for value in ('primary','actor'))
             def world_guard():
-                lock.assert_held();native.guard();_need(all(store.read() is None for store in foreign));return True
-            owner=WorldRenderOwner(self._navigation_world_render_store(target,role),binding,world_guard,role=role)
+                lock.assert_held();current()
+                if generation_guard is not None:_need(generation_guard() is not False)
+                _need(all(value.read() is None for value in foreign));return True
+            owner=WorldRenderOwner(store,binding,world_guard,role=role)
             files=AndroidWorldRenderReceipts(self.adb,target,'org.overte.pico',world_guard)
             options=dict(monotonic=native.monotonic,sleep=native.sleep)
             storage=NativeWorldRenderStorage(native.send,files.read,native.clock_ms,world_guard,native.pid,receipt_intent=owner.receipt_intent,**options)
@@ -1310,15 +1338,27 @@ def create_adapter(args, base_class):
                 run,manager.binding,scene_url,monotonic=native.monotonic)
 
         @_private
-        def _navigation_stereo(self, target, path, artifact_root, run, scene_url, *, role='primary', source_lock=None, arrival=None, journal_id=None):
+        def _navigation_stereo(self, target, path, artifact_root, run, scene_url, *, role='primary', source_lock=None, arrival=None, journal_id=None, generation_runtime=None,generation_guard=None):
             from adapters.navigation_stereo import NavigationStereo
             from adapters.pico4.graphics_binding import PicoGraphicsBinding
-            facade=PicoGraphicsBinding(self);lock=facade._lock(target,source_lock)
-            manager=self._scripts(target);native=self._native_feature_observer(target)
-            arrival=self._navigation_arrival(target,run,scene_url) if arrival is None else arrival
-            return NavigationStereo(arrival,
-                lambda:self._world_render_capture(target,read_only=True,role=role,require_frame_view=True,source_lock=lock),
-                path,artifact_root,run,manager.binding,lock,native.guard,role=role,journal_id=journal_id,
+            facade=PicoGraphicsBinding(self)
+            lock=(facade if generation_runtime is None else self._script_journey())._lock(target,source_lock)
+            if generation_runtime is None:
+                _need(generation_guard is None)
+                manager=self._scripts(target);native=self._native_feature_observer(target);binding=manager.binding;guard=native.guard
+                arrival=self._navigation_arrival(target,run,scene_url) if arrival is None else arrival
+                capture=lambda:self._world_render_capture(target,read_only=True,role=role,require_frame_view=True,source_lock=lock)
+            else:
+                _need(callable(generation_guard))
+                binding,native,guard=self._navigation_generation_guard(generation_runtime)
+                _need(arrival is generation_runtime['source'].arrival and arrival.run==run and arrival.scene_url==scene_url)
+                capture=lambda:self._navigation_world_render_capture(target,role=role,source_lock=lock,
+                    generation_runtime=generation_runtime,generation_guard=generation_guard)
+                original_guard=guard
+                def guard():
+                    _need(original_guard() is not False and generation_guard() is not False);return True
+            return NavigationStereo(arrival,capture,
+                path,artifact_root,run,binding,lock,guard,role=role,journal_id=journal_id,
                 ui_factory=lambda:self._graphics_ui_observer(target),native_factory=lambda:self._native_feature_observer(target),
                 monotonic=native.monotonic)
 
@@ -1389,20 +1429,27 @@ def create_adapter(args, base_class):
                 lookup.inputs,lookup.origin,guard,normal=lookup.ui.normal,binding=lookup.binding)
 
         @_private
-        def _navigation_frames(self, target, path, artifact_root, closed, *, source_lock, role='primary'):
+        def _navigation_frames(self, target, path, artifact_root, closed, *, source_lock, role='primary', generation_runtime=None):
             from adapters.navigation_frames import NavigationFrames
             from adapters.pico4.graphics_binding import PicoGraphicsBinding
             from adapters.native_feature_observation import need
             from feature_journeys.stereo_navigation_evidence import original_name
             from pathlib import Path
-            manager=self._scripts(target);native=self._native_feature_observer(target)
-            need(manager.binding==closed.binding)
-            lock=PicoGraphicsBinding(self)._lock(target,source_lock)
+            if generation_runtime is None:
+                manager=self._scripts(target);native=self._native_feature_observer(target);binding=manager.binding;current=native.guard
+            else:
+                binding,native,current=self._navigation_generation_guard(generation_runtime)
+                need(closed.transit.arrival is generation_runtime['source'].arrival)
+            need(binding==closed.binding)
+            lock=(PicoGraphicsBinding(self) if generation_runtime is None else self._script_journey())._lock(target,source_lock)
             def guard():
-                lock.assert_held();return native.guard()
+                lock.assert_held();answer=current()
+                if generation_runtime is not None:need(closed.guard() is not False)
+                return answer
             def stereo(journal):
+                options={} if generation_runtime is None else dict(generation_runtime=generation_runtime,generation_guard=closed.guard)
                 return self._navigation_stereo(target,Path(artifact_root)/original_name(closed.run,role,journal),artifact_root,
-                    closed.run,closed.transit.scene_url,role=role,source_lock=lock,arrival=closed.transit.arrival,journal_id=journal)
+                    closed.run,closed.transit.scene_url,role=role,source_lock=lock,arrival=closed.transit.arrival,journal_id=journal,**options)
             return NavigationFrames(closed,stereo,path,artifact_root,role,native.clock_ms,guard,monotonic=native.monotonic)
 
         @_private
@@ -2570,7 +2617,7 @@ def create_adapter(args, base_class):
             foreign=[self._browser_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
             foreign.extend(facade.world_render_store(target,role=value) for value in ('primary','actor'))
             foreign.extend(self._emote_world_render_store(target,value) for value in ('primary','actor'))
-            foreign.extend(self._navigation_world_render_store(target,value) for value in ('primary','actor'))
+            foreign.extend(self._navigation_world_render_stores(target))
             def world_guard():
                 lock.assert_held();native.guard();_need(all(store.read() is None for store in foreign));return True
             owner=WorldRenderOwner(self._browser_world_render_store(target,role),binding,world_guard,role=role)

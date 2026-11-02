@@ -12,6 +12,15 @@ documented in [the PolyVox parent packet](CREATE_POLYVOX_PARENT.md) and
 before reserving or sending input.
 It does not advertise the incomplete `feature.create.*` capability trio.
 
+The current v4 source also composes the existing [rez](CREATE_REZ_PARENT.md)
+and [denial/retry](CREATE_RECOVERY_PARENT.md) owners. Its opt-in
+[independent native Model peer](CREATE_INDEPENDENT_MODEL_PEER.md) joins measured
+UUID/domain-creation scope, separately acquired client originals and the shared
+original process-return transport to retained cleanup ownership. It requires
+another native client and host worker; the production Create observer CLI and
+the complete common Actor remain unimplemented. Ordinary legacy source flows
+do not invent the stronger peer creation originals.
+
 ## Original ownership and normal input
 
 The factory reuses the existing candidate/session, native source factories,

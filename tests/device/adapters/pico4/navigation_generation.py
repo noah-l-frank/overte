@@ -134,7 +134,11 @@ def compose(adapter,target,parent):
                 lambda:bookmark_factory(flow,True))
         def close_factory(flow):
             return NavigationGenerationClose(flow,bind_home(adapter,target,flow.runtime['native']),adapter._graphics_ui_observer(target))
-        return NavigationGenerationFlow(continuation,current,open_factory,close_factory,bookmark_factory)
+        frame_factory=getattr(adapter,'_navigation_frames',None)
+        def frames(flow,closed,path,artifact_root,role):
+            return frame_factory(target,path,artifact_root,closed,source_lock=flow.lock,role=role,generation_runtime=flow.runtime)
+        return NavigationGenerationFlow(continuation,current,open_factory,close_factory,bookmark_factory,
+            frames_factory=frames if callable(frame_factory) else None)
     return NavigationContinuation(parent,factory,generation_factory=generation_factory)
 
 

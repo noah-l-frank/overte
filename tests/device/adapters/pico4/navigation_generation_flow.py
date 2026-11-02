@@ -27,8 +27,9 @@ VERSION=1
 
 class NavigationGenerationFlow:
     """One continuation of the same recipe, with no original-file migration."""
-    def __init__(self,continuation,runtime_factory,open_factory,close_factory,bookmark_factory):
+    def __init__(self,continuation,runtime_factory,open_factory,close_factory,bookmark_factory,*,frames_factory=None):
         need(all(callable(fn) for fn in (runtime_factory,open_factory,close_factory,bookmark_factory)))
+        need(frames_factory is None or callable(frames_factory));self.frames_factory=frames_factory
         self.previous=continuation;self.parent=continuation.prefix;self.lock=self.parent.lock
         self.run=self.parent.run;self.restart=continuation.restart()
         need(self.restart.state is not None and self.restart.state['phase']=='observed'
@@ -350,6 +351,12 @@ class NavigationGenerationFlow:
         # Immutable copies and physical archive work are part of publication.
         self.finalize(runtime,requested,started,captured,guards,pins)
         return result
+
+    def frames(self,after_sequence):
+        from adapters.pico4.navigation_generation_frames import NavigationGenerationFrames
+        need(self.frames_factory is not None)
+        root=self.lock.path.with_name('navigation-prefix-generation-1-'+self.parent.role+'-images')
+        return NavigationGenerationFrames(self,self.frames_factory,root).read(after_sequence)
 
     def pin_current(self,runtime):
         paths=[self.store.path,runtime['source'].normal.io.original.navigation.path]

@@ -41,6 +41,7 @@ class PicoBrowserArchiveReleaseSource:
         self.parent=parent_node(self.store);self.previous=None;self.root_stamp=None;self.previous_sha=json_digest(None)
         self.failed=False;self.frozen=False;self.started=self.epoch=None;self.last_sha=None
         self._proof_bytes=self._sealed_proof_bytes=None
+        self._namespace_guard=self._sealed_namespace_guard=None
         with primary.lock.held():
             owner=deepcopy(primary.owner());role=primary.role_state()
             self.history=primary.history_cache;self.history.matches(role)
@@ -93,6 +94,12 @@ class PicoBrowserArchiveReleaseSource:
     def admission(self):
         return json.loads(self.admitted)
 
+    def bind_namespace_guard(self,guard):
+        need(callable(guard) and self._namespace_guard is None and self._sealed_namespace_guard is None
+            and self.previous is None and self._proof_bytes is None and self.started is None and self.epoch is None
+            and not self.frozen and not self.failed)
+        guard();self._namespace_guard=self._sealed_namespace_guard=guard
+
     def control(self):
         # Each sealed tuple member is an original immutable bytes object, not
         # a cached validation of a live or mutable DTO. The two mutable live
@@ -105,6 +112,9 @@ class PicoBrowserArchiveReleaseSource:
             and parent_node(self.store)==self.parent and same(self.store.read(),self.previous))
         if self.root_stamp is not None:need(state(self.store)[2]==self.root_stamp)
         self.chunks.verify()
+        need(self._namespace_guard is self._sealed_namespace_guard
+            and (self._namespace_guard is None or callable(self._namespace_guard)))
+        if self._namespace_guard is not None:self._namespace_guard()
 
     def save(self,phase,chunks,*,pending=None):
         self.control();value={**self.scope,'phase':phase,'chunks':deepcopy(chunks),'pending':deepcopy(pending)}

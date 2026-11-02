@@ -30,16 +30,17 @@ from feature_journeys.scenarios import VERSION as CONTRACT
 
 VERSION=4
 MEMBERS={'models':PicoCreateModels,'picker':PicoCreatePicker}
-ROLES=('owner','entities','callbacks','dialogs','resources','work','lifecycle','completion','rez','recovery')
+ROLES=('owner','entities','callbacks','dialogs','resources','work','lifecycle','completion','rez','recovery','peer')
 
 
 from adapters.pico4.create_primitives import CreatePrimitives,validate_steps
 from adapters.pico4.create_voxel_edit import CreateVoxelEdit,validate_edit
 from adapters.pico4.create_rez import CreateRez
 from adapters.pico4.create_recovery import CreateRecovery
+from adapters.pico4.create_peer_parent import CreatePeerParent
 
 
-class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez,CreateRecovery):
+class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez,CreateRecovery,CreatePeerParent):
     """One candidate/run and real source lock shared by its normal owners."""
     def __init__(self,adapter,target,run,source):
         identifier(run);need(isinstance(source,PhaseFixtureReader) and source.area=='create' and source.run==run
@@ -160,7 +161,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez,CreateRecover
         key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32];parent=adapter.pico_configuration[1];found=False
         PrivateFeatureState(parent/'create-feature-parent-check.json')._parent()
         for path in parent.glob('create-feature-*-'+key+'-*.json'):
-            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle|completion|rez|recovery)-'+key+r'-[0-9a-f]{32}\.json',path.name))
+            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle|completion|rez|recovery|peer)-'+key+r'-[0-9a-f]{32}\.json',path.name))
             found=PrivateFeatureState(path).read() is not None or found
         return found
     def source_store(self,role):
@@ -260,7 +261,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez,CreateRecover
         if self.previous is not None:
             need(context(binding)==context(self.state()['binding']));self.check_children(self.state())
         for path in self.parent.glob('create-feature-*-'+self.key+'-*.json'):
-            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle|completion|rez|recovery)-'+self.key+'-'+self.run+r'\.json',path.name))
+            need(re.fullmatch(r'create-feature-(?:owner|entities|callbacks|dialogs|resources|work|lifecycle|completion|rez|recovery|peer)-'+self.key+'-'+self.run+r'\.json',path.name))
             journal=PrivateFeatureState(path).read()
             if journal is not None:need(context(journal.get('binding'))==context(binding))
         return ui,binding
@@ -610,6 +611,7 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez,CreateRecover
             value=self.state();need('tablet-close' not in value['cleanupAttempted'])
             self.mark(cleanupAttempted=value['cleanupAttempted']+['tablet-close'])
             self.record_input('tablet-close',ui.capture());ui.close_tablet();ui.wait_tablet_absent()
+        self.peer_cleanup_ready()
         started=ui.monotonic();quiet=None;clocks=None;stable=None
         for attempt in range(67):
             actual=self.sample();packet=actual['entities'];current=ui.monotonic()
@@ -638,6 +640,8 @@ class PicoCreateJourney(CreatePrimitives,CreateVoxelEdit,CreateRez,CreateRecover
                     if recovery is not None:self.source_store('recovery').discard(recovery)
                     rez=self.rez_state()
                     if rez is not None:self.rez_final(actual);self.source_store('rez').discard(rez)
+                    peer=self.peer_state()
+                    if peer is not None:self.source_store('peer').discard(peer)
                     self.source_store('lifecycle').discard(self.lifecycle_previous);self.lifecycle_previous=None
                     self.store.discard(self.state());self.previous=None;return {'performed':True}
             else:quiet=None;clocks=None;stable=None

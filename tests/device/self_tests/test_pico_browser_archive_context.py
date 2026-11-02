@@ -228,15 +228,16 @@ class BrowserArchivePngWindowTests(unittest.TestCase):
 
 class BrowserArchiveNamespaceTests(unittest.TestCase):
     """Actual namespace/marker files; context/source/PNG producers are seams."""
-    def make(self):
+    def make(self,*,freeze=True):
         from types import SimpleNamespace
         from adapters.observer_return import parent_node,state
         from adapters.pico4.browser_evidence_archive import PicoBrowserEvidenceArchive
+        from adapters.chat_journey.evidence_archive import ChatArchiveCatalog
         temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
         parent=Path(temporary.name);root=parent/'artifacts';root.mkdir(mode=0o700)
         prefix='tablet-web-'+('a'*32)+'-'
         plan=PicoBrowserEvidenceArchive.__new__(PicoBrowserEvidenceArchive)
-        plan.primary=SimpleNamespace(store=PrivateFeatureState(parent/'pico-tablet-web-primary.json'))
+        plan.primary=SimpleNamespace(store=PrivateFeatureState(parent/'pico-tablet-web-primary.json'),run='a'*32,artifact_root=root)
         plan.primary.store.write({'original':'primary'},None)
         plan.root=root;plan.prefix=prefix
         plan.sentry=PrivateFeatureState(parent/'pico-tablet-web-archive-owner.json')
@@ -252,7 +253,124 @@ class BrowserArchiveNamespaceTests(unittest.TestCase):
         plan.marker=PrivateFeatureState(root/(prefix+'archive-intent.json'));plan.directory=root/(prefix+'source-archive')
         observed=[];plan.pngs=lambda:observed.append('full-original-PNG-boundary')
         artifact=PrivateFeatureState(root/(prefix+'known.json'));artifact.write({'original':'artifact'},None)
+        plan.archive=None;plan.namespace=plan._sealed_namespace=None
+        plan.namespace_rows=plan._sealed_namespace_rows=None
+        plan.catalog=ChatArchiveCatalog(hold_files=False);self.addCleanup(plan.catalog.close_host)
+        for store in (plan.primary.store,artifact):plan.catalog.add('primary/'+store.path.name,store,store.read())
+        if freeze:plan.freeze_namespace()
         return plan,{plan.primary.store.path,artifact.path},observed
+
+    def source_control(self,plan,*,bind=True):
+        """Actual source control body; Native/Parent source acquisition absent."""
+        from types import SimpleNamespace
+        from adapters.observer_return import parent_node
+        from adapters.pico4.browser_archive_source import PicoBrowserArchiveReleaseSource
+        from adapters.chat_journey.source_chunks import ChatSourceChunks
+        source=PicoBrowserArchiveReleaseSource.__new__(PicoBrowserArchiveReleaseSource)
+        source.scope={};source.vm=SimpleNamespace(origin={});source.failed=source.frozen=False
+        source.admitted=source._sealed_admitted=b'{}'
+        source.facts=source._sealed_facts=(b'{}',)*7
+        source.previous=None;source.previous_sha=json_digest(None);source.root_stamp=None
+        source.started=source.epoch=None
+        source.store=PrivateFeatureState(plan.root/(plan.prefix+'namespace-control-only.json'))
+        source.parent=parent_node(source.store);source.chunks=ChatSourceChunks(source.store,{})
+        source._proof_bytes=None;source._namespace_guard=source._sealed_namespace_guard=None
+        if bind:source.bind_namespace_guard(plan.namespace_control)
+        return source
+
+    def test_remaining_omission_and_foreign_original_cannot_change_the_complete_namespace(self):
+        plan,remaining,observed=self.make()
+        for missing in remaining:
+            with self.assertRaises(NativeUIError):plan.inventory(remaining-{missing})
+        foreign=plan.root/(plan.prefix+'foreign.json');foreign.write_bytes(b'foreign original');foreign.chmod(0o600)
+        with self.assertRaises(NativeUIError):plan.inventory(remaining|{foreign})
+        self.assertEqual([],observed);self.assertEqual(b'foreign original',foreign.read_bytes())
+        self.assertTrue(all(path.exists() for path in remaining))
+
+    def test_current_parent_root_prefix_and_exact_immutable_groups_remain_pinned(self):
+        for fault in ('parent','root','artifact-root','prefix','run','tuple-alias','mutable-group','row-tuple-alias'):
+            with self.subTest(fault=fault):
+                plan,remaining,observed=self.make()
+                if fault=='parent':plan.primary.store.path=plan.primary.store.path.with_name('pico-tablet-web-foreign.json')
+                elif fault=='root':plan.root=plan.root/'foreign'
+                elif fault=='artifact-root':plan.primary.artifact_root=plan.root/'foreign'
+                elif fault=='prefix':plan.prefix+='foreign-'
+                elif fault=='run':plan.primary.run='b'*32
+                elif fault=='tuple-alias':plan.namespace=tuple(list(plan.namespace))
+                elif fault=='mutable-group':
+                    value=list(plan.namespace);value[5]=set(value[5]);plan.namespace=tuple(value)
+                else:plan.namespace_rows=tuple(list(plan.namespace_rows))
+                with self.assertRaises(NativeUIError):plan.inventory(remaining)
+                self.assertEqual([],observed);self.assertTrue(all(path.exists() for path in remaining))
+
+    def test_admission_cannot_pin_a_mutated_catalog_or_discovered_foreign_parent(self):
+        for fault in ('changed-path','foreign-parent'):
+            with self.subTest(fault=fault):
+                plan,remaining,_observed=self.make(freeze=False);row=next(iter(plan.catalog.rows.values()))
+                if fault=='changed-path':row['store'].path=row['store'].path.with_name('pico-tablet-web-foreign.json')
+                else:plan.root=plan.root/'foreign'
+                with self.assertRaises(NativeUIError):plan.freeze_namespace()
+                self.assertIsNone(plan.namespace);self.assertTrue(all(path.exists() for path in remaining))
+
+    def test_source_only_default_and_one_time_namespace_binding_cannot_be_replaced_or_acquired_late(self):
+        plan,_remaining,_observed=self.make();source=self.source_control(plan,bind=False)
+        source.control();source.bind_namespace_guard(plan.namespace_control);source.control()
+        with self.assertRaises(NativeUIError):source.bind_namespace_guard(plan.namespace_control)
+        source._namespace_guard=lambda:None
+        with self.assertRaises(NativeUIError):source.control()
+        for field,value in (('previous',{}),('started',1.),('epoch',20000)):
+            late=self.source_control(plan,bind=False);setattr(late,field,value)
+            with self.assertRaises(NativeUIError):late.bind_namespace_guard(plan.namespace_control)
+            self.assertIsNone(late._namespace_guard)
+
+    def test_after_final_unlink_intent_scope_and_same_label_catalog_mutations_send_zero_unlinks(self):
+        from adapters.chat_journey.evidence_archive import ChatEvidenceArchive
+        from self_tests.test_chat_archive_unlink_fence import ChatArchiveUnlinkFenceTests,RUN
+        for fault in ('root','prefix','group-alias','same-label-store','store-path','row-order'):
+            with self.subTest(fault=fault):
+                plan,remaining,_observed=self.make();source=self.source_control(plan)
+                native=ChatArchiveUnlinkFenceTests(methodName='runTest');native.setUp();self.addCleanup(native.doCleanups)
+                original_final=native.guard.final
+                def final(*args,**kwargs):source.control();return original_final(*args,**kwargs)
+                native.guard.final=final
+                archive=ChatEvidenceArchive(plan.catalog,plan.directory,plan.marker,dict(runId=RUN),native.guard,plan.inventory,
+                    unlink_fence=native.fence,indexed_verify=True)
+                self.addCleanup(archive.close_host);write=plan.marker.write;changed=[]
+                def mutate(value,previous):
+                    write(value,previous)
+                    if value['phase']!='unlink-issued' or changed:return
+                    changed.append(True)
+                    if fault=='root':plan.root=plan.root/'foreign'
+                    elif fault=='prefix':plan.prefix+='foreign-'
+                    elif fault=='group-alias':plan.namespace=tuple(list(plan.namespace))
+                    elif fault=='row-order':plan.catalog.rows=dict(reversed(list(plan.catalog.rows.items())))
+                    else:
+                        row=next(iter(plan.catalog.rows.values()))
+                        if fault=='same-label-store':row['store']=PrivateFeatureState(row['store'].path)
+                        else:row['store'].path=row['store'].path.with_name('pico-tablet-web-foreign.json')
+                plan.marker.write=mutate
+                with self.assertRaises(NativeUIError):archive.retire()
+                self.assertEqual([True],changed);self.assertEqual([],archive.deleted)
+                self.assertEqual('unlink-issued',plan.marker.read()['phase'])
+                self.assertTrue(all(path.exists() for path in remaining));self.assertFalse(archive.complete)
+
+    def test_original_namespace_groups_continue_through_real_archive_copy_unlink_and_final_source(self):
+        from adapters.chat_journey.evidence_archive import ChatEvidenceArchive,completed_archive
+        from self_tests.test_chat_archive_unlink_fence import ChatArchiveUnlinkFenceTests,RUN
+        plan,remaining,_observed=self.make();source=self.source_control(plan)
+        native=ChatArchiveUnlinkFenceTests(methodName='runTest');native.setUp();self.addCleanup(native.doCleanups)
+        original_final=native.guard.final;calls=[]
+        def final(*args,**kwargs):
+            source.control();calls.append(True);return original_final(*args,**kwargs)
+        native.guard.final=final
+        archive=ChatEvidenceArchive(plan.catalog,plan.directory,plan.marker,dict(runId=RUN),native.guard,plan.inventory,
+            unlink_fence=native.fence,indexed_verify=True)
+        self.addCleanup(archive.close_host);result=archive.retire()
+        self.assertEqual(4,result['chatEvidenceArchiveVersion']);self.assertTrue(archive.complete)
+        self.assertEqual(len(remaining),len(archive.deleted));self.assertTrue(all(not path.exists() for path in remaining))
+        self.assertIsNone(plan.marker.read());self.assertGreater(len(calls),len(remaining))
+        self.assertEqual(4,completed_archive(plan.directory)['chatEvidenceArchiveVersion'])
+        source.control();plan.inventory(set())
 
     def test_matching_orphan_files_directories_and_symlinks_block_both_complete_namespace_scans(self):
         for where in ('state','artifacts'):
