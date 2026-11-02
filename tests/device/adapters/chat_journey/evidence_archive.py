@@ -11,7 +11,7 @@ import json
 import os
 import stat
 
-from adapters.native_fd_owner import OriginalDescriptor
+from adapters.native_fd_owner import OriginalDescriptor,require_directory
 from adapters.chat_journey.archive_file import ClosedOriginalFile
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
@@ -97,9 +97,7 @@ class ChatArchiveCatalog:
             raise
 
     def verify_parent(self,path):
-        owner=self.parents[path];owner.require(owner.fd);info=path.lstat();held=os.fstat(owner.fd)
-        need(path.resolve(strict=True)==path and stat.S_ISDIR(info.st_mode) and stat.S_IMODE(info.st_mode)==0o700
-            and info.st_uid==os.geteuid() and (info.st_dev,info.st_ino)==(held.st_dev,held.st_ino)==owner.node)
+        require_directory(self.parents[path],path)
 
     def verify(self,row):
         self.verify_parent(row['store'].path.parent)
@@ -225,22 +223,27 @@ class ChatEvidenceArchive:
         # Enumeration can leave the owned directory OFD at end-of-directory;
         # reset only this still kernel-verified original before every pass.
         os.lseek(self.root.fd,0,os.SEEK_SET)
-        need(set(os.listdir(self.root.fd))==set(self.archived)==set(self.admitted))
-        chain=''
-        for (name,row),(original_name,entry) in zip(self.archived.items(),self.index_rows):
-            admitted,path,encoded=entry
-            need(name==original_name and self.admitted[name] is admitted)
-            snapshot,raw,owner,owner_raw=admitted
-            current=(name,tuple(row['stamp']),row['sha256'],len(row['raw']))
-            need(current==snapshot and type(raw) is bytes and row['raw'] is raw and row['owner'] is owner
-                and type(owner) is ClosedOriginalFile and owner.path is row['path'] is path
-                and type(owner_raw) is bytes and owner.raw is owner_raw and owner.stamp==row['stamp'] and not owner.failed and owner.active is None)
-            # This is exactly canonical((chain, snapshot)): the chain is
-            # empty or lowercase SHA256 hex, and encoded is the pinned original
-            # canonical snapshot. Keep the original chain value/verification.
-            chain=hashlib.sha256(b'["'+chain.encode('ascii')+b'",'+encoded+b']').hexdigest()
-            info=os.stat(name,dir_fd=self.root.fd,follow_symlinks=False);private(info,0o400)
-            need(stamp(info)==row['stamp'])
+        # New entries on EVERY pass: DirEntry.stat is used once per entry
+        # while this exact held-directory scan remains open. No entry/stat
+        # survives the pass or replaces a fresh physical observation.
+        with os.scandir(self.root.fd) as scan:
+            entries={entry.name:entry for entry in scan}
+            need(set(entries)==set(self.archived)==set(self.admitted))
+            chain=''
+            for (name,row),(original_name,entry) in zip(self.archived.items(),self.index_rows):
+                admitted,path,encoded=entry
+                need(name==original_name and self.admitted[name] is admitted)
+                snapshot,raw,owner,owner_raw=admitted
+                current=(name,tuple(row['stamp']),row['sha256'],len(row['raw']))
+                need(current==snapshot and type(raw) is bytes and row['raw'] is raw and row['owner'] is owner
+                    and type(owner) is ClosedOriginalFile and owner.path is row['path'] is path
+                    and type(owner_raw) is bytes and owner.raw is owner_raw and owner.stamp==row['stamp'] and not owner.failed and owner.active is None)
+                # This is exactly canonical((chain, snapshot)): the chain is
+                # empty or lowercase SHA256 hex, and encoded is the pinned original
+                # canonical snapshot. Keep the original chain value/verification.
+                chain=hashlib.sha256(b'["'+chain.encode('ascii')+b'",'+encoded+b']').hexdigest()
+                info=entries[name].stat(follow_symlinks=False);private(info,0o400)
+                need(stamp(info)==row['stamp'])
         need(chain==self.cache_digest);self.verify_root()
 
     def verify_current(self,label):
@@ -276,7 +279,8 @@ class ChatEvidenceArchive:
         for row in self.catalog.rows.values():
             self.catalog.verify(row)
             if not self.indexed_verify:self.verify_archive()
-            self.inventory({value['store'].path for key,value in self.catalog.rows.items() if key not in self.deleted})
+            deleted=set(self.deleted)
+            self.inventory({value['store'].path for key,value in self.catalog.rows.items() if key not in deleted})
             # The actual source/phase guard follows the final host intent.
             token=self.unlink_fence.prepare() if self.unlink_fence is not None else None
             self.write('unlink-issued',unlink=row['label'],**({'unlinkFence':token} if token is not None else {}))

@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from adapters import native_fd_owner as module
-from adapters.native_fd_owner import OriginalDescriptor
+from adapters.native_fd_owner import OriginalDescriptor,require_directory
 from adapters.normal_ui import NativeUIError
 
 
@@ -68,6 +68,39 @@ class OriginalDescriptorTests(unittest.TestCase):
         self.assertEqual(2,len(opened))
         for fd in opened:
             with self.assertRaises(OSError):os.fstat(fd)
+
+    @unittest.skipUnless(module.QUERY is not None and module.sys.platform.startswith('linux'),'Original Linux OFD query is unavailable')
+    def test_directory_guard_rechecks_exact_ofd_after_current_kernel_path_observation(self):
+        owner=OriginalDescriptor(self.root,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
+        descriptor,anchor=owner.fd,owner.anchor;readlink=os.readlink;recycled=[]
+        def change(path):
+            value=readlink(path)
+            foreign=os.open(self.root,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
+            try:os.dup2(foreign,descriptor)
+            finally:os.close(foreign)
+            recycled.append(True);return value
+        try:
+            with patch.object(module.os,'readlink',change),self.assertRaises(NativeUIError):require_directory(owner,self.root)
+            self.assertEqual([True],recycled);self.assertFalse(owner.close());self.assertTrue(owner.lost)
+            self.assertEqual(os.fstat(descriptor).st_ino,os.fstat(anchor).st_ino)
+        finally:os.close(descriptor);os.close(anchor)
+
+    @unittest.skipUnless(module.QUERY is not None,'Original Linux OFD query is unavailable')
+    def test_directory_modes_and_other_platform_strict_resolution_remain_explicit(self):
+        owner=OriginalDescriptor(self.root,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC);self.addCleanup(owner.close)
+        require_directory(owner,self.root)
+        with self.assertRaises(NativeUIError):require_directory(owner,self.root,mode=True)
+        with self.assertRaises(NativeUIError):require_directory(owner,self.root,mode=0o777)
+        self.root.chmod(0o500)
+        try:
+            with self.assertRaises(NativeUIError):require_directory(owner,self.root)
+            require_directory(owner,self.root,mode=0o500)
+        finally:self.root.chmod(0o700)
+        original=Path.resolve;calls=[]
+        def resolve(path,*args,**kwargs):calls.append((path,args,kwargs));return original(path,*args,**kwargs)
+        with patch.object(module.sys,'platform','other-platform-fixture'),patch.object(Path,'resolve',resolve):
+            require_directory(owner,self.root)
+        self.assertEqual([(self.root,(),dict(strict=True))],calls)
 
 
 if __name__=='__main__':unittest.main()

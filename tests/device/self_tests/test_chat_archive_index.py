@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
 import os
+from pathlib import Path
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -62,19 +64,85 @@ class ChatArchiveIndexTests(unittest.TestCase):
                 self.assertEqual([],archive.deleted);self.assertTrue(all(row['store'].path.exists() for row in self.h.catalog.rows.values()))
 
     def test_original_archive_directory_swap_during_held_fd_inventory_never_touches_foreign_files(self):
-        archive=self.h.make(indexed=True);stat=os.stat;moved=[];saved=archive.directory.with_name('held-original-archive')
+        archive=self.h.make(indexed=True);scandir=os.scandir;moved=[];saved=archive.directory.with_name('held-original-archive')
         def restore():
             if moved:
                 archive.directory.rmdir();saved.rename(archive.directory)
         self.addCleanup(restore)
-        def change(name,*args,**kw):
-            value=stat(name,*args,**kw)
-            if kw.get('dir_fd') is not None and name=='original-0000.json' and self.h.ledger.read()['phase']=='unlink-issued' and not moved:
-                archive.directory.rename(saved);archive.directory.mkdir(mode=0o700);moved.append(True)
-            return value
-        with patch('adapters.chat_journey.evidence_archive.os.stat',change),self.assertRaises(NativeUIError):archive.retire()
+        class Entry:
+            def __init__(self,original):self.original=original;self.name=original.name
+            def stat(self,**kw):
+                value=self.original.stat(**kw)
+                if self.name=='original-0000.json' and self_outer.h.ledger.read()['phase']=='unlink-issued' and not moved:
+                    archive.directory.rename(saved);archive.directory.mkdir(mode=0o700);moved.append(True)
+                return value
+        class Scan:
+            def __init__(self,descriptor):self.original=scandir(descriptor)
+            def __enter__(self):self.original.__enter__();return (Entry(entry) for entry in self.original)
+            def __exit__(self,*args):return self.original.__exit__(*args)
+        self_outer=self
+        def change(descriptor):
+            return Scan(descriptor) if type(descriptor) is int and archive.root is not None and descriptor==archive.root.fd else scandir(descriptor)
+        with patch('adapters.chat_journey.evidence_archive.os.scandir',change),self.assertRaises(NativeUIError):archive.retire()
         self.assertTrue(moved);self.assertEqual([],archive.deleted)
         self.assertTrue(all(row['store'].path.exists() for row in self.h.catalog.rows.values()))
+
+    def test_same_byte_copy_replacement_between_index_passes_is_not_a_cached_stat(self):
+        archive=self.h.make(indexed=True);verify=archive.verify_index;changed=[]
+        def replace():
+            verify()
+            if self.h.ledger.read() and self.h.ledger.read()['phase']=='unlink-issued' and not changed:
+                path=archive.directory/'original-0001.json';replacement=archive.directory/'replacement'
+                replacement.write_bytes(path.read_bytes());replacement.chmod(0o400);replacement.replace(path);changed.append(True)
+        archive.verify_index=replace
+        with self.assertRaises(NativeUIError):archive.retire()
+        self.assertEqual([True],changed);self.assertEqual([],archive.deleted)
+        self.assertEqual('unlink-issued',self.h.ledger.read()['phase'])
+        self.assertTrue(all(row['store'].path.exists() for row in self.h.catalog.rows.values()))
+
+    def parent_fixture(self):
+        ancestor=Path(self.h.temp.name)/'authority';ancestor.mkdir(mode=0o700)
+        directory=ancestor/'sources';directory.mkdir(mode=0o700)
+        catalog=ChatArchiveCatalog(hold_files=False);self.addCleanup(catalog.close_host)
+        store=PrivateFeatureState(directory/'original.json');value=dict(original='complete private bytes')
+        store.write(value,None);catalog.add('primary/'+store.path.name,store,value)
+        return catalog,ancestor,directory,store
+
+    def test_original_parent_canonical_path_rejects_ancestor_move_and_symlink_with_same_leaf_inode(self):
+        catalog,ancestor,directory,store=self.parent_fixture();saved=ancestor.with_name('saved-authority')
+        original=directory.stat().st_ino;ancestor.rename(saved);ancestor.symlink_to(saved,target_is_directory=True)
+        try:
+            self.assertEqual(original,directory.stat().st_ino)
+            with self.assertRaises((NativeUIError,OSError)):catalog.verify_parent(directory)
+            self.assertEqual(dict(original='complete private bytes'),PrivateFeatureState(saved/'sources'/'original.json').read())
+        finally:ancestor.unlink();saved.rename(ancestor)
+
+    def test_original_parent_exchange_rejects_foreign_named_directory_and_preserves_both_trees(self):
+        catalog,ancestor,directory,store=self.parent_fixture();foreign=ancestor.with_name('foreign-authority')
+        foreign.mkdir(mode=0o700);(foreign/'sources').mkdir(mode=0o700)
+        outsider=foreign/'sources'/'foreign.json';outsider.write_bytes(b'foreign original');outsider.chmod(0o600)
+        temporary=ancestor.with_name('exchange-held');ancestor.rename(temporary);foreign.rename(ancestor);temporary.rename(foreign)
+        try:
+            with self.assertRaises((NativeUIError,OSError)):catalog.verify_parent(directory)
+            self.assertEqual(b'foreign original',(directory/'foreign.json').read_bytes())
+            self.assertEqual(dict(original='complete private bytes'),PrivateFeatureState(foreign/'sources'/'original.json').read())
+        finally:ancestor.rename(temporary);foreign.rename(ancestor);temporary.rename(foreign)
+
+    def test_same_node_parent_alias_cannot_replace_the_original_canonical_path(self):
+        catalog,ancestor,directory,_store=self.parent_fixture();alias=ancestor.with_name('alias-authority')
+        alias.symlink_to(ancestor,target_is_directory=True);named=alias/'sources'
+        self.assertEqual(directory.stat().st_ino,named.stat().st_ino)
+        catalog.parents[named]=catalog.parents[directory]
+        try:
+            with self.assertRaises((NativeUIError,OSError)):catalog.verify_parent(named)
+        finally:catalog.parents.pop(named);alias.unlink()
+
+    @unittest.skipUnless(sys.platform.startswith('linux'),'Fresh Linux held-FD canonical path contract')
+    def test_linux_canonical_observation_failure_does_not_fall_back_to_path_resolution(self):
+        catalog,_ancestor,directory,store=self.parent_fixture()
+        with patch('adapters.chat_journey.evidence_archive.os.readlink',side_effect=OSError('Original kernel path unavailable')):
+            with self.assertRaises(OSError):catalog.verify_parent(directory)
+        self.assertEqual(dict(original='complete private bytes'),store.read());catalog.verify_parent(directory)
 
     def test_replaced_original_serialization_index_after_unlink_intent_keeps_all_sources(self):
         for fault in ('admission-tuple','index-tuple','canonical-body'):

@@ -2,6 +2,9 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import os
+from pathlib import Path
+import stat
+import sys
 try:import fcntl
 except ImportError:fcntl=None
 
@@ -48,3 +51,24 @@ class OriginalDescriptor:
         os.close(self.fd);os.close(self.anchor)
         self.fd=self.anchor=-1;self.closed=True
         return True
+
+
+def require_directory(owner,path,*,mode=0o700):
+    """Fresh canonical path and metadata of the exact original directory OFD.
+
+    No pathname, stat or source verdict is cached. Linux kernel observations
+    disagreeing with the expected original fail closed; only other platforms
+    retain the original strict pathname-resolution implementation.
+    """
+    need(type(owner) is OriginalDescriptor and isinstance(path,Path)
+        and type(mode) is int and mode in (0o700,0o500))
+    owner.require(owner.fd);info=path.lstat();held=os.fstat(owner.fd)
+    if sys.platform.startswith('linux'):
+        expected=os.fspath(path);actual=os.readlink('/proc/self/fd/'+str(owner.fd))
+        need(path.is_absolute() and os.path.normpath(expected)==expected
+            and actual==expected and not actual.endswith(' (deleted)'))
+    else:need(path.resolve(strict=True)==path)
+    need(all(stat.S_ISDIR(row.st_mode) and stat.S_IMODE(row.st_mode)==mode
+        and row.st_uid==os.geteuid() for row in (info,held))
+        and (info.st_dev,info.st_ino)==(held.st_dev,held.st_ino)==owner.node)
+    owner.require(owner.fd)
