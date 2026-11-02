@@ -95,9 +95,10 @@ storage scopes; no cap changes or whole-run extrapolation is made.
 ## Remaining composition
 
 The normal editor's own durable pre-input journal now shares its real scope
-and serialization with canonical Actor acquisition. Full Common16 Primary
-operations/phase-fence admission and independent readiness delivery are still
-not composed by this fixture. Continue the same live graph through the blocked
+and serialization with canonical Actor acquisition. The subsequent
+[Common/PrimaryOperations integration](LIFECYCLE_ACTOR_OPERATIONS.md) verifies
+actual peer readiness and phase-fenced normal operations for the first two
+actions, with retained witness and consumed Common originals. Continue the same live graph through the blocked
 World gesture and later editor generations; do not copy Primary result facts
 or treat its ACK as an Actor effect. Independent G1/native birth/old-PID absence,
 stereo/tablet-surface association, typed historical return, archive/IPC/files/

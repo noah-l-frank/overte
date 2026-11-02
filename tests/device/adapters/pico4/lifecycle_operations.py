@@ -48,8 +48,18 @@ class LifecycleInputFence(PhaseInputFence):
         return self.owner.original(row['before'])
 
     def read(self,expected):
-        packet,now,epoch=super().read(expected)
-        self.owner.archive(packet)
+        # Keep the complete original phase endpoint response before the shared
+        # reader/fence can reject it. A changed phase is unresolved ownership,
+        # not a reason to lose its bytes or issue another normal input.
+        client=self.source.client;request=client.request
+        path='/runs/'+self.source.run+'/phase'
+        def received(actual,*args,**kwargs):
+            value=request(actual,*args,**kwargs)
+            if actual==path and 'phase_nonce' in kwargs:self.owner.archive(deepcopy(value))
+            return value
+        try:
+            client.request=received;packet,now,epoch=super().read(expected)
+        finally:client.request=request
         # The original phase cannot age unnoticed during its durable write.
         completed=self.source.monotonic();final=self.source.epoch_ms()
         need(0<=completed-now<=1.5 and 0<=final-epoch<=1500)
