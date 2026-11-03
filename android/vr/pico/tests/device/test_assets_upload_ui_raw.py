@@ -1,0 +1,15 @@
+"""Explicit Assets Upload UI component; native/product effects are models."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from pathlib import Path
+import sys
+import unittest
+sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
+from self_tests.test_pico_assets_upload_ui_raw import AssetsUploadUiRawTests
+
+METHODS=('test_actual_stage2_constructor_and_later_controls_share_upload_query2', 'test_stage4_malformed_cold_bytes_are_durable_before_owner_exists', 'test_stage4_partial_timeout_keeps_raw_before_utf8_and_any_upload_input', 'test_stage4_foreign_bridge_cannot_construct_an_upload_owner', 'test_stage4_successful_raw_receipt_cas_lost_retains_actual_pending_owner', 'test_upload_mode_substitution_refuses_before_later_control_runtime_io', 'test_status_capacity_is_reserved_before_the_single_actual_input_writer', 'test_foreign_status_command_refuses_before_any_actual_input_or_getter', 'test_wrong_ack_keeps_one_input_and_original_one_point_five_second_anchor', 'test_partial_ack_after_actual_input_is_opaque_and_never_replayed', 'test_actual_ack_cas_lost_after_one_input_retains_same_command_and_bytes', 'test_acquired_ui_survives_actual_business_failure_before_raw_retention', 'test_completed_receipt_cas_delay_keeps_original_status_until_final_freshness', 'test_first_ack_releases_only_after_receipt_and_pending_cas', 'test_next_status_index_growth_is_reserved_under_actual_parent_byte_bound', 'test_128_status_indices_refuse_before_the_next_actual_getter', 'test_postappend_actual_byte_bound_retains_raw_before_status_decoder')
+
+def load_tests(loader,_tests,_pattern):
+    return unittest.TestSuite(loader.loadTestsFromName(name,AssetsUploadUiRawTests) for name in METHODS)
+
+if __name__=='__main__':unittest.main()

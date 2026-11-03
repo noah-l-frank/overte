@@ -68,7 +68,7 @@ class PicoAssetsPrefix:
         self.version=VERSION if upload_factory is None else 3
         self.recipe=STEPS if upload_factory is None else (*STEPS,UPLOAD_STEP)
         self.upload_factory,self.upload_owner=upload_factory,None
-        self.wire=None;self.child_ui=None
+        self.wire=None;self.child_ui=None;self.upload_ui=None
         self.scope = dict(assetsPrefixVersion=self.version, assetsRawOriginalLayoutVersion=1 if self.version==2 else 2, contractVersion=CONTRACT,
                           binding=deepcopy(self.binding), runId=self.run, fixtureUrl=self.url)
         if self.version==3:self.scope.update(assetsWireOriginalLayoutVersion=1,startedMonotonic=phases.monotonic(),startedEpochMs=phases.epoch_ms(),
@@ -203,6 +203,8 @@ class PicoAssetsPrefix:
         for reader in (self.mappings, self.uploads):
             count += len(reader.history)
             size += len(canonical(reader.history))
+        for ui_raw in (self.child_ui,self.upload_ui):
+            if ui_raw is not None:size+=ui_raw.bill(self)
         if self.child is not None:
             cancel, files = self.child.store.read(), self.child.files.store.read()
             if cancel is not None:
@@ -472,6 +474,10 @@ class PicoAssetsPrefix:
 
     def act(self, fields):
         arguments('feature.assets.act', fields)
+        # Charge the existing Upload20 window from this actual action entry,
+        # including lock admission, phase storage and cold runtime creation.
+        upload_started=self.phases.monotonic() if self.version==3 and self.wire is not None and fields['verb']=='upload' else None
+        upload_carrier=None
         try:
             with self.lock.held():
                 self.bound();self.business()
@@ -499,7 +505,19 @@ class PicoAssetsPrefix:
                 elif index==3:
                     from adapters.pico4.assets_upload_owner import OwnedAssetsUpload
                     need(self.version==3 and self.upload_owner is None)
-                    self.upload_owner=self.upload_factory(self)
+                    if self.wire is None:self.upload_owner=self.upload_factory(self)
+                    else:
+                        from adapters.pico4.assets_wire_owner import AssetsChildUiRaw
+                        captured=self.phases.monotonic();need(number(captured,upload_started,upload_started+20) and captured<upload_started+20)
+                        epoch=self.clock_ms();completed=self.phases.monotonic()
+                        need(integer(epoch,1) and number(completed,captured,upload_started+20) and completed<upload_started+20)
+                        action=self.archive(dict(assetsUploadActionAnchorVersion=1,ticket=fields['ticket'],
+                            startedHostMonotonic=upload_started,nativeEpochMs=epoch,
+                            nativeClockStartedHostMonotonic=captured,nativeClockCompletedHostMonotonic=completed))
+                        need(self.phases.monotonic()<upload_started+20)
+                        self.upload_ui=upload_carrier=AssetsChildUiRaw(self,operation='upload',action_original=action)
+                        self.upload_owner=self.upload_factory(self,ui_raw=self.upload_ui)
+                        self.upload_ui.attach(self.upload_owner)
                     need(type(self.upload_owner) is OwnedAssetsUpload and self.upload_owner.parent is self)
                     result=self.upload_owner.run(fields)
                 else:
@@ -528,6 +546,10 @@ class PicoAssetsPrefix:
             return result
         except Exception:
             self.failed = True
+            # Retain the ACTUAL pre-factory carrier, not a possibly replaced
+            # public holder. Its graph includes successfully opened file/raw
+            # owners even when a later business/CAS boundary fails.
+            if upload_carrier is not None:upload_carrier.fail()
             raise NativeUIError('Assets prefix action unresolved; no further input permitted') from None
 
     def archive_children(self):

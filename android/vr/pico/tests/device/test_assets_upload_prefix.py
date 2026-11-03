@@ -105,4 +105,47 @@ class AssetsUploadPrefixTests(unittest.TestCase):
             nativeQualified=False,wholeCommonQualified=False),indent=2)+'\n')
 
 
+class AssetsUploadStage4Diagnostic(unittest.TestCase):
+    """Explicit modeled earlier-prefix precondition, never continuous first4.
+
+    Only this existing stage4 ordinary input/source path executes. No prior
+    Open/picker/Cancel input or requested upload effect is declared successful.
+    This opt-in diagnostic is excluded from default green selectors.
+    """
+    def setUp(self):
+        from self_tests.test_pico_assets_upload_ui_raw import AssetsUploadUiRawTests
+        self.fixture=AssetsUploadUiRawTests(methodName='runTest');self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.model,self.owner=self.fixture.model,self.fixture.parent
+
+    def test_actual_stage4_normal_upload_from_declared_priorprefix(self):
+        m,p=self.model,self.owner;started=time.monotonic();result=None;error=None
+        try:
+            result=p.act(self.fixture.upload_fields())
+            self.assertTrue(result['normalUploadObserved'] and result['exactDownloadedBytes'] and result['stagedFilesRetired'])
+            self.assertFalse(result['completeCommonObservation'])
+        except BaseException as failure:
+            error=dict(type=type(failure).__name__,message=str(failure));raise
+        finally:
+            # Diagnostic only. No second source query, restore, retry or file
+            # release is made to turn an unresolved normal call into success.
+            upload=p.upload_owner
+            failures={}
+            def passive(label,callback):
+                try:return callback()
+                except BaseException as failure:
+                    failures[label]=dict(type=type(failure).__name__,message=str(failure));return None
+            with p.lock.held():bill=passive('bill',p.bill)
+            responsibility=passive('responsibility',p.responsibility)
+            file_state=None if upload is None else passive('fileState',upload.files.store.read)
+            (m.root/'stage4-source-component-terminal.json').write_text(json.dumps(dict(
+                diagnosticOnly=True,modeledPriorPrefix=True,executedPriorThreeActions=False,
+                nativeDeviceQualified=False,wholeCommonQualified=False,error=error,result=result,
+                elapsed=time.monotonic()-started,originalParentStartedMonotonic=p.scope['startedMonotonic'],
+                originalUploadWindowSeconds=20,originalOuterWindowSeconds=120,bill=bill,
+                ordinaryStage4Inputs=deepcopy(m.inputs),nativeQueries=len(m.calls),sdkCalls=len(m.sdk_calls),
+                uploadResponsibility=responsibility,uploadPhase=deepcopy(p.state['upload']),
+                actualFileState=file_state,secondaryDiagnosticFailures=failures),indent=2)+'\n')
+
+
 if __name__=='__main__':unittest.main()

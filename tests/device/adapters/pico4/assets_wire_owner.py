@@ -11,7 +11,7 @@ import hashlib
 import uuid
 
 from adb_transport import AdbTransport
-from adapters.native_feature_observation import exact,integer,need
+from adapters.native_feature_observation import decode,exact,integer,need,number
 from adapters.pico4.assets_raw_archive import compact
 from adapters.pico4.assets_transport import PicoAssetsTransport,read_body,BODY_LIMIT,AUX_LIMIT
 from adapters.pico4.assets_raw_ranges import OVERLAY
@@ -43,7 +43,8 @@ def bind_assets_navigation_raw(owner,io):
             if owner.parent.raw_archive.active is None:owner.parent.raw_archive.reserve(role,owner.query['command'])
             # Original input intent stays historical; this is a new actual
             # bounded ACK byte read, never another ordinary input.
-            owner.parent.query_anchor=(owner.parent.phases.monotonic(),owner.parent.clock_ms())
+            owner.parent.query_anchor=(owner.status_prepared[3] if type(owner) is AssetsChildUiRaw and owner.operation=='upload'
+                else (owner.parent.phases.monotonic(),owner.parent.clock_ms()))
         if owner.ui_anchor is not None:owner.parent.query_anchor=owner.ui_anchor
         owner.parent.query_age();value=raw(kind) if owner.parent.wire is None else owner.parent.wire.read(role)
         owner.acquired=value
@@ -63,29 +64,102 @@ class AssetsChildUiRaw:
     No parsed UI effect is supplied here. Existing Pico navigation and child
     validators still consume the body only after its durable raw receipt.
     """
-    def __init__(self,parent):
-        need(parent.version==3 and parent.wire is not None and parent.child is None
-            and parent.child_ui is None and len(parent.state['steps'])==2
+    def __init__(self,parent,*,operation='picker-open',action_original=None):
+        need(type(operation) is str and operation in ('picker-open','upload'))
+        index=1 if operation=='picker-open' else 3
+        need(parent.version==3 and parent.wire is not None
+            and (parent.child is None and parent.child_ui is None if operation=='picker-open'
+                 else parent.upload_owner is None and parent.upload_ui is None)
+            and len(parent.state['steps'])==index+1
             and parent.state['steps'][-1]['status']=='issued')
+        self.operation=self.original_operation=operation
+        self.action_original=self.original_action_original=action_original
+        self.action_anchor=self.original_action_anchor=None
+        self.action_raw=self.original_action_raw=None
+        if operation=='picker-open':need(action_original is None)
+        else:
+            need(integer(action_original,0,len(parent.disk['bundles'])-1))
+            action=parent.original(action_original)
+            exact(action,{'assetsUploadActionAnchorVersion','ticket','startedHostMonotonic','nativeEpochMs',
+                'nativeClockStartedHostMonotonic','nativeClockCompletedHostMonotonic'})
+            need(type(action['assetsUploadActionAnchorVersion']) is int and action['assetsUploadActionAnchorVersion']==1
+                and action['ticket']==parent.state['steps'][index]['ticket']
+                and number(action['startedHostMonotonic'],parent.scope['startedMonotonic'],1e15)
+                and number(action['nativeClockStartedHostMonotonic'],action['startedHostMonotonic'],action['startedHostMonotonic']+20)
+                and number(action['nativeClockCompletedHostMonotonic'],action['nativeClockStartedHostMonotonic'],action['startedHostMonotonic']+20)
+                and integer(action['nativeEpochMs'],1))
+            self.action_anchor=self.original_action_anchor=(action['startedHostMonotonic'],action['nativeEpochMs'])
+            self.action_raw=self.original_action_raw=canonical(action)
         self.parent,self.wire=parent,parent.wire
         self.fixed=self.original_fixed=(parent,parent.wire,canonical(parent.binding),parent.run,parent.url,
-            parent.state['steps'][1]['ticket'])
+            parent.state['steps'][index]['ticket'],operation,action_original,self.action_raw)
         self.slots=self.original_slots=();self.query=None;self.ui_anchor=None;self.last_ui_anchor=None
-        self.failed=False;self.read_active=False;self.read_io=None
+        self.failed=False;self.read_active=False;self.read_io=None;self.admitting=False
         self.raw_active=False;self.active_io=None;self.raw_anchor=None;self.acquired=None
         self.child=self.original_child=None
+        self.last_ui_record=self.original_last_ui_record=None
+        self.status_prepared=self.original_status_prepared=None
+        self.status_records=self.original_status_records=()
 
     def identity(self,*,held=True):
-        p=self.parent
-        need(not self.failed and not p.failed and p.child_ui is self
+        p=self.parent;operation=self.operation
+        need(type(operation) is str and operation is self.original_operation and operation in ('picker-open','upload'))
+        index=1 if operation=='picker-open' else 3
+        need(not self.failed and not p.failed and (p.child_ui if operation=='picker-open' else p.upload_ui) is self
             and self.fixed is self.original_fixed and self.slots is self.original_slots
             and type(self.slots) is tuple and len(self.slots)<=16
-            and self.child is self.original_child and (self.child is None or p.child is self.child)
-            and self.fixed==(p,p.wire,canonical(p.binding),p.run,p.url,p.state['steps'][1]['ticket'])
-            and p.wire is self.wire and len(p.state['steps']) in (2,3)
+            and self.child is self.original_child
+            and self.last_ui_record is self.original_last_ui_record
+            and self.status_prepared is self.original_status_prepared
+            and self.status_records is self.original_status_records and type(self.status_records) is tuple
+            and type(self.admitting) is bool and type(self.action_original) is type(self.original_action_original)
+            and self.action_original==self.original_action_original
+            and self.action_anchor is self.original_action_anchor and self.action_raw is self.original_action_raw
+            and (self.child is None or (p.child if operation=='picker-open' else p.upload_owner) is self.child)
+            and self.fixed==(p,p.wire,canonical(p.binding),p.run,p.url,p.state['steps'][index]['ticket'],operation,self.action_original,self.action_raw)
+            and p.wire is self.wire and len(p.state['steps']) in ((2,3) if operation=='picker-open' else (4,))
             and p.state['steps'][-1]['status'] in ('issued','returned'))
         if held:p.lock.assert_held()
         return p
+
+    def runtime_admission(self):
+        need(type(self.operation) is str)
+        if self.operation=='picker-open':return self.identity()
+        entered=False
+        try:
+            need(not self.admitting);self.admitting=True;entered=True
+            p=self.identity();p.bound();started,epoch=self.action_anchor
+            now=p.phases.monotonic()
+            need(number(now,started,started+20) and now<started+20
+                and number(now,p.scope['startedMonotonic'],p.scope['startedMonotonic']+120)
+                and now<p.scope['startedMonotonic']+120)
+            p.bound();self.identity();return True
+        except BaseException:self.fail();raise
+        finally:
+            if entered:self.admitting=False
+
+    def action_epoch(self,anchor):
+        need(type(self.operation) is str and self.operation is self.original_operation)
+        if self.operation=='upload':need(integer(anchor[1],self.action_anchor[1],self.action_anchor[1]+19999))
+
+    def bill(self,parent):
+        # Resource accounting is not business admission: already acquired raw
+        # bytes remain archivable after action expiry or a failed UI callback.
+        need(self.parent is parent and self.operation is self.original_operation
+            and self.action_raw is self.original_action_raw and self.status_prepared is self.original_status_prepared
+            and self.status_records is self.original_status_records and type(self.status_records) is tuple)
+        if self.operation=='picker-open':return 0
+        need(type(self.action_raw) is bytes)
+        command=0
+        if self.status_prepared is not None:
+            need(type(self.status_prepared) is tuple and len(self.status_prepared)==5 and type(self.status_prepared[2]) is bytes
+                and len(self.status_prepared[2])<=4096)
+            command=len(self.status_prepared[2])
+        # One next raw index is at most511: [] -> [511] adds3 bytes,
+        # a nonempty list adds at most a comma plus3 digits. Reserve it
+        # BEFORE any next ACK getter, under the same Parent byte budget.
+        growth=4 if self.status_prepared is not None else 0
+        return len(self.action_raw)+command+len(canonical(list(self.status_records)))+growth
 
     def fail(self):
         self.failed=True;self.parent.failed=True
@@ -106,7 +180,7 @@ class AssetsChildUiRaw:
     def bind_native(self,io):
         from adapters.pico4.navigation import NativeNavigationIO
         need(not self.read_active and not self.raw_active and self.query is None and self.ui_anchor is None)
-        self.identity()
+        self.runtime_admission()
         need(type(io) is NativeNavigationIO and len(self.slots)<16 and not self.raw_active and self.query is None
             and self.ui_anchor is None and not any(row[0] is io for row in self.slots)
             and io.adapter is self.wire.adapter and io.target==self.wire.target
@@ -121,20 +195,37 @@ class AssetsChildUiRaw:
                     and self.query is None and not self.raw_active and not self.read_active)
                 self.slot(io,held=False)
                 self.read_active=True;self.read_io=io;entered=True
+                self.runtime_admission()
                 self.ui_anchor=(self.parent.phases.monotonic(),self.parent.clock_ms())
-                self.slot(io);return bounded()
+                self.action_epoch(self.ui_anchor)
+                self.slot(io);result=bounded()
+                if self.operation=='upload':
+                    role,index=self.parent.wire.last_receipt;need(role=='ui-observation')
+                    self.last_ui_record=self.original_last_ui_record=(io,index,self.last_ui_anchor)
+                return result
             except BaseException:self.fail();raise
             finally:
                 if entered:self.ui_anchor=None;self.read_active=False;self.read_io=None
         def raw(kind):
             entered=False
             try:
-                need(not self.failed and not self.parent.failed and not self.raw_active and self.query is None
+                need(type(kind) is str and type(self.operation) is str
+                    and (self.query is None or type(self.query) is dict))
+                prepared=(self.status_prepared if self.operation=='upload' and kind=='status' else None)
+                if self.operation=='upload' and kind=='status':
+                    need(type(prepared) is tuple and len(prepared)==5 and prepared is self.original_status_prepared
+                        and type(self.status_records) is tuple and len(self.status_records)<128)
+                need(not self.failed and not self.parent.failed and not self.raw_active
+                    and (self.query is None or (prepared is not None and self.query['role']=='ui-status'))
                     and type(kind) is str and kind in ('observation','status'))
+                if prepared is not None:need(prepared[0] is io)
                 if self.read_active:need(self.read_io is io and kind=='observation' and self.ui_anchor is not None)
                 self.slot(io,held=False)
                 self.raw_active=True;self.active_io=io;entered=True
-                self.raw_anchor=self.ui_anchor if self.ui_anchor is not None else (self.parent.phases.monotonic(),self.parent.clock_ms())
+                self.runtime_admission()
+                self.raw_anchor=(prepared[3] if prepared is not None else self.ui_anchor if self.ui_anchor is not None
+                    else (self.parent.phases.monotonic(),self.parent.clock_ms()))
+                self.action_epoch(self.raw_anchor)
                 self.slot(io)
                 return retained(kind)
             except BaseException:self.fail();raise
@@ -151,11 +242,16 @@ class AssetsChildUiRaw:
 
     def attach(self,child):
         from adapters.pico4.assets_cancel_owner import OwnedAssetsCancel
+        from adapters.pico4.assets_upload_owner import OwnedAssetsUpload
         p=self.identity()
-        need(type(child) is OwnedAssetsCancel and self.child is None and child.previous is None
-            and canonical(child.binding)==self.fixed[2] and child.run==p.run and child.url==p.url
-            and self.query is None and not self.raw_active and not self.read_active and self.ui_anchor is None)
-        child.bind_budget_cache()
+        need(self.child is None and self.query is None and not self.raw_active and not self.read_active and self.ui_anchor is None)
+        if self.operation=='picker-open':
+            need(type(child) is OwnedAssetsCancel and child.previous is None
+                and canonical(child.binding)==self.fixed[2] and child.run==p.run and child.url==p.url)
+            child.bind_budget_cache()
+        else:
+            need(type(child) is OwnedAssetsUpload and child.parent is p and child.ui_raw is self
+                and child.active_ui is None and (child.started,child.epoch)==self.action_anchor and child.query is None)
         self.child=self.original_child=child
 
     def ui_command(self,kind):
@@ -163,9 +259,57 @@ class AssetsChildUiRaw:
         p=self.identity()
         anchor=self.ui_anchor if self.ui_anchor is not None else self.raw_anchor
         need(anchor is not None)
-        return dict(assetsChildUiQueryVersion=1,queryId=uuid.uuid4().hex,kind=kind,
-            ticket=p.state['steps'][-1]['ticket'],ownerOpenTicket=self.fixed[5],
-            startedHostMonotonic=anchor[0],startedEpochMs=anchor[1])
+        return self.query_command(kind,anchor)
+
+    def query_command(self,kind,anchor):
+        p=self.identity()
+        result=dict(assetsChildUiQueryVersion=1 if self.operation=='picker-open' else 2,queryId=uuid.uuid4().hex,kind=kind,
+            ticket=p.state['steps'][-1]['ticket'],startedHostMonotonic=anchor[0],startedEpochMs=anchor[1])
+        result['ownerOpenTicket' if self.operation=='picker-open' else 'ownerUploadTicket']=self.fixed[5]
+        if self.operation=='upload':
+            result['uploadActionOriginal']=dict(assetsUploadActionReferenceVersion=1,bundle=self.action_original,
+                sha256=hashlib.sha256(self.action_raw).hexdigest())
+            if kind=='status' and self.status_prepared is not None:
+                result['inputOriginal']=dict(assetsUploadInputReferenceVersion=1,bundle=self.status_prepared[1],
+                    commandSha256=hashlib.sha256(self.status_prepared[2]).hexdigest())
+        return result
+
+    def prepare_status(self,command,io):
+        self.runtime_admission();self.slot(io);p=self.parent
+        need(self.operation=='upload' and self.child is p.upload_owner and self.status_prepared is None
+            and self.query is None and not self.raw_active and not self.read_active and self.last_ui_record is not None)
+        original=self.last_ui_record;need(original[0] is io)
+        packet=decode(p.literal(original[1]).decode('utf-8'))
+        need(packet['processId']==p.pid and packet['bridgeId']==command['bridgeId']
+            and packet['generation']==command['generation'] and packet['lastCommandSequence']+1==command['sequence']
+            and 0<=packet['elapsedMs']-command['observedElapsedMs']<=5000)
+        pending=p.disk['pendingInput'];need(pending is not None and canonical(pending['native'])==canonical(command) and p.disk['inputs'])
+        index=p.disk['inputs'][-1];receipt=p.original(index)
+        need(canonical(receipt['native'])==canonical(command))
+        from adapters.token_assets_ui import same_reference
+        from adapters.pico4.assets_ui import project
+        same_reference(receipt['uploadIntent']['original'],project(packet),command['controlId'])
+        self.status_prepared=self.original_status_prepared=(io,index,canonical(command),original[2],original[1])
+        self.status_records=self.original_status_records=()
+        # The ONE ACK reservation precedes the actual normal writer. Every
+        # later ACK poll uses this same original1.5s input/read anchor.
+        self.begin('ui-status',self.query_command('status',original[2]))
+
+    def complete_status(self,command,consumed):
+        p=self.identity();prepared=self.status_prepared
+        need(self.operation=='upload' and prepared is not None and canonical(command)==prepared[2]
+            and self.query is None and not self.raw_active and not self.read_active and self.status_records
+            and self.last_ui_record is not None and self.last_ui_record[0] is prepared[0])
+        ack=decode(p.literal(self.status_records[-1]).decode('utf-8'))
+        packet=decode(p.literal(self.last_ui_record[1]).decode('utf-8'))
+        need(ack['commandId']==command['commandId'] and ack['performed'] is True and ack['sequence']==command['sequence']
+            and ack['bridgeId']==command['bridgeId'] and ack['processId']==p.pid
+            and all(packet[key]==consumed[field] for key,field in (('bridgeId','instance'),('generation','generation'),
+                ('lastCommandSequence','sequence'),('elapsedMs','elapsedMs'),('processId','processId')))
+            and consumed['sequence']==command['sequence'])
+        p.query_anchor=prepared[3];p.query_age();need(p.query_anchor is prepared[3]);self.identity()
+        self.status_prepared=self.original_status_prepared=None
+        self.status_records=self.original_status_records=()
 
     def begin(self,role,command):
         p=self.identity();need(self.query is None and role in ('ui-observation','ui-status'))
@@ -182,7 +326,12 @@ class AssetsChildUiRaw:
         p=self.identity();pending=p.disk['pendingChildSource']
         need(self.query is not None and pending is not None and pending['raw']
             and pending['role']==self.query['role'] and p.command_original(pending['command'])==self.query['command'])
+        status_record=pending['raw'][-1] if self.operation=='upload' and self.query['role']=='ui-status' else None
         p.state['pendingChildSource']=None;p.save();p.bill();p.query_age();self.query=None
+        if status_record is not None:
+            need(self.status_prepared is not None and len(self.status_records)<128)
+            self.status_records=self.original_status_records=(*self.status_records,status_record)
+            p.bill();p.query_age()
 
 
 def body_view(wire,view):

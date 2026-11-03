@@ -3889,3 +3889,20 @@ Actor multi-clock quiet validation at103.421s. Full canonical candidate/router/C
 all source/archive/host release and Pico devices remain unqualified. See
 [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md). Source-complete count
 remains3/14; no capability is promoted.
+
+
+## Assets Upload UI original ownership continuation
+
+Query2 retains cold Stage2 and later control UI bytes on the SAME Parent3 /
+Layout2 /512-frame/16MiB graph. Original action20 includes lock/phase/factory
+work; one before-writer status reservation and original1.5s anchor span all
+ACK polls, actual consumed sequence, receipt CAS and pending-clear CAS. Four
+bytes reserve the next actual bounded status index;128 indices stop the next
+getter. Acquired bytes remain owned after business/CAS/freshness failure.
+
+Root independently passed31 current cases in41.295s (242 stable source
+SHA256/eight-stat identities). The three unchanged real20.01s clock paths
+retain their separate historical63.172s proof; they were not relabeled as
+current-source reruns. New21 cases have disjoint17+4 selectors. Full normal
+Upload and the continuous Cancel500ms obligation remain RED/open; native
+product/backend values remain declared host models. Source count stays3/14.

@@ -622,11 +622,12 @@ def create_adapter(args, base_class):
                 _need(type(backend) is PicoAssetsBackendOriginals and not backend.history
                     and backend.last is None and backend.pending is None)
                 backend.guard()
-                def upload_factory(parent):
+                def upload_factory(parent, *, ui_raw=None):
                     ticket=parent.state['steps'][-1]['ticket']
+                    ui_options={} if ui_raw is None else dict(ui_raw=ui_raw)
                     return OwnedAssetsUpload(parent,
-                        self._assets_file_owner(target,run,ticket,fixture_url,stage=2),backend,
-                        self._assets_source(target,source_lock=lock,download=True))
+                        self._assets_file_owner(target,run,ticket,fixture_url,stage=2,**ui_options),backend,
+                        self._assets_source(target,source_lock=lock,download=True),**ui_options)
             _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
             parent=PicoAssetsPrefix(self._assets_prefix_store(target).path,binding,phase,lock,
                 self._assets_source(target,source_lock=lock),self._assets_uploads(target,source_lock=lock),
@@ -708,7 +709,7 @@ def create_adapter(args, base_class):
             from adapters.pico4.assets_wire_owner import AssetsChildUiRaw
             _need(type(ui_raw) is AssetsChildUiRaw and ui_raw.parent.version==3
                 and ui_raw.wire.adapter is self and ui_raw.wire.target==target)
-            ui_raw.identity()
+            ui_raw.runtime_admission()
             return self._script_runtime(target,before_native=ui_raw.bind_native)
 
 

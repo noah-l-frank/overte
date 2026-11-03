@@ -1796,7 +1796,10 @@
         "tests/device/adapters/pico4/assets_prefix.py",
         "tests/device/adapters/pico4/assets_raw_archive.py",
         "tests/device/adapters/pico4/assets_prefix_originals.py",
-        "tests/device/adapters/pico4/ASSETS_PREFIX_SOURCE.md"
+        "tests/device/adapters/pico4/ASSETS_PREFIX_SOURCE.md",
+        "tests/device/self_tests/test_pico_assets_upload_ui_raw.py",
+        "android/vr/pico/tests/device/test_assets_upload_ui_raw.py",
+        "android/vr/pico/tests/device/test_assets_upload_ui_clocks.py"
       ],
       "declaredCheckpoints": 29,
       "inputVerbs": [
@@ -1850,10 +1853,25 @@
         "Drain oven/upload/picker workers and release actual staged originals",
         "Restore original server permission and prove complete namespace/resource absence"
       ],
-      "nextExecutableStep": "Extend the retained same-parent prefix to the remaining29-checkpoint Assets flow, joining original mappings/baking/permission/Model/ATP/independent Actor/stereo and whole source/global cleanup within existing512-part/16MiB bounds. Current private prefix already accounts406 parts in its canonical whole cycle; do not reset or renew its budget. Original indexed ModelCache/getGeometryResource/GeometryExtra/GLTFReader/Baker/setGeometryDefinition/NetworkMaterial/TextureCache/ImageReader CPU processing now passes fresh integrated71-TU native compilation and complete native/material provenance plus normal Assets/Home joins. Material/NetworkTexture/pixel weak owners retire; original default-LRU Geometry/HFM/four Mesh buffers and a parentless mesh request remain alive and must not be labeled retired. Next join actual Model/renderer/independent Actor/stereo/live ATP source and genuine final original ownership retirement. Existing512-copy/16MiB bounds and cold full provenance/Home-child reference verification remain unchanged; native18/2ms and targeted legacy Baker/Create all pass. Full feature/device qualification remains open.",
+      "nextExecutableStep": "Complete actual normal Upload under its unchanged20s and continuous Cancel within500ms, then existing backend/model/bake/independent Actor/stereo and final retirement. Stage4 UI ownership is now current-host verified, including original action anchor, before-writer status capacity, actual ACK/consumed sequence and final CAS release. Earlier Stage4 RED reached14 actual inputs then20s; continuous first4 remains RED814ms. No unchanged whole retry or deadline relaxation.",
       "nativeCompilation": "Selected whole Pico NavigationUi, original QML/pointer/FileDialogHelper/NativeFieldInput and production Assets-file getter/private descriptor storage host-compiled; complete application/APK unverified",
       "deviceQualification": "untested",
-      "normalPrefixComposition": "Private Prefix2 baseline/Open/pickerOpen/Cancel through actual shared factories and original child file owners;34 host cases pass27.939s,229 loaded sources unchanged. Exact up-to4MiB literals retained before parser;512 parts/16MiB unchanged. Final original sample age checked after reservation before native sends/getters. No Common/public capability or Actor/stereo/backend completion."
+      "normalPrefixComposition": "Private Prefix2 baseline/Open/pickerOpen/Cancel through actual shared factories and original child file owners;34 host cases pass27.939s,229 loaded sources unchanged. Exact up-to4MiB literals retained before parser;512 parts/16MiB unchanged. Final original sample age checked after reservation before native sends/getters. No Common/public capability or Actor/stereo/backend completion.",
+      "uploadUiOwnership": {
+        "queryVersion": 2,
+        "newMethods": 21,
+        "selectors": [
+          "assets-upload-ui-raw",
+          "assets-upload-ui-clocks"
+        ],
+        "rootCurrentMethods": 31,
+        "rootSeconds": 41.295,
+        "rootLoadedSources": 242,
+        "allCurrentSourcesStable": true,
+        "unchangedHistoricalReal20sMethods": 3,
+        "fullUploadQualified": false,
+        "continuousCancel500msQualified": false
+      }
     },
     {
       "area": "lifecycle-input",

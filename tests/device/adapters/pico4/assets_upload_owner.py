@@ -57,7 +57,7 @@ def validate_state(value,steps,bundles):
 
 
 class OwnedAssetsUpload:
-    def __init__(self,parent,files,backend,downloader):
+    def __init__(self,parent,files,backend,downloader,*,ui_raw=None):
         need(parent.version==3 and parent.upload_owner is None and parent.state['upload'] is None
             and len(parent.state['steps'])==4 and parent.state['steps'][-1]['status']=='issued'
             and type(files) is OwnedAssetsFiles and files.native.stage==2 and files.previous is None
@@ -66,8 +66,15 @@ class OwnedAssetsUpload:
             and type(backend) is PicoAssetsBackendOriginals and not backend.history and backend.last is None and backend.pending is None
             and type(downloader) is PicoAssetsSource and downloader.is_download and not downloader.is_resolve
             and downloader.pid==parent.pid and not downloader.history and downloader.last is None and downloader.pending is None)
+        if ui_raw is not None:
+            from adapters.pico4.assets_wire_owner import AssetsChildUiRaw
+            need(type(ui_raw) is AssetsChildUiRaw and ui_raw.parent is parent and parent.upload_ui is ui_raw
+                and ui_raw.operation=='upload' and ui_raw.child is None)
+            ui_raw.identity()
+        self.ui_raw=self.original_ui_raw=ui_raw
         self.parent,self.files,self.backend,self.downloader=parent,files,backend,downloader
-        self.started,self.epoch=None,None;self.active_ui=None;self.ui_anchor=None;self.last_ui_anchor=None;self.failed=False;self.call_returned=False
+        self.started,self.epoch=(None,None) if ui_raw is None else ui_raw.action_anchor
+        self.active_ui=None;self.ui_anchor=None;self.last_ui_anchor=None;self.failed=False;self.call_returned=False
         self.sleep=files.native.sleep
         self.draft=None;self.control_anchor=None;self.query=None;self.baseline=None;self.browser_baseline=None;self.acquired=None
         self.file_journal=object.__new__(LifecycleProcessFile)
@@ -101,13 +108,20 @@ class OwnedAssetsUpload:
         return dict(frames=count,decodedBytes=size,paths=paths)
 
     def age(self):
+        if self.ui_raw is not None:
+            need(self.ui_raw is self.original_ui_raw and type(self.started) is type(self.ui_raw.action_anchor[0])
+                and type(self.epoch) is int and (self.started,self.epoch)==self.ui_raw.action_anchor)
         if self.started is not None and not self.call_returned:
-            p=self.parent;now=p.phases.monotonic();epoch=p.clock_ms();ended=p.phases.monotonic()
-            need(number(now,self.started,self.started+20) and number(ended,now,self.started+20)
+            p=self.parent;now=p.phases.monotonic()
+            need(number(now,self.started,self.started+20) and now<self.started+20)
+            epoch=p.clock_ms();ended=p.phases.monotonic()
+            need(number(ended,now,self.started+20)
                  and integer(epoch,self.epoch,self.epoch+20000))
 
     def guard(self):
-        p=self.parent;p.bound();p.business();need(not self.failed and not p.failed and p.guard() is not False)
+        p=self.parent;p.bound();p.business();need(not self.failed and not p.failed and p.guard() is not False
+            and self.ui_raw is self.original_ui_raw)
+        if self.ui_raw is not None:self.ui_raw.identity()
         self.file_journal.guard()
         p.phase('upload');return True
 
@@ -185,12 +199,17 @@ class OwnedAssetsUpload:
     def wrap_ui(self,ui):
         need(type(ui) is TokenAssetsUI and type(ui.io) is PicoAssetsIO)
         io=ui.io.original.navigation.io;need(type(io) is NativeNavigationIO)
+        if self.ui_raw is not None:
+            need(self.ui_raw is self.original_ui_raw and self.ui_raw.child is self)
+            self.ui_raw.slot(io);return ui
         from adapters.pico4.assets_wire_owner import bind_assets_navigation_raw
         bind_assets_navigation_raw(self,io)
         return ui
 
     def ui(self):
-        if self.active_ui is None:self.active_ui=self.wrap_ui(self.parent.controls(self.intent,before_send=self.before_send,audit=self.audit))
+        if self.active_ui is None:
+            options={} if self.ui_raw is None else dict(ui_raw=self.ui_raw)
+            self.active_ui=self.wrap_ui(self.parent.controls(self.intent,before_send=self.before_send,audit=self.audit,**options))
         return self.active_ui
 
     def audit(self,kind,value):
@@ -202,7 +221,9 @@ class OwnedAssetsUpload:
         need(native is not None and after['instance']==native['bridgeId'] and after['processId']==p.pid
              and after['generation']==native['generation'] and after['sequence']==native['sequence'])
         p.archive(dict(uploadReceipt=deepcopy(value),native=deepcopy(native)))
-        p.state['pendingInput']=None;p.save();identifier=self.draft['controlId'];self.draft=None
+        p.state['pendingInput']=None;p.save()
+        if self.ui_raw is not None:self.ui_raw.complete_status(native,after)
+        identifier=self.draft['controlId'];self.draft=None
         if identifier=='assets.upload':
             sample=self.sample();self.admit_browser(sample)
         return True
@@ -226,8 +247,10 @@ class OwnedAssetsUpload:
         else:need(self.draft['value'] is None)
         p.state['pendingInput']['native']=deepcopy(command)
         p.archive(dict(uploadIntent=deepcopy(self.draft),native=deepcopy(command)),on_seal=lambda index:p.state['inputs'].append(index))
-        self.begin('ui-status',deepcopy(command))
-        need(self.last_ui_anchor is not None);p.query_anchor=self.last_ui_anchor
+        if self.ui_raw is None:
+            self.begin('ui-status',deepcopy(command))
+            need(self.last_ui_anchor is not None);p.query_anchor=self.last_ui_anchor
+        else:self.ui_raw.prepare_status(command,navigation.io)
         p.fence.check();p.query_age();self.age()
 
     @staticmethod
@@ -287,7 +310,12 @@ class OwnedAssetsUpload:
         return self.files.read()['source']
 
     def run(self,fields):
-        p=self.parent;self.started=p.phases.monotonic();self.epoch=p.clock_ms()
+        p=self.parent
+        if self.ui_raw is None:self.started=p.phases.monotonic();self.epoch=p.clock_ms()
+        else:
+            need(not self.failed and not p.failed and not self.call_returned and p.state['upload'] is None
+                and self.ui_raw is self.original_ui_raw and (self.started,self.epoch)==self.ui_raw.action_anchor)
+            self.age()
         p.state['upload']=dict(assetsUploadOwnerVersion=1,ticket=fields['ticket'],resource=RESOURCE,phase='reserved',
             startedMonotonic=self.started,startedEpochMs=self.epoch,baseline=None,files=None,browser=None,claim=None,downloads=[],quiet=None,result=None)
         p.save()

@@ -31,7 +31,7 @@ class AssetsChildUiRawTests(unittest.TestCase):
 
     def sdk(self,args,**options):
         result=self.actual_sdk(args,**options);p=self.parent
-        cold=p.child_ui is not None and p.child is None
+        cold=(p.child_ui is not None and p.child is None) or (p.upload_ui is not None and p.upload_owner is None)
         parsed=shlex.split(args[4]);name=parsed[-1].rsplit('/',1)[-1]
         if not cold or name!='navigation-ui-observation.json' or self.injected:return result
         if self.fault not in ('malformed-json','invalid-utf8','partial-timeout','foreign-bridge','oversized-ui'):return result

@@ -258,6 +258,87 @@ The changed raw path is therefore qualified only at the named host component
 and failure boundaries. Cancel quiet, continuous Upload, all 29 Common actions,
 independent Actor/Model/bake/stereo effects and whole retirement remain open.
 
+## Stage4 cold UI2 and one original ACK owner
+
+The existing exact carrier now has a sealed `operation='upload'` mode. The
+Parent retains it before calling the actual stage2 file-owner factory, so
+that factory's initial PicoScriptIO read is also original raw evidence.
+The later controls reuse those already-bound native IOs. Picker mode and its
+Query1 records stay separate; an old picker carrier cannot be relabeled.
+The default `ui_raw=None` path keeps its previous runtime arguments and anchor.
+
+The actual Upload action Host anchor is captured at Parent.act entry before
+lock admission or phase acquisition. A separate
+`assetsUploadActionAnchorVersion: 1` bundle retains that anchor, the genuine
+native epoch captured after phase admission and before factory construction,
+and the actual native-clock Host start/end times. No earlier native epoch is
+invented. Query2 carries a typed `assetsUploadActionReferenceVersion: 1` link
+to this original. Runtime admission and every later UI acquisition charge the
+same original Host20 and Parent120; OwnedAssetsUpload.run never renews them.
+The existing SDK invocations retain their original process/timeout guards;
+this host qualification does not qualify device timing or all internal SDK
+package-read scheduling.
+
+On this mode only, one carrier also reserves the status response before the
+actual normal input writer. Its `assetsUploadInputReferenceVersion: 1` links
+the already archived actual native command. The last completed actual UI raw
+row supplies the original1.5-second anchor for every ACK poll. The unchanged
+normal `same_reference` contract still permits a later revalidation snapshot
+while preserving the original input reference, current control token, process,
+generation and sequence. No new response lane or resend is introduced.
+Only an actual matching ACK, original consumed UI sequence and final original
+freshness check release that context. Action/command/reference metadata copies
+are charged in the same Parent bill before reservation, including failed or
+incomplete owners; resource billing cannot block acquired raw solely because
+the business Parent failed.
+
+Three real20.01-second delays separately proved refusal after delayed factory
+construction or original-anchor CAS, and opaque raw durability after a late
+return. Original-clock substitution refuses before another native clock/input.
+The later single-status capacity/foreign-command counters prove zero input;
+wrong ACK with a real1.51-second poll pause blocks a second wire getter without
+renewing the anchor. Partial ACK and actual ACK-CAS/lost-response cases retain
+one actual input, its same command, raw bytes and unresolved ownership.
+Earlier pre-anchor Query2 diagnostics remain historical raw-component evidence
+and acquire no missing action-budget proof.
+
+A separate finalization counter exposed a real ordering defect: the status
+context was released before the completed receipt and cleared pending-input
+CAS finished. The corrected opt-in path performs both original CAS/readback
+windows before the final1.5-second check and release. A real1.51-second delay
+after the receipt CAS now refuses with the same context and carrier strongly
+retained. A separate first-input component completes that exact finalization
+successfully, then deliberately stops before a second input; it qualifies no
+upload result. The default `ui_raw=None` completion path is unchanged.
+
+While a status context exists, the same bill reserves4 bytes for its next
+raw-index reference: an empty list growing to `[511]` adds3 bytes and a
+nonempty list adds at most one comma plus3 digits. The existing global512
+frame bound limits raw indices to0..511. A128-entry status history refuses
+before another actual getter. After appending an acquired raw reference,
+the actual bill and original freshness are checked again before the status
+decoder can run. A declared exact-JSON memory-pressure graph exercises the
+real16MiB bill; it is neither a backend result nor128 measured acquisitions.
+The five affected cases, including successful ACK finalization and the real
+CAS delay, passed together in17.302 seconds with249 source originals stable.
+
+The explicit stage4 component uses visibly declared earlier-prefix model
+preconditions. It neither executes nor qualifies the first three normal
+actions and seeds no upload success, request, backend blob or mapping.
+Its initial run exposed competing old/new status ownership before the first
+UI input, after actual binary Stage2 transport and seven real staged files.
+The changed run with one status owner progressed through14 ordinary input
+commands and13 completed ACK/consumed-sequence contexts, then refused the
+14th context at the unchanged original20-second action deadline. Its same
+bill was219 frames,911258 decoded bytes and695908 stored bytes. Destination
+confirmation, upload requests, exact downloads and staged-file retirement
+were not completed. All250 loaded/declared sources and166 original files
+were preserved; no unchanged component or continuous first4 retry follows.
+
+This closes the named cold/raw/status ownership seams without qualifying the
+normal Upload component, complete29 journey, independent Actor/Model/bake/
+stereo effects, device/native execution or whole cleanup.
+
 Historical Prefix1/2, early Prefix3/Layout1, and early Prefix3/Layout2 without
 wire views remain passive historical branches. Their old scopes, timestamps,
 raw bytes and failures are not rewritten or promoted to current authority.

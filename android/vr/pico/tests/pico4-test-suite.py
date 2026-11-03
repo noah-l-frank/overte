@@ -394,6 +394,8 @@ TESTS = (
     test("assets-binary-transport", "interaction", PYTHON, "device/test_assets_binary_transport.py"),
     test("assets-cancel-budget-cache", "interaction", PYTHON, "device/test_assets_cancel_budget_cache.py"),
     test("assets-child-ui-raw", "interaction", PYTHON, "device/test_assets_child_ui_raw.py"),
+    test("assets-upload-ui-raw", "interaction", PYTHON, "device/test_assets_upload_ui_raw.py"),
+    test("assets-upload-ui-clocks", "interaction", PYTHON, "device/test_assets_upload_ui_clocks.py"),
     test("assets-prefix3-factory", "interaction", PYTHON, "device/test_assets_prefix3_factory.py"),
     test("assets-canonical-transport", "interaction", PYTHON, "device/test_assets_canonical_transport.py"),
     test("assets-wire-owner", "interaction", PYTHON, "device/test_assets_wire_owner.py"),

@@ -171,17 +171,18 @@ class AssetsUploadModel(AssetsPrefixModel):
             lambda pid:pid==self.process.pid and self.process.poll() is None,self.connection()['domainId'],
             guard=self.guard,retain=lambda _raw:None,capacity=lambda:None)
 
-    def upload_factory(self,parent):
+    def upload_factory(self,parent,*,ui_raw=None):
         ticket=parent.state['steps'][-1]['ticket']
+        ui_options={} if ui_raw is None else dict(ui_raw=ui_raw)
         if self.binary_transport:
-            files=self.adapter._assets_file_owner(self.native.target,self.run,ticket,self.url,stage=2)
+            files=self.adapter._assets_file_owner(self.native.target,self.run,ticket,self.url,stage=2,**ui_options)
         else:
             native=NativeAssetsFiles(self.send,self.original,self.epoch,self.guard,123,stage=2,monotonic=lambda:self.clock,sleep=self.sleep)
             files=OwnedAssetsFiles(native,PrivateFeatureState(self.root/'assets-files-stage2.json'),self.binding,self.run,ticket,self.url)
         self.backend=self.backend_reader()
         download=PicoAssetsSource(self.send,self.original,self.epoch,self.guard,123,download=True,
             monotonic=lambda:self.clock,sleep=self.sleep)
-        self.upload=OwnedAssetsUpload(parent,files,self.backend,download);return self.upload
+        self.upload=OwnedAssetsUpload(parent,files,self.backend,download,**ui_options);return self.upload
 
     def files_source(self,command):
         stage=command['stage'];self.directory=self.root/('feature-assets-'+self.run+'-stage'+str(stage))
