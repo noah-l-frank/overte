@@ -3925,3 +3925,20 @@ remaining originals;512/global16MiB/native256/role/controls32/120s stay fixed.
 Actual bounded source transaction, cold raw hooks, lossless metadata layout,
 warm capture, independent stereo/Actor and final retirement remain required.
 Source-complete areas remain3/14.
+
+
+## Lifecycle Pending original-wire prerequisite integration
+
+Explicit SourceRaw4 profile1 reserves actual bounded Pending wire in the same
+AudioRawArchive before SDK, retains bytes before parsing/late refusal, and
+verifies Body1 against its actual original request/range. Default0 remains
+unchanged. Pico native command1 consumes one delivery before the existing
+owner and save; the implementation marker has no GUI/provider authority.
+
+Root independently passed59 distinct cases in19.313s,269 stable loaded
+Python SHA256/eight-stat identities; the five new selectors are25/13/12/5/4.
+Released data pins were proved on an actual BG4 gate only, not Pending3.
+Native sources remain uncompiled; Node providers/SDK/Qt are declared models.
+Actual Pending3/Source8/outer-exit/full eighth segment and full120s admission
+remain open; prior103 and actual512 groups retain their separate epochs.
+Catalogue400 maps14 risks; source-complete count stays3/14.

@@ -2048,7 +2048,20 @@
         "tests/device/adapters/pico4/lifecycle_mutex_ledger.py",
         "tests/device/self_tests/test_pico_lifecycle_mutex_ledger.py",
         "android/vr/pico/tests/device/test_lifecycle_mutex_ledger.py",
-        "tests/device/adapters/pico4/LIFECYCLE_MUTEX_LEDGER.md"
+        "tests/device/adapters/pico4/LIFECYCLE_MUTEX_LEDGER.md",
+        "tests/device/adapters/pico4/lifecycle_raw_ranges.py",
+        "tests/device/adapters/pico4/lifecycle_source_raw.py",
+        "tests/device/adapters/pico4/lifecycle_pending_read.py",
+        "tests/device/adapters/pico4/lifecycle_pending_return.py",
+        "tests/device/adapters/pico4/LIFECYCLE_PENDING_READ.md",
+        "tests/device/self_tests/test_pico_lifecycle_pending_read.py",
+        "tests/device/self_tests/test_pico_lifecycle_pending_return.py",
+        "tests/device/self_tests/test_pico_lifecycle_pending_delivery.py",
+        "android/vr/pico/tests/device/test_lifecycle_pending_read_factory.py",
+        "android/vr/pico/tests/device/test_lifecycle_pending_read.py",
+        "android/vr/pico/tests/device/test_lifecycle_pending_body.py",
+        "android/vr/pico/tests/device/test_lifecycle_pending_return.py",
+        "android/vr/pico/tests/device/test_lifecycle_pending_delivery.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -2093,7 +2106,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Continue the SAME actual Common16/PrimaryOperations/independent Actor graph at normal step8. Explicit Background3 now chooses the qualified lossless warm MutexLedger2 before admission; all actual8->8stat transitions and interleaved cohort order are retained within the same512parts/16MiB bill. Actual7Entry still173raw reads/19parts/508transitions/workerExit0+absence and12,746,261final decoded/copy bytes, not whole16/24. Before ScriptsFocus admit Pending-family first writes through exact pre-encoding permits; bind actual Pending token and unchanged UI fieldId only through Pico-gated read-only same-QObject Weak-Triple identity, reusing frozenPhone5e8 helper where compatible. Preserve UI1/Pending1/2 passive/default compatibility and the same six Actor readers. Required images3/7/G1, remaining9actions, actual Qt/SDK/GPU compilation/device behavior, typed whole return and callback/resource/IPC/host/global retirement remain open.",
+      "nextExecutableStep": "Compose actual same-bank Pending3 typed family/root admission, acquired-data archival after business failure, proven loaded-codec bound, true outer-exit original data pins and passive original-profile dispatch; then complete actual eighth normal segment and independent six-reader Actor Source8 with its own storage under the same global bill. Low-level Pending wire/body/return-pin/native-once/factory prerequisites are current host-verified; no whole120s/new8 budget fit, Native execution, G1 or device claim.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "backgroundRawStorage3Qualification": {
@@ -2169,6 +2182,26 @@
         "canonicalOptIn": 2,
         "persistedOwnerRawActorFormatChanged": false,
         "originalReadPartByteCapsUnchanged": true
+      },
+      "pendingReadPrerequisite": {
+        "sourceRawVersion": 4,
+        "optInPendingNativeReadVersion": 1,
+        "defaultPendingNativeReadVersion": 0,
+        "bodyVersion": 1,
+        "rootMethods": 59,
+        "rootSeconds": 19.313,
+        "rootLoadedSources": 269,
+        "selectors": {
+          "lifecycle-pending-read": 25,
+          "lifecycle-pending-body": 13,
+          "lifecycle-pending-return": 12,
+          "lifecycle-pending-delivery": 5,
+          "lifecycle-pending-read-factory": 4
+        },
+        "pendingOwner3Implemented": false,
+        "sourceActor8Implemented": false,
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     }
   ]

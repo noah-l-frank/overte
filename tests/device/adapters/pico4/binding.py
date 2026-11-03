@@ -1717,7 +1717,14 @@ def create_adapter(args, base_class):
             return PicoSnapshot(ui, files, preference_path)
 
         @_private
-        def _native_feature_observer(self, target, *, original_reader=None):
+        def _native_feature_observer(self, target, *, original_reader=None,pending_read=None):
+            if pending_read is not None:
+                from adapters.pico4.lifecycle_pending_read import PicoLifecyclePendingRead
+                _need(type(pending_read) is PicoLifecyclePendingRead)
+                pending_read.admit_factory(self,target,pending_read.binding)
+            selected_dispatch=None if pending_read is None else pending_read.dispatch
+            def original_write(command):
+                self.write_control_command(target, original.identity, 'native feature sources', command)
             raw_options={} if original_reader is None else dict(original_reader=original_reader)
             original = self._feature_observer(target,**raw_options)
             installed = self._installation(target)
@@ -1732,12 +1739,15 @@ def create_adapter(args, base_class):
                     readonly=(type(fence) is LifecycleInputFence and command.get('action')=='feature-pending-commit-owner'
                         and command.get('operation')=='observe')
                     if not readonly:fence.check()
-                self.write_control_command(target, original.identity, 'native feature sources', command)
+                if selected_dispatch is None:
+                    self.write_control_command(target, original.identity, 'native feature sources', command)
+                else:selected_dispatch(command,original_write)
             observer=NativeFeatureObservation(send,
                 lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
                     'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
                 lambda: self.adb.epoch_milliseconds(target), guard,
                 int(original.identity.split(':')[0]))
+            if pending_read is not None:pending_read.bind_native(observer,original_write,selected_dispatch)
             return observer
 
         @_private
@@ -2793,19 +2803,27 @@ def create_adapter(args, base_class):
                 monotonic=native.monotonic,sleep=native.sleep,source_lock=source_lock)
 
         @_private
-        def _pending_owner(self,target,intent=None,*,binding=None,phase_fence=None):
+        def _pending_owner(self,target,intent=None,*,binding=None,phase_fence=None,pending_read=None):
             from adapters.normal_feature_state import context
+            if pending_read is not None:
+                from adapters.pico4.lifecycle_pending_read import PicoLifecyclePendingRead
+                _need(type(pending_read) is PicoLifecyclePendingRead)
+                pending_read.admit_factory(self,target,binding)
             binding=context(self._scripts(target).binding if binding is None else binding)
-            native=self._native_feature_observer(target)
+            native=self._native_feature_observer(target) if pending_read is None else self._native_feature_observer(target,pending_read=pending_read)
             native.guard();_need(native.pid==int(binding['processIdentity'].split(':')[0]))
             if phase_fence is not None:
                 from adapters.pico4.lifecycle_operations import LifecycleInputFence
                 _need(type(phase_fence) is LifecycleInputFence and phase_fence.owner.source.binding==binding
                     and getattr(native,'phase_fence',None) is None)
                 native.phase_fence=phase_fence
-            return NativePendingCommitOwner(native.send,
+            owner=NativePendingCommitOwner(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+PENDING_OWNER_FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
+
+            if pending_read is not None:
+                pending_read.bind(owner,native=native,target=target,binding=binding)
+            return owner
 
         def _browser_world_render_store(self,target,role):
             _need(role in ('primary','actor'))

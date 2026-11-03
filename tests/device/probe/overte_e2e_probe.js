@@ -84,6 +84,7 @@
     var clientCommandRequest = null;
     var clientCommandUnavailable = false;
     var lastClientCommandId = "";
+    var lastPicoPendingReadCommandId = "";
     var savedNativeClientReceiptIds = {};
     var pendingProbeRequestId = "";
     var lastProbeResponseId = "";
@@ -1099,6 +1100,43 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "feature-pico-pending-read") {
+            var picoPendingFields = ["schemaVersion","commandId","action","operation","runId","eventId","picoPendingReadVersion"];
+            if (command.operation !== "observe") { picoPendingFields=picoPendingFields.concat(["ownerInstance","intentSequence"]); }
+            if (/^(focus|type|hold|attempt)$/.test(String(command.operation))) { picoPendingFields=picoPendingFields.concat(["fieldToken","observationSequence"]); }
+            var picoPendingInput=/^(focus|type|hold|attempt)$/.test(String(command.operation));
+            if (command.schemaVersion === 1 && typeof command.operation === "string" && typeof command.commandId === "string"
+                    && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === 32
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && typeof command.eventId === "string" && (command.eventId === "" || /^[0-9a-f]{32}$/.test(command.eventId) && command.eventId.length === 32)
+                    && /^(observe|focus|type|hold|attempt|release)$/.test(String(command.operation))
+                    && ((command.operation === "attempt" || command.operation === "release") ? command.eventId.length === 32
+                        : command.operation === "observe" || command.eventId === "")
+                    && (command.operation === "observe" || typeof command.ownerInstance === "string" && command.ownerInstance.length === 32
+                        && /^[0-9a-f]{32}$/.test(command.ownerInstance) && typeof command.intentSequence === "number"
+                        && isFinite(command.intentSequence) && Math.floor(command.intentSequence) === command.intentSequence
+                        && command.intentSequence >= 1 && command.intentSequence <= 1000000000)
+                    && (!picoPendingInput || typeof command.fieldToken === "string" && command.fieldToken.length === 32
+                        && /^[0-9a-f]{32}$/.test(command.fieldToken) && typeof command.observationSequence === "number"
+                        && isFinite(command.observationSequence) && Math.floor(command.observationSequence) === command.observationSequence
+                        && command.observationSequence >= 1 && command.observationSequence <= 1000000000)
+                    && objectKeysMatch(command,picoPendingFields)
+                    && command.picoPendingReadVersion === 1
+                    && typeof Test.featurePicoPendingReadVersion === "function" && Test.featurePicoPendingReadVersion() === 1) {
+                // Only the exact original Pico DTO may consume a delivery ID.
+            } else { return true; }
+            if (command.commandId === lastPicoPendingReadCommandId) { return true; }
+            // Consume this explicit Pico delivery BEFORE the actual existing
+            // Native owner/input and its one source-file publication. A lost
+            // response is not a reason to repeat an input or rewrite a file.
+            lastPicoPendingReadCommandId=command.commandId;
+            var originalPending={};
+            Object.keys(command).forEach(function (key) { if (key!=="picoPendingReadVersion") { originalPending[key]=command[key]; } });
+            originalPending.action="feature-pending-commit-owner";
+            return applyClientCommand(originalPending);
+        }
+
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && command.action === "feature-pico-world-model-draws-observe"
@@ -2547,7 +2585,7 @@
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-chat-peer-position" || command.action === "feature-chat-profile" || command.action === "feature-chat-profile-current" || command.action === "feature-web-dom-observe" || command.action === "pico-world-web" || command.action === "pico-tablet-web" || command.action === "pico-web-reference" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
-                || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
+                || command.action === "feature-pending-commit-owner" || command.action === "feature-pico-pending-read" || command.action === "feature-navigation-replies"
                 || command.action === "feature-location-bookmarks"
                 || command.action === "feature-navigation-modals"
                 || command.action === "feature-navigation-environment"

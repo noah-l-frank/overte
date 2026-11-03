@@ -1798,6 +1798,16 @@ QVariantMap TestScriptingInterface::featureAudioSettingsObservation(const QVaria
 #endif
 }
 
+int TestScriptingInterface::featurePicoPendingReadVersion() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Implementation marker only. It grants no GUI, provider or input authority;
+    // the existing NativeWire1 owner still validates actual availability.
+    return 1;
+#else
+    return 0;
+#endif
+}
+
 QVariantMap TestScriptingInterface::featurePendingCommitOwner(const QVariantMap& command) {
     if (QThread::currentThread() != thread()) {
         if (!thread() || !thread()->isRunning()) { return {}; }
