@@ -108,6 +108,7 @@ TESTS = (
     test("world-current-consumption-native", "webview", PYTHON, "device/test_world_current_consumption_native.py", requires=("c++", "pkg-config", "javac", "java", "unshare")),
     test("world-current-consumption-java", "webview", PYTHON, "device/test_world_current_consumption_java.py", requires=("javac", "java")),
     test("world-current-focus-parent", "webview", PYTHON, "device/test_world_current_focus_parent.py"),
+    test("world-prefix-pins", "webview", PYTHON, "device/test_world_prefix_pins.py"),
     test("world-current-document-native", "webview", PYTHON, "device/test_world_current_document_native.py", requires=("c++", "pkg-config", "javac", "java", "unshare")),
     test("world-current-document-java", "webview", PYTHON, "device/test_world_current_document_java.py", requires=("javac", "java")),
     test("world-current-document-reader", "webview", PYTHON, "device/test_world_current_document_reader.py"),

@@ -8,7 +8,9 @@ Later common steps and complete Actor/Scene/resource retirement remain open.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import math
+import os
 from pathlib import Path
+import stat
 import uuid
 from urllib.parse import urlsplit
 
@@ -23,6 +25,7 @@ from adapters.pico4.browser_sample_grammar import validate_sample
 from adapters.pico4.browser_source import fixture
 from adapters.pico4.browser_vm import PicoBrowserVm,reviewed
 from adapters.chat_journey.archive_file import ClosedOriginalFile
+from adapters.native_fd_owner import OriginalDescriptor,require_directory
 import hashlib
 from adapters.script_journey.history import same,pack,unpack
 from feature_journeys.contract import arguments,result,identifier
@@ -35,6 +38,7 @@ VERSION=3
 READS=(1,2,3)
 LIMIT=len(SCENARIOS['world-web']['steps'])
 INPUT_LIMIT=14  # Closed v16 grammar; only this original prefix is executable.
+UNRESOLVED_PIN_READS=[]
 
 
 def validate_owner(value,run,url,*,version=VERSION):
@@ -337,15 +341,31 @@ class PicoWorldWebPrefix:
         return dict(performed=True)
 
     def pins(self):
-        names=sorted(self.root.iterdir());need(len(names)<=512)
-        rows=[]
-        for path in names:
-            # Existing closed-original reader checks the full physical stamp,
-            # immutable bytes and actual descriptor closure on every read.
-            original=ClosedOriginalFile(path,0o600,lambda:PrivateFeatureState(path)._parent())
-            raw,stamp=original.read();need(original.close())
-            rows.append(dict(path=str(path),signature=stamp,sha256=hashlib.sha256(raw).hexdigest()))
-        return rows
+        # Admit the canonical private path once per read window. Each file
+        # still obtains fresh directory observations from the SAME original
+        # kernel OFD before and after its complete byte/stamp read.
+        need(not any(root==self.root for root,_owner in UNRESOLVED_PIN_READS))
+        PrivateFeatureState(self.root/'pico-world-web-prefix.json')._parent()
+        directory=OriginalDescriptor(self.root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+        try:
+            mode=stat.S_IMODE(os.fstat(directory.fd).st_mode)
+            def parent_guard():require_directory(directory,self.root,mode=mode)
+            parent_guard();names=sorted(self.root.iterdir());need(len(names)<=512)
+            rows=[]
+            for path in names:
+                original=ClosedOriginalFile(path,0o600,parent_guard)
+                try:raw,stamp=original.read();need(original.close())
+                except BaseException:
+                    if not original.close():UNRESOLVED_PIN_READS.append((self.root,original))
+                    raise
+                rows.append(dict(path=str(path),signature=stamp,sha256=hashlib.sha256(raw).hexdigest()))
+            parent_guard();need(sorted(self.root.iterdir())==names)
+            return rows
+        finally:
+            # An uncertain/recycled handle remains strongly owned. Never
+            # close a foreign replacement or hide incomplete host release.
+            if not directory.close():
+                UNRESOLVED_PIN_READS.append((self.root,directory));need(False)
 
     def seal(self,started,requested,epochs,native,*,pending_phase=None):
         _ui,_observe,binding,guard,_installed=self.runtime()

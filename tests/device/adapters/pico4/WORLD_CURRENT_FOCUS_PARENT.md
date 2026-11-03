@@ -187,3 +187,36 @@ qualify normal VR Unicode production. Adding keyboard keys, clipboard content
 or text setters is outside this adapter packet. Actual normal text, fresh
 independent DOM/HTTP, Actor/stereo and complete source/VM retirement remain
 required before the whole action or public feature can complete.
+
+
+## Fresh directory OFD for complete Parent pins
+
+The complete Parent `pins()` read window now admits the canonical private
+directory once and opens one ephemeral original directory descriptor pair.
+Every file still uses the existing `ClosedOriginalFile`: complete bytes,
+SHA-256, all eight physical fields, original file OFD, private mode/UID/link
+checks and verified closure. The existing `require_directory` reads fresh
+canonical kernel path, named/held metadata and OFD identity before and after
+each file. Read-only mode500 remains supported. A final namespace comparison
+also refuses additions/removals during the window. No current file, pathname,
+stat, source verdict or decoded target state is cached.
+
+An uncertain file or directory pair remains strongly owned by its original
+namespace; another pins window for that namespace cannot adopt it. Recycled
+foreign descriptors remain untouched until the owning host finalizes.
+
+A read-only comparison on the same actual retained336-file corpus returned
+identical rows in all seven alternating comparisons: median42.479ms for the
+old method and30.417ms for the new method. All original/source SHA-256 and
+eight-field stamps remained unchanged; host FD count stayed4. This measures
+that method only, without adopting a historical owner or predicting a whole
+journey runtime. Private original record:
+`~/.local/state/pico-world-parent-pins-window-joyl5wo3/`.
+
+Seven actual filesystem/OFD cases pass in0.004s, including a real recycled
+directory half, exact-byte replacement directory, symlinked ancestor and
+namespace addition. The nine original World prefix cases plus three affected
+CurrentFocus1 normal/uncertain-return/inode cases pass12/7.583s. Their45 and137
+loaded source SHA-256/eight-field stamps respectively remain unchanged. The
+new disjoint `world-prefix-pins` selector adds no source version, timeout,
+capacity, Native hook, whole-feature capability or device qualification.
