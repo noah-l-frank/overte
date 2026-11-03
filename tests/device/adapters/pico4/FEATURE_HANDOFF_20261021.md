@@ -3625,3 +3625,22 @@ assertion delta is claimed. Actual host receipts246sources and seven known
 host/stub process absences verify. Context retirement still refuses. Catalog339
 adds one explicit2case group; whole Common/Actor/stereo/Qt/device/globalretirement
 remain open. Source-complete stays3/14.
+
+
+## Navigation original-retention correction on 2026-11-03
+
+Read-only audit of63 private evidence directories identifies32 executed GREEN
+Navigation scopes with at least one now-missing declared World model root;
+150 missing root entries occur across all63 scopes. Original execution results
+and surviving Main/App-wire/G1/source-hash receipts remain historical evidence.
+Earlier complete-original-retention statements for affected scopes are
+UNQUALIFIED. Missing files are neither recreated nor adopted. This correction
+takes precedence over older retention wording above.
+
+The exclusive Scene fixture now overrides the actual TemporaryDirectory cleanup
+before input and still calls the previously registered original Model.close.
+An actual registered-cleanup counter passes1/0.560s/214stable: originalPNG/NUL/
+root/file SHA/eight-field stamps survive, while the TLS thread/socket and original
+OFD pair really close. Retention-correct SDK/raw/flow qualification remains in
+progress. No C restoration, full Navigation or new source-complete area is claimed.
+Private audit: `overte-pico-navigation-retention-reaudit-20261103-vhujgz1u/result.json`.
