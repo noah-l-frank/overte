@@ -38,7 +38,7 @@ class BrowserModuleScopeTests(unittest.TestCase):
     def execute(self, *, uncertain_close=False):
         f, boundary = self.f, self.boundary
         original = f.owner.browser_component
-        def component(run, url, operation, arguments, *, whole_budget):
+        def component(run, url, operation, arguments=None, *, whole_budget):
             if operation == 'begin': f.whole = deepcopy(whole_budget)
             return original(run, url, operation, arguments, whole_budget=whole_budget)
         f.owner.browser_component = component
@@ -91,6 +91,7 @@ class BrowserModuleScopeTests(unittest.TestCase):
         self.assertEqual('write:feature-browser-finalization.json', f.events[-1])
         report = json.loads((f.root/'feature-journey-observation.json').read_text())
         self.assertEqual(28, len(report['phases'])); self.assertTrue(report['sequenceCompleted'])
+        self.assertEqual(28,f.events.count('input.begin'));self.assertEqual(28,f.events.count('input.end'))
 
     def test_uncertain_original_cli_close_produces_no_final_success_artifact_or_delete_replay(self):
         with self.assertRaises(RuntimeError): self.execute(uncertain_close=True)

@@ -101,6 +101,11 @@ class PicoBrowserSession:
             fixtureUrl=self.url.rsplit('/runs/', 1)[0], actorToken=self.config['actorToken'],
             durationSeconds=120, artifactRoot=str(self.artifacts)))
 
+    def input_context(self,operation,arguments):
+        self.bound()
+        return self.owner.browser_input_context(self.run,self.url,operation,arguments,
+            whole_budget=self.whole.value)
+
     def close_fixture(self, client):
         need(not self.fixture_close_started and client.run == self.run and client.url + '/runs/' + self.run + '/' == self.url)
         self.fixture_close_started = True

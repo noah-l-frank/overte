@@ -33,7 +33,7 @@ from adapters.pico4.tablet_web_binding import PicoTabletWebBinding, archive_sent
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from fixture.chat_observer_process import LinuxChatObserverProcess
 
-VERSION = 1
+VERSION = 2
 RUNNER_ENTRY = Path(__file__).resolve().parents[2] / 'modules/feature_journey.py'
 UNRESOLVED = []
 
@@ -41,6 +41,7 @@ UNRESOLVED = []
 class PicoBrowserOperationOwner:
     def __init__(self, adapter, target, request, parent_identity, *, runner_entry=RUNNER_ENTRY):
         validate(request); need(request['operation'] == 'begin')
+        self.version=self._version=request['picoBrowserOperationRequestVersion']
         self.whole = self._whole = BrowserExecutionBudget(request['wholeBudget'])
         need(not retained(adapter, target))
         self.adapter = self._adapter = adapter
@@ -62,14 +63,17 @@ class PicoBrowserOperationOwner:
         self.nonce = request['arguments']['nonce']; self.action = self._action = None
         self.begin_sha = json_digest(request); self.begin_delivered = False
         self.public = self._public = None
+        self.input_boundary=self._input_boundary=None
+        self.input_entered=False
         try:
             LifecycleProcessFile.__init__(self.file, self.store)
             need(self.file.file is None and process_identity(os.getppid()) == parent_identity)
-            self._write(dict(picoBrowserOperationOwnerVersion=VERSION, runId=self.run, fixtureUrl=self.url,
+            self._write(dict(picoBrowserOperationOwnerVersion=self.version, runId=self.run, fixtureUrl=self.url,
                 parentHostProcessIdentity=parent_identity, hostProcessIdentity=self.host,
                 targetFingerprint=hashlib.sha256(target.encode()).hexdigest(), phase='admitting',
                 wholeBudget=deepcopy(request['wholeBudget']), calls=[], pending=None,
-                workerStdoutHex='', workerStderrHex='', result=None))
+                workerStdoutHex='', workerStderrHex='', result=None,
+                **({} if self.version==1 else dict(inputBoundary=None))))
             entry = Path(runner_entry).resolve(strict=True)
             executable = Path('/proc') / str(os.getppid()) / 'exe'
             def owned(pid):
@@ -119,11 +123,22 @@ class PicoBrowserOperationOwner:
             and self.public is self._public
             and self.worker_identity is self._worker_identity
             and self.worker_config_pin is self._worker_config_pin
+            and type(self.version) is int and self.version==self._version
+            and self.input_boundary is self._input_boundary
             and host_identity() == self.host and threading.get_ident() == self.thread
             and process_identity(os.getppid()) == self.parent_identity
             and json_digest(self.state) == self.state_sha and self.whole_raw is self._whole_raw)
         self.whole.same(self.state['wholeBudget']); self.file.guard()
         need(json_digest(self.store.read()) == self.state_sha)
+        if self.input_boundary is not None:
+            need(self.version==2 and type(self.input_boundary) is tuple and len(self.input_boundary)==5
+                and self.input_entered is True and self.state['inputBoundary'] is not None
+                and self.feature.lock is self.input_boundary[4]
+                and self.state['inputBoundary']['operation']==self.input_boundary[2]
+                and self.state['inputBoundary']['argumentsSha256']==self.input_boundary[3])
+            self.input_boundary[1].same(self.state['inputBoundary']['actionBudget'])
+            self.feature.lock.assert_held()
+        elif self.version==2:need(self.state['inputBoundary'] is None)
         if self.worker is not None:
             need(type(self.worker_identity) is tuple and len(self.worker_identity) == 5
                 and self.worker.pid == self.worker_identity[0]
@@ -161,11 +176,26 @@ class PicoBrowserOperationOwner:
         operation, arguments = request['operation'], request['arguments']
         need(operation in ('feature.tablet-web.act', 'feature.tablet-web.observe', 'feature.tablet-web.cleanup')
             and self.worker_owner is not None and self.state['phase'] == 'ready' and self.public is None)
-        now = time.monotonic()
-        action = BrowserExecutionBudget(dict(id=request['requestId'], startedMonotonic=now,
-            deadlineMonotonic=min(request['deadlineMonotonic'], self.whole.value['deadlineMonotonic'])), maximum=60)
         try:
+            need(time.monotonic()<request['deadlineMonotonic'])
+            if self.version==2 and operation!='feature.tablet-web.observe':
+                boundary=self.input_boundary;need(boundary is not None and boundary[2]==operation.rsplit('.',1)[1])
+                if boundary[2]=='act':need(json_digest(arguments)==boundary[3])
+                else:
+                    from feature_journeys.contract import arguments as validate_arguments
+                    validate_arguments(operation,arguments);need(arguments['runId']==self.run)
+                need(self.state['inputBoundary']['calls']<(1 if boundary[2]=='act' else 2)
+                    and request['deadlineMonotonic']<=boundary[1].value['deadlineMonotonic'])
+                action=boundary[1];action.check()
+            else:
+                need(self.input_boundary is None)
+                now = time.monotonic()
+                action = BrowserExecutionBudget(dict(id=request['requestId'], startedMonotonic=now,
+                    deadlineMonotonic=min(request['deadlineMonotonic'], self.whole.value['deadlineMonotonic'])), maximum=60)
             self._issued(request['requestId'], operation, action)
+            if self.input_boundary is not None:
+                self._write(dict(self.state,inputBoundary=dict(self.state['inputBoundary'],
+                    calls=self.state['inputBoundary']['calls']+1)))
             self.public = self._public = (request['requestId'], operation, json_digest(arguments), action)
             self.public_guard(operation, arguments)
             yield
@@ -186,6 +216,44 @@ class PicoBrowserOperationOwner:
     def invoke(self, operation, arguments):
         self.public_guard(operation, arguments); self.worker_owner.guard()
         return getattr(self.feature, operation.rsplit('.', 1)[1])(arguments)
+
+    def begin_input(self, fields):
+        self.control();need(self.version==2 and self.input_boundary is None and not self.input_entered)
+        lock=self.feature.lock;context=lock.held();action=self.action
+        boundary=(context,action,fields['operation'],json_digest(fields['arguments']),lock)
+        # Retain the actual context before entering its original kernel lock.
+        self.input_boundary=self._input_boundary=boundary
+        try:
+            context.__enter__();self.input_entered=True
+            self._write(dict(self.state,inputBoundary=dict(operation=boundary[2],argumentsSha256=boundary[3],
+                actionBudget=deepcopy(action.value),calls=0)))
+            self.control();return dict(picoBrowserInputBoundaryVersion=1,entered=True)
+        except BaseException:
+            self.failed=True;raise
+
+    def release_input(self):
+        """Release only the known host context, including after business failure."""
+        boundary=self._input_boundary
+        need(boundary is not None and boundary is self.input_boundary
+            and host_identity()==self.host and threading.get_ident()==self.thread)
+        try:
+            if self.input_entered:boundary[0].__exit__(None,None,None)
+        finally:
+            self.input_entered=False;self.input_boundary=self._input_boundary=None
+
+    def end_input(self):
+        boundary=self.input_boundary;need(boundary is not None)
+        error=None
+        try:
+            self.control();need(self.action is boundary[1])
+            need(self.state['inputBoundary']['calls']==dict(prepare=0,act=1,cleanup=2)[boundary[2]])
+        except BaseException as failure:error=failure
+        try:self.release_input()
+        except BaseException as failure:
+            if error is None:error=failure
+        if error is not None:self.failed=True;raise error
+        self._write(dict(self.state,inputBoundary=None));self.control()
+        return dict(picoBrowserInputBoundaryVersion=1,released=True)
 
     def start_actor(self, spec):
         from adapter_operation_host import PinnedFile, PipeOwner
@@ -224,7 +292,7 @@ class PicoBrowserOperationOwner:
         LinuxChatObserverProcess.__init__(self.worker_owner, identity, entry, self.config.path,
             self.worker_pins[1].digest, self.worker_pins[0].digest, owned)
         self.worker_owner.guard(); self.control()
-        return dict(picoBrowserActorHostVersion=VERSION, hostProcessIdentity=identity, originalRequestId=self.actor_request)
+        return dict(picoBrowserActorHostVersion=1, hostProcessIdentity=identity, originalRequestId=self.actor_request)
 
     def collect(self):
         if self.worker is None: return
@@ -286,13 +354,17 @@ class PicoBrowserOperationOwner:
         action = BrowserExecutionBudget(request['actionBudget'], maximum=60)
         operation, fields = request['operation'], request['arguments']
         try:
+            if self.input_boundary is not None:
+                need(operation=='input.end');self.input_boundary[1].same(request['actionBudget']);action=self.input_boundary[1]
             self._issued(request['requestId'], operation, action)
             if operation == 'begin':
                 need(not self.begin_delivered and json_digest(request) == self.begin_sha)
                 self.begin_delivered = True
-                result = dict(picoBrowserOperationBeginVersion=VERSION, nonce=self.nonce,
+                result = dict(picoBrowserOperationBeginVersion=self.version, nonce=self.nonce,
                     producerHostProcessIdentity=self.parent_identity, wholeBudget=deepcopy(self.whole.value))
             elif operation == 'actor.start': result = self.start_actor(fields)
+            elif operation == 'input.begin':result=self.begin_input(fields)
+            elif operation == 'input.end':result=self.end_input()
             elif operation == 'consume':
                 need(self.common_return is None)
                 self.common_return = self._common_return = object.__new__(OriginalBrowserConsumptionReturn)
@@ -314,12 +386,16 @@ class PicoBrowserOperationOwner:
     def unwind(self):
         # No input retry or native repair. Actual children retain their own
         # original Parent/budget; losing this process makes their admission fail.
+        if self.input_boundary is not None:
+            self.failed=True
+            try:self.release_input()
+            except BaseException:pass
         if self.failed and not any(owner is self for owner in UNRESOLVED): UNRESOLVED.append(self)
 
     def close_host(self):
         self.guard(); need(self.state['phase'] == 'completed' and self.state['pending'] is None
             and self.worker.returncode == 0 and self.feature.browser_host_close.completed)
-        result = dict(picoBrowserOperationCloseVersion=VERSION, runId=self.run, result=deepcopy(self.state['result']))
+        result = dict(picoBrowserOperationCloseVersion=self.version, runId=self.run, result=deepcopy(self.state['result']))
         receipt = PrivateFeatureState(self.feature.artifact_root/('pico-browser-operation-complete-'+self.run+'.json'))
         need(receipt.read() is None); receipt.write(result, None)
         self._write(dict(self.state, phase='closing')); self.guard()

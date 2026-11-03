@@ -52,7 +52,8 @@ def child():
             OVERTE_PICO_OPENXR_INPUT='1', OVERTE_E2E_SCENE_URL=fixture.target.scene_url,
             OVERTE_PICO_FEATURE_FIXTURE_CONFIG=str(access.path), OVERTE_E2E_FEATURE_FIXTURE_URL=fixture.url)
         now = time.monotonic()
-        request = dict(picoBrowserOperationRequestVersion=1, requestId='a'*32, runId=fixture.run,
+        fault=os.environ.get('OVT_BROWSER_ADMISSION_FAULT','normal')
+        request = dict(picoBrowserOperationRequestVersion=2 if fault.startswith('input-') else 1, requestId='a'*32, runId=fixture.run,
             fixtureUrl=fixture.fixture_url, operation='begin',
             wholeBudget=dict(id='b'*32, startedMonotonic=now, deadlineMonotonic=now+120),
             actionBudget=dict(id='c'*32, startedMonotonic=now, deadlineMonotonic=now+60),
@@ -72,6 +73,56 @@ def child():
         duplicate = os.environ.get('OVT_BROWSER_ADMISSION_FAULT') == 'duplicate'
         actor_failure = os.environ.get('OVT_BROWSER_ADMISSION_FAULT') == 'actor-parser'
         holder_swap = os.environ.get('OVT_BROWSER_ADMISSION_FAULT') == 'holder-swap'
+        input_result=None
+        if fault.startswith('input-'):
+            from feature_journeys.scenarios import VERSION
+            from unittest.mock import patch
+            def locked():
+                code='''import fcntl,os,sys
+fd=os.open(sys.argv[1],os.O_RDWR|os.O_NOFOLLOW)
+try:
+ try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+ except BlockingIOError:print('held')
+ else:print('free')
+finally:os.close(fd)
+'''
+                probe=subprocess.run([sys.executable,'-c',code,str(owner.feature.lock.path)],capture_output=True,timeout=5)
+                assert probe.returncode==0 and probe.stderr==b''
+                return probe.stdout==b'held\n'
+            now=time.monotonic()
+            selected=dict(id='3'*32,startedMonotonic=now,deadlineMonotonic=now+60)
+            operation='act' if fault=='input-empty-act' else 'prepare'
+            fields=(dict(contractVersion=VERSION,runId=fixture.run,fixtureUrl=fixture.fixture_url,
+                ticket='4'*32,verb='open',inputs={}) if operation=='act' else None)
+            opening=dict(request,requestId='5'*32,operation='input.begin',actionBudget=selected,
+                arguments=dict(operation=operation,arguments=fields))
+            if fault=='input-cas':
+                write=owner._write
+                def unknown(value):
+                    write(value)
+                    if value.get('inputBoundary') is not None:raise OSError('Declared lost original input context CAS')
+                with patch.object(owner,'_write',side_effect=unknown):
+                    try:owner.dispatch(opening)
+                    except OSError:pass
+                    else:raise AssertionError('Lost context CAS was accepted')
+            else:owner.dispatch(opening)
+            held=locked();assert held
+            if fault=='input-prepare':
+                fixture.activate();assert locked()
+                owner.dispatch(dict(request,requestId='6'*32,operation='input.end',actionBudget=selected,arguments=None))
+                owner.guard();assert owner.state['inputBoundary'] is None
+            elif fault!='input-cas':
+                budget=dict(selected,id='7'*32) if fault=='input-budget' else selected
+                try:owner.dispatch(dict(request,requestId='6'*32,operation='input.end',actionBudget=budget,arguments=None))
+                except NativeUIError:pass
+                else:raise AssertionError('Unavailable input scope was completed')
+            if fault!='input-prepare':
+                assert owner.failed and owner.path.exists();owner.unwind()
+                try:owner.guard()
+                except NativeUIError:pass
+                else:raise AssertionError('Unknown context resumed after host unlock')
+            input_result=dict(heldBefore=held,freeAfter=not locked(),unavailable=owner.failed)
+            assert input_result['freeAfter'] and not native_reads
         if holder_swap:
             original = owner.store
             foreign = PrivateFeatureState(original.path)
@@ -125,6 +176,7 @@ def child():
             actorParserRefused=actor_failure, actorExitCode=actor_exit,
             actualPublicAdmissionAttempted=public_attempted,
             holderSwapRefused=holder_swap,
+            inputBoundary=input_result,
             producerHostProcessIdentity=begin['producerHostProcessIdentity'])
         (root/'admission-result.json').write_text(json.dumps(result))
         assert owner.file.close_host() and owner.origin.close()

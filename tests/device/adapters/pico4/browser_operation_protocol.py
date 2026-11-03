@@ -7,8 +7,9 @@ from adapters.native_feature_observation import exact, need
 from adapters.pico4.operation_protocol import dto_bytes, REQUEST_LIMIT
 from feature_journeys.contract import identifier
 
-VERSION = 1
-OPERATIONS = ('begin', 'actor.start', 'consume', 'actor.return', 'finalize')
+VERSION = 2
+LEGACY_OPERATIONS = ('begin', 'actor.start', 'consume', 'actor.return', 'finalize')
+OPERATIONS = (*LEGACY_OPERATIONS, 'input.begin', 'input.end')
 
 
 def budget(value, maximum):
@@ -25,11 +26,11 @@ def validate(value):
     exact(value, {'picoBrowserOperationRequestVersion', 'requestId', 'runId', 'fixtureUrl',
         'operation', 'wholeBudget', 'actionBudget', 'arguments'})
     need(type(value['picoBrowserOperationRequestVersion']) is int
-        and value['picoBrowserOperationRequestVersion'] == VERSION)
+        and value['picoBrowserOperationRequestVersion'] in (1, VERSION))
     for key in ('requestId', 'runId'): identifier(value[key])
     need(type(value['fixtureUrl']) is str
         and value['fixtureUrl'].endswith('/runs/' + value['runId'] + '/')
-        and value['operation'] in OPERATIONS)
+        and value['operation'] in (LEGACY_OPERATIONS if value['picoBrowserOperationRequestVersion']==1 else OPERATIONS))
     whole, action = budget(value['wholeBudget'], 120), budget(value['actionBudget'], 60)
     need(whole['startedMonotonic'] <= action['startedMonotonic']
         < action['deadlineMonotonic'] <= whole['deadlineMonotonic'])
@@ -43,6 +44,14 @@ def validate(value):
     elif operation == 'consume':
         exact(fields, {'journeyConsumptionExportVersion', 'name', 'rootSha256', 'rootStamp',
             'recordSha256', 'commonSha256', 'nonce', 'chunkPins'})
+    elif operation == 'input.begin':
+        exact(fields, {'operation', 'arguments'})
+        need(fields['operation'] in ('prepare','act','cleanup'))
+        if fields['operation']=='act':
+            from feature_journeys.contract import arguments
+            arguments('feature.tablet-web.act',fields['arguments'])
+            need(fields['arguments']['runId']==value['runId'] and fields['arguments']['fixtureUrl']==value['fixtureUrl'])
+        else:need(fields['arguments'] is None)
     else: need(fields is None)
     dto_bytes(value, REQUEST_LIMIT, arguments=True)
     return value

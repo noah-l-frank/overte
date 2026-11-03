@@ -95,3 +95,49 @@ object cannot authorize another operation or release its marker. All four
 admission cases pass in2.113 seconds with the actual child source identities
 unchanged. This is failure-path qualification; the public whole-run boundary
 above remains open.
+
+
+## Original fixture activation and normal input boundary2
+
+Request2 adds closed `input.begin`/`input.end` messages on the SAME operation
+host. Request1 keeps its original five-operation grammar and no implicit
+boundary adoption. New owner/begin/close formats select2 only for request2;
+legacy requests retain1. The boundary receipt itself is version1 and proves
+only actual host-lock entry/release.
+
+The original Common `Journey.input_context` now delegates through BrowserSession
+to the existing stdio host, following the existing Create context pattern.
+The original SourceLock is acquired BEFORE fixture activation, held through
+that normal act (or both idempotent cleanup calls), and released afterward.
+No expected state, policy or Reader credential crosses the boundary. Its
+single actual60-second action budget starts before transmission/lock waiting,
+clips every public call and End, and remains inside the original120-second
+whole budget. Re-entry, wrong normal fields/budget, absent act and lost CAS
+cannot authorize another input. Failure unwind releases only its actual known
+host context; product journals and uncertain ownership remain retained.
+
+A real coordinator child and real Actor6 reached a genuine original-source
+failure without this boundary: fixture activation changed during an already
+issued Actor acquisition, leaving its history reading and blocking the next
+act. With the boundary, the changed host-model run completed all26 normal
+acts, including background/resume and old inline callback rejection. It then
+failed Actor6's unchanged500ms multi-clock quiet validation at103.421 seconds;
+the next public admission blocked before SDK. Actor exit2 and all original
+files/diagnostics remain retained. This is a RED whole run, not complete
+Browser qualification. Candidate/primary-facade/native/VR/GPU producers are
+explicit existing models; the coordinator and Actor6 process/entrypoint,
+SourceLock, ordinary feature owner and common Journey are actual code.
+
+Affected existing selections passed25 executions (17 distinct methods) in
+5.164 seconds. Four additional actual-kernel cases passed in2.038 seconds:
+separate processes cannot acquire the held SourceLock through fixture
+activation; changed budget, committed/lost context CAS and missing act retain
+uncertainty while known host unwind releases the actual lock. All source
+SHA256/full eight-stat identities stayed unchanged. No native compilation or
+device qualification follows from these cases.
+
+One additional real stdio case passes in0.212 seconds: Begin/End retain the same
+original action budget and bound the intervening actual readonly request, with
+one CLI/candidate factory only. The whole-run diagnostic is explicit and is
+not registered as a default green unit/catalog selection. Its current RED
+condition remains visible above.

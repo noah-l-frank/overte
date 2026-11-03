@@ -126,6 +126,8 @@ class PicoOperationHost:
         if held is not None:deadline=min(deadline,held['deadlineMonotonic'])
         browser=getattr(self,'_browser_whole_budget',None)
         if browser is not None:deadline=min(deadline,browser['deadlineMonotonic'])
+        boundary=getattr(self,'_browser_input_budget',None)
+        if boundary is not None:deadline=min(deadline,boundary['deadlineMonotonic'])
         fields=dict(picoOperationRequestVersion=1,requestId=uuid.uuid4().hex,operation=operation,arguments={} if arguments is None else arguments,deadlineMonotonic=deadline)
         return self._exchange(manifest,target,fields,started,deadline)
 
@@ -138,18 +140,42 @@ class PicoOperationHost:
     def browser_component(self,run,fixture_url,operation,arguments=None,*,whole_budget):
         from copy import deepcopy
         from adapters.chat_journey.source_chunks import json_digest
-        from adapters.pico4.browser_operation_protocol import validate,budget
+        from adapters.pico4.browser_operation_protocol import VERSION,validate,budget
         budget(whole_budget,120);held=getattr(self,'_browser_whole_budget',None)
         if held is None:
             need(operation=='begin' and getattr(self,'_create_action_budget',None) is None)
             self._browser_whole_budget=deepcopy(whole_budget);self._browser_budget_sha=json_digest(whole_budget)
         else:need(json_digest(whole_budget)==self._browser_budget_sha)
-        now=time.monotonic();deadline=min(now+60,whole_budget['deadlineMonotonic'])
-        action=dict(id=uuid.uuid4().hex,startedMonotonic=now,deadlineMonotonic=deadline)
-        fields=dict(picoBrowserOperationRequestVersion=1,requestId=uuid.uuid4().hex,runId=run,fixtureUrl=fixture_url,
+        now=time.monotonic();selected=getattr(self,'_browser_input_budget',None)
+        action=(dict(id=uuid.uuid4().hex,startedMonotonic=now,
+            deadlineMonotonic=min(now+60,whole_budget['deadlineMonotonic'])) if selected is None else deepcopy(selected))
+        fields=dict(picoBrowserOperationRequestVersion=VERSION,requestId=uuid.uuid4().hex,runId=run,fixtureUrl=fixture_url,
             operation=operation,arguments=arguments,wholeBudget=deepcopy(whole_budget),actionBudget=action)
         validate(fields)
-        return self._exchange(self.manifest,self.target,fields,now,deadline,private='browser')
+        return self._exchange(self.manifest,self.target,fields,now,action['deadlineMonotonic'],private='browser')
+
+    @contextmanager
+    def browser_input_context(self,run,fixture_url,operation,arguments,*,whole_budget):
+        need(getattr(self,'_browser_input_budget',None) is None
+            and getattr(self,'_create_action_budget',None) is None)
+        now=time.monotonic();selected=dict(id=uuid.uuid4().hex,startedMonotonic=now,
+            deadlineMonotonic=min(now+60,whole_budget['deadlineMonotonic']))
+        self._browser_input_budget=selected;entered=False;original_error=None
+        try:
+            self.browser_component(run,fixture_url,'input.begin',dict(operation=operation,arguments=arguments),
+                whole_budget=whole_budget);entered=True
+            yield
+        except BaseException as error:original_error=error;raise
+        finally:
+            try:
+                if entered and not self.failed:
+                    self.browser_component(run,fixture_url,'input.end',whole_budget=whole_budget)
+            except BaseException:
+                self.failed=True;self.abort()
+                if original_error is None:raise
+            finally:
+                self._browser_input_budget=None
+                if self.failed:self.abort()
 
     @contextmanager
     def create_input_context(self,run,fixture_url,operation,arguments):

@@ -29,6 +29,18 @@ class BrowserOwnerAdmissionTests(unittest.TestCase):
     def test_foreign_store_holder_cannot_resume_after_restoring_original_holder(self):
         self.run_admission('holder-swap')
 
+    def test_original_prepare_context_locks_fixture_activation_until_actual_release(self):
+        self.run_admission('input-prepare')
+
+    def test_changed_original_input_budget_retains_lock_until_known_host_unwind(self):
+        self.run_admission('input-budget')
+
+    def test_unknown_input_context_cas_retains_actual_lock_until_known_host_unwind(self):
+        self.run_admission('input-cas')
+
+    def test_missing_normal_input_cannot_complete_scope_and_releases_only_host_lock(self):
+        self.run_admission('input-empty-act')
+
     def run_admission(self, fault):
         temporary = tempfile.TemporaryDirectory(prefix='pico-browser-owner-admission-')
         self.addCleanup(temporary.cleanup); root = Path(temporary.name); root.chmod(0o700)
@@ -49,6 +61,10 @@ class BrowserOwnerAdmissionTests(unittest.TestCase):
         self.assertEqual(2 if fault == 'actor-parser' else None, result['actorExitCode'])
         self.assertEqual(fault == 'actor-parser', result['actualPublicAdmissionAttempted'])
         self.assertEqual(fault == 'holder-swap', result['holderSwapRefused'])
+        if fault.startswith('input-'):
+            self.assertTrue(result['inputBoundary']['heldBefore'] and result['inputBoundary']['freeAfter'])
+            self.assertEqual(fault!='input-prepare',result['inputBoundary']['unavailable'])
+        else:self.assertIsNone(result['inputBoundary'])
         self.assertFalse(result['completeProductionJourney'] or result['nativeQualified'])
         sources = json.loads((root/'child-source-pins.json').read_text())
         self.assertTrue(sources['currentSHA8']); self.assertEqual(sources['before'], sources['after'])

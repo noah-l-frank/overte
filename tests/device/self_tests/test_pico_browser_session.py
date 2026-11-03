@@ -5,6 +5,7 @@ These ordering cases do not qualify the canonical operation owner or native VR.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from contextlib import contextmanager
 from pathlib import Path
 import tempfile
 import time
@@ -35,7 +36,7 @@ class BrowserSessionTests(unittest.TestCase):
             manifest = fixture.root/'adapter.json'
             target = 'declared-model'
             def guard(self): pass
-            def browser_component(self, run, url, operation, arguments, *, whole_budget):
+            def browser_component(self, run, url, operation, arguments=None, *, whole_budget):
                 fixture.events.append(operation)
                 fixture.assertEqual((RUN, fixture.url), (run, url))
                 fixture.assertEqual(fixture.whole, whole_budget)
@@ -46,6 +47,11 @@ class BrowserSessionTests(unittest.TestCase):
                 if operation == 'finalize':
                     return dict(runId=RUN, sequenceCompleted=True, hostReleased=True, deviceAcceptance=False)
                 return dict(protocolOnly=True)
+            @contextmanager
+            def browser_input_context(self,run,url,operation,arguments,*,whole_budget):
+                self.browser_component(run,url,'input.begin',dict(operation=operation,arguments=arguments),whole_budget=whole_budget)
+                try:yield
+                finally:self.browser_component(run,url,'input.end',whole_budget=whole_budget)
         self.owner = Owner()
         class Context:
             def __enter__(self): fixture.events.append('enter'); return fixture.owner

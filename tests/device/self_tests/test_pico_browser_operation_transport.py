@@ -59,6 +59,22 @@ class BrowserOperationTransportTests(unittest.TestCase):
                 with self.assertRaises(NativeUIError): self.component(host)
             launch.assert_not_called(); self.assertIsNone(host.process)
 
+    def test_input_boundary_keeps_one_original_budget_through_actual_stdio_and_readonly_call(self):
+        with self.model() as host:
+            self.whole=self.budget();self.component(host)
+            run='b'*32;url='http://controlled.test/feature-fixture/v1/runs/'+run+'/'
+            with host.browser_input_context(run,url,'prepare',None,whole_budget=self.whole):
+                original=dict(host._browser_input_budget)
+                self.assertTrue(host.invoke(host.manifest,host.target,'app.process',{})['running'])
+            self.assertIsNone(host._browser_input_budget);host.close()
+            frames=[json.loads(p.read_bytes()) for p in host.artifacts.glob('request-*.bin')]
+            selected=[row for row in frames if row['operation'] in ('input.begin','input.end')]
+            self.assertEqual(2,len(selected))
+            self.assertTrue(all(row['picoBrowserOperationRequestVersion']==2 and row['actionBudget']==original for row in selected))
+            public=[row for row in frames if row['operation']=='app.process']
+            self.assertEqual(1,len(public));self.assertLessEqual(public[0]['deadlineMonotonic'],original['deadlineMonotonic'])
+            self.assertEqual(1,self.trace().count('factory'));self.assertEqual(1,self.trace().count('browser-factory'))
+
     def test_original_deadline_counts_cold_factory_and_keeps_request_without_reply(self):
         fault = 'browser-factory-timeout'
         with self.model(fault) as host:

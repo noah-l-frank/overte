@@ -3875,3 +3875,17 @@ Two new selectors contain12 disjoint component cases. A private runtime-original
 command format1 is registered. Whole Common28 actions, public Emote routing,
 independent deployed Actor and whole final retirement remain open. Parent1 still
 implements its four-action component; complete source count stays3/14.
+
+
+## Browser original phase/input boundary continuation
+
+The existing Common input context now surrounds fixture activation and normal
+Browser input with the same actual SourceLock on its warm operation host.
+Request/owner/begin/close2 retain explicit request1 behavior; boundary1 is
+host-lock evidence only. Actual-kernel loss/budget/empty-act counters and
+existing session/module/stdio regressions are green. A real coordinator and
+Actor6 model run reached all26 normal inputs, then failed the unchanged500ms
+Actor multi-clock quiet validation at103.421s. Full canonical candidate/router/CLI, Common return,
+all source/archive/host release and Pico devices remain unqualified. See
+[BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md). Source-complete count
+remains3/14; no capability is promoted.
