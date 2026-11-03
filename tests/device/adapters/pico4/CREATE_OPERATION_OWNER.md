@@ -173,3 +173,38 @@ refusal; it is preserved rather than relabeled as a successful cleanup. No
 product, ownership, quiet, clock, source budget or production code is changed
 by this counter. Actual final Qt/resource retirement, all21 Common actions,
 independent full Actor/images/permissions/voxels and global cleanup remain open.
+
+
+## Same-host fifteen-action PolyVox component
+
+The disjoint `create-operation-voxel-prefix` selector continues the SAME original
+CLI/adapter/Parent through the first15 unchanged normal actions. It composes the
+existing PolyVox UI/volume/controller/renderer source models, actual SourceLock,
+input context and Session. The retained native volume proves the expected actual
+remove effect, all three original streams finish, tool settings restore, and
+the original primitive is deleted. No production source or guard is changed.
+
+The original file producer has an optional clock callback: it samples request
+before actual file IO and capture after IO. The default remains20000. A direct
+counter sees the directory absent before stage and present after it; no returned
+original is retimed. The new CLI fixture explicitly forwards the actual existing
+Pico Session, preserving its original controller state and sequence.
+
+The current13case group passes34.639s with235 loaded Parent sources unchanged.
+It includes the new2 cases, unchanged twelve-action/CLI4 and original file6
+regressions (the file dispatcher executes original JavaScript through Node).
+Six terminal child receipts cover249 distinct unchanged sources, verified against
+both initial and final SHA/eight-field identities. Six known original host and
+two peer processes are kernel-absent. All private namespaces remain retained.
+The15action component reaches the same original Qt-context cleanup refusal and
+claims neither product retirement nor independent Actor/GPU observations.
+
+Earlier failed scopes remain: a Model-only v4 fixture overwrote newer volume
+fields; a fixed file-source clock disagreed with the advancing volume clock;
+the existing Model-only child could not read its thirteenth phase containing a
+PolyVox world; and the SDK model selected its generic Session factory. These
+are explicit producer-composition gaps, not product failures. The normal12
+selector retains its original Model child, separately from the new15 component.
+Full independent Create Actor, all21 actions/permissions, native/pixel/device
+qualification and complete final retirement remain open. Catalog338 adds one
+new group; no feature is promoted.

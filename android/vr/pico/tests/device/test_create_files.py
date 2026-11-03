@@ -24,14 +24,16 @@ URL='http://controlled.test/feature-fixture/v1/runs/'+RUN+'/'
 
 
 class NativeBoundary:
-    def __init__(self, path):
+    def __init__(self, path, *, clock_ms=None):
         self.path, self.root = path, path/('feature-create-'+RUN+'-'+TICKET)
         self.commands, self.sample = [], None
         self.clock, self.sequence = 0., 0
         self.owner, self.fault, self.mutate = None, '', None
+        self.clock_ms=(lambda:20000) if clock_ms is None else clock_ms
 
     def send(self, command):
         validate_command(command);self.commands.append(deepcopy(command));self.sequence+=1
+        requested=self.clock_ms()
         operation=command['operation']
         if self.owner not in (None, command['ownerToken']):source={}
         elif operation=='stage':
@@ -61,12 +63,12 @@ class NativeBoundary:
                     modified=clock(info.st_mtime_ns),changed=clock(info.st_ctime_ns)))
             source=dict(exists=True,directory=self.root.as_uri(),files=rows)
         self.sample=dict(schemaVersion=1,requestId=command['commandId'],instance='d'*32,sequence=self.sequence,
-            requestedEpochMs=20000,capturedEpochMs=20000,processId=31,runId=command['runId'],ticket=TICKET,
+            requestedEpochMs=requested,capturedEpochMs=self.clock_ms(),processId=31,runId=command['runId'],ticket=TICKET,
             sourceRole=ROLE,operation=operation,source=source)
         if self.mutate:self.mutate(self.sample)
 
     def native(self):
-        return NativeCreateFiles(self.send,lambda:json.dumps(self.sample),lambda:20000,lambda:True,31,
+        return NativeCreateFiles(self.send,lambda:json.dumps(self.sample),self.clock_ms,lambda:True,31,
             ticket=TICKET,monotonic=lambda:self.clock,sleep=self.sleep)
     def sleep(self,value):self.clock+=value
 

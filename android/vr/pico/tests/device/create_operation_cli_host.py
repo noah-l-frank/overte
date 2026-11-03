@@ -49,10 +49,15 @@ class ModelOwner(PicoCreateOperationOwner):
         return super().start_peer(spec,budget_value,entry=Path(__file__).with_name('create_operation_peer_host.py'))
 
 
+def make_fixture():
+    fixture=original.CreateJourneyTests();fixture._before_prepare=lambda:native_primary(fixture)
+    return fixture
+
+
 class ModelAdapter(android.AndroidAdapter):
     def __init__(self):
         self.kind='pico';self.profile=android.PROFILES['pico'];self.factories=0
-        fixture=self.fixture=original.CreateJourneyTests();fixture._before_prepare=lambda:native_primary(fixture)
+        fixture=self.fixture=make_fixture()
         make=fixture.make
         def deferred():
             root=make();root.invoke=lambda operation,values=None:None if operation=='prepare' else PicoCreateJourney.invoke(root,operation,values);return root

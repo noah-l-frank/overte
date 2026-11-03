@@ -3597,3 +3597,16 @@ it did not demonstrate a mismatch. Full prefix/Unicode/Common/Actor/stereo,
 native/device qualification and global retirement remain open. Catalog337 adds
 35 disjoint counters and2 explicit refusals; the REDwhole stays opt-in.
 Source-complete stays3/14.
+
+
+## Same original Create CLI through PolyVox selected on 2026-11-03
+
+The [continuous Create owner](CREATE_OPERATION_OWNER.md) now also runs the first15
+normal actions through existing PolyVox/remove/settings-restore/delete sources.
+Its2new cases and11 affected regressions pass34.639s,235 Parent/249 distinct
+Child sources unchanged across six terminal receipts. Six known host and two
+peer processes are kernel-absent. The default12action Model peer stays separate;
+it does not observe the later PolyVox world. The15action component has no Actor/
+GPU claim and still correctly refuses its retained modeled Qt context at cleanup.
+Catalog338 adds one disjoint2case group. All21actions/permission/fullActor/stereo/
+globalretirement remain open; source-complete stays3/14.
