@@ -753,7 +753,12 @@
         "tests/device/adapters/pico4/world_current_consumption.py",
         "tests/device/adapters/pico4/WORLD_CURRENT_CONSUMPTION_READOUT.md",
         "android/vr/pico/tests/device/test_world_current_consumption_reader.py",
-        "android/vr/pico/tests/device/world-current-consumption-probe-test.js"
+        "android/vr/pico/tests/device/world-current-consumption-probe-test.js",
+        "android/vr/pico/tests/device/test_world_current_consumption_native.py",
+        "android/vr/pico/tests/device/test_world_current_consumption_java.py",
+        "android/vr/pico/tests/device/world-current-consumption-application.inc",
+        "android/vr/pico/tests/device/world-current-consumption-native-body.inc",
+        "android/vr/pico/tests/device/world-current-consumption-java-body.java.inc"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -803,8 +808,8 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Compose the existing same-Parent focus stage with the private bounded Trace1 readout and actual normal input plus fresh independent DOM/editor effect. The TSI/probe/strict Host reader chain has17 no-build cases, including actual Node probe dispatch and genuine delayed pre-send RED-to-GREEN with zero sends after expiry. Native/Java Trace1 owning checks and compilation remain unverified; no private wire or complete capability is advertised. Preserve exact Common16, old Prefix readers, full raw records, original clocks and unresolved ownership. Stock keyboard.json remains ASCII-only; arbitrary Unicode Qt-IME is a distinct producer. Actor/stereo and full source/VM/archive/host retirement remain open. Existing Keyboard special Copy/Paste keys send ControlModifier; NativeWebViewItem rejects Control/Alt/Meta, so those keys do not establish a normal Unicode source either. Preserve product behavior.",
-      "nativeCompilation": "Selected complete NativeWebViewItem/JNI, both conditional sides of whole current-document/current-input TSI getters, actual exported single-owner factories/two hidden DSOs, original Java methods and WorldRayProvider/RayPick/renderer bodies compile and pass host checks. Entity/avatar/HMD and Android looper/WebView/DOM/editor are explicit seams. Whole APK/application and devices unverified.",
+      "nextExecutableStep": "Compose the existing same-Parent focus stage with the private bounded Trace1 readout and actual normal input plus fresh independent DOM/editor effect. The TSI/probe/strict Host reader chain has17 no-build cases, including actual Node probe dispatch and genuine delayed pre-send RED-to-GREEN with zero sends after expiry. Original native Trace1 owning passes29.785s (59 named SHA+physical signatures unchanged); separate actual Java edit/post/input/trace bodies pass0.953s. Both TSI platform sides, actual Keyboard/Application/Native/Qt/JNI, missing callbacks and6actual weak/lifetime/late-callback counters are qualified at host scope. Private Trace1 is registered; complete capability stays unavailable. Preserve exact Common16, old Prefix readers, full raw records, original clocks and unresolved ownership. Stock keyboard.json remains ASCII-only; arbitrary Unicode Qt-IME is a distinct producer. Actor/stereo and full source/VM/archive/host retirement remain open. Existing Keyboard special Copy/Paste keys send ControlModifier; NativeWebViewItem rejects Control/Alt/Meta, so those keys do not establish a normal Unicode source either. Preserve product behavior.",
+      "nativeCompilation": "Selected complete NativeWebViewItem/JNI, both conditional sides of whole current-document/current-input TSI getters, actual exported single-owner factories/two hidden DSOs, original Java methods and WorldRayProvider/RayPick/renderer bodies compile and pass host checks. Entity/avatar/HMD and Android looper/WebView/DOM/editor are explicit seams. Whole APK/application and devices unverified. Original Consumption TSI sides, complete Keyboard/Application key and IME routing, Native/JNI trace and Java edit/post/input/gates/helpers now host-compile and pass. Controller trigger, EntityTree/HUD and Android scheduling/DOM remain explicit seams; dispatch supplies no DOM effect.",
       "deviceQualification": "untested"
     },
     {

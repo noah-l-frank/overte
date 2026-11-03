@@ -3,9 +3,9 @@
 The existing Trace1 WIP recorder now has a private route through the existing
 Test API, probe and strict Python reader. This continues the
 [reviewed source proposal](WORLD_CURRENT_CONSUMPTION_PROPOSAL.md); it does not
-complete the World feature, advertise a capability or register the private
-wire. The native/Java recorder and new C++ route remain uncompiled in this
-resume packet. Its original production-body owning checks are still required.
+complete the World feature or advertise a capability. The initial2026-11-02
+packet left native/Java compilation unverified. The separately qualified
+2026-11-03 source checkpoint below now registers the private wire at version1.
 
 ## Existing route and ownership
 
@@ -124,3 +124,60 @@ The17-case owning reader remains green, and the delayed dispatch sends nothing.
 The unique Root logs are `trace-clock-presend-red.log` and
 `trace-reader-root-final.log` under
 `/home/user/.local/state/overte-pico-browser-png-projection-20261102-mconlui2`.
+
+
+## Original native and Java owning checkpoint on 2026-11-03
+
+Compiler work is explicitly authorized by the user's later session instruction.
+No dependency installation, application/APK build or device test is used here.
+The existing prepared Qt5/JDK/GLM host assembly compiles the complete original
+NativeWebViewItem translation unit, exported anchor factory, original complete
+Keyboard::dispatchKey and Application key/IME/focus-routing bodies. Both Pico
+and non-Pico sides of the original Consumption TSI getter compile and execute
+its pre-queue clock, same-nonce collision, blocked-worker and late-provider
+counters using the unchanged bounded queue. EntityTree/HUD, controller trigger
+and Android Java/WebView/DOM are declared dependency models in this assembly.
+
+The final native owning case passes29.785s. It runs eight actual isolated native
+processes: keyboard dispatch, separate supplementary-Unicode Qt IME, and six
+item/context/window/grant/page/source loss counters. Keyboard press emits six
+actual correlated recorder frames, including JNI command, post-handler Native
+acceptance, actual target/focus and ignored release. IME emits its own two
+frames under qt-ime. Exactly one product JNI edit is delivered per case. No
+OpenXR trigger is synthesized or claimed by the keyboard-dispatch origin.
+The actual source packets pass the unchanged strict Host validator. The changed
+grant additionally triggers its expected foreign-authority refusal after raw
+retention; no scope predicate is relaxed to parse it.
+
+Missing Java callbacks remain pending until the original five-second attempt
+actually expires. The test waits on the recorder's original monotonic age with
+a separate bounded host watchdog; nominal Qt coarse timers may wake early.
+Six negative callbacks use an actual attached JVM thread and queued native
+receiver, with explicitly synthetic Java raw. Those exact raw bytes remain
+owned after lifetime/authority loss, and none produces ready or DOM success.
+The receiver itself remains owned; no complete receiver retirement is claimed.
+
+A separate original Java owning case passes0.953s. It compiles unchanged edit,
+post/input, WebInputGate, WebDocumentState, snapshot and trace helper bodies
+against the existing host Android jar. Declared Handler, JNI and WebView seams
+record the single dispatched script. Original UTF16 units and standard UTF8
+agree for supplementary characters. Actual stale grant, replaced owner, input
+lease generation, background, focus, hidden view, editor refusal, removed target
+and invalid JSON block evaluation. Observer-id/emission failures and byte caps
+preserve ordinary admitted product dispatch while leaving trace unavailable.
+Java dispatch never supplies a DOM field effect or script callback result.
+
+The final native build retains59 named source SHA256 and all eight physical
+fields unchanged;39 loaded Python sources are also unchanged. The Java owning
+case retains its original command/stdout/stderr and emitted raw packets. Their
+private stages and Root receipts remain under the existing integration evidence
+area, with failed earlier attempts retained separately. The initial native
+expiry test failed21.582s; a later29.614s case expected the changed-grant raw to
+pass a validator that correctly refuses foreign authority. Both corrections
+change test expectations/timing only; product and validator code are unchanged.
+
+The private wire is now registered as pico-world-current-consumption1, reads1.
+The new native/Java central groups keep the original120s outer/90s build bounds.
+Complete same-Parent normal input/independent DOM effect, default-layout Unicode,
+OpenXR execution, trusted server/script joins, Actor/stereo and final native/
+VM/archive/host retirement remain open. Source-complete remains3/14; devices0.

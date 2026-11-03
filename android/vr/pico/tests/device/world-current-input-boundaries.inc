@@ -5,7 +5,11 @@
 #include <QQmlEngine>
 #include <glm/gtc/quaternion.hpp>
 #include <type_traits>
+#if defined(OVERTE_TEST_CURRENT_CONSUMPTION)
+#include "current-consumption-application-boundary.inc"
+#else
 struct CurrentAppBoundary:QGuiApplication {using QGuiApplication::QGuiApplication;bool isHMDMode(){return true;}};
+#endif
 #undef qApp
 #define qApp static_cast<CurrentAppBoundary*>(QCoreApplication::instance())
 namespace EntityTypes {enum Type{Web,Box};}

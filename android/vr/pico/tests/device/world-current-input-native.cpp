@@ -272,6 +272,9 @@ int main(int argc,char**argv) {
         assert(focusedDoc.value("source").toMap().value("dom").toMap().value("editor").toMap().value("focused")==true);
         record("current-input-proof",{{"pointers",count("pointers")-beforePointers},{"geometryQueries",count("currentInputReads")},
             {"nativeFocused",item->hasActiveFocus()},{"seams","Android DOM/editor and entity/avatar/HMD dependencies; no OpenXR device/mapper execution"}});
+#if defined(OVERTE_TEST_CURRENT_CONSUMPTION)
+#include "world-current-consumption-native-body.inc"
+#endif
         item.reset();events();
     }
     assert(machine->DestroyJavaVM()==JNI_OK);

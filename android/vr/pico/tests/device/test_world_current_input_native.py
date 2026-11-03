@@ -25,6 +25,9 @@ from test_create_polyvox_controls_native import pointer_source,original
 
 class WorldCurrentInputNativeTests(unittest.TestCase):
     def test_actual_same_authority_readonly_ray_normal_pointer_focus_and_dom(self):
+        self.run_native()
+
+    def run_native(self, *, consumption=False):
         byte_only=False
         directory=tempfile.TemporaryDirectory(prefix='world-current-input-');directory._finalizer.detach()
         stage=Path(directory.name);stage.chmod(0o700)
@@ -56,6 +59,16 @@ class WorldCurrentInputNativeTests(unittest.TestCase):
         base=(HERE/'pico-browser-originals.cpp').read_text()
         old=original(base,'struct DependencyManager {')+';'
         base=base.replace(old,(HERE/'world-current-input-boundaries.inc').read_text())
+        if consumption:
+            keyboard=(ROOT/'interface/src/ui/Keyboard.cpp').read_text()
+            application=(ROOT/'interface/src/Application_Events.cpp').read_text()
+            methods='\n'.join(original(application, signature) for signature in (
+                'bool Application::handleInputMethodEventForFocusedEntity(',
+                'bool Application::handleKeyEventForFocusedEntity(',
+                'bool Application::dispatchVirtualKeyboardEvent('))
+            methods+='\n'+original(keyboard,'void Keyboard::dispatchKey(')
+            (stage/'current-consumption-application-boundary.inc').write_text(
+                (HERE/'world-current-consumption-application.inc').read_text().replace('// ORIGINAL_METHODS',methods))
         (stage/'current-browser-assembly.inc').write_text(base)
         provider=stage/'actual-browser-provider.inc'
         provider.write_text(provider.read_text()+'\n'+original(bridge,'void installWorldWebRayProvider() {'))
@@ -84,20 +97,43 @@ class WorldCurrentInputNativeTests(unittest.TestCase):
         sources=[web/'src/PicoWorldCurrentDocumentBridge.cpp',ROOT/'tests/device/native/PicoWorldCurrentDocumentBridge.h',ROOT/'interface/src/scripting/TestScriptingInterface.cpp',HERE/'world-current-document-getter.cpp',web/'src/NativeWebViewItem.cpp',HERE/'world-current-input-native.cpp',HERE/'pico-browser-originals.cpp',
             ROOT/'libraries/shared/src/EmbeddedWebPolicy.h',web/'src/PicoBrowserFeatureE2E.inc',
             web/'java/org/overte/web/EmbeddedWebView.java',web/'java/org/overte/web/WebAudioLifecycle.java']
+        if consumption:
+            sources.extend([ROOT/'interface/src/ui/Keyboard.cpp',ROOT/'interface/src/Application_Events.cpp',
+                web/'src/PicoWorldCurrentConsumptionE2E.inc',ROOT/'tests/device/native/PicoWorldCurrentConsumptionBridge.h',
+                HERE/'world-current-consumption-application.inc',HERE/'world-current-consumption-native-body.inc',
+                HERE/'test_world_current_consumption_native.py'])
         provenance=[dict(path=str(path.relative_to(ROOT)),sha256=hashlib.sha256(path.read_bytes()).hexdigest()) for path in sources]
         path=stage/'original-inputs.json';path.write_text(json.dumps(provenance));path.chmod(0o600)
         run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS','-DANDROID_APP_PICO_INTERFACE',
+            *(['-DOVERTE_TEST_CURRENT_CONSUMPTION'] if consumption else []),
             '-I'+str(stage),'-I'+str(ROOT),'-I'+str(web/'src'),'-I'+str(ROOT/'libraries/shared/src'),
             '-I'+str(ROOT/'libraries/ui/src'),'-I'+str(ROOT/'libraries/script-engine/src'),
             '-isystem',str(Path(env['OVERTE_TEST_GLM_INCLUDE']).resolve(strict=True)),
             '-I'+str(jdk/'include'),'-I'+str(jdk/'include/linux'),
             HERE/'world-current-input-native.cpp',web/'src/PicoWorldCurrentDocumentBridge.cpp',stage/'moc.cpp',stage/'embedded-web.cpp',stage/'feature-web.cpp',
             '-L'+str(prefix/'usr/lib64'),'-L'+str(jdk/'lib/server'),'-Wl,-rpath,'+str(jdk/'lib/server'),'-ljvm','-o',stage/'test',*flags])
-        (stage/'original-current-input-getter.inc').write_text(original((ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text(),'QVariantMap TestScriptingInterface::featurePicoWorldCurrentInput('))
+        getter_name='featurePicoWorldCurrentConsumption' if consumption else 'featurePicoWorldCurrentInput'
+        (stage/'original-current-input-getter.inc').write_text(original((ROOT/'interface/src/scripting/TestScriptingInterface.cpp').read_text(),'QVariantMap TestScriptingInterface::'+getter_name+'('))
+        getter_source=HERE/'world-current-input-getter.cpp'
+        if consumption:
+            # Declared provider/dependency harness only: include the complete
+            # original consumption getter, unchanged, on both platform sides.
+            getter_source=stage/'consumption-getter.cpp'
+            getter=(HERE/'world-current-input-getter.cpp').read_text()
+            for old,new in (
+                ('PicoWorldCurrentInputBridge.h','PicoWorldCurrentConsumptionBridge.h'),
+                ('featurePicoWorldCurrentInput','featurePicoWorldCurrentConsumption'),
+                ('PicoCurrentInputProvider','PicoCurrentConsumptionProvider'),
+                ('picoCurrentInputProperty','picoCurrentConsumptionProperty'),
+                ('_featurePicoCurrentInputQueue','_featurePicoCurrentConsumptionQueue'),
+                ('"measure-current-ray"','"arm-current-consumption"'),
+                ('{"documentNonce",QString(32,\'9\')},{"control","text"}', '{"focusNonce",QString(32,\'9\')}')):
+                self.assertIn(old,getter);getter=getter.replace(old,new)
+            getter_source.write_text(getter)
         for pico in (False,True):
             binary=stage/('input-getter-pico' if pico else 'input-getter-non-pico')
             run(['c++','-std=c++17','-fPIC','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS',*(['-DANDROID_APP_PICO_INTERFACE'] if pico else []),
-                '-I'+str(stage),'-I'+str(ROOT),HERE/'world-current-input-getter.cpp',web/'src/PicoWorldCurrentDocumentBridge.cpp',
+                '-I'+str(stage),'-I'+str(ROOT),getter_source,web/'src/PicoWorldCurrentDocumentBridge.cpp',
                 '-L'+str(prefix/'usr/lib64'),'-o',binary,*flags])
             run([binary,stage,'--testScript','host-boundary','--testResultsLocation',stage],build=False)
         result=run(['unshare','--user','--map-root-user','--net',stage/'test',stage,'--testScript','host-boundary','--testResultsLocation',stage,*(['--current-document-byte-cap'] if byte_only else [])],build=False)
@@ -113,7 +149,26 @@ class WorldCurrentInputNativeTests(unittest.TestCase):
             entry=json.loads((stage/(name+'.json')).read_bytes());packet=entry['packet']
             validate(packet,entry['request'],packet['processId'],packet['capturedEpochMs'],entry['documentOriginal'])
         proof=json.loads((stage/'current-input-proof.json').read_bytes());self.assertEqual(2,proof['pointers']);self.assertEqual(2,proof['geometryQueries'])
-        for case in ('foreign','grant','page','source','death','recreate','context','window','late','overlay'):
+        if consumption:
+            self.assertIn('PASS actual consumption original dispatch',result.stdout)
+            proof=json.loads((stage/'consumption-originals.json').read_bytes())
+            self.assertEqual(1,proof['edits']);self.assertEqual(6,len(proof['frames']))
+            self.assertEqual('pending',proof['pending']['status']);self.assertEqual('expired',proof['expired']['source']['reason'])
+            folder=stage/'ime';folder.mkdir(mode=0o700);shutil.copytree(stage/'org',folder/'org')
+            result=run(['unshare','--user','--map-root-user','--net',stage/'test',folder,'--testScript','host-boundary','--testResultsLocation',folder,'--consumption-ime'],build=False)
+            self.assertIn('PASS actual consumption original dispatch',result.stdout)
+            proof=json.loads((folder/'consumption-originals.json').read_bytes())
+            self.assertEqual(1,proof['edits']);self.assertEqual(['jni-command','native-input'],proof['kinds'])
+            self.assertEqual(['qt-ime','qt-ime'],proof['origins']);self.assertEqual('expired',proof['expired']['source']['reason'])
+            for fault in ('death','context','window','grant','page','source'):
+                folder=stage/fault;folder.mkdir(mode=0o700);shutil.copytree(stage/'org',folder/'org')
+                result=run(['unshare','--user','--map-root-user','--net',stage/'test',folder,'--testScript','host-boundary',
+                    '--testResultsLocation',folder,'--consumption-fault',fault],build=False)
+                self.assertIn('PASS actual weak/lifetime JNI late-callback',result.stdout)
+                proof=json.loads((folder/'consumption-counter.json').read_bytes())
+                self.assertEqual(1,proof['edits']);self.assertEqual(1,proof['callbackOriginals'])
+                self.assertEqual('unavailable',proof['packet']['status'])
+        for case in (() if consumption else ('foreign','grant','page','source','death','recreate','context','window','late','overlay')):
             folder=stage/case;folder.mkdir(mode=0o700);shutil.copytree(stage/'org',folder/'org')
             result=run(['unshare','--user','--map-root-user','--net',stage/'test',folder,'--testScript','host-boundary','--testResultsLocation',folder,
                 '--current-input-case',case],build=False)
@@ -125,6 +180,7 @@ class WorldCurrentInputNativeTests(unittest.TestCase):
                 fresh=json.loads((folder/'current-input-recreated.json').read_bytes());self.assertEqual('ready',fresh['packet']['status'])
                 validate(fresh['packet'],fresh['request'],fresh['packet']['processId'],fresh['packet']['capturedEpochMs'],fresh['documentOriginal'])
         for row in provenance:self.assertEqual(row['sha256'],hashlib.sha256((ROOT/row['path']).read_bytes()).hexdigest())
+        return stage
 
 
 if __name__=='__main__':unittest.main()

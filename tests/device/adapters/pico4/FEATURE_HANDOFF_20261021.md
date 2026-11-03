@@ -44,7 +44,7 @@ and19 legacy Parent cases. Its new production main/factory/CLI5 Model route
 passes8/52.761s, with11 legacy source cases40.218s and12 observer cases0.043s.
 An actual persistent Parent must own the child process; the persistent RPC/
 Jenkins launcher and complete common/GPU/stereo/archive remain open.
-The central catalog contains300 disjoint groups, including the new Create
+The central catalog contains302 disjoint groups, including the new Create
 peer source group, four Avatar/Audio/Lifecycle groups, two G1 frame groups and
 the fast Actor storage group. The standalone capacity diagnostic stays outside
 default120s groups. Browser namespace and complete physical archive checks pass21 affected cases; previous complete
@@ -3352,3 +3352,15 @@ recorder, but existing tests assert only CurrentInput. Trace behavior and
 actual Keyboard/Application/Java edit callers still require owning checks.
 All52 explicitly named native/Java/harness source hashes stayed unchanged.
 The actual build directory is under retained /tmp, as set by the owning runner.
+
+
+## Original World consumption compiled checkpoint on 2026-11-03
+
+The [private trace readout](WORLD_CURRENT_CONSUMPTION_READOUT.md) now has actual
+host compilation and owning proof: native1/29.785s, Java1/0.953s. The native
+case executes eight isolated processes plus both TSI platform sides and retains
+59 named source hashes/physical identities unchanged. The unchanged Host
+validator refuses changed grant authority after exact raw retention. No product
+behavior, deadline, source predicate or capability is relaxed. Default-layout
+Unicode, real controller trigger/Android/DOM effects, complete Parent, Actor/
+stereo and final receiver/native/VM/archive/host closure remain open.
