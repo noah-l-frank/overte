@@ -67,14 +67,16 @@ class PicoScriptIO:
         self.navigation.io.bind_input()
 
 
-def runtime(adapter, target, scene, installed, identity, ui_path, controller, *, before_native=None):
+def runtime(adapter, target, scene, installed, identity, ui_path, controller, *, before_native=None, original_reader=None):
     need(before_native is None or callable(before_native))
+    need(original_reader is None or callable(original_reader))
     native = NativeNavigationIO(adapter, target, identity, controller)
     binding_check=None if before_native is None else before_native(native)
     need(before_native is None or callable(binding_check))
     navigation = PicoNavigation(native, ui_path, installed, identity, scene)
     io = PicoScriptIO(navigation)  # Refuse a missing actual producer before UI.
-    observer = adapter._feature_observer(target)
+    observer = (adapter._feature_observer(target) if original_reader is None else
+        adapter._feature_observer(target, original_reader=original_reader))
     def observe(after):
         value = observer.read(after)
         return value, adapter.adb.epoch_milliseconds(target)

@@ -8,9 +8,9 @@
 #include <memory>
 
 namespace overte::e2e {
-// Explicit Policy2-only prototype. The original Source4 owner must hold this
-// object BEFORE open() and retain every partial/unknown member. This class is
-// not yet wired into TSI/default publishers and has not been compiled.
+// Explicit Policy2-only publisher, wired through the gated TSI source.
+// The original Source4 owner holds this object BEFORE open() and retains
+// every partial/unknown member. Defaults do not select it; it is uncompiled.
 class PicoEmoteCapturePublisher {
 public:
     bool open(const QString& root,std::function<bool()> permit) {

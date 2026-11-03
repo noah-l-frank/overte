@@ -451,6 +451,7 @@ REQUIRED = {
     "pico-emote-stream-archive": 1,
     "pico-emote-stream-model-original": 1,
     "pico-emote-stream-capture-source": 1,
+    "pico-emote-stream-runtime-original": 1,
     "pico-emote-background": 1,
     "pico-emote-foreground-recovery": 1,
     "pico-emote-background-effect": 1,

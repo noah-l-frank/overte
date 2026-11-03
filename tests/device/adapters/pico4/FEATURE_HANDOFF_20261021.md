@@ -3850,3 +3850,28 @@ model; the short independent-process consumption proof is a separate scope.
 A positive complete canonical public production-owner run and its failure/
 retirement counterparts remain open. No complete Browser capability or native/
 Pico device acceptance is claimed. Source completion remains3/14.
+
+
+## Emote canonical cold factory (2026-11-03)
+
+The explicit Source4/Capacity2 factory now uses the original BoundAdapter and
+ordinary runtime constructors. Fixed controlled-debug marker/probe and initial
+Script UI literals are archived before existing parsers. Optional original
+readers remain Pico-only; default Android/Phone/Source3/Capture2 APIs preserve
+their old calls. Stream render/model readers use the same original source
+monotonic callback. Actual issued bytes survive later business failure.
+See [the factory scope](EMOTE_STREAM_FACTORY1.md) and its provenance companion.
+
+The canonical component passed in93.147 seconds: actual factory/normal runtime,
+Capture3, normal Cancel/Close, quiet and both drains. Eleven disjoint refusal
+cases passed in59.391 seconds; ten existing default cases passed in3.140 seconds.
+Root independently re-audited all1,377 actual original files and275 unique Python
+source SHA256/full eight-stat identities. The four declared Native source
+differences are explicitly retained: later Lifecycle additions to TSI and two
+comment-only header updates. Old Native hashes are not relabeled current; no
+compilation, Kernel/Qt/device or deployed Actor proof is claimed.
+
+Two new selectors contain12 disjoint component cases. A private runtime-original
+command format1 is registered. Whole Common28 actions, public Emote routing,
+independent deployed Actor and whole final retirement remain open. Parent1 still
+implements its four-action component; complete source count stays3/14.

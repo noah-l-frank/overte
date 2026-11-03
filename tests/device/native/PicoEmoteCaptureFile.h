@@ -6,7 +6,7 @@
 #include <QRegularExpression>
 
 namespace overte::e2e {
-// EXCLUSIVE PROTOTYPE: not connected to TSI/Policy2 and not compiled.
+// Explicit Policy2 source, connected to the gated TSI publisher; uncompiled.
 // Reuses the exact integrated strong descriptor/stamp primitives unchanged.
 // One bounded result file at the original native root. The coordinating
 // owner MUST retain all successful/partial objects, serialize the shared

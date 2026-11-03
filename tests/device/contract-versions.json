@@ -423,6 +423,7 @@
     "pico-emote-stream-archive": {"current": 1, "reads": [1]},
     "pico-emote-stream-model-original": {"current": 1, "reads": [1]},
     "pico-emote-stream-capture-source": {"current": 1, "reads": [1]},
+    "pico-emote-stream-runtime-original": {"current": 1, "reads": [1]},
     "pico-emote-background": {"current": 1, "reads": [1]},
     "pico-emote-foreground-recovery": {"current": 1, "reads": [1]},
     "pico-emote-background-effect": {"current": 1, "reads": [1]},

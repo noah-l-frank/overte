@@ -101,6 +101,8 @@ TESTS = (
     test("emote-stream-capture-fences", "interaction", PYTHON, "device/test_emote_stream_capture_fences.py"),
     test("emote-stream-capture-identity", "interaction", PYTHON, "device/test_emote_stream_capture_identity.py"),
     test("emote-stream-capture-wire", "interaction", PYTHON, "device/test_emote_stream_capture_wire.py"),
+    test("emote-stream-factory", "interaction", PYTHON, "device/test_emote_stream_factory.py"),
+    test("emote-stream-factory-fences", "interaction", PYTHON, "device/test_emote_stream_factory_fences.py"),
     test("emote-stream-archive", "interaction", PYTHON, "device/test_emote_stream_archive.py"),
     test("tablet-web-owner", "interaction", PYTHON, "pico-tablet-web-owner-test.py"),
     test("tablet-web-journey", "interaction", PYTHON, "pico-tablet-web-journey-test.py"),

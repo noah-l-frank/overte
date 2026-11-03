@@ -42,8 +42,9 @@ can acquire descriptors. Failed/uncertain captures remain strongly reachable;
 host finalization closes only the actual original descriptor owner. Neither
 traceback disposal nor a later equal-byte object replacement grants authority.
 
-The proposed canonical Binding factory is not installed yet. Current
-Capture3 construction requires the exact Policy2/Originals2 capacity owner
+The opt-in canonical Binding factory is now implemented and has a scoped
+host component proof; see [the cold factory source](EMOTE_STREAM_FACTORY1.md).
+Current Capture3 construction requires the exact Policy2/Originals2 capacity owner
 and same archive; Policy1 without native-file capacity refuses before GPU. Its initial
 retirement boundary will use unchanged strict Role4.guard: failed/unknown role
 CAS cannot authorize retirement, and such captures remain owned. This does
@@ -62,12 +63,14 @@ history and separate actual integration proofs are in
 is not compiled/device-qualified; the canonical factory/public route and
 whole Common completion remain open.
 
-Eleven explicit wrappers select49 distinct cases: capture1/6/3/3, passive
-reader4, capacity9, PNG5, publisher6, routing4, actual baseline/constructor3
+The original eleven wrappers now select51 distinct cases: capture1/6/3/3,
+passive reader4, capacity9, PNG5, publisher6, routing6, actual baseline/constructor3
 and actual integration fences5. Each owning selection keeps its original
 120-second bound; combining these selections is not a whole journey. The
 capture wrappers now use the actual Policy2/Originals2 capacity composition.
 Their earlier no-capacity results remain historical and capacity-unqualified.
+The routing follow-up corrects its declared model to reflect the Native
+canonical-policy refusal already present; it adds two cases and no Native fix.
 The separate capacity-cycle positive overlaps the capture component and is
 not registered a second time. Python and Pillow are required by the existing
 PNG owners; no compiler, build, device or Domain is used. The fixture executes

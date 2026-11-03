@@ -55,7 +55,7 @@ fresh deadline. Sticky selection must occur on the SAME request before ANY
 queue/freshness/lifecycle refusal; failed explicit Policy2 must never reach
 legacy write/delete. Default valid Policy1 remains its original path.
 
-The current24 Host component selection passes in4.021 seconds with186
+The pre-routing-follow-up24 Host component selection passed in4.021 seconds with186
 loaded/declared sources unchanged in SHA/full eight-stat signature. All293
 actual files across24 fixtures survive original model cleanup, including
 publisher and PNG paired-FD finalization inside the before/after inventory.
@@ -99,9 +99,10 @@ submission and were corrected without changing source validators.
 Current Capture3 requires the exact Policy2/Originals2 capacity owner and same
 archive; the earlier Policy1/no-capacity thirteen-case capture proof remains
 historical and capacity-unqualified. Passive history still explicitly reads
-scope/policy1 and2. Failed Role4 CAS still cannot authorize retirement. No
-canonical BoundAdapter factory/public Emote route or full Common journey is
-qualified by this packet. Source-complete feature count must not be promoted.
+scope/policy1 and2. Failed Role4 CAS still cannot authorize retirement. The subsequent canonical cold-factory component is documented in
+[the factory source](EMOTE_STREAM_FACTORY1.md). A public Emote route or full
+Common journey remains unqualified. Source-complete feature count must not
+be promoted.
 
 Private format boundaries are explicit. Policy and budget producers select1
 by default and2 only with the cold capacity owner; the passive archive reads
@@ -112,3 +113,8 @@ version3, passive archive/model-literal/world-literal references are version1.
 No live owner cold-load/adoption API is added. Native remote-avatar Source3
 and its current registry/capability route must remain3. A memory seal is not a
 persisted format version.
+
+The later routing wrapper6 separately qualifies the already-existing Native
+canonical-policy refusal and its declared model: two cases were added to the
+previous four. Current capacity-component selection is26; the original24 proof
+is not relabeled as a26-case run or a Native execution result.

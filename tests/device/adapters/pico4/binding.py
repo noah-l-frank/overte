@@ -300,14 +300,16 @@ def create_adapter(args, base_class):
             directory = self.pico_configuration[1]
             return directory / ('normal-script-state-' + key + '.json'), directory / ('normal-script-ui-' + key + '.json')
 
-        def _script_runtime(self, target, *, before_native=None):
+        def _script_runtime(self, target, *, before_native=None, original_reader=None):
             scene = normal_scripts.configuration(os.environ)
             _need(scene is not None and self.pico_configuration is not None
                   and candidate['e2e_input_layer'] is True)
-            identity = self.require_controlled_debug_identity(target)
+            raw_options={} if original_reader is None else dict(original_reader=original_reader)
+            identity = self.require_controlled_debug_identity(target,**raw_options)
             installed = self._installation(target)
             _state, ui = self._script_paths(target)
-            options={} if before_native is None else dict(before_native=before_native)
+            options=dict(raw_options)
+            if before_native is not None:options['before_native']=before_native
             return normal_scripts.runtime(self, target, scene, installed, identity, ui,
                 lambda operation: super(PicoBoundAdapter, self).invoke(target, operation, {}),**options)
 
@@ -983,14 +985,23 @@ def create_adapter(args, base_class):
             return False
 
         @_private
-        def _emote_world_render_capture(self, target, source):
+        def _emote_world_render_capture(self, target, source, *, stream_factory=None):
             from adapters.pico4.emote_sources import PicoEmoteSources
             from adapters.pico4.avatar_remote_source import PicoRemoteAvatarSource
             from adapters.pico4.avatar_remote_state import source_store
             from adapters.pico4.graphics_binding import PicoGraphicsBinding,SerializedWorldCapture
             from adapters.world_render_receipts import NativeWorldReceiptInventory,NativeWorldReceiptBatchFiles,INVENTORY_FILE
-            remote=type(source) is PicoRemoteAvatarSource
-            if remote:
+            from adapters.pico4.emote_stream_factory import PicoEmoteStreamFactory
+            from adapters.pico4.emote_stream_role import PicoEmoteStreamRole
+            remote=type(source) is PicoRemoteAvatarSource;stream=type(source) is PicoEmoteStreamRole
+            _need(stream_factory is None or (stream and type(stream_factory) is PicoEmoteStreamFactory))
+            if stream:
+                _need(type(stream_factory) is PicoEmoteStreamFactory
+                    and stream_factory.matches(self,target,source) and source.role=='actor'
+                    and source.phase.area=='emotes' and source.phase.run==source.run
+                    and source.store.path==source_store(self,target,source.run,area='emotes').path)
+                source.guard();role='actor'
+            elif remote:
                 _need(source.phase.area=='emotes' and source.phase.run==source.run and source.primary is not None
                     and source.identity['picoRemoteAvatarSourceVersion']==3
                     and source.store.path==source_store(self,target,source.run,area='emotes').path)
@@ -1000,7 +1011,11 @@ def create_adapter(args, base_class):
                     and source.store.path==self._emote_source_store(target,source.role).path)
                 role=source.role
             lock=self._script_journey()._lock(target,source.lock);lock.assert_held()
-            _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            raw_options={} if not stream else dict(original_reader=stream_factory.original_reader)
+            runtime_options=dict(raw_options)
+            if stream:runtime_options['before_native']=stream_factory.before_native
+            _ui,_observe,binding=self._script_runtime(target,**runtime_options)
+            native=self._native_feature_observer(target,**raw_options)
             _need(binding==source.binding and native.pid==source.pid)
             facade=PicoGraphicsBinding(self)
             foreign=[self._emote_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
@@ -1022,17 +1037,17 @@ def create_adapter(args, base_class):
                 _need(all(store.read() is None for store in foreign));return True
             owner=WorldRenderOwner(self._emote_world_render_store(target,role),binding,world_guard,role=role)
             acquire_send=native.send
-            if remote:
+            if remote or stream:
                 original_intent=owner.intent
                 def admission():
-                    source.guard();_need(source.state['phase']=='ready' and source.state['pending'] is None)
+                    source.guard();_need(source.state['phase']==('running' if stream else 'ready') and source.state['pending'] is None)
                 def acquire_intent(command):
                     admission();return original_intent(command)
                 def acquire_send(command):
                     admission();return native.send(command)
                 owner.intent=acquire_intent
             files=AndroidWorldRenderReceipts(self.adb,target,'org.overte.pico',world_guard)
-            options=dict(monotonic=native.monotonic,sleep=native.sleep)
+            options=dict(monotonic=source.monotonic if stream else native.monotonic,sleep=native.sleep)
             storage=NativeWorldRenderStorage(native.send,files.read,native.clock_ms,world_guard,native.pid,receipt_intent=owner.receipt_intent,**options)
             inventory=NativeWorldReceiptInventory(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
@@ -1042,6 +1057,12 @@ def create_adapter(args, base_class):
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+WORLD_RENDER_FILE,attempts=1),
                 storage,native.clock_ms,world_guard,native.pid,intent=owner.intent,stereo=True,require_cameras=True,**options)
             return SerializedWorldCapture(capture,storage,owner,receipts,source_lock=lock)
+
+        @_private
+        def _emote_stream_capture(self, primary_target, actor_target, cycle, index):
+            from adapters.pico4.emote_stream_factory import capture
+            return capture(self,primary_target,actor_target,cycle,index)
+
 
         @_private
         def _emote_capture(self, target, source, index, policy):
@@ -1666,14 +1687,15 @@ def create_adapter(args, base_class):
                     directory / ('normal-snapshot-preferences-' + key + '.json'))
 
         @_private
-        def _feature_observer(self, target):
+        def _feature_observer(self, target, *, original_reader=None):
             # Internal original-observation transport only. Complete feature
             # input, lifecycle/peer/artifact observers are not available yet,
             # so capabilities() deliberately advertises no feature.* triple.
             _need((not cleanup_only or cleanup_candidate) and self.pico_configuration is not None
                   and candidate['e2e_input_layer'] is True)
             self._installation(target)
-            identity = self.require_controlled_debug_identity(target)
+            raw_options={} if original_reader is None else dict(original_reader=original_reader)
+            identity = self.require_controlled_debug_identity(target,**raw_options)
             observer = PicoFeatureObservation(self, target, identity)
             observer.guard()
             return observer
@@ -1694,8 +1716,9 @@ def create_adapter(args, base_class):
             return PicoSnapshot(ui, files, preference_path)
 
         @_private
-        def _native_feature_observer(self, target):
-            original = self._feature_observer(target)
+        def _native_feature_observer(self, target, *, original_reader=None):
+            raw_options={} if original_reader is None else dict(original_reader=original_reader)
+            original = self._feature_observer(target,**raw_options)
             installed = self._installation(target)
             def guard():
                 original.guard()
@@ -1781,14 +1804,18 @@ def create_adapter(args, base_class):
                 monotonic=native.monotonic, sleep=native.sleep)
 
         @_private
-        def _emote_model_draws_observer(self, target):
+        def _emote_model_draws_observer(self, target, *, stream_factory=None):
             from adapters.pico4.emote_model_draws import PicoWorldModelDraws, FILE as MODEL_FILE
-            native = self._native_feature_observer(target)
+            from adapters.pico4.emote_stream_factory import PicoEmoteStreamFactory
+            _need(stream_factory is None or (type(stream_factory) is PicoEmoteStreamFactory
+                and stream_factory.matches(self,target,stream_factory.source)))
+            raw_options={} if stream_factory is None else dict(original_reader=stream_factory.original_reader)
+            native = self._native_feature_observer(target,**raw_options)
             return PicoWorldModelDraws(native.send,
                 lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
                     'files/overte-e2e/' + MODEL_FILE, attempts=1),
                 native.clock_ms, native.guard, native.pid,
-                monotonic=native.monotonic, sleep=native.sleep)
+                monotonic=native.monotonic if stream_factory is None else stream_factory.source.monotonic, sleep=native.sleep)
 
         @_private
         def _process_presence(self, target):

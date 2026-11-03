@@ -323,10 +323,12 @@ class AndroidAdapter:
             return None
         return value if isinstance(value, dict) else None
 
-    def controlled_debug_identity(self, target: str) -> str | None:
+    def controlled_debug_identity(self, target: str, *, original_reader=None) -> str | None:
         """Return the stable process identity only for the fixed debug control contract."""
         if os.environ.get("OVERTE_ANDROID_E2E_DEBUG") != "1":
             return None
+        if original_reader is not None and (self.kind != "pico" or not callable(original_reader)):
+            fail("Original controlled-debug reader is available only to the explicit Pico route")
         package = self.profile["package"]
         before = self.adb.process_state(target, package)
         identity = before.get("identity")
@@ -335,12 +337,14 @@ class AndroidAdapter:
         attempts, interval = self.probe_retry_policy()
         for attempt in range(attempts):
             marker = self.decode_json(self.adb.read_debug_app_file(
-                target, package, ANDROID_CONTROL_MARKER, attempts=1))
+                target, package, ANDROID_CONTROL_MARKER, attempts=1) if original_reader is None else
+                original_reader(target, package, ANDROID_CONTROL_MARKER, attempts=1))
             marker_valid = self.control_marker_matches(marker, identity)
             probe = None
             if marker_valid:
                 probe = self.decode_json(self.adb.read_debug_app_file(
-                    target, package, ANDROID_DEBUG_PROBE, attempts=1))
+                    target, package, ANDROID_DEBUG_PROBE, attempts=1) if original_reader is None else
+                    original_reader(target, package, ANDROID_DEBUG_PROBE, attempts=1))
                 if probe is not None:
                     try:
                         probe = require_fresh_snapshot(
@@ -371,10 +375,11 @@ class AndroidAdapter:
                 and type(marker["processId"]) is int and re.fullmatch(r"[1-9][0-9]*", pid) is not None
                 and marker["processId"] == int(pid))
 
-    def require_controlled_debug_identity(self, target: str) -> str:
+    def require_controlled_debug_identity(self, target: str, *, original_reader=None) -> str:
         if os.environ.get("OVERTE_ANDROID_E2E_DEBUG") != "1":
             fail("Android controlled operations require an E2E-enabled debug APK")
-        identity = self.controlled_debug_identity(target)
+        identity = (self.controlled_debug_identity(target) if original_reader is None else
+                    self.controlled_debug_identity(target, original_reader=original_reader))
         if identity is None:
             fail("Android controlled operations require a fresh probe and confirmed debug channel")
         if self.kind == "pico" and pico_openxr_opted_in():
