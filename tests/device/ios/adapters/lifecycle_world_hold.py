@@ -274,6 +274,17 @@ class LifecycleWorldHold:
                 lambda:_MotionContext(factory,start,end,move_check),binding=self.binding,run=self.run,check=check)
             self.lease=lease
         return self.lease
+    async def recover_original_child(self):
+        """Explicit cross-call recovery of the existing original child only.
+
+        A fresh local transport/event loop inspects the actual original born
+        worker. It never calls begin, reconstructs a worker, replaces a deadline
+        or makes an old World cut current. New proof still needs new acquisition.
+        """
+        self.bound();need(self.version in (2,3) and self.state['phase'] in ('issued','held','released','quiet'))
+        lease=self.lease_owner();need(not lease._issued)
+        result=await lease.recover_issued();self.bound();return result
+
     async def act(self,*,seconds=12):
         self.bound()
         if self.state['phase']=='new':

@@ -213,6 +213,18 @@ class _OriginalKeeperMotionLease:
             seconds=seconds,nativeMotionProfileVersion=2,expectedOwnerInstance=self._owner,referenceJson=canonical(self._reference).decode('ascii')),forward=True)
         return self._inspection(result,begin=True)
     async def inspect(self):return self._inspection(await self._request('touch-inspect',{},forward=False),allow_unborn=True)
+    async def recover_issued(self):
+        """New host sender, original remote worker; NEVER a begin permission.
+
+        The retained cleanup route checks the actual source-born Resource,
+        original Source/loop/worker/preparation before returning this status.
+        JSON preparation alone cannot make an unborn/foreign worker issued.
+        """
+        need(not self._issued and self._journal is None)
+        actual=await self.inspect()
+        need(actual is not None and actual['downIssued'] and self._journal is not None)
+        self._issued=True # AFTER actual original identity/status, never before a new Down.
+        return actual
     async def release(self):return self._inspection(await self._request('touch-release',{},forward=False))
     async def settle(self):return self._inspection(await self._request('touch-settle',{},forward=False),allow_unborn=True)
 
