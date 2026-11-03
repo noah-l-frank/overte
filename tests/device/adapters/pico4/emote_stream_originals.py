@@ -29,8 +29,10 @@ class PicoEmoteStreamOriginals:
     mutable current/control/intent files retain their worst-case allowance;
     each observed wire and each distinct read receipt remains an original.
     """
-    def __init__(self,policy,roots):
+    def __init__(self,policy,roots,*,capacity=None):
         need(type(policy) is PicoEmoteStreamPolicy);policy.bound()
+        need(capacity is getattr(policy,'capacity',None))
+        self.capacity=self._capacity=capacity
         self.policy=self._policy=policy;self.host=host_identity()
         self.path=self._path=policy.parent.store.path.with_name(policy.parent.store.path.name+'.child-stream-raw.json')
         parent=policy.parent
@@ -38,15 +40,18 @@ class PicoEmoteStreamOriginals:
         admitted={Path(path).resolve(strict=True) for path in (*required,*roots)}
         self.roots=self._roots=tuple(sorted((path for path in admitted
             if not any(path!=other and path.is_relative_to(other) for other in admitted)),key=str))
-        scope=dict(picoEmoteStreamOriginalsVersion=VERSION,containerFormat='audioRawJournalVersion1-raw-only',
+        scope=dict(picoEmoteStreamOriginalsVersion=1 if capacity is None else 2,containerFormat='audioRawJournalVersion1-raw-only',
             budgetSha256=hashlib.sha256(policy.raw).hexdigest(),baselineSha256=policy.baseline_sha,
             parentIdentitySha256=hashlib.sha256(policy.parent_identity).hexdigest(),roots=[str(path) for path in self.roots],
             roles=['primary','actor'],maximumNativeFramesPerRole=256,maximumCompoundNativeFrames=512)
+        if capacity is not None:scope['captureCapacitySha256']=capacity.descriptor_sha
         self.scope=self._scope=canonical(scope);self.lock=self._lock=AudioRawSourceLock(policy.lock)
         self.monotonic=self._monotonic=parent.source.monotonic
         self.archive=self._archive=object.__new__(AudioRawArchive)
         try:
+            if capacity is not None:capacity.bind_archive(self.archive,self.other_bill)
             AudioRawArchive.__init__(self.archive,self.path,scope,self.lock,self.identity,self.other_bill,self.monotonic)
+            if capacity is not None:capacity.ready()
             policy.bound()
         except BaseException:UNRESOLVED.append(self);raise
 
@@ -54,6 +59,8 @@ class PicoEmoteStreamOriginals:
         # No admission callback/clock is invoked on an already issued return.
         # The actual writer still verifies all original root/OFD/bytes itself.
         self.policy.host_identity()
+        need(self.capacity is self._capacity)
+        if self.capacity is not None:self.capacity.host_identity()
         need(host_identity()==self.host and self.policy is self._policy and self.path==self._path
             and self.archive is self._archive and self.archive.path==self.path and self.scope is self._scope and canonical(self.archive.scope)==self.scope
             and self.lock is self._lock and self.monotonic is self._monotonic and self.roots is self._roots
@@ -88,10 +95,14 @@ class PicoEmoteStreamOriginals:
         # They are not historical samples, but their full possible retained
         # bytes/files are conservatively charged to the SAME compound bill.
         native=2*(FRAME_LIMIT+CONTROL_LIMIT+65)
-        return dict(parts=files+len(self.archive.pages)+1+6,
-            storedBytes=stored+native,decodedBytes=decoded+native)
+        value=dict(parts=files+len(self.archive.pages)+1+6,storedBytes=stored+native,decodedBytes=decoded+native)
+        if self.capacity is not None:
+            extra=self.capacity.extra_bill();value={key:value[key]+extra[key] for key in value}
+        return value
 
-    def bound(self):self.identity();self.policy.bound();self.archive.verify();self.identity()
+    def bound(self):
+        self.identity();self.policy.bound();self.archive.verify();self.identity()
+        if self.capacity is not None:self.capacity.admission()
 
     def close_host(self):
         result=self.archive.close_host()

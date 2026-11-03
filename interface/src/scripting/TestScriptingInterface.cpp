@@ -367,12 +367,49 @@ QVariantMap TestScriptingInterface::featurePicoRemoteAvatarOriginal(const std::s
 }
 
 #if defined(Q_OS_LINUX)
+void TestScriptingInterface::selectPicoCapturePolicy(const QVariantMap& command) {
+    if (command.value("operation")!=QVariant("arm") || command.value("ownerPolicy").type()!=QVariant::String) {return;}
+    const auto text=command.value("ownerPolicy").toString();
+    if (text.size()>8192) {_featurePicoCapturePolicySelected.store(true);return;}
+    const auto bytes=text.toUtf8();
+    if (bytes.size()>8192) {_featurePicoCapturePolicySelected.store(true);return;}
+    const auto document=QJsonDocument::fromJson(bytes);const auto json=document.object();
+    // Only an exact CLOSED canonical legacy1 policy keeps its historical
+    // writer. Unknown/malformed/duplicate/escaped explicit2 cannot disguise
+    // itself as a parse failure or restore legacy output after refusal.
+    const auto value=json.toVariantMap();
+    bool legacy=document.isObject() && overte::e2e::PicoRemoteAvatarStream::whole(json.value("picoRemoteAvatarStreamPolicyVersion"),1,1)
+        && overte::e2e::PicoRemoteAvatarStream::keys(value,{"picoRemoteAvatarStreamPolicyVersion","runId","parentScopeSha256","parentBaselineSha256",
+            "parentHostProcessIdentity","role","processId","originalNativeEpochMs","deadlineNativeEpochMs",
+            "originalHostStartedMonotonic","originalHostDeadlineMonotonic","nativeFrameLimit","sampleIntervalMs"});
+    QByteArray canonical="{";bool first=true;
+    if (legacy) {
+        for (auto it=value.cbegin();it!=value.cend();++it) {
+            if (!first) {canonical+=',';}first=false;canonical+='"'+it.key().toUtf8()+"\":";
+            const auto field=json.value(it.key());
+            if (field.isString()) {
+                const auto string=field.toString();
+                if (!QRegularExpression("\\A[0-9A-Za-z:.+\\-]+\\z").match(string).hasMatch()) {legacy=false;break;}
+                canonical+='"'+string.toUtf8()+'"';
+            } else {
+                if (!overte::e2e::PicoRemoteAvatarStream::whole(field,0,1000000000000000LL)) {legacy=false;break;}
+                canonical+=QString::number(static_cast<qlonglong>(field.toDouble())).toLatin1();
+            }
+        }
+    }
+    canonical+='}';
+    if (!legacy || canonical!=bytes) {_featurePicoCapturePolicySelected.store(true);}
+}
+
 QVariantMap TestScriptingInterface::featurePicoRemoteAvatarStreamControl(const QVariantMap& command) {
-    return featurePicoRemoteAvatarStreamOriginal(std::make_shared<overte::e2e::PicoRemoteAvatarStreamRequest>(command));
+    const auto request=std::make_shared<overte::e2e::PicoRemoteAvatarStreamRequest>(command);
+    selectPicoCapturePolicy(request->command); // SAME original1.5s request, BEFORE any queue/early refusal.
+    return featurePicoRemoteAvatarStreamOriginal(request);
 }
 
 QVariantMap TestScriptingInterface::featurePicoRemoteAvatarStreamOriginal(
         const std::shared_ptr<overte::e2e::PicoRemoteAvatarStreamRequest>& request) {
+    if (request) {selectPicoCapturePolicy(request->command);}
     const auto queue=_featureRemoteAvatarQueue;
     if (!queue || !_featureRemoteAvatar || !request || !request->fresh()) { return {}; }
     if (QThread::currentThread()!=thread()) {
@@ -415,6 +452,23 @@ QVariantMap TestScriptingInterface::featurePicoRemoteAvatarStreamOriginal(
     if (command.value("operation")==QVariant("arm") && result.value("available")==QVariant(true)
             && !_featureRemoteAvatarStream->confirmArm(request)) { return {}; }
     return result;
+}
+
+bool TestScriptingInterface::publishPicoCaptureOriginal(const QString& leaf,const QString& nonce,const QByteArray& bytes) {
+    const auto queue=_featureRemoteAvatarQueue;
+    if (!queue || !_featurePicoCapturePolicySelected.load()) {return false;}
+    if (QThread::currentThread()!=thread()) {
+        // The original queue retains cancelled/in-flight delivery until the
+        // ACTUAL queued functor dies. Reuse its existing closed dispatch lane;
+        // no additional channel, query allowance or clock is introduced.
+        const auto result=queue->read("dispatch",this,[leaf,nonce,bytes](QObject* original) {
+            const bool written=static_cast<TestScriptingInterface*>(original)->publishPicoCaptureOriginal(leaf,nonce,bytes);
+            return overte::e2e::AudioSettingsPart{{{"picoCapturePublished",written}}, {}};
+        });
+        return result.values.value("picoCapturePublished")==QVariant(true);
+    }
+    return _featureRemoteAvatarStream && _featureRemoteAvatarStream->captureSelected()
+        && _featureRemoteAvatarStream->captureResult(leaf,nonce,bytes);
 }
 
 QVariantMap TestScriptingInterface::featurePicoRemoteAvatarStreamSnapshot(const QString& run,const QString& subject,
@@ -1261,7 +1315,15 @@ QVariantMap TestScriptingInterface::featureWorldRenderReceipts(const QVariantMap
             if (nonce.startsWith("ios-")) { nonce.remove(0,4); }
             const auto path = root+"world-render-storage-"+nonce+".json";
             if (!overte::e2e::ownWorldRenderReceipt(path,QFileInfo::exists(path) ? row.value("digest").toString().toLatin1() : QByteArray())) { return {}; }
-            if (QFileInfo::exists(path) && !QFile::remove(path)) { performed=false; }
+            if (QFileInfo::exists(path)) {
+#if defined(ANDROID_APP_PICO_INTERFACE) && defined(Q_OS_LINUX)
+                if (_featurePicoCapturePolicySelected.load()) {
+                    if (!_featureRemoteAvatarStream || !_featureRemoteAvatarStream->captureSelected()
+                            || !_featureRemoteAvatarStream->captureReceiptRemoved(nonce,row.value("digest").toString().toLatin1())) {return {};}
+                } else
+#endif
+                if (!QFile::remove(path)) {performed=false;}
+            }
         }
     }
     QVariantList observations;
@@ -2972,6 +3034,19 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     }
 
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE) && defined(Q_OS_LINUX)
+    if (_featurePicoCapturePolicySelected.load()
+            && (filename=="world-render-observation.json" || filename=="feature-pico-world-model-draws.json"
+                || filename=="world-render-receipts-result.json"
+                || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch())) {
+        const auto value=variant.toMap();
+        const auto nonce=value.value(filename.startsWith("world-render-storage-") || filename=="world-render-receipts-result.json"
+            ? "commandId" : "requestId").toString();
+        // Only opt-in Policy2 selects actual bounded publication. Preserve
+        // exact original pretty bytes/digests; no fallback after refusal.
+        publishPicoCaptureOriginal(filename,nonce,jsonData);return;
+    }
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     // New observation packets must never fall through to ordinary result-file
     // permissions merely because their filename was omitted from this list.

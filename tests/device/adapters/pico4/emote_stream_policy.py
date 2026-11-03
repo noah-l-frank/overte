@@ -31,11 +31,15 @@ class PicoEmoteStreamPolicy:
     observations. Its two frozen allowances sum512; neither arm nor reads may
     create another policy or reset either original clock.
     """
-    def __init__(self,parent,roles):
+    def __init__(self,parent,roles,*,capacity=None):
         need(type(parent) is PicoEmoteNativeCycle and type(roles) is dict and set(roles)=={'primary','actor'})
         self.parent=parent;self.source=parent.source;self.lock=self.original_lock=parent.source.lock;self.lock.assert_held();parent.bound()
         need(parent.state is not None and parent.state['phase']=='baseline-issued' and parent.state['baseline'] is None
             and not parent.state['steps'] and not parent.source.frames and parent.inputs.previous is None)
+        if capacity is not None:
+            from adapters.pico4.emote_stream_capacity import PicoEmoteStreamCapacity
+            need(type(capacity) is PicoEmoteStreamCapacity and capacity.parent is parent);capacity.require()
+        self.capacity=self._capacity=capacity;self.version=self._version=1 if capacity is None else 2
         self.host=host_identity();self.run=parent.source.run;self.parent_identity=canonical(parent.identity)
         self.started=parent.state['started'];self.deadline=self.started+120
         self.native_epoch=parent.state['epochMs'];self.provider_epoch=parent.state['hostEpochMs']
@@ -66,20 +70,22 @@ class PicoEmoteStreamPolicy:
                 # host window. It is not backdated as a fabricated sample.
                 end=min(epoch+120000,native_now+int((self.deadline-now)*1000))
                 need(epoch<end<=epoch+120000)
-                policy=dict(picoRemoteAvatarStreamPolicyVersion=VERSION,runId=self.run,role=role,
+                policy=dict(picoRemoteAvatarStreamPolicyVersion=self.version,runId=self.run,role=role,
                     parentScopeSha256=hashlib.sha256(self.parent_identity).hexdigest(),parentBaselineSha256=self.baseline_sha,
                     parentHostProcessIdentity=self.host,processId=int(binding['processIdentity'].split(':')[0]),
                     originalNativeEpochMs=epoch,deadlineNativeEpochMs=end,
                     originalHostStartedMonotonic=repr(self.started),originalHostDeadlineMonotonic=repr(self.deadline),
                     nativeFrameLimit=ROLE_FRAMES,sampleIntervalMs=INTERVAL_MS)
+                if capacity is not None:policy.update(capacity.limits())
                 policies[role]=canonical(policy).decode('ascii');bindings[role]=deepcopy(binding)
             need(bindings['primary']==parent.source.binding and bindings['primary']!=bindings['actor'])
-            self.disk=dict(picoEmoteStreamBudgetVersion=VERSION,parentIdentity=deepcopy(parent.identity),
+            self.disk=dict(picoEmoteStreamBudgetVersion=self.version,parentIdentity=deepcopy(parent.identity),
                 baselineSha256=self.baseline_sha,baselinePhysical=list(physical),baselineCopyPhysical=pin,
                 policyAnchorKind='original-sdk-clock-execution-policy-not-native-attestation',
                 originalHostStartedMonotonic=self.started,originalHostDeadlineMonotonic=self.deadline,
                 originalParentNativeEpochMs=self.native_epoch,originalProviderEpochMs=self.provider_epoch,
                 bindings=bindings,policies=policies,totalNativeFrameAllowance=512)
+            if capacity is not None:self.disk['captureCapacitySha256']=capacity.descriptor_sha
             self.store.write(self.disk,None);actual,unused=raw_file(self.store)
             need(actual==canonical(self.disk)+b'\n');self.raw=actual
             self.budget_file=ClosedOriginalFile(self.path,0o600,self.host_identity)
@@ -98,6 +104,8 @@ class PicoEmoteStreamPolicy:
             and self.lock is self.original_lock and self.lock.path==self._lock_path)
 
     def identity(self):
+        need(self.capacity is self._capacity and type(self.version) is int and self.version==self._version== (1 if self.capacity is None else 2))
+        if self.capacity is not None:self.capacity.resource_identity()
         self.host_identity();need(not self.failed and self.original is self.original_pins and self.disk is self.original[-1]
             and self.parent.source is self.source and self.source.lock is self.lock
             and self.original_roles is self.original[-2] and self.original==(self.parent,self.lock,self.path,self.baseline_path,

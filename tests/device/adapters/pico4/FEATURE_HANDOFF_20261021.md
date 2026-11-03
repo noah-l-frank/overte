@@ -3772,3 +3772,34 @@ audit), with all 271 loaded source SHA256/full eight-stat identities unchanged.
 This includes the current 512 case and four default Script-runtime regressions;
 the hook does not change default argument forwarding. All actual test roots
 remain retained. This is host logic qualification, not native/device acceptance.
+
+
+## Emote Policy2 capacity and Capture3 prerequisite (2026-11-03)
+
+Cold typed capacity selects Policy2/Budget2/Originals2 before first source IO.
+The same original 512-part/16-MiB aggregate charges enforced native file slots,
+issued storage receipts, raw originals and the actual encoded PNG copy before
+its first chunk. Uncertain publication, deletion or CAS retains its owner and
+allowance. Default None retains Policy1 and Source3/Capture2. The unchanged
+32-MiB GPU memory bound is separate from the file budget. See
+[capacity](EMOTE_CAPTURE_CAPACITY2.md) and [Capture3](EMOTE_STREAM_CAPTURE3.md).
+
+Capture3 uses existing rendering/storage/receipt owners and distinct autonomous
+Role4 sample IDs around the actual stereo capture. Passive Source4 archives
+read explicit Policy1/2 and Originals1/2; this adds no cold budget or live
+coordinator adoption. Capture3 has its own typed format; the existing generic
+Capture1/2 reader remains unchanged. Native publisher source is E2E/Pico gated
+and uncompiled. Header prototype comments are historical; routing is present,
+but no native execution qualification is claimed.
+
+Eleven disjoint new catalog groups enumerate 49 cases in eight bounded owning
+scopes. Another 34 default cases remain green. Current source identities and
+all 2,120 actual original files were independently re-audited at integration;
+215 source SHA256/full eight-stat identities matched before final formatting.
+Two fixture trailing blank lines were then removed; their parsed ASTs are
+unchanged, and the exact before/after source hashes are retained. An additional 62-case
+integration run passed in 21.547 seconds with 198 loaded sources unchanged.
+These are component/model proofs, not a whole common Journey or deployed Actor.
+The canonical factory, cold runtime raw admission, full actions/effects and
+failure retirement still need qualification. Complete source count stays 3/14;
+whole, native/device, independent Actor and stereo acceptance remain false.

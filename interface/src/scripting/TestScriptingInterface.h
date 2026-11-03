@@ -21,6 +21,7 @@
 #include <QHash>
 #include <QPointer>
 #include <memory>
+#include <atomic>
 namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; class CreateModelResources; class AudioSettingsObservation; class AudioSettingsQueue; }
 namespace overte::e2e { class ChatPeerPosition; }
 namespace overte::e2e { class PicoRemoteAvatarObservation; struct PicoRemoteAvatarRequest; }
@@ -338,6 +339,9 @@ private:
         const std::shared_ptr<overte::e2e::PicoRemoteAvatarStreamWindow>& original);
     std::shared_ptr<overte::e2e::PicoRemoteAvatarStream> _featureRemoteAvatarStream;
     bool _featureRemoteAvatarStreamAttempted{false};
+    std::atomic_bool _featurePicoCapturePolicySelected{false};
+    void selectPicoCapturePolicy(const QVariantMap& command);
+    bool publishPicoCaptureOriginal(const QString& leaf,const QString& nonce,const QByteArray& bytes);
 #endif
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentInputQueue;

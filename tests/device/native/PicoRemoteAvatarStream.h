@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE) && defined(Q_OS_LINUX)
 #include "PicoRemoteAvatarStreamFile.h"
+#include "PicoEmoteCapturePublisher.h"
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QJsonDocument>
@@ -73,6 +74,17 @@ public:
             && hex(value.value("streamId").toString()) && hex(value.value("armCommandId").toString())
             && hex(value.value("policySha256").toString(),64);
     }
+    bool captureSelected() const { return _captureSelected; }
+    bool captureResult(const QString& leaf,const QString& nonce,const QByteArray& bytes) {
+        if (!context() || !_captureSelected || !_capture || !_gate || !_gate->fresh()
+                || _failed || _stopped || !_capture->publish(leaf,nonce,bytes)) { fail();return false; }
+        return true;
+    }
+    bool captureReceiptRemoved(const QString& nonce,const QByteArray& digest) {
+        if (!context() || !_captureSelected || !_capture || !_gate || !_gate->fresh()
+                || _failed || _stopped || !_capture->removeReceipt(nonce,digest)) { fail();return false; }
+        return true;
+    }
     bool used() const { return _used; }
     bool active() const { return _gate && _gate->active.load(); }
     bool confirmArm(const std::shared_ptr<PicoRemoteAvatarStreamRequest>& request) {
@@ -102,6 +114,11 @@ public:
             _armRequest=request;_initial=true;
             _file=std::make_unique<PicoRemoteAvatarStreamFile>(root,[this] { return permit(); });
             if (!_file->ready() || !request->fresh() || !_gate->fresh()) { fail();return reply(request); }
+            if (_captureSelected) {
+                _capture=std::make_shared<PicoEmoteCapturePublisher>();
+                if (!_capture->open(root,[this] {return context() && !_failed && !_stopped && _gate && _gate->fresh();})
+                        || !_file->ready() || !request->fresh() || !_gate->fresh()) {fail();return reply(request);}
+            }
             _initial=false;_timer=new QTimer(dispatcher);_timer->setInterval(500);_timer->setTimerType(Qt::PreciseTimer);
             _deadlineTimer=new QTimer(dispatcher);_deadlineTimer->setSingleShot(true);_deadlineTimer->setTimerType(Qt::PreciseTimer);
             const std::weak_ptr<PicoRemoteAvatarStream> weak=shared_from_this();
@@ -125,7 +142,8 @@ public:
             if (operation=="stop") { stop(); }
             else {
                 if (!_stopped || _inTick || _timer || _deadlineTimer || pendingTimers()!=0
-                        || !_quiet || !_quiet() || !_file || !_file->close()) { fail(); }
+                        || !_quiet || !_quiet() || (_captureSelected && (!_capture || !_capture->drain()))
+                        || !_file || !_file->close()) { fail(); }
                 else { _drained=true; }
             }
         }
@@ -135,6 +153,7 @@ public:
     // does not accept its error. It cannot create a second producer/window.
     void refuseMixed() { if (_used) { fail(); } }
     void stop() {
+        if (_capture) { _capture->stop(); }
         if (_gate) { _gate->active.store(false); }
         if (_timer) { _timer->stop();QObject::disconnect(_connection);_retiring.append(_timer);_timer->deleteLater();_timer=nullptr; }
         if (_deadlineTimer) { _deadlineTimer->stop();QObject::disconnect(_deadlineConnection);_retiring.append(_deadlineTimer);_deadlineTimer->deleteLater();_deadlineTimer=nullptr; }
@@ -150,10 +169,21 @@ private:
         const auto document=QJsonDocument::fromJson(bytes);
         if (!document.isObject()) { return false; }
         const auto json=document.object();_policy=json.toVariantMap();
-        if (!keys(_policy,{"picoRemoteAvatarStreamPolicyVersion","runId","parentScopeSha256","parentBaselineSha256",
-                "parentHostProcessIdentity","role","processId","originalNativeEpochMs","deadlineNativeEpochMs",
-                "originalHostStartedMonotonic","originalHostDeadlineMonotonic","nativeFrameLimit","sampleIntervalMs"})
-                || !whole(json.value("picoRemoteAvatarStreamPolicyVersion"),1,1)
+        _captureSelected=json.value("picoRemoteAvatarStreamPolicyVersion").isDouble()
+            && json.value("picoRemoteAvatarStreamPolicyVersion").toDouble()==2;
+        auto expected=QStringList{"picoRemoteAvatarStreamPolicyVersion","runId","parentScopeSha256","parentBaselineSha256",
+            "parentHostProcessIdentity","role","processId","originalNativeEpochMs","deadlineNativeEpochMs",
+            "originalHostStartedMonotonic","originalHostDeadlineMonotonic","nativeFrameLimit","sampleIntervalMs"};
+        if (_captureSelected) {
+            expected.append({"picoEmoteCaptureFileCapacityVersion","worldFileBytes","modelFileBytes","inventoryFileBytes",
+                "storageReceiptFileBytes","pendingMarkerFileBytes"});
+            if (!whole(json.value("picoEmoteCaptureFileCapacityVersion"),1,1)
+                    || !whole(json.value("worldFileBytes"),262144,262144) || !whole(json.value("modelFileBytes"),262144,262144)
+                    || !whole(json.value("inventoryFileBytes"),262144,262144) || !whole(json.value("storageReceiptFileBytes"),100000,100000)
+                    || !whole(json.value("pendingMarkerFileBytes"),1024,1024)) {return false;}
+        }
+        if (!keys(_policy,expected)
+                || !whole(json.value("picoRemoteAvatarStreamPolicyVersion"),_captureSelected ? 2 : 1,_captureSelected ? 2 : 1)
                 || _policy.value("runId")!=_run || !hex(_policy.value("runId").toString())
                 || !hex(_policy.value("parentScopeSha256").toString(),64) || !hex(_policy.value("parentBaselineSha256").toString(),64)
                 || !QRegularExpression("\\A[1-9][0-9]*:[1-9][0-9]*:[0-9a-f-]{36}\\z").match(_policy.value("parentHostProcessIdentity").toString()).hasMatch()
@@ -219,7 +249,7 @@ private:
             {"issuedFrames",_issued},{"publishedFrames",_published},{"timerActive",bool(_timer && _timer->isActive())},
             {"deadlineTimerActive",bool(_deadlineTimer && _deadlineTimer->isActive())},{"controlCount",_controls.size()},
             {"pendingTimerObjects",pendingTimers()},{"nativeQueueQuiet",bool(_quiet && _quiet())},
-            {"inFlightTick",_inTick},{"stopped",_stopped},{"drained",_drained},{"pendingWrite",bool(_file && _file->writing())},
+            {"inFlightTick",_inTick},{"stopped",_stopped},{"drained",_drained},{"pendingWrite",bool(_file && _file->writing()) || bool(_capture && _capture->pendingWrite())},
             {"armOriginal",_armOriginal}};
     }
     const pid_t _pid{::getpid()};QCoreApplication* const _application{QCoreApplication::instance()};QThread* const _thread{QThread::currentThread()};
@@ -228,6 +258,7 @@ private:
     QSet<QString> _controls;QString _run,_subject,_arm,_instance;QByteArray _policyBytes,_policySha;QVariantMap _policy,_armOriginal;
     Snapshot _snapshot;Quiet _quiet;std::shared_ptr<PicoRemoteAvatarStreamRequest> _armRequest;
     std::shared_ptr<PicoRemoteAvatarStreamGate> _gate;std::shared_ptr<PicoRemoteAvatarStreamWindow> _window;
+    std::shared_ptr<PicoEmoteCapturePublisher> _capture;bool _captureSelected{false};
     std::unique_ptr<PicoRemoteAvatarStreamFile> _file;bool _used{false},_failed{false},_initial{false},_inTick{false},_stopped{false},_drained{false};
     int _issued{0},_published{0};qint64 _epoch{0},_nextSample{0};
 };

@@ -30,10 +30,14 @@ UNRESOLVED=[]
 
 
 class PicoEmoteStreamCycle:
-    def __init__(self,parent,roles):
+    def __init__(self,parent,roles,*,capacity=None):
         need(type(parent) is PicoEmoteNativeCycle and type(roles) is dict and set(roles)=={'primary','actor'})
         parent.source.lock.assert_held();parent.bound()
         need(parent.previous is None and parent.state is None and not parent.source.frames and parent.inputs.previous is None)
+        if capacity is not None:
+            from adapters.pico4.emote_stream_capacity import PicoEmoteStreamCapacity
+            need(type(capacity) is PicoEmoteStreamCapacity);capacity.matches(parent,roles)
+        self.capacity=self._capacity=capacity
         self.parent=self._parent=parent;self.source=self._source=parent.source;self.host=host_identity()
         admitted=[]
         for role in ('primary','actor'):
@@ -104,6 +108,8 @@ class PicoEmoteStreamCycle:
             and self.read_hook is self._read_hook and same_callable(self.source.guard,self.guard_hook)
             and self.guard_hook is self._guard_hook and same_callable(self.original_read,self._original_read)
             and same_callable(self.original_guard,self._original_guard))
+        need(self.capacity is self._capacity)
+        if self.capacity is not None:self.capacity.resource_identity()
         self.configs();pins=self.source_pins
         need(self.source.lock is pins[0] and same_callable(self.source.monotonic,pins[1])
             and same_callable(self.source.clock_ms,pins[2]) and self.source.phase is pins[3]
@@ -188,14 +194,14 @@ class PicoEmoteStreamCycle:
         self.file.guard();need(self.file.stamp==ticket[0] and self.previous is ticket[1] and same(self.store.read(),self.previous))
         self._wire_pins=self._wire_pins+((role,wire),);self.identity();return wire
 
-    def pending_original(self,kind,selected,*args):
+    def pending_original(self,kind,selected,*args,**options):
         need((kind,selected) in (('policy',PicoEmoteStreamPolicy),('originals',PicoEmoteStreamOriginals)))
         original=object.__new__(selected)
         # Resource retention is NOT business admission. Keep the actual object
         # strongly reachable before its constructor can obtain files/OFDs,
         # including successful construction followed by unknown parent CAS.
         self._pending_originals=self._pending_originals+((kind,original,False),)
-        selected.__init__(original,*args)
+        selected.__init__(original,*args,**options)
         self._pending_originals=tuple((label,owner,True if owner is original else complete)
             for label,owner,complete in self._pending_originals)
         return original
@@ -211,11 +217,12 @@ class PicoEmoteStreamCycle:
         self.file=self._file=object.__new__(LifecycleProcessFile)
         try:
             LifecycleProcessFile.__init__(self.file,self.store);self.save(phase='arming')
+            if self.capacity is not None:self.capacity.activate()
             policy=self.pending_original('policy',PicoEmoteStreamPolicy,self.parent,
-                {role:dict(binding=config['binding'],clock=config['native'].clock_ms) for role,config in self.roles})
+                {role:dict(binding=config['binding'],clock=config['native'].clock_ms) for role,config in self.roles},capacity=self.capacity)
             self.save(policy=policy);self.original_admitted('policy',policy)
             roots=[source_store(config['adapter'],config['target'],self.source.run,area='emotes').path.parent for role,config in self.roles]
-            originals=self.pending_original('originals',PicoEmoteStreamOriginals,self.policy,roots)
+            originals=self.pending_original('originals',PicoEmoteStreamOriginals,self.policy,roots,capacity=self.capacity)
             self.save(originals=originals);self.original_admitted('originals',originals)
             # BOTH existing arenas must be empty before either native ARM.
             for role,config in self.roles:
@@ -275,6 +282,7 @@ class PicoEmoteStreamCycle:
             else:results.append(False) # Partial/uncertain constructors stay strongly owned.
         if self._originals is not None and id(self._originals) not in seen:results.append(self._originals.close_host())
         if self._policy is not None and id(self._policy) not in seen:results.append(self._policy.close_host())
+        if self._capacity is not None:results.append(self._capacity.close_host())
         if self._file is not None and hasattr(self._file,'parent'):results.append(self._file.close_host())
         result=all(results)
         if not result and self not in UNRESOLVED:UNRESOLVED.append(self)
