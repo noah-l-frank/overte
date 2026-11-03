@@ -53,9 +53,13 @@ class PicoAudioRecipe:
         self.sources=ChatSourceChunks(self.store,dict(runId=run,binding=self.binding,role='audio-recipe-originals'))
         self.disk=self.state=None;self.version=VERSION;self.frames=[];self.children={};self.current=None;self.last_clock=None;self.loaded=False
         self.delivery_callback=self.before_send;self.stream_callback=self.before_stream;self.page_gate=self.page_input_gate;self.os_callback=self.before_os
+        self.record_owner=self._record_owner=None
+        self.record_callback=self._record_callback=None
         with lock.held():self.disk=self.store.read();self.load()
     def bound(self,*,host_only=False):
         self.lock.assert_held();need(self.store.read()==self.disk)
+        need(self.record_owner is self._record_owner)
+        need(self.record_callback is self._record_callback)
         if self.loaded:self.sources.verify()
         now=self.monotonic();need(number(now,0,1e15) and (self.last_clock is None or now>=self.last_clock)
             and all(now>=frame['hostMonotonic'] for frame in self.frames));self.last_clock=now
@@ -258,7 +262,18 @@ class PicoAudioRecipe:
         anchor=self.anchor();page=self.child('page.prepare')
         if kind=='page':page.capture()
         else:self.child(pending['name']).capture()
-        original=self.record_delivery('qml',command);self.fence(anchor,original)
+        original=self.record_delivery('qml',command)
+        if self.record_owner is not None and command['controlId']=='audio.record' and (kind,operation) in (('page','record'),('capture','start')):
+            need(getattr(self.record_callback,'__self__',None) is self.record_owner)
+            self.record_callback(command,original)
+        self.fence(anchor,original)
+
+    def bind_record_owner(self,owner):
+        from adapters.pico4.audio_pc_start import PicoAudioPCStartCoordinator
+        need(type(owner) is PicoAudioPCStartCoordinator and owner.recipe is self and self.record_owner is None
+            and self._record_owner is None and self.disk is None and self.state is None)
+        self.record_owner=self._record_owner=owner
+        self.record_callback=self._record_callback=owner.record_guard
     def before_stream(self):
         pending=self.active_pending();need(pending['name'] in ('page.tablet','final5.back','final5.close'));anchor=self.anchor();fixture=self.fence(anchor,pending['source'])
         native=self.child('page.prepare').anchor

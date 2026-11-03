@@ -1,0 +1,44 @@
+{
+  "reference": "5e8ff8aa19571f5718b982dc47a165b8f22e0dc0",
+  "readOnly": true,
+  "pins": {
+    "tests/device/adapters/android-phone/AUDIO_FEATURE.md": {
+      "sha256": "1b44a4cbe1052f05b4f53f96d0ca1767cc13948e48f21cf4700b78c6ac543555",
+      "gitBlob": "3e826547b59d34e257f01d330cf6575df463a7da"
+    },
+    "tests/device/adapters/android-phone/overte_phone_audio_feature.py": {
+      "sha256": "67d99ae144e743bbaa0419c7fb737e0b7c3613833b9ca2f21403e8e5569efef8",
+      "gitBlob": "46a3cc991dd5836aa381889040a481b478091d3e"
+    },
+    "tests/device/adapters/android-phone/overte_phone_audio_peer.py": {
+      "sha256": "6a38b9aae815808728ef96325e64e0adcc803c17c8291d5c25e0d32d92bdc2ae",
+      "gitBlob": "64d5ce9958a8856cc4c51f1f6405cccf42ce2595"
+    },
+    "tests/device/adapters/android-phone/overte_phone_audio_files.py": {
+      "sha256": "82b0db5b198f5dfe7dbfabb58d79a6bc04d3f5ece27b3d7182def6213d7c79b0",
+      "gitBlob": "9a0fd0e89dbf33d35ea1a206936506b146d41922"
+    },
+    "tests/device/adapters/android-phone/overte_phone_audio_fixture.py": {
+      "sha256": "42e0922084f6b9bd15e8e356f5f18752bbc85a88e4dca515b89ccb46ed2cf03d",
+      "gitBlob": "31c56538df8a994269a60da072fdbfc7dbe5d8ac"
+    },
+    "tests/device/adapters/android-phone/SOURCE_STATUS.md": {
+      "sha256": "d0b72b999b7525e572a4155e0a55b89605474e5df086625fe79c8cd239429cc5",
+      "gitBlob": "47c65f755d7924bfc553c9c4e2fedde0c75b9b2a"
+    }
+  },
+  "selectedArchitecture": [
+    "same original normal input owner rather than a second recipe",
+    "independent role source journals and actor credential",
+    "once-only async PC capture with Primary waiting outside source lock",
+    "original Start ticket retained through later completion",
+    "original-effect resolution of lost replies and source/finalization quiet"
+  ],
+  "notImported": [
+    "Phone touch/input classes",
+    "Phone-only generated fixture-input seam",
+    "Phone Audio-only restart/common17-or18 exception",
+    "physical acoustic or device qualification"
+  ],
+  "picoBoundary": "Common16 keeps same original process and all14 existing normal actions; only digital recorder/route/job authority is retired, with original PC WAV/JSON and native history/capacity/Qt/journals retained."
+}

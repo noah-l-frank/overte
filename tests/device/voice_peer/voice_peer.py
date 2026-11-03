@@ -75,7 +75,12 @@ def parser() -> argparse.ArgumentParser:
     preview.add_argument("--challenge", required=True)
     preview.add_argument("--capture-id", required=True)
     preview.add_argument("--seconds", type=float, default=8)
-    for name in ("preview-files", "preview-release"):
+    owned_preview=commands.add_parser('receive-preview-owned',help='opt-in original recorder/route ownership for digital preview')
+    owned_preview.add_argument('--challenge',required=True)
+    owned_preview.add_argument('--capture-id',required=True)
+    owned_preview.add_argument('--source-request-id',required=True)
+    owned_preview.add_argument('--seconds',type=float,default=8)
+    for name in ("preview-files", "preview-release", "preview-source", "preview-source-retire"):
         query = commands.add_parser(name)
         query.add_argument("--capture-id", required=True)
         query.add_argument("--request-id", required=True)
@@ -172,7 +177,7 @@ def main() -> int:
             result = analyze(args.wav, args.challenge, args.expect)
         else:
             request = {"action": args.action}
-            for field in ("challenge", "seconds", "expect", "capture_id", "request_id"):
+            for field in ("challenge", "seconds", "expect", "capture_id", "request_id", "source_request_id"):
                 if hasattr(args, field):
                     request[field] = getattr(args, field)
             if args.action == "domain-check":

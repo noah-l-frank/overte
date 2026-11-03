@@ -87,3 +87,7 @@ immutable originals and the actual bound factory. SDK/controller/OS/native audio
 are declared host seams; these checks execute no device, microphone, loudspeaker,
 network peer or service. Native callback behavior remains covered by the existing
 separate actual Qt host checks, not invented by the composition fixture.
+
+The additive [independent PC Start join](AUDIO_PC_START_JOIN.md) binds a live
+original recorder to the same normal Recipe. It retains all journals and
+original digital files; full cleanup and acoustic qualification remain open.

@@ -92,6 +92,16 @@ The new27-case catalog group is a transport prerequisite; same Create Parent/
 worker/input boundary/Common observation and public capability remain open.
 The catalog contains313 disjoint groups.
 
+The [independent Audio Start composition](AUDIO_PC_START_JOIN.md) now binds
+actual PC recorder/provider/client births and current route before the same
+normal Record. Original raw returns precede parsing under full reserved
+capacity. Full110.777s and quiet108.580s pass sequentially within120s; current
+46 fences5.151s and26 legacy cases81.260s preserve source identities. The
+48-case inventory is disjoint. Complete footprint469/512 parts includes all66
+Recipe parts;531 files remain retained. Passive unknown-index/boolean-cursor
+refusals are corrected. Digital evidence remains distinct from acoustic,
+public/full Common and final product cleanup. Catalog:316 disjoint groups.
+
 The selected Chat archive-v4/host-close, Avatar original preferences/Bookmarks
 and Snapshot export packets are integrated together. Eleven affected owning
 groups pass after correcting the shared original Avatar observer harness to

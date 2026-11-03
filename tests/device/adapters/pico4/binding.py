@@ -2081,6 +2081,35 @@ def create_adapter(args, base_class):
                 lambda owned:facade._graphics_lifecycle_status(target,owned),monotonic=phase_source.monotonic)
 
         @_private
+        def _audio_pc_start_coordinator(self,target,run,primary_phase,actor_phase,peer_configuration,*,source_lock=None):
+            from adapters.feature_fixture_access import AdapterFixtureClient
+            from feature_journeys.phase_fixture import PhaseFixtureReader
+            from adapters.pico4.audio_peer import PicoAudioPeer,configuration
+            from adapters.pico4.audio_pc_actor import PicoAudioPCActor
+            from adapters.pico4.audio_pc_start import PicoAudioPCStartCoordinator
+            _need(isinstance(primary_phase,PhaseFixtureReader) and isinstance(actor_phase,PhaseFixtureReader)
+                and primary_phase.run==actor_phase.run==run and primary_phase.area==actor_phase.area=='audio'
+                and primary_phase.fixture_url==actor_phase.fixture_url
+                and not isinstance(actor_phase.client,AdapterFixtureClient)
+                and actor_phase.client.token!=primary_phase.client.token)
+            config=configuration(peer_configuration)
+            source_lock=self._script_journey()._lock(target,source_lock)
+            recipe=self._audio_recipe(target,run,primary_phase,source_lock=source_lock)
+            identity=recipe.binding['processIdentity'];installed=self._installation(target)
+            def guard():
+                self.require_same_process(target,identity,'owned Audio PC source')
+                _need(self.require_pico_session_identity(target)==identity and self._installation(target)==installed)
+            guard()
+            native=self._native_feature_observer(target)
+            settings=self._audio_settings_source(target,source_lock=source_lock)
+            pages=self._audio_pages_source(target,source_lock=source_lock)
+            _need(recipe.lock is source_lock and native.pid==settings.pid==pages.pid==int(identity.split(':')[0]))
+            actor=PicoAudioPCActor(recipe,actor_phase,lambda:PicoAudioPeer(config,None,guard),
+                native,settings,pages,recipe.os_status,monotonic=native.monotonic,sleep=native.sleep)
+            return PicoAudioPCStartCoordinator(recipe,actor)
+
+
+        @_private
         def _audio_final_close(self,target,run,cycle,phase_source,*,capture=None,source_lock=None):
             from adapters.pico4.audio_final_close import PicoAudioFinalClose
             from adapters.pico4.audio_capture_owner import PicoAudioCaptureOwner

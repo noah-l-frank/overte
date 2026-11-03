@@ -1186,7 +1186,13 @@
         "tests/device/adapters/pico4/AUDIO_DIGITAL_PREVIEW_JOIN.md",
         "tests/device/adapters/pico4/AUDIO_PEER_REUSE_20261102.json",
         "tests/device/self_tests/test_pico_audio_recipe_evidence.py",
-        "android/vr/pico/tests/device/test_audio_digital_preview.py"
+        "android/vr/pico/tests/device/test_audio_digital_preview.py",
+        "tests/device/adapters/pico4/audio_pc_source.py",
+        "tests/device/adapters/pico4/audio_pc_actor.py",
+        "tests/device/adapters/pico4/audio_pc_start.py",
+        "tests/device/adapters/pico4/audio_raw_archive.py",
+        "tests/device/adapters/pico4/audio_pc_originals.py",
+        "tests/device/adapters/pico4/AUDIO_PC_START_JOIN.md"
       ],
       "declaredCheckpoints": 14,
       "inputVerbs": [
@@ -1226,10 +1232,11 @@
         "Release native E2E PCM/history files after product quiet state",
         "Independently inspect actual memory/files and restore original mute/echo/permission"
       ],
-      "nextExecutableStep": "Compose independently owned Actor capture arming with the existing normal Start outside shared locks, retain actual worker/route/process-birth originals, and provide genuine physical acoustic evidence. The same normal recipe now joins actual cycle3 input/sink PCM and independently retained digital PC WAV/JSON using its original Start ticket;10 new cases,16 legacy recipe,4 canonical factory and15 shared Voice cases pass separately. Digital monitor evidence is explicitly not physical speaker/microphone or whole-peer qualification. Old recipe1 reads without migration;2 retains issued/joined evidence and blocks new normal input on unresolved evidence. Preserve the existing same-process empty-history cleanup incompatibility and all retained originals; no hidden restart or product repair.",
+      "nextExecutableStep": "Complete true Common16/independent acoustic stimulus+capture, original product/native/Qt history/capacity and global host/resource retirement around the now joined actual independent digital recorder Start/14-stage recipe. Preserve same-process cleanup constraints and distinguish digital monitor from physical speaker/microphone facts. Current digital flow is private and its original WAV/JSON/native/recipe journals remain owned.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
-      "nativeComponentCompilation": "Original AudioClient recorded preview/pause/poll/deferred callback lifetime bodies pass real Qt5 fragment checks; full application/TUs, physical capture/playback and devices remain unqualified."
+      "nativeComponentCompilation": "Original AudioClient recorded preview/pause/poll/deferred callback lifetime bodies pass real Qt5 fragment checks; full application/TUs, physical capture/playback and devices remain unqualified.",
+      "independentPcStartComposition": "Private Actor2 arms actual PC recorder outside source locks before unchanged normal Record and checks actual source/route/birth at final command CAS. Full1GREEN110.777s and Quiet1GREEN108.580s sequential,109 loaded sources stable; current46 fences5.151s/233stable; legacy26/81.260s/94stable. Exact raw literals fsynced/range-receipted before parse with all simultaneous reservations; already-issued returns survive later admission refusal. Aggregate469/512 parts includes66Recipe and27raw;531 retained files3,777,501B. Passive Actor1/2 only, strict raw/page/reference1. No physical acoustics, public Audio or global cleanup promotion."
     },
     {
       "area": "chat",

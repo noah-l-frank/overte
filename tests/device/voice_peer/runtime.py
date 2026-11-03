@@ -139,7 +139,7 @@ class AudioRoutes:
                                 start_new_session=True)
 
     @contextmanager
-    def capture(self, root: Path):
+    def capture(self, root: Path, *, source=None):
         raw = root / "capture.raw"
         path = root / "capture.wav"
         with raw.open("wb") as output:
@@ -149,17 +149,20 @@ class AudioRoutes:
                 "--device=" + self.names["rx"] + ".monitor",
             ], stdout=output, stderr=subprocess.DEVNULL, start_new_session=True)
             try:
+                if source is not None:source.created(recorder)
                 time.sleep(0.35)
                 streams = [item for item in pulse_list("source-outputs")
                            if str(item.get("properties", {}).get("application.process.id")) == str(recorder.pid)]
                 if recorder.poll() is not None or not streams or any(
                         item["source"] != self.sources["rx"] for item in streams):
                     raise InfrastructureError("private receive capture did not start")
+                if source is not None:source.armed(recorder)
                 yield path
                 if recorder.poll() is not None:
                     raise InfrastructureError("receive capture exited early")
             finally:
                 stop(recorder)
+                if source is not None and source.recorder is recorder:source.closed()
         data = raw.read_bytes()
         if len(data) % 4:
             raise InfrastructureError("receive capture ended with a partial PCM frame")
@@ -195,6 +198,8 @@ class Peer:
     def start(self, url: str) -> None:
         self.routes.open()
         with self.client_path.open("rb") as binary:
+            info=os.fstat(binary.fileno())
+            self.client_file=tuple(getattr(info,key) for key in ('st_dev','st_ino','st_mode','st_uid','st_nlink','st_size','st_mtime_ns','st_ctime_ns'))
             self.client_digest = hashlib.file_digest(binary, "sha256").hexdigest()
         script = self.root / "peer-runtime.js"
         config = {"url": url, "token": self.token, "session": self.session, "domain": self.domain}
@@ -352,7 +357,19 @@ class Peer:
 
     def run(self, request: dict) -> dict:
         action = request.get("action")
-        if action in ("receive-preview", "preview-files", "preview-release"):
+        if action in ('preview-source','preview-source-retire'):
+            if set(request)!={'action','capture_id','request_id'}:raise ValueError('Closed PC preview source query required')
+            if any(type(request[key]) is not str or re.fullmatch('[0-9a-f]{32}',request[key]) is None for key in ('capture_id','request_id')):
+                raise ValueError('Original PC preview source identifiers are unavailable')
+            sources=self.preview_sources()
+            try:
+                if action=='preview-source-retire':
+                    record=sources.records.get(request['capture_id'])
+                    if record is None:raise ValueError('Original recorder owner is unavailable')
+                    record.retired()
+                return sources.query(request['capture_id'],request['request_id'],used=request['capture_id'] in self.preview_used)
+            except (OSError,ValueError,RuntimeError):raise InfrastructureError('Original PC preview recorder source is unavailable') from None
+        if action in ("receive-preview", "receive-preview-owned", "preview-files", "preview-release"):
             return self.preview(request)
         if action == "status":
             return self.status()
@@ -460,6 +477,21 @@ class Peer:
             finally:
                 self.operation.release()
 
+    def preview_sources(self):
+        # Separate opt-in query/command grammar. Default Phone/Voice callers
+        # retain their original APIs and create no extra source owner.
+        if os.environ.get('OVERTE_E2E_RECORDED_PREVIEW_TESTS')!='1' or os.environ.get('OVERTE_E2E_PICO_AUDIO_SOURCE_TESTS')!='1':
+            raise ValueError('Original PC preview source is disabled')
+        with self.guard:
+            sources=getattr(self,'owned_preview_sources',None)
+            if sources is None:
+                try:from .preview_source import PreviewSources
+                except ImportError:from preview_source import PreviewSources
+                sources=PreviewSources(lambda:pulse_list('source-outputs'),self.routes.names['rx']+'.monitor',
+                    self.routes.sources['rx'],lambda:int(time.time()*1000),self.client,self.client_file)
+                self.owned_preview_sources=sources
+            return sources
+
     def preview(self,request):
         """Original PC output acquisition, never a target fact or detector verdict.
 
@@ -497,31 +529,39 @@ class Peer:
             if value.get('captureId')!=capture or value.get('sha256')!=hashlib.sha256(content).hexdigest() or value.get('bytes')!=len(content) or value.get('device')!=info.st_dev or value.get('inode')!=info.st_ino:
                 raise InfrastructureError('Original PC preview PCM changed')
             return value
-        if action!='receive-preview':
+        owned=action=='receive-preview-owned';sources=self.preview_sources() if owned else None
+        if action not in ('receive-preview','receive-preview-owned'):
             if set(request)!={'action','capture_id','request_id'} or type(request_id) is not str or not re.fullmatch('[0-9a-f]{32}',request_id):raise ValueError('Closed original preview file request required')
             if self.receiving_preview==capture:raise InfrastructureError('Original PC preview capture is still running')
             value=original()
             if action=='preview-release' and capture not in self.preview_used and capture not in self.preview_retired:
                 raise ValueError('Cannot release an unowned PC preview capture')
+            source_owner=getattr(self,'owned_preview_sources',None)
+            source_record=source_owner.records.get(capture) if source_owner is not None else None
+            if action=='preview-release' and source_record is not None:source_record.release_guard()
             if action=='preview-release' and value is not None:
                 path.unlink();journal.unlink()
             if action=='preview-release':
                 self.preview_retired.add(capture)
+                if source_record is not None:source_record.retired()
             # A new query is required to prove absence after release.
             return dict(schemaVersion=1,requestId=request_id,instance=self.preview_instance,captureId=capture,capturedEpochMs=int(time.time()*1000),
                 exists=exists(path) or exists(journal),retired=capture in self.preview_retired,
                 original=value if action=='preview-files' else None)
-        if set(request)!={'action','challenge','capture_id','seconds'}:raise ValueError('Closed original preview capture request required')
+        if set(request)!=({'action','challenge','capture_id','seconds'}|({'source_request_id'} if owned else set())):raise ValueError('Closed original preview capture request required')
         challenge=request['challenge'];sequence(challenge,profile='recorded-preview-v1')
         seconds=request['seconds']
         if type(seconds) not in (int,float) or not 3<=seconds<=10 or exists(path) or exists(journal) or len(list(self.root.glob('preview-*.wav')))>=32 or capture in self.preview_used or capture in self.preview_retired or len(self.preview_used)>=128:
             raise ValueError('Original bounded PC preview capture is unavailable')
         if not self.operation.acquire(blocking=False):raise InfrastructureError('Another PC audio operation is active')
+        source=None
         try:
+            if owned:source=sources.claim(capture,request['source_request_id'],seconds)
             self.preview_used.add(capture)
             before=self.ready();self.configure(muted=True)
             with self.artifacts() as temporary:
-                with self.routes.capture(temporary) as wav:
+                acquisition=self.routes.capture(temporary) if source is None else self.routes.capture(temporary,source=source)
+                with acquisition as wav:
                     started=int(time.time()*1000)
                     with self.guard:self.receiving_challenge=challenge;self.receiving_preview=capture
                     deadline=time.monotonic()+seconds;stats=[];previous=None
@@ -533,8 +573,8 @@ class Peer:
                         time.sleep(.1)
                 content=wav.read_bytes();completed=int(time.time()*1000)
                 if not content or len(content)>32*1024*1024:raise InfrastructureError('Original PC preview PCM is unavailable')
-                with wave.open(str(wav),'rb') as source:
-                    rate,channels,width,frames=source.getframerate(),source.getnchannels(),source.getsampwidth(),source.getnframes()
+                with wave.open(str(wav),'rb') as wav_source:
+                    rate,channels,width,frames=wav_source.getframerate(),wav_source.getnchannels(),wav_source.getsampwidth(),wav_source.getnframes()
                     if not 8000<=rate<=48000 or channels not in (1,2) or width!=2 or not 3*rate<=frames<=11*rate:
                         raise InfrastructureError('Original PC preview format is unavailable')
                 descriptor=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
@@ -552,7 +592,12 @@ class Peer:
                 with os.fdopen(descriptor,'wb') as output:
                     if output.write(metadata)!=len(metadata):raise InfrastructureError('Original PC preview metadata write is incomplete')
                     output.flush();os.fsync(output.fileno())
-                original();return dict(schemaVersion=1,captureId=capture,retained=True)
+                observed=original()
+                if source is not None:source.completed(observed)
+                return dict(schemaVersion=1,captureId=capture,retained=True)
+        except BaseException:
+            if source is not None:source.failed()
+            raise
         finally:
             with self.guard:self.receiving_challenge=None;self.receiving_preview=None
             self.operation.release()

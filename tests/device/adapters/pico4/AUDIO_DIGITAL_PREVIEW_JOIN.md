@@ -9,9 +9,10 @@ independent whole-Actor and physical acoustic qualification remain false.
 ## Narrow frozen reuse
 
 The [selection manifest](AUDIO_PEER_REUSE_20261102.json) pins Phone
-`a7be274da152b9d0b77e2fe5bb9874c5b1e18a31`. It selects the shared
-`Peer.preview` method verbatim, plus its additive runtime state/status/dispatch
-and CLI forwarding. The existing voice receive APIs keep their behavior.
+`a7be274da152b9d0b77e2fe5bb9874c5b1e18a31`. The original selection copied the shared `Peer.preview` method verbatim,
+plus additive runtime state/status/dispatch and CLI forwarding. The later
+opt-in original-recorder source extends that method while preserving the
+default preview API; its current ownership is documented in the PC Start join. The existing voice receive APIs keep their behavior.
 `OVERTE_E2E_RECORDED_PREVIEW_TESTS=1` explicitly gates the new provider.
 Nothing in this source packet starts a PC client, audio server, microphone,
 capture process, Domain or service. Authorized future laboratory execution
@@ -104,3 +105,7 @@ originals, and a genuinely physical acoustic producer. Same-process empty-histor
 cleanup remains the separate executed incompatibility in
 [the original-gap audit](AUDIO_ORIGINAL_GAPS.md). This packet neither hides a
 restart nor clears product history, retained capacity, callbacks or contexts.
+
+The additive [independent PC Start join](AUDIO_PC_START_JOIN.md) binds a live
+original recorder to the same normal Recipe. It retains all journals and
+original digital files; full cleanup and acoustic qualification remain open.

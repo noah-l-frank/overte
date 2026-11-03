@@ -20,15 +20,27 @@ from feature_journeys.fixtures import challenge
 from voice_peer.fixture import CLI
 
 
-def invoke(root,action,**fields):
-    need(action in ('status','domain-check','position','receive-preview','preview-files','preview-release'))
+def invoke(root,action,*,_literal=None,**fields):
+    need(action in ('status','domain-check','position','receive-preview','receive-preview-owned','preview-source','preview-source-retire','preview-files','preview-release'))
     command=[sys.executable,str(CLI),'--state-dir',str(root),action]
     for key,value in fields.items():command.extend(['--'+key.replace('_','-'),str(value)])
-    try:result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=15 if action=='receive-preview' else 5,check=True)
-    except (OSError,subprocess.SubprocessError):raise RuntimeError('Owned PC Audio original source is unavailable') from None
-    need(len(result.stdout)<=1024*1024)
-    from adapters.native_feature_observation import decode
-    return decode(result.stdout.decode('utf-8'))
+    token=None if _literal is None else _literal.before(action,fields)
+    try:
+        result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+            timeout=15 if action in ('receive-preview','receive-preview-owned') else 5,check=_literal is None)
+    except (OSError,subprocess.SubprocessError) as error:
+        if _literal is not None:_literal.uncertain(token,getattr(error,'stdout',None))
+        raise RuntimeError('Owned PC Audio original source is unavailable') from None
+    if _literal is not None:
+        _literal.after(token,result.stdout)
+        need(result.returncode==0)
+    try:
+        need(len(result.stdout)<=1024*1024)
+        from adapters.native_feature_observation import decode
+        return decode(result.stdout.decode('utf-8'))
+    except Exception:
+        if _literal is not None:_literal.rejected(token)
+        raise
 
 
 def configuration(value):
@@ -42,11 +54,22 @@ def configuration(value):
 
 
 class PicoAudioPeer:
-    def __init__(self,config,session_hash,guard,*,call=invoke,epoch_ms=lambda:int(time.time()*1000)):
+    def __init__(self,config,session_hash,guard,*,call=invoke,epoch_ms=lambda:int(time.time()*1000),raw_call=None):
         self.config=configuration(config);self.root=Path(config['peerState']);self.session_hash=session_hash
         self.guard,self.call,self.epoch_ms=guard,call,epoch_ms;need(callable(guard) and callable(call) and callable(epoch_ms))
         self.observations=[];self.last_file=self.last_metadata=None
+        self.reply_observer=self._reply_observer=None
+        self.raw_call=invoke if call is invoke else raw_call
+        self.literal=self._literal=None;self.last_raw_reference=None
         self.session_hash=self.session()
+
+    def bind_reply_observer(self,callback):
+        need(callable(callback) and self.reply_observer is self._reply_observer is None and not self.observations)
+        self.reply_observer=self._reply_observer=callback
+
+    def bind_literal_source(self,source):
+        need(self.literal is self._literal is None and not self.observations and callable(self.raw_call))
+        self.literal=self._literal=source
 
     def session(self):
         self.guard();value=PrivateFeatureState(self.root/'session.json').read();need(type(value) is dict)
@@ -54,8 +77,21 @@ class PicoAudioPeer:
         need(self.session_hash in (None,digest));self.guard();return digest
 
     def request(self,action,**fields):
-        if action in ('preview-files','preview-release'):fields['request_id']=uuid.uuid4().hex
-        self.session();value=self.call(self.root,action,**fields);self.session();need(type(value) is dict)
+        need(self.reply_observer is self._reply_observer)
+        if action in ('preview-files','preview-release','preview-source','preview-source-retire'):fields['request_id']=uuid.uuid4().hex
+        need(self.literal is self._literal)
+        self.session()
+        if self.literal is None:value=self.call(self.root,action,**fields)
+        else:
+            peer=self;archive=self.literal
+            class Literal:
+                def before(self,action,fields):return archive.before(action,fields)
+                def after(self,token,raw):peer.last_raw_reference=archive.after(token,raw)
+                def uncertain(self,token,raw):return archive.uncertain(token,raw)
+                def rejected(self,token):return archive.rejected(token)
+            value=self.raw_call(self.root,action,_literal=Literal(),**fields)
+        if self.reply_observer is not None:self.reply_observer(action,deepcopy(value))
+        self.session();need(type(value) is dict)
         need(len(self.observations)<16)
         self.observations.append(dict(action=action,reply=deepcopy(value)))
         if 'request_id' in fields:need(value.get('requestId')==fields['request_id'])
@@ -113,6 +149,26 @@ class PicoAudioPeer:
 
     def receive(self,run,ticket,seconds):
         self.status();return self.request('receive-preview',challenge=challenge(run,ticket).hex(),capture_id=ticket,seconds=seconds)
+
+    def source(self,ticket):
+        from adapters.pico4.audio_pc_source import validate,verify_kernel
+        started=time.monotonic()
+        value=self.request('preview-source',capture_id=identifier(ticket))
+        validate(value,ticket,value['requestId'],self.epoch_ms());verify_kernel(value)
+        validate(value,ticket,value['requestId'],self.epoch_ms());need(0<=time.monotonic()-started<=1.5)
+        return value
+
+    def receive_owned(self,run,ticket,seconds,request):
+        status=self.status();need(status['client'].get('muted') is True)
+        return self.request('receive-preview-owned',challenge=challenge(run,ticket).hex(),
+            capture_id=identifier(ticket),seconds=seconds,source_request_id=identifier(request))
+
+    def retire_recorder(self,ticket):
+        from adapters.pico4.audio_pc_source import validate,verify_kernel
+        value=self.request('preview-source-retire',capture_id=identifier(ticket))
+        validate(value,ticket,value['requestId'],self.epoch_ms());verify_kernel(value)
+        need(value['source'] is not None and value['source']['state']=='retired')
+        return value
 
     def release(self,ticket):
         self.request('preview-release',capture_id=ticket);value=self.packet(ticket)

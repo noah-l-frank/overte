@@ -1,0 +1,64 @@
+"""Normal Audio/independent PC originals; explicit native/media/OS test models.
+
+Only owned stdin Python workers run. No audio service, device or compiler.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from pathlib import Path
+import sys
+import unittest
+sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
+
+CASE_NAMES=(
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_passive_unknown_index_version_cannot_qualify_a_sealed_literal',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_passive_literal_reference_cannot_alias_read_zero_with_boolean',
+    'self_tests.test_pico_audio_pc_start.AudioPCSourceTests.test_actual_kernel_birth_and_current_route_are_required_for_capturing',
+    'self_tests.test_pico_audio_pc_start.AudioPCSourceTests.test_wrong_actual_stream_route_never_becomes_armed',
+    'self_tests.test_pico_audio_pc_start.AudioPCSourceTests.test_corked_stream_and_actual_stopped_recorder_cannot_be_ready',
+    'self_tests.test_pico_audio_pc_start.AudioPCSourceTests.test_changed_original_worker_birth_refuses_current_source',
+    'self_tests.test_pico_audio_pc_start.AudioPCSourceTests.test_alive_recorder_cannot_claim_exit_or_release',
+    'self_tests.test_pico_audio_pc_start.AudioPCSourceTests.test_actual_exit_and_stream_absence_survive_new_queries',
+    'self_tests.test_pico_audio_pc_start.AudioPCSourceTests.test_late_stream_after_real_exit_prevents_quiet_source',
+    'self_tests.test_pico_audio_pc_start.AudioPCSourceTests.test_replaced_actual_client_and_replayed_request_refuse',
+    'self_tests.test_pico_audio_pc_start.AudioPCSourceTests.test_foreign_received_source_or_stale_sequence_does_not_advance_reader',
+    'self_tests.test_pico_audio_pc_start.AudioPCStartTests.test_ignored_receive_ack_cannot_authorize_actual_normal_record',
+    'self_tests.test_pico_audio_pc_start.AudioPCStartTests.test_foreign_actual_worker_source_retains_reply_and_sends_zero_record',
+    'self_tests.test_pico_audio_pc_start.AudioPCStartTests.test_real_recorder_death_after_finished_command_cas_sends_zero_normal_record',
+    'self_tests.test_pico_audio_pc_start.AudioPCStartTests.test_same_byte_parent_replacement_after_command_cas_preserves_intent_and_sends_zero_record',
+    'self_tests.test_pico_audio_pc_start.AudioPCStartTests.test_lost_actor_publication_return_resolves_exact_get_without_reposting_old_fact',
+    'self_tests.test_pico_audio_pc_start_binding.AudioPCBindingTests.test_canonical_factory_binds_separate_role_exact_lock_and_original_pid_without_input',
+    'self_tests.test_pico_audio_pc_start_binding.AudioPCBindingTests.test_same_actor_credential_refuses_before_recipe_or_rpc',
+    'self_tests.test_pico_audio_pc_start_binding.AudioPCBindingTests.test_foreign_source_lock_refuses_before_pc_authority_or_input',
+    'self_tests.test_pico_audio_pc_start_binding.AudioPCBindingTests.test_independent_original_reader_wrong_pid_refuses_before_pc_authority',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_incompressible_one_mib_and_native_quarter_mib_nul_exact_before_parser',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_multiple_literal_ranges_share_one_owned_part_and_distinct_clock_receipts',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_cap_refuses_before_actual_getter_or_send',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_partial_append_retains_original_prefix_and_uncertain_tail_without_retry',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_foreign_prefix_write_during_actual_append_cannot_hide_behind_new_stamp',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_lost_receipt_cas_retains_literal_and_pending_intent',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_same_inode_recycled_writer_ofd_is_not_force_closed',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_replaced_inode_and_missing_root_refuse_without_getter',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_actual_fork_cannot_append_original_parent_writer',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_actual_cli_stdout_one_mib_noise_is_durable_before_utf8_or_json_parser',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_original_native_getter_quarter_mib_noise_is_sealed_before_decoder',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_actual_cli_stdout_one_mib_nul_survives_existing_parser_limit',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_actual_cli_capacity_refusal_calls_zero_subprocess',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_actual_getter_capacity_refusal_never_calls_captured_source',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_actual_native_dispatch_capacity_refusal_sends_zero_original_command',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_missing_raw_root_refuses_actual_cli_dispatch_without_adoption',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_replaced_append_lock_inode_refuses_actual_getter',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_legacy_actor1_passive_reader_retains_actual_old_layout_without_migration',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_original_cli_worker_return_is_retained_while_primary_source_lock_is_held',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_passive_reader_exposes_partial_tail_without_claiming_live_authority',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_later_capacity_refusal_preserves_prior_issued_return_reservation',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_all_parallel_receipt_metadata_is_reserved_before_any_getter',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_original_stdout_survives_late_actor_header_loss_but_next_dispatch_refuses',
+    'self_tests.test_pico_audio_raw_transport.AudioRawTransportTests.test_parser_refusal_keeps_literal_and_stops_next_real_cli_dispatch',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_late_own_root_loss_keeps_exact_unconfirmed_return_without_durable_claim',
+    'self_tests.test_pico_audio_pc_start_catalog.AudioPCStartCatalogTests.test_three_wrappers_select_all_owning_cases_once',
+)
+
+
+def load_tests(loader,_tests,_pattern):return loader.loadTestsFromNames(CASE_NAMES)
+
+if __name__=='__main__':unittest.main()
