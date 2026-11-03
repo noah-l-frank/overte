@@ -108,6 +108,16 @@ inline QString createControlId(QQuickItem* item) {
     return {};
 }
 
+inline QString picoAssetsCreateControlId(QQuickItem* item) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    // Only the explicit Pico bridge extends the inventory. Existing generic
+    // Create/Phone/iOS callers still use unchanged createControlId directly.
+    if (audioGuiItem(item) && createPage(item) && item->objectName()=="NativeCreateTool_assets"
+            && item->metaObject()->indexOfSignal("clicked()")>=0) { return "create.assets"; }
+#endif
+    return createControlId(item);
+}
+
 inline bool createField(const QString& id) {
     return id=="create.name" || id=="create.resource" || id=="create.import-url" || id=="create.filter"
         || id=="create.textures" || id.startsWith("create.field.");

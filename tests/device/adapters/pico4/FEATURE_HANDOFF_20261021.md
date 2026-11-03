@@ -58,6 +58,15 @@ and records existing and candidate reuse without transferring qualification.
 No new feature or device qualification is claimed. Source-complete areas remain
 3/14; host models and native/device qualification remain separate.
 
+The retained normal Assets Prefix2 now joins baseline/Open/pickerOpen/Cancel
+through existing factories, original files and actual normal inputs. All34
+no-build cases pass27.939s with229 loaded sources unchanged. Binary originals
+reserve and retain up to4MiB before parsing, preserve partial/unknown-CAS
+responsibility and refuse late sends/getters after real reservation work.
+The unchanged512-part/16MiB bounds and strict passive Prefix1/2 readers remain.
+The catalog contains311 disjoint groups; full29, backend/Actor/Model/stereo and
+global retirement are open. See [the Assets prefix](ASSETS_PREFIX_SOURCE.md).
+
 The selected Chat archive-v4/host-close, Avatar original preferences/Bookmarks
 and Snapshot export packets are integrated together. Eleven affected owning
 groups pass after correcting the shared original Avatar observer harness to

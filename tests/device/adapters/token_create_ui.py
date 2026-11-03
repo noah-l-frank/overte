@@ -25,8 +25,10 @@ def navigation(identifier):
     return type(identifier) is str and (identifier=='tablet.home' or bool(re.fullmatch(r'tablet\.page\.([1-9]|[12][0-9]|3[0-2])',identifier)))
 
 
-def control_id(identifier):
+def control_id(identifier,*,pico_assets=False):
+    need(type(pico_assets) is bool)
     if type(identifier) is not str:return False
+    if pico_assets and identifier=='create.assets':return True
     if identifier in FIXED or navigation(identifier):return True
     if re.fullmatch(r'create\.tab\.[0-4]',identifier):return True
     if re.fullmatch(r'create\.entity\.'+UUID,identifier):return nonce(identifier[len('create.entity.'):])
@@ -53,8 +55,8 @@ def scope(value):
     return value
 
 
-def metadata(row):
-    need(type(row) is dict and control_id(row.get('id')) and nonce(row.get('token'))
+def metadata(row,*,pico_assets=False):
+    need(type(row) is dict and control_id(row.get('id'),pico_assets=pico_assets) and nonce(row.get('token'))
          and type(row.get('enabled')) is bool)
     identifier=row['id'];base={'id','token','enabled'}
     if navigation(identifier):
@@ -86,20 +88,23 @@ def metadata(row):
     return row
 
 
-def snapshot(value):
-    exact(value,{'createControlsVersion','open','ready','scope','controls'})
+def snapshot(value,*,pico_assets=False):
+    need(type(pico_assets) is bool)
+    extended=pico_assets and type(value) is dict and 'picoAssetsCreateControlsVersion' in value
+    exact(value,{'createControlsVersion','open','ready','scope','controls'}|({'picoAssetsCreateControlsVersion'} if extended else set()))
+    if extended:need(type(value['picoAssetsCreateControlsVersion']) is int and value['picoAssetsCreateControlsVersion']==1)
     need(type(value['createControlsVersion']) is int and value['createControlsVersion']==VERSION
          and all(type(value[k]) is bool for k in ('open','ready')) and type(value['controls']) is list and len(value['controls'])<=384)
     scope(value['scope']);seen=set();tokens=set()
     for row in value['controls']:
-        metadata(row);need(row['id'] not in seen and row['token'] not in tokens);seen.add(row['id']);tokens.add(row['token'])
+        metadata(row,pico_assets=extended);need(row['id'] not in seen and row['token'] not in tokens);seen.add(row['id']);tokens.add(row['token'])
     need(value['open'] or not value['controls'])
     return value
 
 
-def same_reference(original,current,identifier):
+def same_reference(original,current,identifier,*,pico_assets=False):
     """Backend admission before mutation; never silently retarget a new context."""
-    snapshot(original);snapshot(current)
+    snapshot(original,pico_assets=pico_assets);snapshot(current,pico_assets=pico_assets)
     need(all(original['scope'][key]==current['scope'][key] for key in ('instance','generation','sequence','processId'))
          and 0<=current['scope']['elapsedMs']-original['scope']['elapsedMs']<=5000)
     old=[row for row in original['controls'] if row['id']==identifier]
@@ -109,9 +114,10 @@ def same_reference(original,current,identifier):
 
 
 class TokenCreateUI:
-    def __init__(self,io,intent,*,monotonic=time.monotonic,sleep=time.sleep):
-        need(callable(intent) and callable(monotonic) and callable(sleep))
+    def __init__(self,io,intent,*,monotonic=time.monotonic,sleep=time.sleep,pico_assets=False):
+        need(callable(intent) and callable(monotonic) and callable(sleep) and type(pico_assets) is bool)
         self.io,self.intent,self.monotonic,self.sleep=io,intent,monotonic,sleep
+        self.pico_assets=pico_assets
         self.last_clock=None;self.instance=None;self.pid=None;self.elapsed=0;self.sequence=0;self.generation=None
 
     def now(self):
@@ -120,7 +126,7 @@ class TokenCreateUI:
         self.last_clock=value;return value
 
     def capture(self):
-        value=deepcopy(snapshot(self.io.capture()));original=value['scope']
+        value=deepcopy(snapshot(self.io.capture(),pico_assets=self.pico_assets));original=value['scope']
         need(self.instance in (None,original['instance']) and self.pid in (None,original['processId']) and original['elapsedMs']>=self.elapsed and original['sequence']>=self.sequence
              and (not (type(self.generation) is int and type(original['generation']) is int) or original['generation']>=self.generation))
         self.instance,self.pid,self.elapsed,self.sequence,self.generation=(original[k] for k in ('instance','processId','elapsedMs','sequence','generation'))
@@ -145,7 +151,7 @@ class TokenCreateUI:
         raise NativeUIError('Normal Create control transition was not observed')
 
     def input(self,identifier,action='activate',value=None):
-        need(control_id(identifier) and identifier!='create.page' and action in {'activate','replace','select-index','scroll'})
+        need(control_id(identifier,pico_assets=self.pico_assets) and identifier!='create.page' and action in {'activate','replace','select-index','scroll'})
         if action=='scroll':need(identifier=='create.scrollbar' and value in ('up','down'))
         elif action=='activate':need(identifier!='create.scrollbar')
         if action=='replace':need(field(identifier));ascii_text(value)
@@ -163,7 +169,7 @@ class TokenCreateUI:
         return after
 
     def reveal(self,identifier):
-        need(control_id(identifier))
+        need(control_id(identifier,pico_assets=self.pico_assets))
         current=self.capture()
         if self.row(current,identifier):return current
         deadline=self.now()+10

@@ -257,7 +257,11 @@ class OwnedAssetsCancel:
         for attempt in range(41):
             need(self.now()-started<=5)
             if self.now()-started>=3 and sample['ui']['elapsedMs']-first['ui']['elapsedMs']>=3000:break
-            self.sleep(.1);sample=self.sample();need(self.retired_consumers(sample))
+            # Acquisition, its durable archives and validation already spend
+            # part of this interval. Keep the original sample-start anchor;
+            # never add another full quarter second after that work.
+            self.sleep(max(0,.25-(self.now()-sample['started'])))
+            sample=self.sample();need(self.retired_consumers(sample))
             need(0<sample['ui']['elapsedMs']-previous['ui']['elapsedMs']<=500
                 and 0<sample['ui']['capturedEpochMs']-previous['ui']['capturedEpochMs']<=500)
             previous=sample

@@ -147,6 +147,11 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'createControlsVersion' in value:
         fields.add('createControlsVersion')
         need(type(value['createControlsVersion']) is int and value['createControlsVersion']==1)
+    if type(value) is dict and 'picoAssetsCreateControlsVersion' in value:
+        fields.add('picoAssetsCreateControlsVersion')
+        need(type(value['picoAssetsCreateControlsVersion']) is int and value['picoAssetsCreateControlsVersion']==1
+             and value.get('createControlsVersion')==1 and type(value.get('controls')) is list
+             and any(type(row) is dict and row.get('id')=='create.assets' for row in value['controls']))
     if type(value) is dict and 'createFileControlsVersion' in value:
         fields|={'createFileControlsVersion','createUiInventory'}
         need(type(value['createFileControlsVersion']) is int and value['createFileControlsVersion']==1)
@@ -232,7 +237,7 @@ def validate_snapshot(value, process_id, epoch_ms):
         elif is_create_voxel:
             need(value.get('createVoxelControlsVersion')==1);create_voxel_metadata(control);fields=set(control)
         elif is_create:
-            need(value.get('createControlsVersion')==1);create_metadata(control);fields=set(control)
+            need(value.get('createControlsVersion')==1);create_metadata(control,pico_assets=value.get('picoAssetsCreateControlsVersion')==1);fields=set(control)
         elif control['id'] in VIEW_MENU_IDS:
             need(value.get('viewMenuControlsVersion')==1);fields|={'menuInstance','checked','inputReady'}
             need(identifier(control.get('menuInstance')) and type(control.get('checked')) is bool
@@ -258,7 +263,7 @@ def validate_snapshot(value, process_id, epoch_ms):
              and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS
                  or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])
                  or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS or control['id'] in VIEW_MENU_IDS
-                 or is_assets or is_browser_app or is_avatar_people or is_create_voxel or is_create_extra or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])
+                 or is_assets or is_browser_app or is_avatar_people or is_create_voxel or is_create_extra or is_create and create_control(control['id'],pico_assets=value.get('picoAssetsCreateControlsVersion')==1) or is_chat and chat_control(control['id'])
                  or is_emote and emote_control(control['id'])
                  or snapshot_export_control(control['id']) or is_places and places_control(control['id']) or is_error and error_control(control['id']) or is_create_file or control['id']==LIFECYCLE_ID)
              and identifier(control['token']) and control['id'] not in ids
@@ -278,7 +283,7 @@ def validate_snapshot(value, process_id, epoch_ms):
         elif is_chat:chat_metadata(control)
         elif is_create_extra:create_extra_metadata(control)
         elif is_create_voxel:create_voxel_metadata(control)
-        elif is_create:create_metadata(control)
+        elif is_create:create_metadata(control,pico_assets=value.get('picoAssetsCreateControlsVersion')==1)
         elif control['id'] in ACCOUNT_MENU_IDS:validate_account_menu_metadata(control)
         elif control['id'] in LOGIN_IDS:validate_login_metadata(control)
         elif is_graphics:validate_graphics_metadata(control)
@@ -479,7 +484,8 @@ class PicoNavigation:
                 original=chat_same_reference(reference,chat_project(snapshot),control_id)
             else:
                 from adapters.pico4.normal_create import project
-                original=same_reference(reference,project(snapshot),control_id)
+                extended='picoAssetsCreateControlsVersion' in reference
+                original=same_reference(reference,project(snapshot,pico_assets=extended),control_id,pico_assets=extended)
             need(original['token']==control['token'])
         if is_assets:
             from adapters.token_assets_ui import FIELDS as assets_fields,ascii_text as assets_text

@@ -119,7 +119,7 @@ QString controlId(QQuickItem* item) {
     if (!createExtra.isEmpty()) {return createExtra;}
     const auto createVoxel=overte::e2e::createVoxelControlId(item);
     if (!createVoxel.isEmpty()) {return createVoxel;}
-    const auto create=overte::e2e::createControlId(item);
+    const auto create=overte::e2e::picoAssetsCreateControlId(item);
     if (!create.isEmpty()) { return create; }
     const auto graphics = overte::e2e::graphicsControlId(item);
     if (!graphics.isEmpty()) { return graphics; }
@@ -467,6 +467,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["createUiInventory"]=createInventory;
     result["createDialogBindingsVersion"]=1;result["createDialogBindings"]=createBindings;
     result["createControlsVersion"] = 1;
+    for (const auto& row : observed) {
+        if (row.toObject().value("id").toString()=="create.assets") { result["picoAssetsCreateControlsVersion"]=1;break; }
+    }
     result["chatControlsVersion"] = 2;
     result["picoBrowserAppControlsVersion"]=1;
     result["emoteControlsVersion"] = 2;
@@ -685,6 +688,7 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
     } else if (controlId.startsWith("create.")) {
         QJsonObject row;overte::e2e::appendCreateControlObservation(row,control.item,controlId);
         if (current.value("createControlsVersion")!=QJsonValue(1) || !row.value("inputReady").toBool()) { return result; }
+        if (controlId=="create.assets" && current.value("picoAssetsCreateControlsVersion")!=QJsonValue(1)) { return result; }
         const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
         if (action=="activate" && controlId!="create.page" && controlId!="create.scrollbar" && pointerClick
                 && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) { delivered=pointerClick(control.item); }

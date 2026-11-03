@@ -592,6 +592,43 @@ def create_adapter(args, base_class):
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
                 native.clock_ms,guard,native.pid,monotonic=native.monotonic)
 
+        def _assets_prefix_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','normal-assets-prefix-',1)))
+
+        def _assets_prefix_owned(self,target):
+            if self.pico_configuration is None:return False
+            store=self._assets_prefix_store(target);store._parent();name=store.path.name
+            prefixes=tuple(name+suffix for suffix in ('.pending-','.frame-','.child-','.chunk-','.partial-'))
+            with os.scandir(store.path.parent) as entries:
+                for index,entry in enumerate(entries):
+                    _need(index<4096)
+                    if entry.name==name or entry.name.startswith(prefixes):return True
+            return False
+
+        @_private
+        def _assets_prefix(self,target,run,fixture_url,phase,*,source_lock):
+            from adapters.pico4.assets_prefix import PicoAssetsPrefix
+            from feature_journeys.phase_fixture import PhaseFixtureReader
+            _need(type(phase) is PhaseFixtureReader and phase.run==run and phase.area=='assets' and phase.fixture_url==fixture_url)
+            lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            return PicoAssetsPrefix(self._assets_prefix_store(target).path,binding,phase,lock,
+                self._assets_source(target,source_lock=lock),self._assets_uploads(target,source_lock=lock),
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/navigation-ui-observation.json',attempts=1),
+                lambda intent,**options:self._assets_controls(target,intent,**options),
+                lambda intent,**options:self._assets_create_controls(target,intent,**options),
+                lambda:self._assets_cancel_owner(target,run,fixture_url,phase,source_lock=lock,stage=1),
+                native.guard,native.clock_ms)
+
+        def _assets_create_controls(self,target,intent,*,before_send=None):
+            from adapters.token_create_ui import TokenCreateUI
+            from adapters.pico4.normal_create import PicoCreateIO
+            ui,_observe,_binding=self._script_runtime(target)
+            self._bind_create_transport(ui,before_send)
+            return TokenCreateUI(PicoCreateIO(ui.io,pico_assets=True),intent,
+                monotonic=ui.monotonic,sleep=ui.sleep,pico_assets=True)
+
         def _assets_cancel_store(self,target,stage=1):
             _need(type(stage) is int and 1<=stage<=6)
             state,_ui=self._script_paths(target)
@@ -629,6 +666,7 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','normal-assets-files'+suffix+'-')))
 
         def _assets_files_owned(self,target):
+            if self._assets_prefix_owned(target):return True
             # Native file absence alone cannot retire the whole UI/backend
             # owner. Keep even retired file transcripts until that final join.
             if any(self._assets_cancel_store(target,stage).read() is not None for stage in range(1,7)):return True
@@ -3787,6 +3825,7 @@ def create_adapter(args, base_class):
                 _need(not native_cycle_owned(self, target))
                 from adapters.pico4.avatar_remote_state import retained as remote_avatar_retained
                 _need(not remote_avatar_retained(self, target))
+                _need(not self._assets_prefix_owned(target))
             # Base stop remains available, but cannot retire this private
             # owner or its original normal preference/UI journals.
             snapshot_error=False
