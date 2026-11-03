@@ -173,6 +173,7 @@ class PicoBrowserOperationOwner:
         need(type(self.public) is tuple and len(self.public) == 4
             and self.public[1] == operation and self.public[2] == json_digest(arguments)
             and self.public[3] is self.action and self.state['pending'] == operation)
+        self.worker_owner.guard()  # Before the canonical router can query its SDK.
 
     def invoke(self, operation, arguments):
         self.public_guard(operation, arguments); self.worker_owner.guard()

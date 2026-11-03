@@ -71,3 +71,17 @@ launch/return under the original whole deadline. Its worker PID/configuration
 pinning and complete final-resource path need that execution proof. Complete
 Browser capability is therefore not advertised. Native compilation, deployed
 independent Actor, Pico stereo and headset acceptance remain unverified.
+
+The following admission continuation adds three actual Parent/child cases.
+The real operation owner constructs its warm feature graph and receives one
+original Begin; duplicate Begin fails while retaining its marker. An actual
+Actor6 process reaches the real CLI argument refusal, exits2 and blocks the
+next public admission before a canonical-router SDK query. Its original
+diagnostic bytes and configuration remain retained. The early Actor guard is
+also present immediately before the router's installation check, rather than
+waiting until feature dispatch. All three pass in1.662 seconds; the Parent
+entry and each child's142/142/190 loaded source identities are checked
+before/after.
+The source fixture entry override is private to these tests; it is not an RPC
+option or proof of the fixed production module's complete journey. Candidate
+and native state remain declared models, with zero native reads/normal inputs.
