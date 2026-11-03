@@ -2267,10 +2267,10 @@ def create_adapter(args, base_class):
             store=self._lifecycle_world_store(target,create=False)
             if store is None:return False
             parent=store.path.parent;store._parent()
-            names={'lifecycle-background-owner.json','lifecycle-background-originals.json'}
+            names={'lifecycle-background-owner.json','lifecycle-background-originals.json','lifecycle-background-raw.json'}
             for index,path in enumerate(parent.iterdir()):
                 _need(index<4096)
-                if path.name in names or path.name.startswith('lifecycle-background-originals.json.frame-'):return True
+                if path.name in names or path.name.startswith(('lifecycle-background-originals.json.frame-','lifecycle-background-raw.json.')):return True
             return False
 
         def _lifecycle_pending_owned(self,target):
@@ -3900,6 +3900,8 @@ def create_adapter(args, base_class):
             # normal inputs and originals. Generic teardown cannot retire it.
             # Check before any product query, input or base application stop.
             if self.pico_configuration is not None:
+                from adapters.pico4.lifecycle_background_raw_state import retained as background_raw_retained
+                _need(not background_raw_retained(self, target))
                 from adapters.pico4.create_operation_owner import retained as create_operation_retained
                 _need(not create_operation_retained(self, target))
                 from adapters.pico4.emote_native_cycle_state import native_cycle_owned
