@@ -8,6 +8,7 @@ import errno
 import os
 from pathlib import Path
 import stat
+import sys
 import weakref
 
 
@@ -138,13 +139,19 @@ class CandidateReadSeal:
         need(not self.closed and self.metadata()==self.original_metadata
             and self.inventory()==self.original_inventory)
         for path,resolved,descriptor,original,anchor in self.rows:
+            # For an originally canonical Linux path, the live kernel FD name
+            # and a fresh named lstat detect parent/leaf substitution directly.
+            # Previously admitted aliases retain their full strict resolution.
+            direct = sys.platform == 'linux' and path == resolved
             need(same_description(descriptor,anchor)
                 and stamp(os.fstat(anchor))==original
                 and fcntl.fcntl(anchor,fcntl.F_GETFD)&fcntl.FD_CLOEXEC
                 and fcntl.fcntl(descriptor,fcntl.F_GETFL)&os.O_ACCMODE==os.O_RDONLY
                 and fcntl.fcntl(descriptor,fcntl.F_GETFD)&fcntl.FD_CLOEXEC
-                and path.resolve(strict=True)==resolved and stamp(os.fstat(descriptor))==original
-                and stamp(path.stat())==original)
+                and ((os.readlink('/proc/self/fd/'+str(descriptor))==str(resolved))
+                    if direct else path.resolve(strict=True)==resolved)
+                and stamp(os.fstat(descriptor))==original
+                and stamp(path.lstat() if direct else path.stat())==original)
         need(self.metadata()==self.original_metadata and self.inventory()==self.original_inventory)
         return result
 

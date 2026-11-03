@@ -292,6 +292,7 @@ TESTS = (
     test("lifecycle-mutex-ledger", "interaction", PYTHON, "device/test_lifecycle_mutex_ledger.py"),
     test("probe-originals", "interaction", PYTHON, "device/test_pico_probe_originals.py"),
     test("raw-literal-profile", "interaction", PYTHON, "device/test_raw_literal_profile.py"),
+    test("candidate-path-ownership", "interaction", PYTHON, "device/test_candidate_path_ownership.py"),
     test("navigation-scene-probe", "interaction", PYTHON, "device/test_navigation_scene_probe.py", requires=("openssl",)),
     test("navigation-scene-raw", "interaction", PYTHON, "device/test_navigation_scene_raw.py", requires=("openssl",)),
     test("navigation-scene-memory-retention", "interaction", PYTHON, "device/test_navigation_scene_memory_retention.py", requires=("openssl",)),
