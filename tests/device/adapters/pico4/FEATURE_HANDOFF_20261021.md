@@ -3445,3 +3445,21 @@ execute native code. New native producers remain uncompiled. Changed committed
 sections plus copied-pose differences are correlation. Per-joint interpolation
 lineage, packet-to-draw causality, full independent Actor/contacts/stereo and
 final retirement remain open. Source-complete remains3/14.
+
+
+## Continuous normal Snapshot Close selected on 2026-11-03
+
+[Current normal Close composition](SNAPSHOT_SETTINGS_NORMAL_CLOSE.md) now passes
+1/99.130s under original120s,233 loaded source hashes/physical identities
+unchanged. It keeps the original pre-input lease, normal controller Session,
+nonce and cursor through Cancel/Still/Save/TLS Upload/Resume/return image and
+Mode/Format/Close, then post-Close raw settings and a full three-second quiet.
+Two fixture visibility/neutral boundaries and the production open-only Upload
+reader composition were corrected; ordinary Upload keeps its full open-page
+requirement. Five new cases pass0.087s with183 loaded sources unchanged.
+
+The successful component explicitly observes raw restoration false and keeps
+all incomplete Share/Actor/pixel/resource obligations. The newer frozen Phone
+lease comparison records why its initialized baseline cannot replace Pico's
+passive uninitialized-cache original. Source-complete stays3/14. No compiler,
+device or remote action was used. Earlier full-run refusals remain retained.

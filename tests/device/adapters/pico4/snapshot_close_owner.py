@@ -221,7 +221,7 @@ class PicoSnapshotCloseOwner:
     def observe(self):
         need(self.encoding_version==VERSION and self.bg.status()['foreground']);started=self.bound();requested=self.native.clock_ms();reference=None
         if self.state['stage'] in ('close-issued','closed','quiet-issued','partial-closed') and self.state['controller']['envelope'] is not None:reference=self.record_status()
-        row=self.upload.read_frame();self.frame(row,self.state);state=deepcopy(self.state);state['frames'].append(row);state['statusFrames'].append(reference)
+        row=self.upload.read_source_frame();self.frame(row,self.state);state=deepcopy(self.state);state['frames'].append(row);state['statusFrames'].append(reference)
         if state['stage']=='partial-closed':state.update(stage='quiet-issued',quiet=[])
         neutral=None if reference is None else self.statuses.read(reference)['status'];valid=False
         if reference is not None:

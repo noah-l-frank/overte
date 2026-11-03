@@ -1,9 +1,12 @@
 # New-run normal Snapshot restoration diagnostic
 
-The focused [closed raw-settings checkpoint](SNAPSHOT_SETTINGS_CLOSE.md) has
-passed its own host checks. The new explicit `SnapshotSettingsNormalCloseTests` warm
-composition remains **red and unqualified**. No whole Snapshot, actual actor,
-scene pixels, raw restoration or device acceptance follows from this diagnostic.
+The focused [closed raw-settings checkpoint](SNAPSHOT_SETTINGS_CLOSE.md) and
+current explicit `SnapshotSettingsNormalCloseTests` warm composition pass their
+host checks. The current continuous Cancel/Still/Save/Upload/Resume/Return/Close
+component passed in99.130s under its original120s cap on2026-11-03. It explicitly
+observes incomplete raw restoration. Whole Snapshot, actual Actor, challenge
+pixels, OS Share and device acceptance remain unqualified. Earlier red runs
+below remain historical evidence and have not been relabeled.
 
 It attaches the passive thirteen-key lease to the actual new Cancel parent
 before its first normal input. It then executes the existing normal
@@ -150,3 +153,94 @@ Use a new private evidence directory and retain all originals. A fresh run is
 not recovery of any previous uncertain input. Future full-path work must first
 measure or fix a concrete source/host boundary; this result authorizes no blind
 retry, restoration setter, retrospective baseline or product change.
+
+
+## First current continuous normal Close (2026-11-03)
+
+The selected current shared original-file/JSON admission implementation differs
+from the historical four failed whole runs. A new unchanged Cancel/Still source
+component with82 original frames passed with cProfile in44.521s,196 loaded
+source hashes/physical identities unchanged. This diagnostic measured repeated
+full candidate/installation fences and history validation. A pure clone
+benchmark over those actual82 frames measured0.155s versus0.092s for3280 clones;
+no extra clone cache or cloning implementation was selected. These measurements
+do not attribute whole performance to one changed helper.
+
+The first current full run reached normal Mode/Format restoration in73.162s,
+then failed in76.910s before a Close envelope/dispatch. All233 loaded sources
+were unchanged;527 original runtime files survive a two-pass hash/full-physical
+audit with no matching owned worker. The test transport incorrectly treated
+the original Session's pre-command neutral read for the preceding Open as a
+post-Close answer. A new actual-Session counter reproduced that assertion,
+then passed after the fixture retained the earlier Open neutral unchanged.
+The original Session, nonce and cursor are kept throughout.
+
+The next current run failed in76.508s after the actual original Close grant
+advanced that same Session cursor. A separate original exception-chain trace
+preserved the suppressed source refusal: the Save fixture advertised controls
+while its root was closed/not ready. The fixture now follows the original
+native inventory's visibility rule. Review then confirmed the next production
+composition boundary: Upload's reader always required an open, actionable
+Review, although the Close consumer explicitly accepts a closed root.
+
+The original acquisition sequence is now shared. Ordinary Upload still applies
+its unchanged open Review/effect predicate. The private `read_source_frame()`
+uses complete original frame grammar, account, capture-context and original
+clock anchors; the existing Close owner applies its own UI generation, source
+continuity and actual controller-status proofs. It cannot claim Upload is
+currently actionable. The source method changes no wire version, source query
+count, normal input, timeout, quiet window or native product behavior.
+Five focused cases cover the two fixture boundaries, closed source admission,
+continued refusal of closed ordinary Upload, foreign/malformed originals and
+unchanged open Upload. They pass0.087s,183 loaded sources unchanged.
+
+The corrected continuous run passes1/99.130s,233 loaded sources unchanged:
+
+| Actual diagnostic checkpoint | Host seconds | Original frames |
+| --- | ---: | ---: |
+| Cancel/Still |20.203|82|
+| Save |33.082|33|
+| Failed upload |38.292|17|
+| Successful upload |45.529|21|
+| Background/return image |58.716|16|
+| Normal Mode/Format |73.569|16|
+| Normal controller Close |78.139|19|
+| Post-Close raw settings |81.487|21|
+| Complete Close quiet |98.162|34|
+
+The same original pre-input lease, Parent and controller Session remain in use.
+Post-Close raw settings still contain the new Still path and initialized cache.
+The test explicitly requires `settingsRestored=False`, no qualified preceding
+Share, no full Snapshot recipe, no complete raw baseline restoration and no
+global export-executor retirement. Native/Qt/JS/rendering/Android lifecycle and
+clocks remain the declared producers; host files, original owner/lock protocols,
+normal transport and owned loopback TLS request/body handling execute. This
+component is registered once as `snapshot-settings-normal-close`; the separate
+five-case `snapshot-close-source-acquisition` selection has no overlapping test.
+
+All prior failed owners and inputs remain archived. Successful component
+assertions do not retire their journals or authorize resumed inputs from an
+uncertain old run. Exact raw Settings/cache handback, actual OS chooser/owned
+receiver, independent image/Actor evidence and whole Common16/final cleanup
+remain required. No further compiler, build, device or remote action was used.
+
+
+The final33-case existing Close/recovery/status, raw-settings checkpoint and
+Upload admission/archive selection passes221.450s with222 loaded sources
+unchanged. This is a manual aggregate of existing disjoint selectors, not one
+120s catalog group. An earlier33/222.793s logical pass lost source-freeze
+qualification because Root edited a comment during that run; its unqualified
+receipt remains and the complete group was rerun against unchanged sources.
+The first catalog wiring attempt resolved a fully qualified unittest name
+against `__main__` incorrectly. A dedicated disjoint wrapper now selects the
+actual five cases once; the actual catalog invocation passes0.462s.
+
+The successful continuous runtime retains611 original files/1743996 stored
+bytes. Its Snapshot namespace contains543 files/1708110 stored bytes, including
+520 immutable parts across nine separate original containers. All full file
+hashes/physical identities match across two terminal passes and no matching
+owned worker remains. This is an aggregate footprint observation, not a whole
+512-part budget or global retirement proof: individual existing containers retain
+their unchanged caps. A whole-feature storage/retirement join must account for
+that aggregate before claiming full cleanup. No original was deleted to fit a
+budget. Exact terminal receipts and all prior refused owners remain private.

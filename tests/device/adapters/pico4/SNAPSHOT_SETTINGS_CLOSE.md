@@ -152,3 +152,32 @@ selector, setter, chooser driver, hardware observation, permission, upload,
 callback retirement or physical Actor proof. The separate whole warm chain's
 120.118-second failure remains unresolved and was not retried. Raw-state
 restoration and complete Snapshot qualification remain false.
+
+
+## Newer frozen Phone lease review (2026-11-03)
+
+The read-only comparison also inspected frozen Phone commit
+`5e8ff8aa19571f5718b982dc47a165b8f22e0dc0`, including
+`PhoneSnapshotSettingsLease.h`, `PhoneSnapshotSettingsKeys.h`, and the original
+Snapshot/Setting Manager implementations. Its native lease2 is useful design
+material: native-owned originals, exact current-state digest admission, a stable
+restore ID, partial-progress recovery and a closed-owner retirement condition.
+Host commands cannot provide replacement keys or desired values.
+
+Its baseline is different. The actual Snapshot read lambda calls
+`_snapshotFormat.isSet()` and `.get()` before capturing the raw entries. Both
+ordinary Handle paths may initialize the Handle. The lease captures only
+`format {set,value}` after that initialization; it does not capture Pico's
+passive `formatCache {initialized,set,value,defaultValue}`. Its set/remove
+restoration therefore cannot establish equality with an originally uninitialized
+Pico cache. `Setting::Interface::deinit()` saves and removes the registration,
+but does not reset the original initialized flag or weak Manager association.
+Calling it is not an inverse of initialization.
+
+Reusing the protocol requires a real Pico closure/ownership proof, its retained
+capture/upload/callback obligations, original GUI-thread authority, and exact
+raw-map/cache compare-and-swap restoration from the already captured passive
+original. Phone's UI/closure and initialized baseline cannot replace these. No
+lease is acquired retrospectively, no setter/reset is selected here, and the
+original thirteen-key/cache equality remains required. The source comparison
+adds no native compilation, changed result schema or complete Snapshot claim.

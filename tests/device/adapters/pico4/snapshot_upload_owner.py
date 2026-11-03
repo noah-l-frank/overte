@@ -219,12 +219,30 @@ class PicoSnapshotUploadOwner:
         disk=dict(snapshotUploadOwnerVersion=VERSION,runId=self.run,binding=self.binding,fixtureUrl=self.source.fixture_url,verb=self.verb,payload=pack([self.originals.encode(state)]))
         self.store.write(disk,self.disk);need(typed_equal(self.store.read(),disk));self.disk,self.state=deepcopy(disk),state
 
-    def read_frame(self):
+    def _acquire_frame(self):
+        # One original acquisition sequence, shared by the Upload and Close
+        # consumers. Keep their existing source checks and original clocks.
         started=self.base.now();requested=self.native.clock_ms();base=self.base.read_frame()
         self.uploads.read(self.run);account=self.account.read(self.account.sequence,require_account=True)
         raw=self.account.original();need(typed_equal(decode(raw),account));provider=self.fixture.provider()
         row=dict(base=base,upload=self.uploads.original(),provider=provider,account=dict(raw=raw,sha256=hashlib.sha256(raw.encode()).hexdigest()),hostMonotonic=self.base.now())
+        return row,started,requested
+
+    def read_frame(self):
+        row,started,requested=self._acquire_frame()
         self.frame(row);self.anchor=(started,requested,min(self.clocks(row)[1:]));return row
+
+    def read_source_frame(self):
+        """Passive sources for the existing Close owner's separate UI proof.
+
+        Complete source grammar, account and original capture context remain
+        mandatory. This does not assert that Upload is currently actionable.
+        """
+        from adapters.pico4.snapshot_upload_frame import validate as frame_packet
+        row,started,requested=self._acquire_frame()
+        parts=frame_packet(row,self.run,self.native.pid,self.binding['sessionId'])
+        self.account_original(parts[4],row['provider']);self.capture_context(row)
+        self.anchor=(started,requested,min(self.clocks(row)[1:]));return row
 
     def append(self):
         row=self.read_frame();state=deepcopy(self.state);state['frames'].append(row);self.save(state);return row

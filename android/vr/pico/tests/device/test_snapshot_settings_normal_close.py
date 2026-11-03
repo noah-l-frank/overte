@@ -64,6 +64,82 @@ class LiveBackground:
             self.status,self.consume,self.runtime,monotonic=lambda:self.host,sleep=self.sleep)
 
 
+class WarmControllerCloseBoundary:
+    """Explicit transport model; original Session still owns nonce and cursor."""
+    def __init__(self, host, transport):
+        self.host = host
+        self.consumed, self.read = transport.stage, transport.read_status
+        self.transition = None
+
+    def stage(self, envelope, profile, *, before_publish=None):
+        result = self.consumed(envelope, profile, before_publish=before_publish)
+        if envelope['commands'][0]['operation'] == 'tablet.close':
+            self.host.adb.generation = str(uuid.uuid4())
+            self.transition = self.host.clock()
+        return result
+
+    def read_status(self, **options):
+        value = self.read(**options)
+        value['updatedEpochMs'] = self.host.clock()
+        # The same original Session first reads the previous Open's neutral
+        # answer before admitting Close. Only a consumed Close creates this
+        # model's closed transition; it cannot rewrite that earlier answer.
+        if options.get('expected_sequence') is None and self.transition is not None:
+            value.update(enabled=False, updatedEpochMs=self.transition)
+        return value
+
+
+class WarmControllerBoundaryTests(unittest.TestCase):
+    def test_hidden_review_exports_no_save_or_upload_input_controls(self):
+        from types import SimpleNamespace
+        from tempfile import TemporaryDirectory
+        from test_snapshot_save_owner import SnapshotSaveFlowTests
+        with TemporaryDirectory() as temporary:
+            directory=Path(temporary)
+            (directory/'original.png').write_bytes(b'file-name-only UI inventory counter')
+            model=SimpleNamespace(h=SimpleNamespace(adb=SimpleNamespace(screen='snapshot',opened=False,files=directory)),
+                snapshot=lambda:dict(open=False,ready=False,controls=[]))
+            observed=SnapshotSaveFlowTests.view(model)
+            self.assertFalse(observed['ready'])
+            self.assertEqual([],observed['controls'])
+
+    def test_same_original_session_reads_previous_open_neutral_before_close_then_pins_close_transition(self):
+        from types import SimpleNamespace
+        from tempfile import TemporaryDirectory
+        from self_tests.test_pico_openxr_adapter_session import FakeTransport
+        from openxr_input.adapter_session import PicoOpenXrAdapterSession
+        with TemporaryDirectory() as temporary:
+            host = SimpleNamespace(adb=SimpleNamespace(generation='original-open-generation'), clock=lambda: epoch[0])
+            epoch = [20000]
+            transport = FakeTransport()
+            session = PicoOpenXrAdapterSession(transport, 'explicit-snapshot-transport-model', Path(temporary))
+            session.begin('42:100')
+            session.stage('42:100', 'tablet.open', dict(holdMilliseconds=1000))
+            original = deepcopy(transport.envelopes[0])
+            boundary = WarmControllerCloseBoundary(host, transport)
+            observed = []
+            def read(**options):
+                value = boundary.read_status(**options)
+                observed.append((deepcopy(options), deepcopy(value)))
+                return value
+            with patch.object(transport, 'stage', side_effect=boundary.stage), patch.object(transport, 'read_status', side_effect=read):
+                session.stage('42:100', 'tablet.close', dict(holdMilliseconds=1000))
+                first = session.observe_owned_status('42:100', transport.envelopes[-1])
+                epoch[0] += 250
+                second = session.observe_owned_status('42:100', transport.envelopes[-1])
+            self.assertEqual(original, transport.envelopes[0])
+            self.assertEqual(['tablet.open','tablet.close'], [row['commands'][0]['operation'] for row in transport.envelopes])
+            self.assertEqual([1,2], [row['sequence'] for row in transport.envelopes])
+            self.assertEqual(original['sessionNonce'], transport.envelopes[-1]['sessionNonce'])
+            self.assertTrue(observed[0][1]['enabled'])
+            self.assertEqual('neutral', observed[0][1]['state'])
+            self.assertEqual(1, observed[0][1]['acceptedSequence'])
+            self.assertFalse(first['enabled'])
+            self.assertEqual(first, second)
+            self.assertEqual(20000, first['updatedEpochMs'])
+            self.assertNotEqual('original-open-generation', host.adb.generation)
+
+
 class SnapshotSettingsNormalCloseTests(upload_prefix.SnapshotUploadFlowTests):
     # Inherit only the original fixture lifecycle, not its separate warm test.
     test_normal_cancel_still_save_offline_upload_then_success_independent_png_quiet_and_cold_no_resend=None
@@ -110,18 +186,8 @@ class SnapshotSettingsNormalCloseTests(upload_prefix.SnapshotUploadFlowTests):
         self.assertEqual(['lifecycle.background','app.launch'],background.calls)
         self.assertIs(returned.bg.live(),uploaded);self.assertIs(image.lock,self.h.lock)
         self.h.activate('close');session=self.h.owner.session;transport=session.transport
-        consumed=transport.stage;read=transport.read_status;transition=[None]
-        def consume(envelope,profile,*,before_publish=None):
-            result=consumed(envelope,profile,before_publish=before_publish)
-            if envelope['commands'][0]['operation']=='tablet.close':
-                self.h.adb.generation=str(uuid.uuid4());transition[0]=self.h.clock()
-            return result
-        def status(**options):
-            value=read(**options);value['updatedEpochMs']=self.h.clock()
-            if options.get('expected_sequence') is None:
-                self.assertIsNotNone(transition[0]);value.update(enabled=False,updatedEpochMs=transition[0])
-            return value
-        with patch.object(transport,'stage',side_effect=consume),patch.object(transport,'read_status',side_effect=status):
+        boundary=WarmControllerCloseBoundary(self.h,transport)
+        with patch.object(transport,'stage',side_effect=boundary.stage),patch.object(transport,'read_status',side_effect=boundary.read_status):
             close=self.h.adapter._snapshot_close_owner(self.h.adb.target,self.h.owner.run,self.h.phase,returned.images,parent=image,source_lock=self.h.lock)
             self.assertIs(close.session,session);self.assertIs(close.base,self.h.owner);self.assertIs(close.base.settings_baseline,lease)
             before=len(self.h.adb.inputs);close.prepare();close.restore()

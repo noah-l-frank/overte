@@ -145,6 +145,8 @@ TESTS = (
     test("snapshot-settings-originals", "interaction", PYTHON, "device/test_snapshot_settings_originals.py"),
     test("snapshot-reply-grammar", "interaction", PYTHON, "device/test_snapshot_reply_grammar_owner.py"),
     test("snapshot-settings-baseline", "interaction", PYTHON, "device/test_snapshot_settings_baseline.py"),
+    test("snapshot-close-source-acquisition", "interaction", PYTHON, "device/test_snapshot_source_acquisition.py"),
+    test("snapshot-settings-normal-close", "interaction", PYTHON, "device/test_snapshot_settings_normal_close.py", "SnapshotSettingsNormalCloseTests", requires=("openssl",)),
     test("snapshot-settings-close", "interaction", PYTHON, "device/test_snapshot_settings_close.py"),
     test("navigation-environment-originals", "interaction", PYTHON, "device/test_navigation_environment.py", requires=("c++", "pkg-config")),
     test("navigation-bookmark-prefix", "interaction", PYTHON, "device/test_navigation_bookmark_prefix.py", requires=("openssl",)),

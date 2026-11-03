@@ -64,6 +64,7 @@ class Boundary:
         # Its real full normal input/TLS lineage was tested separately.
         self.parent=object.__new__(PicoSnapshotUploadOwner);self.parent.run=self.run;self.parent.binding=self.binding;self.parent.lock=self.lock
         self.parent.store=PrivateFeatureState(root/'snapshot-upload-owner.json');self.parent.read_frame=self.frame
+        self.parent.read_source_frame=lambda:self.parent.read_frame() # Explicit native/source model shared by Close.
         self.parent.native=SimpleNamespace(guard=self.native_guard,clock_ms=self.epoch)
 
     def epoch(self):return self.start_epoch+round((self.host-self.start_host)*1000)

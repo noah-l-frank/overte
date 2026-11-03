@@ -107,7 +107,7 @@ class SnapshotSaveFlowTests(unittest.TestCase):
             change.start();self.addCleanup(change.stop)
     def view(self):
         value=self.snapshot();value['snapshotExportControlsVersion']=1
-        if self.h.adb.screen=='snapshot':
+        if self.h.adb.opened and self.h.adb.screen=='snapshot':
             for path in self.h.adb.files.glob('*.png'):
                 original='/data/user/0/org.overte.pico/files/Snapshots/'+path.name
                 value['controls'].append(dict(id='snapshot.save.'+hashlib.sha256(original.encode()).hexdigest(),path=original,
