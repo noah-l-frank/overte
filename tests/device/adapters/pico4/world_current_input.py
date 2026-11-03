@@ -117,11 +117,22 @@ class PicoWorldCurrentInput:
     Each read performs both real outer lock exits. An already-held caller must
     delegate outside, preserving its original input intent; no nested publish.
     """
-    def __init__(self,documents,send,read):
-        need(type(documents) is document.PicoWorldCurrentDocument and all(callable(fn) for fn in (send,read)))
+    def __init__(self,documents,send,read,*,retain=None,capacity=None):
+        need(type(documents) is document.PicoWorldCurrentDocument and all(callable(fn) for fn in (send,read))
+             and (retain is None or callable(retain)) and (capacity is None or callable(capacity)))
         self.documents,self.send,self.read_raw=documents,send,read
         self.lock,self.guard,self.clock_ms,self.pid=documents.lock,documents.guard,documents.clock_ms,documents.pid
         self.monotonic,self.sleep=documents.monotonic,documents.sleep;self.raw=self.last_request=self.document_original=self.last=None;self._warm_anchor=None
+        self.retain,self.capacity=retain,capacity
+
+    def _capacity_admission(self,started,requested,original):
+        if self.capacity is not None:
+            self.capacity();need(self.guard() is not False)
+            packet=original_document(original,self.pid)
+            epoch=self.clock_ms();now=self.monotonic();need(number(now,started,started+1.5));fresh(requested,epoch)
+            for captured in (packet['requestedEpochMs'],packet['capturedEpochMs'],packet['source']['dom']['capturedEpochMs'],
+                    *(packet['source'][side][kind]['capturedEpochMs'] for side in ('authorityBefore','authorityAfter') for kind in ('native','java'))):
+                fresh(captured,epoch);need(requested-captured+(now-started)*1000<=1500)
 
     def read(self,run,url,owner,operation,control):
         need(self.lock._owner is None and self.guard() is not False)
@@ -133,11 +144,14 @@ class PicoWorldCurrentInput:
         need(same(value,doc) and self.lock._owner is None)
         call=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='pico-world-web',runId=run,fixtureUrl=url,
                      operation=operation,ownerToken=owner,documentNonce=doc['commandId'],control=control))
+        if self.retain is not None:self.retain(dict(kind='world-current-input-request',request=deepcopy(call),documentOriginal=deepcopy(original)))
         previous=started
         with self.lock.held():
-            need(self.guard() is not False);self.send(deepcopy(call));latest=None;result=None
+            need(self.guard() is not False);self._capacity_admission(started,requested,original);self.send(deepcopy(call));latest=None;result=None
             for attempt in range(31):
-                need(self.guard() is not False);raw=self.read_raw();need(type(raw) is str and len(raw.encode())<=65536)
+                need(self.guard() is not False);self._capacity_admission(started,requested,original);raw=self.read_raw()
+                if self.retain is not None:self.retain(dict(kind='world-current-input-raw',request=deepcopy(call),raw=raw))
+                need(type(raw) is str and len(raw.encode())<=65536)
                 packet=decode(raw) if raw else None
                 if type(packet) is dict and packet.get('commandId')==call['commandId']:
                     validate(packet,call,self.pid,self.clock_ms(),original);need(packet['status']!='unavailable')

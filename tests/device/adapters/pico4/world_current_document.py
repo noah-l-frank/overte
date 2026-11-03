@@ -128,11 +128,19 @@ def validate(value,request,pid,epoch):
 
 class PicoWorldCurrentDocument:
     """One nonce/send/read-only DOM transaction; same-nonce polls only read bytes."""
-    def __init__(self,send,read,clock_ms,guard,pid,source_lock,*,monotonic=time.monotonic,sleep=time.sleep):
-        need(all(callable(v) for v in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and type(source_lock) is ScriptSourceLock)
+    def __init__(self,send,read,clock_ms,guard,pid,source_lock,*,monotonic=time.monotonic,sleep=time.sleep,retain=None,capacity=None):
+        need(all(callable(v) for v in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and type(source_lock) is ScriptSourceLock
+             and (retain is None or callable(retain)) and (capacity is None or callable(capacity)))
         self.lock=source_lock;self.last=self.raw=self.last_request=None
         self.send,self.read_raw,self.clock_ms,self.guard,self.pid=send,read,clock_ms,guard,pid
         self.monotonic,self.sleep=monotonic,sleep
+        self.retain,self.capacity=retain,capacity
+
+    def _capacity_admission(self,started,requested):
+        if self.capacity is not None:
+            self.capacity();need(self.guard() is not False)
+            epoch=self.clock_ms();now=self.monotonic()
+            need(number(now,started,started+1.5));fresh(requested,epoch)
 
     def read(self,run,fixture_url,owner):
         need(self.lock._owner is None and self.guard() is not False)
@@ -164,9 +172,12 @@ class PicoWorldCurrentDocument:
         request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='pico-world-web',runId=run,
                      fixtureUrl=fixture_url,operation='observe-current-document',ownerToken=owner)
         command(request);need(self.guard() is not False)
+        if self.retain is not None:self.retain(dict(kind='world-current-document-request',request=deepcopy(request)))
+        self._capacity_admission(started,requested)
         previous=started;self.send(deepcopy(request));latest=None
         for attempt in range(31):
-            need(self.guard() is not False);raw=self.read_raw()
+            need(self.guard() is not False);self._capacity_admission(started,requested);raw=self.read_raw()
+            if self.retain is not None:self.retain(dict(kind='world-current-document-raw',request=deepcopy(request),raw=raw))
             need(type(raw) is str and len(raw.encode('utf-8'))<=LIMIT)
             value=decode(raw) if raw else None
             if type(value) is dict and value.get('commandId')==request['commandId']:

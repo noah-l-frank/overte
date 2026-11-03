@@ -19,6 +19,10 @@
 #include <EntityScriptingInterface.h>
 #include <EntityItemProperties.h>
 #include <EntityTypes.h>
+#include <EntityTree.h>
+#include <EntityItem.h>
+#include <QDateTime>
+#include <display-plugins/DisplayPlugin.h>
 #include "../../../tests/device/native/PicoWorldCurrentConsumptionBridge.h"
 #endif
 
@@ -731,6 +735,22 @@ void Keyboard::handleTriggerBegin(const QUuid& id, const PointerEvent& event) {
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
         auto consumptionOrigin=overte::e2e::picoCurrentTraceTrigger(this,id.toString(QUuid::WithoutBraces),int(key.getKeyType()));
+        // Observe the accepted original branch only. Never alter the event,
+        // timer, switch, target or product behavior when evidence is full.
+        if(_featureWorldKeyboardSequence>0 && QCoreApplication::arguments().contains("--testScript")) {
+            if(_featureWorldAcceptedSequence<9007199254740991ULL) {
+                QString keyBirth;
+                const auto entities=DependencyManager::get<EntityScriptingInterface>();
+                const auto tree=entities ? entities->getEntityTree() : nullptr;EntityItemPointer acceptedEntity;
+                if(tree){tree->withReadLock([&]{acceptedEntity=tree->findEntityByEntityItemID(id);});}
+                const auto birth=_featureWorldKeyBirths.constFind(id);
+                if(acceptedEntity && birth!=_featureWorldKeyBirths.cend() && birth->first.lock()==acceptedEntity)keyBirth=birth->second;
+                _featureWorldAccepted={{"sequence",qulonglong(++_featureWorldAcceptedSequence)},
+                    {"keyEntity",id.toString(QUuid::WithoutBraces)},{"keyType",int(key.getKeyType())},
+                    {"keyEntityInstance",keyBirth.isEmpty() ? QVariant() : QVariant(keyBirth)},
+                    {"layerBefore",_layerIndex},{"capsBefore",_capsEnabled},{"epochMs",QDateTime::currentMSecsSinceEpoch()}};
+            } else {_featureWorldKeyboardOverrun=true;}
+        }
 #endif
         switch (key.getKeyType()) {
             case Key::Type::CLOSE:
@@ -1270,6 +1290,78 @@ void Keyboard::emitKeyEvent(const KeyEvent& event, bool pressed) const {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap Keyboard::featureWorldCurrentObservation() {
+    if(!qApp || QThread::currentThread()!=thread() || thread()!=qApp->thread() || !qApp->isHMDMode()
+        || !QCoreApplication::arguments().contains("--testScript") || _featureWorldKeyboardOverrun
+        || _featureWorldKeyboardSequence>=9007199254740991ULL || !_created || _keyboardLayers.empty()
+        || _keyboardLayers.size()>32 || _layerIndex<0 || _layerIndex>=int(_keyboardLayers.size())
+        || !DependencyManager::isSet<EntityScriptingInterface>() || !DependencyManager::isSet<AvatarManager>()
+        || !DependencyManager::isSet<HMDScriptingInterface>())return {};
+    const auto entities=DependencyManager::get<EntityScriptingInterface>();const auto tree=entities ? entities->getEntityTree() : nullptr;
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+    const auto hmd=DependencyManager::get<HMDScriptingInterface>();const auto display=qApp->getActiveDisplayPlugin();
+    if(!tree || !avatar || !hmd || !display)return {};
+    auto vector=[](const glm::vec3& v){return QVariantList{v.x,v.y,v.z};};
+    auto quaternion=[](const glm::quat& q){return QVariantList{q.x,q.y,q.z,q.w};};
+    auto matrix=[](const glm::mat4& v){QVariantList result;for(int c=0;c<4;++c)for(int r=0;r<4;++r)result.append(v[c][r]);return result;};
+    auto utf16=[](const QString& value){QString result;for(const auto c:value)result+=QString::number(c.unicode(),16).rightJustified(4,'0');return result;};
+    auto identifier=[](const QUuid& v){return v.isNull() ? QVariant() : QVariant(v.toString(QUuid::WithoutBraces));};
+    const auto owners=featureEntityOwnership();QSet<QUuid> expected{_anchor.entityID,_textDisplay.entityID,_backPlate.entityID};
+    if(owners.isEmpty() || expected.contains(QUuid()) || expected.size()!=3)return {};
+    QVariantList rows,memberships;int totalKeys=0;
+    for(size_t layer=0;layer<_keyboardLayers.size();++layer){
+        auto ids=_keyboardLayers[layer].keys();std::sort(ids.begin(),ids.end(),[](const QUuid& a,const QUuid& b){return a.toRfc4122()<b.toRfc4122();});
+        QVariantList members;
+        for(const auto& id:ids){
+            if(id.isNull() || expected.contains(id) || totalKeys>=256)return {};expected.insert(id);++totalKeys;members.append(identifier(id));
+            auto key=_keyboardLayers[layer].value(id);const auto text=key.getKeyString(_capsEnabled);if(text.size()>256)return {};
+            EntityItemPointer entity;tree->withReadLock([&]{entity=tree->findEntityByEntityItemID(id);});if(!entity)return {};
+            auto birth=_featureWorldKeyBirths.find(id);
+            if(birth==_featureWorldKeyBirths.end() || birth->first.lock()!=entity){
+                if(birth==_featureWorldKeyBirths.end() && _featureWorldKeyBirths.size()>=1024)return {};
+                _featureWorldKeyBirths.insert(id,{entity,QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')});
+            }
+            const auto p=entities->getEntityProperties(id);
+            if(p.getType()==EntityTypes::Unknown || p.getEntityHostType()!=entity::HostType::LOCAL || p.getParentID()!=_anchor.entityID)return {};
+            if(int(layer)!=_layerIndex)continue; // Membership is complete; click authority is explicitly active-layer only.
+            QVariant geometry;
+            if(int(layer)==_layerIndex){
+                bool ok=false;const auto transform=entity->getTransformToCenter(ok);if(!ok)return {};
+                const auto center=transform.getTranslation();const auto rotation=transform.getRotation();const auto dimensions=entity->getScaledDimensions();
+                bool afterOK=false;const auto after=entity->getTransformToCenter(afterOK);EntityItemPointer named;
+                tree->withReadLock([&]{named=tree->findEntityByEntityItemID(id);});
+                if(!afterOK || named!=entity || after.getTranslation()!=center || after.getRotation()!=rotation
+                    || entity->getScaledDimensions()!=dimensions)return {};
+                geometry=QVariantMap{{"worldCenter",vector(center)},{"worldRotation",quaternion(rotation)},{"worldDimensions",vector(dimensions)}};
+            }
+            rows.append(QVariantMap{{"id",identifier(id)},{"layer",int(layer)},{"type",int(key.getKeyType())},
+                {"effectiveUtf16Hex",utf16(text)},{"switchLayer",key.getSwitchToLayerIndex()},{"pressed",key.isPressed()},
+                {"ready",key.timerFinished()},{"visible",p.getVisible()},{"hostType","local"},
+                {"entityType",EntityTypes::getEntityTypeName(p.getType())},{"parentId",identifier(p.getParentID())},
+                {"createdEpochUs",QString::number(p.getCreated())},{"entityInstance",_featureWorldKeyBirths.value(id).second},{"geometry",geometry}});
+        }
+        memberships.append(QVariantMap{{"layer",int(layer)},{"entityIds",members}});
+    }
+    QSet<QUuid> actual;for(const auto& value:owners.value("entityIds").toStringList())actual.insert(QUuid(value));
+    if(expected!=actual || rows.isEmpty())return {};
+    const auto sensor=avatar->getSensorToWorldMatrix();const auto head=sensor*avatar->getHMDSensorMatrix();
+    const auto trace=overte::e2e::picoCurrentTraceKeyboardIdentity(this);
+    QVariantMap result{{"keyboardVersion",1},{"instance",_featureChatInstance.toString(QUuid::WithoutBraces).remove('-')},
+        {"sequence",qulonglong(++_featureWorldKeyboardSequence)},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"created",_created},{"enabled",getUse3DKeyboard()},{"raised",isRaised()},{"inputToHud",_inputToHudUI.load()},
+        {"inputTarget",identifier(_inputTarget)},{"focusedEntity",identifier(qApp->getKeyboardFocusEntity())},
+        {"anchor",identifier(_anchor.entityID)},{"activeLayer",_layerIndex},{"caps",_capsEnabled},
+        {"preferMallets",getPreferMalletsOverLasers()},{"ready",shouldProcessEntity()},
+        {"traceKeyboardObject",trace.isEmpty() ? QVariant() : QVariant(trace)},
+        {"acceptedSequence",qulonglong(_featureWorldAcceptedSequence)},
+        {"lastAccepted",_featureWorldAccepted.isEmpty() ? QVariant() : QVariant(_featureWorldAccepted)},
+        {"hmd",QVariantMap{{"display",display->getName()},{"active",display->isHmd()},
+            {"visible",display->isDisplayVisible()},{"mounted",hmd->isMounted()}}},
+        {"sensorToWorld",matrix(sensor)},{"headPosition",vector(extractTranslation(head))},{"layerMembership",memberships},{"keys",rows}};
+    if(QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()>56000)return {};
+    return result;
+}
+
 QVariantMap Keyboard::featureChatObservation() {
     if (!qApp || QThread::currentThread()!=thread() || thread()!=qApp->thread()
             || !QCoreApplication::arguments().contains("--testScript") || !qApp->isHMDMode()

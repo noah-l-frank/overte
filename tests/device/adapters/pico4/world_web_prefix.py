@@ -83,7 +83,13 @@ def validate_owner(value,run,url,*,version=VERSION):
             need(packet['activations'][-1]['ticket']==row['ticket'])
         need(same(anchor['before']['activations'],anchor['packet']['activations']))
         from adapters.pico4.world_current_focus_parent import FIELD,validate_carrier
-        if FIELD in row['original']:validate_carrier(row['original'],row,value,run,url)
+        if FIELD in row['original'] and row['original'][FIELD]==1:validate_carrier(row['original'],row,value,run,url)
+        elif FIELD in row['original'] or 'picoWorldCurrentKeyParentVersion' in row['original']:
+            from adapters.pico4.world_current_keys_parent import validate_carrier as validate_keys
+            validate_keys(row['original'],row,value,run,url)
+    if any(row['original'].get('picoWorldCurrentFocusParentVersion')==2 or 'picoWorldCurrentKeyParentVersion' in row['original'] for row in value['inputs']):
+        from adapters.pico4.world_current_keys_parent import validate_sequence
+        validate_sequence(value['inputs'],value)
 
 
 
@@ -203,6 +209,11 @@ class PicoWorldWebPrefix:
         """Normal next focus/type substage; text/Keyboard and the step stay open."""
         from adapters.pico4.world_current_focus_parent import begin
         return begin(self,call)
+
+    def focus_current_keyboard_prefix(self,call):
+        """Opt-in normal pulse/Keyboard component; the Unicode action stays acting."""
+        from adapters.pico4.world_current_keys_parent import PicoWorldCurrentKeysParent
+        return PicoWorldCurrentKeysParent(self).run(call)
 
     def prepare(self):
         need(self.role=='primary' and self.lock._owner is None)

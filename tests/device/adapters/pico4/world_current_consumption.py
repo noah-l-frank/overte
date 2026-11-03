@@ -262,9 +262,11 @@ class PicoWorldCurrentConsumption:
     must be supplied by the existing owner. Failure preserves issued ownership;
     this object cannot resend an uncertain query or create a replacement arm.
     """
-    def __init__(self, focus, send, read, retain):
-        need(type(focus) is PicoWorldCurrentInput and all(callable(f) for f in (send, read, retain)))
+    def __init__(self, focus, send, read, retain, *, capacity=None):
+        need(type(focus) is PicoWorldCurrentInput and all(callable(f) for f in (send, read, retain))
+             and (capacity is None or callable(capacity)))
         self.focus, self.send, self.read_raw, self.retain = focus, send, read, retain
+        self.capacity = capacity
         self.lock, self.guard, self.clock_ms, self.pid = focus.lock, focus.guard, focus.clock_ms, focus.pid
         self.monotonic, self.sleep = focus.monotonic, focus.sleep
         self.issued = self.failed = False
@@ -337,6 +339,8 @@ class PicoWorldCurrentConsumption:
             self._attempt_started, self._attempt_epoch = started, epoch
         self.queries += 1
         self.retain(dict(kind='request', request=deepcopy(call), focusOriginal=deepcopy(self.focus_original)))
+        if self.capacity is not None:
+            self.capacity()
         with self.lock.held():
             need(self.guard() is not False)
             if call['operation'] == 'arm-current-consumption':
@@ -356,6 +360,19 @@ class PicoWorldCurrentConsumption:
             latest = result = None
             for poll in range(31):
                 need(self.guard() is not False)
+                if self.capacity is not None:
+                    self.capacity()
+                    # An optional durable owner preflight charges THIS original
+                    # query/attempt. It cannot renew an anchor or permit a late
+                    # getter under a frozen target clock.
+                    self.guard()
+                    current_epoch, now = self.clock_ms(), self.monotonic()
+                    need(number(now, started, started + 1.5)); fresh(epoch, current_epoch)
+                    if self.arm_packet is not None:
+                        need(number(now, self._attempt_started, self._attempt_started + 5)
+                             and max(current_epoch - self.arm_packet['requestedEpochMs'],
+                                     self._attempt_epoch - self.arm_packet['requestedEpochMs']
+                                     + (now - self._attempt_started) * 1000) <= 5000)
                 raw = self.read_raw()
                 # Preserve malformed/foreign originals before invoking decode.
                 self.retain(dict(kind='raw', request=deepcopy(call), raw=raw))

@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 332
+EXPECTED_CATALOG_CASES = 337
 
 
 def catalog_entries() -> list[str]:
@@ -31,6 +31,26 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_current_keyboard_groups_keep_the_timed_out_prefix_out_of_defaults(self):
+        expected={
+            'world-current-keyboard-reader':('device/test_world_current_keyboard_reader.py',[]),
+            'world-current-keys-originals':('device/test_world_current_keys_originals.py',[]),
+            'world-current-keys-host-pass':('device/test_world_current_keys_host_pass.py',[]),
+            'world-current-key-joins':('device/test_world_current_keys_parent.py',['WorldCurrentKeyJoinTests']),
+            'world-current-keyboard-refusals':('device/test_world_current_keys_parent.py',[
+                'WorldCurrentKeysParentTests.test_late_two_second_ack_old_current_ray_refuses_without_replay',
+                'WorldCurrentKeysParentTests.test_ignored_key_retains_actual_input_and_raw_without_second_send'])}
+        selected={}
+        for node in ast.walk(RUNNER_TREE):
+            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='test':
+                name=node.args[0].value
+                if len(node.args)>3 and node.args[3].value=='device/test_world_current_keys_parent.py':
+                    self.assertIn(name,expected)
+                if name in expected:
+                    self.assertNotIn(name,selected)
+                    selected[name]=(node.args[3].value,[item.value for item in node.args[4:]])
+        self.assertEqual(expected,selected)
+
     def test_remote_emote_wrappers_select_every_case_once_and_keep_legacy_separate(self):
         root=TEST_DIR.parents[3]
         tree=ast.parse((root/'tests/device/self_tests/test_pico_emote_capture.py').read_text())

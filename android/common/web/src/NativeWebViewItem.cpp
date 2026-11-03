@@ -15,6 +15,7 @@
 #include "../../../../tests/device/native/PicoWorldCurrentDocumentBridge.h"
 #include "../../../../tests/device/native/PicoWorldCurrentInputBridge.h"
 #include "../../../../tests/device/native/PicoWorldCurrentConsumptionBridge.h"
+#include "../../../../tests/device/native/PicoWorldCurrentKeyboardBridge.h"
 #endif
 #include <QFile>
 #include <QFocusEvent>
@@ -1176,3 +1177,4 @@ extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeResu
 
 #include "PicoWorldCurrentInputE2E.inc"
 #include "PicoWorldCurrentConsumptionE2E.inc"
+#include "PicoWorldCurrentKeyboardE2E.inc"

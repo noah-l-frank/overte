@@ -173,6 +173,11 @@ QVariantMap NativeWebViewItem::featurePicoWorldCurrentConsumption(const QVariant
 }
 
 namespace overte::e2e {
+QString picoCurrentTraceKeyboardIdentity(QObject* keyboard){
+    if(!consumeGui() || !keyboard || keyboard->thread()!=QThread::currentThread())return {};
+    const auto found=consumeKeyboards.constFind(keyboard);
+    return found!=consumeKeyboards.cend() && found->first==keyboard ? found->second : QString();
+}
 PicoCurrentTraceScope picoCurrentTraceTrigger(QObject* keyboard,const QString& keyEntity,int keyType){
     if(!consumeGui() || !keyboard || keyboard->thread()!=QThread::currentThread())return {};
     try{ConsumeStack e;e.kind=ConsumeTrigger;e.keyboard=keyboard;e.keyEntity=keyEntity;e.keyType=keyType;return PicoCurrentTraceScope(consumeToken(std::move(e)));}catch(...){return {};}

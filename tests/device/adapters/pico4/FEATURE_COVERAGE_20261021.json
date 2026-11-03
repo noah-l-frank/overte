@@ -817,7 +817,26 @@
         "android/vr/pico/tests/device/test_world_current_consumption_java.py",
         "android/vr/pico/tests/device/world-current-consumption-application.inc",
         "android/vr/pico/tests/device/world-current-consumption-native-body.inc",
-        "android/vr/pico/tests/device/world-current-consumption-java-body.java.inc"
+        "android/vr/pico/tests/device/world-current-consumption-java-body.java.inc",
+        "android/common/web/src/NativeWebViewItem.cpp",
+        "android/common/web/src/PicoWorldCurrentConsumptionE2E.inc",
+        "android/common/web/src/PicoWorldCurrentKeyboardE2E.inc",
+        "interface/src/ui/Keyboard.cpp",
+        "interface/src/ui/Keyboard.h",
+        "interface/src/scripting/TestScriptingInterface.cpp",
+        "interface/src/scripting/TestScriptingInterface.h",
+        "tests/device/native/PicoWorldCurrentConsumptionBridge.h",
+        "tests/device/native/PicoWorldCurrentKeyboardBridge.h",
+        "tests/device/probe/overte_e2e_probe.js",
+        "tests/device/adapters/pico4/world_current_gesture.py",
+        "tests/device/adapters/pico4/world_current_keyboard.py",
+        "tests/device/adapters/pico4/world_current_keys_originals.py",
+        "tests/device/adapters/pico4/world_current_keys_parent.py",
+        "android/vr/pico/tests/device/test_world_current_keyboard_reader.py",
+        "android/vr/pico/tests/device/test_world_current_keys_originals.py",
+        "android/vr/pico/tests/device/test_world_current_keys_parent.py",
+        "android/vr/pico/tests/device/test_world_current_keys_host_pass.py",
+        "tests/device/adapters/pico4/WORLD_CURRENT_KEYBOARD.md"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -867,7 +886,7 @@
         "Revoke actual view/grant/nonce authority",
         "Drain original retained callbacks and prove absent owned entities/view resources"
       ],
-      "nextExecutableStep": "Compose the existing same-Parent focus stage with the private bounded Trace1 readout and actual normal input plus fresh independent DOM/editor effect. The TSI/probe/strict Host reader chain has17 no-build cases, including actual Node probe dispatch and genuine delayed pre-send RED-to-GREEN with zero sends after expiry. Original native Trace1 owning passes29.785s (59 named SHA+physical signatures unchanged); separate actual Java edit/post/input/trace bodies pass0.953s. Both TSI platform sides, actual Keyboard/Application/Native/Qt/JNI, missing callbacks and6actual weak/lifetime/late-callback counters are qualified at host scope. Private Trace1 is registered; complete capability stays unavailable. Preserve exact Common16, old Prefix readers, full raw records, original clocks and unresolved ownership. Stock keyboard.json remains ASCII-only; arbitrary Unicode Qt-IME is a distinct producer. Actor/stereo and full source/VM/archive/host retirement remain open. Existing Keyboard special Copy/Paste keys send ControlModifier; NativeWebViewItem rejects Control/Alt/Meta, so those keys do not establish a normal Unicode source either. Preserve product behavior.",
+      "nextExecutableStep": "Compose the existing same-Parent focus stage with the private bounded Trace1 readout and actual normal input plus fresh independent DOM/editor effect. The TSI/probe/strict Host reader chain has17 no-build cases, including actual Node probe dispatch and genuine delayed pre-send RED-to-GREEN with zero sends after expiry. Original native Trace1 owning passes29.785s (59 named SHA+physical signatures unchanged); separate actual Java edit/post/input/trace bodies pass0.953s. Both TSI platform sides, actual Keyboard/Application/Native/Qt/JNI, missing callbacks and6actual weak/lifetime/late-callback counters are qualified at host scope. Private Trace1 is registered; complete capability stays unavailable. Preserve exact Common16, old Prefix readers, full raw records, original clocks and unresolved ownership. Stock keyboard.json remains ASCII-only; arbitrary Unicode Qt-IME is a distinct producer. Actor/stereo and full source/VM/archive/host retirement remain open. Existing Keyboard special Copy/Paste keys send ControlModifier; NativeWebViewItem rejects Control/Alt/Meta, so those keys do not establish a normal Unicode source either. Preserve product behavior. The private same-Parent Focus2/Keyboard1/Gesture1/KeysOriginals2 path is now integrated with raw preparse storage and original accepted-key/Trace press-release joins.52 bounded cases pass4.713s (221 loaded/declared sources stable), two real negative input components7.175s (226 stable) and actual Node dispatcher12cases. Storage-only89callback method improves12.774 to8.783s with identical complete bytes/schema; it grants no whole timing. One changed continuous prefix remains RED120.223s at modeled Overt, beyond real60call; next e has retained gesture intent but no publication/completed Parent attachment. All389 originals and319 child digests/248 record references are passively verified; watchdog interruption inside digest computation is not a mismatch or completed close. No unchanged retry. Full Overte prefix, unsupported Unicode, native compilation, Actor/stereo/whole/global retirement stay open. Catalog337 selects35 new bounded counters and2 explicit refusals without defaulting the REDwhole.",
       "nativeCompilation": "Selected complete NativeWebViewItem/JNI, both conditional sides of whole current-document/current-input TSI getters, actual exported single-owner factories/two hidden DSOs, original Java methods and WorldRayProvider/RayPick/renderer bodies compile and pass host checks. Entity/avatar/HMD and Android looper/WebView/DOM/editor are explicit seams. Whole APK/application and devices unverified. Original Consumption TSI sides, complete Keyboard/Application key and IME routing, Native/JNI trace and Java edit/post/input/gates/helpers now host-compile and pass. Controller trigger, EntityTree/HUD and Android scheduling/DOM remain explicit seams; dispatch supplies no DOM effect.",
       "deviceQualification": "untested"
     },

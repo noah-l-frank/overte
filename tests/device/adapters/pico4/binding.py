@@ -2817,6 +2817,53 @@ def create_adapter(args, base_class):
             return bind_current_ray(self,target,source,intent,stream_intent,before_publish,admission)
 
         @_private
+        def _world_current_keyboard_originals(self,target,*,source_lock,retain,capacity):
+            from adapters.pico4.world_current_keyboard import PicoWorldCurrentKeyboard,FILE
+            _need(callable(retain) and callable(capacity))
+            lock=self._script_journey()._lock(target,source_lock)
+            focus=self._world_current_input_originals(target,source_lock=lock)
+            focus.retain=focus.documents.retain=retain
+            focus.capacity=focus.documents.capacity=capacity
+            native=self._native_feature_observer(target)
+            _need(native.pid==focus.pid)
+            return PicoWorldCurrentKeyboard(focus,native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                retain,capacity)
+
+
+        @_private
+        def _world_current_gesture(self,target,*,source,intent,stream_intent,before_publish,admission,started,requested,key_id=None):
+            from adapters.pico4.world_current_gesture import bind_current_gesture
+            from adapters.pico4.world_current_input import PicoWorldCurrentInput
+            from adapters.pico4.world_current_keyboard import PicoWorldCurrentKeyboard
+            _need(type(source) in (PicoWorldCurrentInput,PicoWorldCurrentKeyboard)
+                and source.lock is self._script_journey()._lock(target,source.lock))
+            return bind_current_gesture(self,target,source,intent,stream_intent,before_publish,admission,
+                started=started,requested=requested,key_id=key_id)
+
+
+        @_private
+        def _world_current_consumption_originals(self,target,*,focus,retain,capacity):
+            from adapters.pico4.world_current_consumption import PicoWorldCurrentConsumption,FILE
+            from adapters.pico4.world_current_input import PicoWorldCurrentInput
+            _need(type(focus) is PicoWorldCurrentInput and callable(retain) and callable(capacity)
+                and focus.lock is self._script_journey()._lock(target,focus.lock))
+            native=self._native_feature_observer(target)
+            _need(native.pid==focus.pid)
+            return PicoWorldCurrentConsumption(focus,native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                retain,capacity=capacity)
+
+
+        @_private
+        def _world_current_owned_neutral(self,target,*,envelope):
+            identity=self.require_pico_session_identity(target);session=self.pico_input_session(target)
+            result=session.require_owned_neutral(identity,envelope)
+            _need(self.require_pico_session_identity(target)==identity)
+            return result
+
+
+        @_private
         def _world_browser_click(self,target,*,source_lock,intent,stream_intent,before_publish):
             from adapters.pico4.world_browser_ray import bind_world_click
             lock=self._script_journey()._lock(target,source_lock);lock.assert_held()

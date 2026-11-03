@@ -1502,6 +1502,18 @@
             } catch (_currentConsumptionError) {}
             Test.saveObject(currentConsumptionOriginal,"feature-world-current-consumption.json");return true;
         }
+        if (command && command.action === "pico-world-web" && command.operation === "observe-current-keyboard") {
+            var currentKeyboardOriginal={};
+            try {
+                if (typeof Test.featurePicoWorldCurrentKeyboard === "function") {
+                    var currentKeyboardPacket=Test.featurePicoWorldCurrentKeyboard(command);
+                    if (currentKeyboardPacket && currentKeyboardPacket.commandId === command.commandId) {
+                        currentKeyboardOriginal=currentKeyboardPacket;
+                    }
+                }
+            } catch (_currentKeyboardError) {}
+            Test.saveObject(currentKeyboardOriginal,"feature-world-current-keyboard.json");return true;
+        }
         if (command && command.action === "pico-world-web"
                 && (command.operation === "measure-current-ray" || command.operation === "observe-current-focus")) {
             var currentInputOriginal={};

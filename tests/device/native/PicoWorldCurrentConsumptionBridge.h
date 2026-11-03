@@ -45,6 +45,9 @@ struct PicoCurrentTraceScope {
 };
 Q_DECL_EXPORT PicoCurrentTraceScope picoCurrentTraceTrigger(QObject* keyboard,const QString& keyEntity,int keyType);
 Q_DECL_EXPORT PicoCurrentTraceScope picoCurrentTraceKeyboard(QObject* keyboard,QEvent* event,const QString& requestedEntity);
+// Passive existing recorder identity; null until this exact live QObject has
+// actually dispatched a traced key. Reading never creates/adopts a recorder.
+Q_DECL_EXPORT QString picoCurrentTraceKeyboardIdentity(QObject* keyboard);
 Q_DECL_EXPORT PicoCurrentTraceScope picoCurrentTraceApplication(QEvent* event,const QString& focused,QObject* handler,std::function<QString()> after);
 Q_DECL_EXPORT PicoCurrentTraceScope picoCurrentTraceNative(QObject* item,QEvent* event);
 // JNI types stay in their actual original NativeWebViewItem translation unit.

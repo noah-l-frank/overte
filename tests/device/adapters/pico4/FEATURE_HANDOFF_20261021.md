@@ -3576,3 +3576,24 @@ mock-Android regressions remain unchanged. All54 pass42.758s with54 loaded
 source hashes/eight-field signatures unchanged. No device or ADB server ran.
 The catalog contains332 disjoint groups. Navigation C/scene/whole integration
 and original namespace/host retirement remain open; source-complete stays3/14.
+
+
+## Same-Parent World keyboard sources selected on 2026-11-03
+
+The private [current keyboard component](WORLD_CURRENT_KEYBOARD.md) connects
+actual source-level key labels/layers/entity births/geometry to normal existing
+Session input and independent Document/Input/Trace press-release originals.
+Native implementation is uncompiled.52 bounded counters pass4.713s with221
+loaded/declared sources stable; two actual negative inputs pass7.175s/226stable.
+The original JavaScript dispatcher adds4 keyboard cases to its8 Trace cases.
+A callback-free storage window improves the actual89callback method31.2%, with
+identical complete files/schema; no whole speedup is inferred.
+
+The changed continuous prefix remains RED120.223s at modeled `Overt`; real60call
+already elapsed. The next `e` has a durable gesture intent but no publication,
+completed Parent attachment or close. All389 originals/319child digests/248record
+references remain verified passively. The watchdog interrupted digest computation;
+it did not demonstrate a mismatch. Full prefix/Unicode/Common/Actor/stereo,
+native/device qualification and global retirement remain open. Catalog337 adds
+35 disjoint counters and2 explicit refusals; the REDwhole stays opt-in.
+Source-complete stays3/14.

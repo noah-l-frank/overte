@@ -43,6 +43,7 @@
 #include "../../../tests/device/native/PicoWorldCurrentDocumentBridge.h"
 #include "../../../tests/device/native/PicoWorldCurrentInputBridge.h"
 #include "../../../tests/device/native/PicoWorldCurrentConsumptionBridge.h"
+#include "../../../tests/device/native/PicoWorldCurrentKeyboardBridge.h"
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include <ScriptManager.h>
 #include "../../../tests/device/native/PicoEmoteSceneFixture.h"
@@ -152,6 +153,7 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featurePicoCurrentQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featurePicoCurrentInputQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featurePicoCurrentConsumptionQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featurePicoCurrentKeyboardQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureEmoteSceneQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAssetsReadQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureWorldRetirementsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
@@ -1727,6 +1729,33 @@ QVariantMap TestScriptingInterface::featurePicoWorldCurrentConsumption(const QVa
     if(value.userType()!=qMetaTypeId<overte::e2e::PicoCurrentConsumptionProvider>())return {};
     const auto provider=value.value<overte::e2e::PicoCurrentConsumptionProvider>();
     auto result=provider ? provider(command,anchor) : QVariantMap();
+    return anchor->fresh() ? result : QVariantMap();
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::featurePicoWorldCurrentKeyboard(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    const auto anchor=overte::e2e::picoCurrentKeyboardAnchor(command);
+    if(!anchor || !anchor->fresh() || !_featurePicoCurrentKeyboardQueue)return {};
+    const auto queue=_featurePicoCurrentKeyboardQueue;
+    if(QThread::currentThread()!=thread()) {
+        const auto result=queue->read("dispatch",this,[command](QObject* original){
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoWorldCurrentKeyboard(command),{}};
+        }).values;
+        return anchor->fresh() ? result : QVariantMap();
+    }
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+        || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::previewDirectory(_testResultsLocation)
+        || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+        || !DependencyManager::isSet<Keyboard>() || !anchor->fresh())return {};
+    const auto keyboard=DependencyManager::get<Keyboard>();
+    if(!keyboard || keyboard->thread()!=thread())return {};
+    QPointer<Keyboard> original(keyboard.data());
+    const auto result=overte::e2e::picoObserveCurrentKeyboard(command,anchor,original.data(),[original]{
+        return original ? original->featureWorldCurrentObservation() : QVariantMap();
+    });
     return anchor->fresh() ? result : QVariantMap();
 #else
     Q_UNUSED(command);return {};

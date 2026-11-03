@@ -30,6 +30,9 @@
 
 class PointerEvent;
 class KeyEvent;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+class EntityItem;
+#endif
 
 
 class Key {
@@ -130,6 +133,7 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
     QVariantMap featureEntityOwnership() const;
     QVariantMap featureChatObservation();
+    QVariantMap featureWorldCurrentObservation();
 #endif
     QUuid getAnchorID();
 
@@ -146,6 +150,10 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
     const QUuid _featureChatInstance { QUuid::createUuid() };
     quint64 _featureChatSequence { 0 };
+    quint64 _featureWorldKeyboardSequence { 0 }, _featureWorldAcceptedSequence { 0 };
+    bool _featureWorldKeyboardOverrun { false };
+    QVariantMap _featureWorldAccepted;
+    QHash<QUuid,QPair<std::weak_ptr<EntityItem>,QString>> _featureWorldKeyBirths;
 #endif
     struct Anchor {
         QUuid entityID;

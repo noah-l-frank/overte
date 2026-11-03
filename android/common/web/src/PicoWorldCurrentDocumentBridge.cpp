@@ -3,8 +3,23 @@
 #include "../../../../tests/device/native/PicoWorldCurrentDocumentBridge.h"
 #include "../../../../tests/device/native/PicoWorldCurrentInputBridge.h"
 #include "../../../../tests/device/native/PicoWorldCurrentConsumptionBridge.h"
+#include "../../../../tests/device/native/PicoWorldCurrentKeyboardBridge.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QCoreApplication>
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
 namespace overte::e2e {
+PicoCurrentAnchor picoCurrentKeyboardAnchor(const QVariantMap& command) {
+    if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
+        || !picoWorldCurrentKeyboardCommand(command))return {};
+    struct Record{QByteArray command;PicoCurrentAnchor anchor;};
+    static QMutex mutex;static QHash<QString,Record> records;
+    QMutexLocker guard(&mutex);const auto id=command.value("commandId").toString();
+    const auto raw=QJsonDocument::fromVariant(command).toJson(QJsonDocument::Compact);
+    if(records.contains(id))return records[id].command==raw ? records[id].anchor : PicoCurrentAnchor();
+    if(records.size()>=4096)return {};
+    const auto anchor=std::make_shared<const PicoCurrentClock>();records.insert(id,{raw,anchor});return anchor;
+}
 PicoCurrentAnchor picoCurrentAnchor(const QVariantMap& command) {
     if(!picoWorldCurrentDocumentCommand(command))return {};
     struct Record{QByteArray command;PicoCurrentAnchor anchor;};
