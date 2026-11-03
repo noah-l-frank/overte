@@ -7,6 +7,7 @@ OS bridge and the already owned still PNG. Actor/scene/End remain required.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import time
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState,context
@@ -45,10 +46,31 @@ class SnapshotResumeRenderedReviewOwner(SnapshotCaptureReviewOwner):
         self.inventory()
 
     @classmethod
-    def archive(cls,*_args,**_kwargs):
-        # The parent OS-safe context remains mandatory for this new profile;
-        # the old Capture1 archive cannot relabel this new owner.
-        need(False)
+    def archive(cls,store,lock,binding,run,fixture_url,bundle,*,monotonic=time.monotonic):
+        """Reopen only the original completed OS/Page/PNG graph, without SDK."""
+        need(cls is SnapshotResumeRenderedReviewOwner and type(store) is PrivateFeatureState
+            and store.path.name=='ios-snapshot-resume-rendered-review-owner.json'
+            and lock.path==store.path.with_name('script-feature-sources.lock') and callable(monotonic))
+        lock.assert_held();binding=deepcopy(context(binding));identifier(run)
+        bridge=SnapshotResumeBackground.archive(PrivateFeatureState(store.path.with_name('ios-snapshot-resume-os-owner.json')),
+            lock,binding,run,fixture_url,bundle,monotonic=monotonic)
+        page=bridge.archive_page();capture=bridge.review().capture
+        def forbidden(*_args,**_kwargs):need(False)
+        class NoTransport:
+            call=staticmethod(forbidden)
+        images=SnapshotResumeReviewImages(PrivateFeatureState(store.path.with_name('ios-snapshot-resume-review-screens.json')),
+            store.path.parent,binding,run,'primary',1,NoTransport(),forbidden,lambda:lock.assert_held(),
+            source_lock=lock,monotonic=monotonic,historical=True)
+        owner=object.__new__(cls);owner.page,owner.capture,owner.images,owner.os_bridge=page,capture,images,bridge
+        owner.lock,owner.binding,owner.run,owner.store,owner.monotonic=lock,binding,run,store,monotonic
+        owner.historical=True;owner.previous=store.read();need(owner.previous is not None)
+        owner.state=owner.decode(owner.previous);need(owner.state['phase']=='complete')
+        owner.bound();owner.inventory();return owner
+
+    @operation
+    def proof(self):
+        need(same(self.state,self.decode(self.previous)))
+        return super().proof()
 
     def envelope(self,state):
         return dict(iosSnapshotResumeRenderedReviewOwnerVersion=1,binding=self.binding,runId=self.run,
@@ -107,6 +129,7 @@ class SnapshotResumeRenderedReviewOwner(SnapshotCaptureReviewOwner):
 
     @operation
     def acquire(self,ticket):
+        need(not self.historical)
         identifier(ticket);self.bound()
         if self.state['phase']=='complete':need(self.state['ticket']==ticket);return self.proof()
         need(self.page.state['ticket']==self.os_bridge.state['ticket']==ticket
@@ -130,7 +153,7 @@ class SnapshotResumeRenderedReviewOwner(SnapshotCaptureReviewOwner):
 
     def derived(self):
         result=super().derived()
-        bridge=self.os_bridge.act(self.state['ticket'])
+        bridge=self.os_bridge.proof() if self.historical else self.os_bridge.act(self.state['ticket'])
         need(bridge['originalOSBridgeRequired'] is False)
         os_page=self.os_bridge.archive_page();after_os=os_page.original(self.os_bridge.state['after'])
         before=self.page_original(self.state['before']);after=self.page_original(self.state['after'])

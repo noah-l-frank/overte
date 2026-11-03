@@ -132,3 +132,36 @@ Independent scene/camera and Actor evidence, the entire eighteen-step flow,
 destination/failure composition, repeated paired cleanup and final source/
 main/witness/SDK end still require integration. Compilation and devices remain
 unverified; the complete Snapshot capability remains closed.
+
+## Reopening the completed resume after live transport retirement
+
+`SnapshotResumeBackground.archive` and
+`SnapshotResumeRenderedReviewOwner.archive` reopen the completed original
+OS/Page/input/image graph using its actual held source lock and an independently
+admitted candidate bundle. They require completed journals and retain their
+original process, run, fixture, clocks, file bytes and inode identities. Neither
+reader constructs SDK/native/UI sources, acquires another observation, repeats
+Home/activation nor writes ownership files. Historical mutation APIs refuse
+before effects. Each proof checks its complete in-memory state against the saved
+decoder, then derives its result again from the original child graph. This is
+historical evidence; it provides no current foreground or freshness authority.
+
+Seven distinct connected cases passed across a positive selection (19.247
+seconds) and six counterexamples (101.260 seconds), retaining435 original files
+in14 actual temporary directories. They cover blocked live ports and writes,
+historical mutation attempts, foreign bundle/process/run/fixture bindings,
+same-byte replacement image inodes, changed in-memory OS/rendered state and a
+saved intermediate rendered journal. Actual standard cleanup, FD/thread/process
+drainage, all7931 source pins and two complete postprocess original censuses
+passed for both selections. These host models do not qualify SDK, native or
+physical execution, and no complete Snapshot capability is enabled.
+
+The source audit also found a concrete product boundary for the next scene/frame
+join: the Snapshot-operator consumption loop in
+`libraries/display-plugins/src/display-plugins/VulkanDisplayPlugin.cpp` remains
+inside its `VKTODO` block comment. The corresponding OpenGL loop invokes the
+actual callback. The separate Vulkan screenshot method and E2E world-frame
+readback do not establish execution of ordinary Snapshot capture. Adapter-only
+work must preserve this limitation rather than enable product behavior or
+substitute an instrumentation image. Exact captured scene/camera provenance,
+independent Actor agreement and the full flow/end composition remain open.

@@ -120,6 +120,13 @@ Native/SDK/UI/OS producers remain declared host models. Independent scene/Actor,
 the whole eighteen-step flow, destination/failure composition and paired final
 source/process/SDK retirement remain open; the complete capability stays closed.
 
+Seven additional original-only resume-history cases pass after live access is
+blocked. They rederive the completed OS/Page/input/PNG graph and reject changed
+state, foreign identity/inodes and unfinished journals. The source audit retains
+the commented Vulkan Snapshot-operator consumer as a concrete product limitation;
+an E2E world-frame image cannot stand in for normal capture. Snapshot remains
+partial, and five of fourteen feature areas remain source-complete.
+
 Actual Save/Share/Upload inputs also have a [closed row-token route](SNAPSHOT_EXPORT_CONTROLS.md)
 with real UIKit presentation gating and unchanged ordinary QML handlers. This
 does not provide independent destination bytes or a system permission recipe.

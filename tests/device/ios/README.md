@@ -433,3 +433,9 @@ a new WDA image of the same retained PNG. Unknown delivery is not repeated,
 and fixed pixel/clock checks remain. Independent scene/Actor, full destination
 composition and whole retirement are still required. Native instrumentation
 is uncompiled and devices are untested.
+
+The completed resumed Snapshot graph also has original-only historical readers.
+Seven connected host cases verify reconstruction after live access is blocked,
+full saved-state validation and refusal of foreign bindings/images or unfinished
+journals. The ordinary Vulkan Snapshot operator loop remains a documented
+product-source limitation; instrumentation readbacks cannot replace that flow.

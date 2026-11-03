@@ -8,6 +8,7 @@ not establish post-resume pixels, an independent Actor or whole-feature End.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import os
+import time
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState,context
@@ -23,6 +24,7 @@ from ios.adapters.snapshot_resume_page import SnapshotResumePage
 from ios.adapters.snapshot_resume_inputs import SnapshotResumeInputsPacket
 from ios.adapters.snapshot_resume_cursor import cursor
 from ios.adapters.tablet_web_admission import installed_forward
+from ios.adapters.bundle_identity import compare
 
 NAME='ios-snapshot-resume-os-owner.json'
 PHASES=('background-issued','background-observed','foreground-issued','foreground-observed','after-issued','complete')
@@ -36,6 +38,7 @@ class SnapshotResumeBackground:
             and lock.path==store.path.with_name('script-feature-sources.lock')
             and all(callable(f) for f in (page_factory,review_factory,packet_factory,epoch_ms,monotonic,sleep)))
         self.store,self.os,self.run,self.lock=store,os_context,identifier(run),lock
+        self.historical=False;self.bundle=deepcopy(os_context.gate.bundle)
         self.binding=deepcopy(context(os_context.binding))
         self.page_factory,self.review_factory,self.packet_factory=page_factory,review_factory,packet_factory
         self.epoch_ms,self.monotonic,self.sleep=epoch_ms,monotonic,sleep
@@ -43,13 +46,45 @@ class SnapshotResumeBackground:
         self.file_guard()
         if self.previous is not None:self.state=self.decode(self.previous)
 
+    @classmethod
+    def archive(cls,store,lock,binding,run,fixture_url,bundle,*,monotonic=time.monotonic):
+        """Original-only completed OS proof after live transport retirement.
+
+        The caller supplies the independently admitted candidate bundle. No
+        bundle/process/source observation is acquired from the saved state.
+        Existing OS originals are decoded against that bundle and binding.
+        """
+        need(cls is SnapshotResumeBackground and type(store) is PrivateFeatureState
+            and isinstance(lock,ScriptSourceLock) and store.path.name==NAME
+            and lock.path==store.path.with_name('script-feature-sources.lock') and callable(monotonic))
+        lock.assert_held();compare(bundle,bundle)
+        owner=object.__new__(cls);owner.store,owner.lock=store,lock
+        owner.binding,owner.run=deepcopy(context(binding)),identifier(run)
+        owner.historical=True;owner.os=None;owner.bundle=deepcopy(bundle);owner.monotonic=monotonic
+        def forbidden(*_args,**_kwargs):need(False)
+        owner.page_factory=owner.epoch_ms=owner.sleep=forbidden
+        def review():
+            return SnapshotCaptureReviewOwner.archive(PrivateFeatureState(store.path.with_name('ios-snapshot-rendered-review-owner.json')),
+                lock,binding,run,fixture_url,monotonic=monotonic)
+        def packet(page,index,*,historical):
+            need(historical is True and type(page) is SnapshotResumePage and page.historical
+                and page.lock is lock and same(page.binding,binding) and page.run==run)
+            cls=SnapshotResumeInputsPacket
+            state=PrivateFeatureState(store.path.with_name(cls._store_prefix+'-primary-'+cls._name+'-'+format(index,'04d')+'.json'))
+            return cls.history(state,lock,binding,run,'primary',index)
+        owner.review_factory,owner.packet_factory=review,packet
+        owner.previous=store.read();need(owner.previous is not None)
+        owner.state=owner.decode(owner.previous);owner.file_guard();need(owner.state['phase']=='complete')
+        return owner
+
     def envelope(self,state):
         return dict(iosSnapshotResumeOSOwnerVersion=1,binding=self.binding,runId=self.run,state=deepcopy(state))
 
     def file_guard(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous))
-        self.os.runtime.adapter._candidate_guard()
-        need(same(self.os.runtime.adapter.read_session(self.os.selector),self.os.session_state))
+        if not self.historical:
+            self.os.runtime.adapter._candidate_guard()
+            need(same(self.os.runtime.adapter.read_session(self.os.selector),self.os.session_state))
         return True
 
     def decode(self,value):
@@ -62,13 +97,13 @@ class SnapshotResumeBackground:
             and all(c in '0123456789abcdef' for c in state['reviewSha256'])
             and type(state['before']) is dict and integer(state['before']['index'],1,382)
             and type(state['inputs']) is int and state['inputs']==1 and type(state['cursor']) is dict)
-        os_original(state['osBefore'],self.binding,self.os.gate.bundle)
+        os_original(state['osBefore'],self.binding,self.bundle)
         need(state['osBefore']['process']['foreground'])
         previous=state['osBefore']
         for key,foreground in (('background',False),('foreground',True)):
             current=state[key]
             if current is not None:
-                os_original(current,self.binding,self.os.gate.bundle)
+                os_original(current,self.binding,self.bundle)
                 need(current['process']['foreground'] is foreground and same(current['source'],previous['source'])
                     and current['hostBefore']['epochMs']>=previous['hostAfter']['epochMs']
                     and current['hostBefore']['monotonic']>=previous['hostAfter']['monotonic'])
@@ -81,7 +116,7 @@ class SnapshotResumeBackground:
         return deepcopy(state)
 
     def save(self):
-        self.file_guard();value=self.envelope(self.state);self.decode(value)
+        need(not self.historical);self.file_guard();value=self.envelope(self.state);self.decode(value)
         self.store.write(value,self.previous);need(same(value,self.store.read()));self.previous=deepcopy(value)
 
     def archive_page(self):
@@ -142,9 +177,11 @@ class SnapshotResumeBackground:
                 need(path in expected)
 
     def status(self):
+        need(not self.historical)
         self.file_guard();value=self.os.status(self.epoch_ms,self.monotonic);self.file_guard();return value
 
     def wait(self,foreground):
+        need(not self.historical)
         started=self.monotonic()
         for attempt in range(51):
             status=self.status()
@@ -176,6 +213,7 @@ class SnapshotResumeBackground:
 
     @operation
     def act(self,ticket):
+        need(not self.historical)
         identifier(ticket);self.file_guard()
         if self.state is None:
             need(self.status()['process']['foreground']);review=self.review();proof=review.proof()
@@ -222,3 +260,11 @@ class SnapshotResumeBackground:
         need(self.state['phase']=='complete');page=self.archive_page();before=self.original_before(page,self.review())
         need(same(self.state['result'],self.completed(page,before,page.original(self.state['after']))))
         self.file_guard();return deepcopy(self.state['result'])
+
+    @operation
+    def proof(self):
+        self.file_guard();need(self.state is not None and self.state['phase']=='complete')
+        need(same(self.state,self.decode(self.previous)))
+        page=self.archive_page();before=self.original_before(page,self.review())
+        result=self.completed(page,before,page.original(self.state['after']))
+        need(same(result,self.state['result']));self.file_guard();return deepcopy(result)
