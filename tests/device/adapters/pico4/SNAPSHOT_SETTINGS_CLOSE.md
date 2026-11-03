@@ -181,3 +181,39 @@ original. Phone's UI/closure and initialized baseline cannot replace these. No
 lease is acquired retrospectively, no setter/reset is selected here, and the
 original thirteen-key/cache equality remains required. The source comparison
 adds no native compilation, changed result schema or complete Snapshot claim.
+
+
+## Animated duration is outside the existing thirteen-key scope
+
+A further current-source audit identifies another original state that complete
+Snapshot retirement must preserve. `SnapshotAnimated::captureFrames()` posts its
+frame callback to the original application thread and calls the actual static
+`Setting::Handle<float> snapshotAnimatedDuration.get()`. The Handle can therefore
+initialize during an ordinary GIF capture. `Interface::init()` registers that
+actual Handle and `Manager::loadSetting()` indexes `_settings[key]`; an absent
+key can acquire an invalid QVariant entry, and a present convertible value can
+be loaded through the native float Handle. Its cached value, initialized/set
+flags and original registration are separate from `_snapshotFormat`.
+
+Current passive SettingsOriginals1 deliberately captures its original fixed13
+keys and only the format Handle. It cannot prove original duration-key/cache
+equality. Unchanged13-key bytes and `formatCache` therefore remain scoped
+evidence; they must never qualify complete Snapshot settings restoration after
+GIF. This observation does not invalidate their existing explicit partial
+results or provide a new restore endpoint.
+
+The next complete pre-input scope must explicitly version and retain the
+actual duration raw presence/type/value and float-cache/default/initialization
+state, together with the original Manager/Handle registration. It must acquire
+those originals before its first normal input and any `.get()` initialization.
+Return requires the actual GUI-thread/capture/callback/upload closure, an exact
+current-state CAS, original writer/persistence responsibility and independent
+rereads. Neither ordinary `deinit()` nor retrospective lease acquisition is an
+inverse of the original uninitialized state.
+
+This extra duration key is also distinct from the newer Phone lease2's added
+`previousAnimatedSnapUrl`. Matching key counts cannot establish matching scope.
+The current Pico script has no write of that Phone URL key. Other declared
+Snapshot Handles are not added merely because they exist: the duration getter
+is an actual reachable normal GIF path. This is read-only source evidence; no
+Handle, product behavior, protocol, source version or Native binary changed.
