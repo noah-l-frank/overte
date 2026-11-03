@@ -1490,7 +1490,10 @@
         "tests/device/adapters/pico4/SNAPSHOT_SETTINGS_NORMAL_CLOSE.md",
         "android/vr/pico/tests/device/test_snapshot_settings_normal_close.py",
         "tests/device/self_tests/test_pico_snapshot_frame_acquisition.py",
-        "android/vr/pico/tests/device/test_snapshot_source_acquisition.py"
+        "android/vr/pico/tests/device/test_snapshot_source_acquisition.py",
+        "tests/device/adapters/pico4/snapshot_close_originals.py",
+        "tests/device/adapters/pico4/SNAPSHOT_CLOSE_STORAGE.md",
+        "android/vr/pico/tests/device/test_snapshot_close_originals.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1543,7 +1546,8 @@
       "nextExecutableStep": "Retain the historical whole120.118s timeout and complete raw settings restoration/OS chooser/independent receiver/upload/Actor/stereo/resource retirement. Closed-settings admission now verifies original receipts/parent/bookends and original query/Close ages after actual lock release and final candidate guard;11 affected cases pass with148 loaded source hashes unchanged. Delayed exit, baseline/checkpoint/bookend replacement and late final clock remain refused without replay. This component result does not qualify full Snapshot or justify an unchanged whole retry.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
-      "normalCloseComposition": "Current continuous pre-input lease/Cancel/Still/Save/offline+successful TLS Upload/Resume/return PNG/normal Mode+Format/Close/raw settings/3s quiet component passes1/99.130s under original120s,233 loaded sources stable. Original same Session/nonce/cursor retained. Strict passive Close source acquisition now avoids the open-only Upload effect predicate, which remains mandatory for ordinary Upload. Raw Settings/cache restoration, OS chooser/receiver, independent Actor/challenge pixels, whole Common16 and global retirement remain unqualified."
+      "normalCloseComposition": "Current continuous pre-input lease/Cancel/Still/Save/offline+successful TLS Upload/Resume/return PNG/normal Mode+Format/Close/raw settings/3s quiet component passes1/99.130s under original120s,233 loaded sources stable. Original same Session/nonce/cursor retained. Strict passive Close source acquisition now avoids the open-only Upload effect predicate, which remains mandatory for ordinary Upload. Raw Settings/cache restoration, OS chooser/receiver, independent Actor/challenge pixels, whole Common16 and global retirement remain unqualified.",
+      "closeOriginalStorage": "CloseOriginals2 retains complete unchanged acquired frames in one existing immutable part when pure preflight fits; explicit original-role fallback otherwise. No IO-error fallback or old1 migration. Eight storage cases0.590s and unchanged whole flow95.441s,234 loaded files stable. Complete measured namespace418 parts/441files/1,603,278storedB/4,922,886decodedB; original source/input IDs and clocks preserved, no global admission/cleanup claim."
     },
     {
       "area": "scripts",

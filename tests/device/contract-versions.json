@@ -416,7 +416,7 @@
     "pico-snapshot-os-source": {"current": 1, "reads": [1]},
     "pico-snapshot-close-owner": {"current": 2, "reads": [1, 2]},
     "pico-snapshot-close-statuses": {"current": 1, "reads": [1]},
-    "pico-snapshot-close-originals": {"current": 1, "reads": [1]},
+    "pico-snapshot-close-originals": {"current": 2, "reads": [1, 2]},
     "pico-snapshot-return-image": {"current": 1, "reads": [1]},
     "pico-snapshot-return-image-originals": {"current": 1, "reads": [1]},
     "pico-snapshot-background-owner": {"current": 1, "reads": [1]},

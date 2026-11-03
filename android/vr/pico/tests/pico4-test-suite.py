@@ -317,6 +317,7 @@ TESTS = (
         'AvatarFavoritesTests.test_foreign_preferences_before_scale_cannot_be_adopted_by_url_effect_proof',
         'AvatarFavoritesTests.test_nonempty_persisted_entity_size_refuses_even_with_empty_live_handles',
         'AvatarFavoritesTests.test_unowned_avatar_data_refuses_before_any_normal_favorite_input'),
+    test('snapshot-close-originals', "interaction", PYTHON, "device/test_snapshot_close_originals.py"),
     test('assets-prefix', "interaction", PYTHON, "device/test_assets_prefix.py"),
     test('assets-raw-archive', "interaction", PYTHON, "device/test_assets_raw_archive.py"),
     test('assets-upload-native', "interaction", PYTHON, "device/test_assets_upload_originals_native.py", requires=("c++", "pkg-config")),

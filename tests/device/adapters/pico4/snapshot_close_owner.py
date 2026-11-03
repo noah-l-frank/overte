@@ -11,7 +11,7 @@ from adapters.native_feature_observation import decode,exact,need,integer,number
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.pico4.snapshot_close_statuses import SnapshotCloseStatuses,LIMIT as STATUS_LIMIT
 from adapters.pico4.snapshot_return_image import PicoSnapshotReturnImage
-from adapters.pico4.snapshot_upload_originals import SnapshotUploadOriginals
+from adapters.pico4.snapshot_close_originals import SnapshotCloseOriginals
 from adapters.pico4.snapshot_upload_owner import sha,provider_phase,quiet_indices
 from adapters.pico4.snapshot_upload_frame import validate as frame_packet,clocks
 from adapters.pico4.snapshot_cancel_owner import PicoSnapshotCancelOwner
@@ -26,11 +26,6 @@ from openxr_input.controller_protocol import validate_envelope
 VERSION=2
 READS=(1,2)
 STAGES=('prepare-issued','prepared','restore-issued','restored','close-issued','closed','quiet-issued','partial-closed')
-
-
-class SnapshotCloseOriginals(SnapshotUploadOriginals):
-    VERSION_KEY='snapshotCloseOriginalsVersion'
-    VERBS=('close',)
 
 
 class PicoSnapshotCloseOwner:

@@ -67,6 +67,16 @@ The unchanged512-part/16MiB bounds and strict passive Prefix1/2 readers remain.
 The catalog contains311 disjoint groups; full29, backend/Actor/Model/stereo and
 global retirement are open. See [the Assets prefix](ASSETS_PREFIX_SOURCE.md).
 
+The selected [Close original storage2](SNAPSHOT_CLOSE_STORAGE.md) stores
+complete acquired frames losslessly in existing immutable chunks when pure
+preflight fits, otherwise explicit role originals. Existing1 containers continue
+as1. All eight storage cases pass0.590s and the unchanged continuous Snapshot
+flow passes95.441s within120s,234 loaded sources unchanged. Actual whole
+namespace falls from520 to418 immutable parts with identifier counts, normal
+input inventories, frame counts and original Close host-clock values preserved. No source file is deleted or
+clock renewed; full Common16/Actor/OS Share/raw settings/global retirement
+remain open. The catalog now contains312 disjoint groups.
+
 The selected Chat archive-v4/host-close, Avatar original preferences/Bookmarks
 and Snapshot export packets are integrated together. Eleven affected owning
 groups pass after correcting the shared original Avatar observer harness to

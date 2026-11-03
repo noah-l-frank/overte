@@ -425,7 +425,7 @@ REQUIRED = {
     "pico-snapshot-os-source": 1,
     "pico-snapshot-close-owner": 2,
     "pico-snapshot-close-statuses": 1,
-    "pico-snapshot-close-originals": 1,
+    "pico-snapshot-close-originals": 2,
     "pico-snapshot-return-image": 1,
     "pico-snapshot-return-image-originals": 1,
     "pico-snapshot-background-owner": 1,
