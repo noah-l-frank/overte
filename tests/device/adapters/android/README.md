@@ -75,3 +75,22 @@ can be added separately if the product defines one.
 The older `phone-device-test.sh` and Pico release-acceptance scripts remain
 packaging/release gates. Their runtime primitives are represented here without
 weakening their APK provenance and confirmation checks.
+
+### Exact binary input for bounded private protocols
+
+`AdbTransport.execute_bytes(..., input_bytes=None)` accepts optional exact `bytes`
+stdin and preserves literal stdout. Omitting the argument keeps the original
+subprocess invocation unchanged. Text, bytearray, memoryview and other input
+aliases refuse before starting a process. Existing timeout/error/check behavior
+is unchanged; actual partial binary stdout remains on the original
+`subprocess.TimeoutExpired` cause for a typed owner to retain before parsing.
+The caller still supplies its fixed operation, original deadline, byte limits,
+process/candidate guard and unknown-delivery policy. This primitive does not
+relax the generic16KB debug control-file limit.
+
+Five direct cases select Python as the explicit subprocess executable instead
+of ADB: exact51KB binary roundtrip, unchanged default output/call signature,
+invalid input before process creation, actual nonzero exits and actual timeout
+with partial binary stdout. They and17 existing SDK cases pass in the separate
+28-case owning scope (also six directory archive cases),1.154s/76 stable loaded
+sources. This qualifies host transport logic only; no server/device is used.

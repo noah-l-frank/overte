@@ -73,15 +73,18 @@ class AdbTransport:
         return "command"
 
     def execute_bytes(self, arguments: list[str], *, target: str | None = None,
-                      timeout: int = 20, check: bool = True) -> bytes:
+                      timeout: int = 20, check: bool = True,
+                      input_bytes: bytes | None = None) -> bytes:
         """Run one bounded ADB command without decoding binary target output."""
+        if input_bytes is not None and type(input_bytes) is not bytes:
+            raise RuntimeError("ADB binary input must be exact bytes")
         command = list(self.command)
         if target:
             command += ["-s", target]
         try:
             result = subprocess.run(
                 [*command, *arguments], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                timeout=timeout, check=False)
+                timeout=timeout, check=False, **({} if input_bytes is None else {"input": input_bytes}))
         except subprocess.TimeoutExpired as error:
             raise RuntimeError("ADB binary operation timed out") from error
         if check and result.returncode != 0:
