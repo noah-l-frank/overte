@@ -123,6 +123,12 @@ class OverteSession:
         except ValueError as error:
             raise InfrastructureError(str(error)) from error
 
+    def operation_host(self, artifacts):
+        """Opt into one bounded original Pico CLI for this explicit context."""
+        from adapter_client import operation_host
+        from module_support import MANIFEST, TARGET
+        return operation_host(MANIFEST, TARGET, artifacts)
+
     def feature_operation(self, area: str, kind: str, fields: dict) -> dict:
         """Use the versioned normal-feature seam without platform knowledge."""
         from feature_journeys.contract import operation_parts

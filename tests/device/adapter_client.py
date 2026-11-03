@@ -30,6 +30,10 @@ def load_command(manifest_path: Path) -> list[str]:
 
 def invoke(manifest: Path, target: str, operation: str,
            arguments: dict[str, object] | None = None) -> object:
+    scoped_module = sys.modules.get("adapter_operation_host")
+    scoped = None if scoped_module is None else scoped_module.ACTIVE.get()
+    if scoped is not None:
+        return scoped.invoke(manifest, target, operation, arguments)
     command = load_command(manifest)
     # Package/original-file transfers and native permission UI include bounded
     # device work and restoration. Keep the outer adapter deadline above that
@@ -63,6 +67,12 @@ def invoke(manifest: Path, target: str, operation: str,
         return json.loads(result.stdout)
     except json.JSONDecodeError as error:
         raise RuntimeError("adapter returned invalid JSON") from error
+
+
+def operation_host(manifest: Path, target: str, artifacts: Path):
+    """Explicit original Pico process scope; ordinary callers stay unchanged."""
+    from adapter_operation_host import scoped_host
+    return scoped_host(manifest, target, artifacts)
 
 
 def main() -> int:

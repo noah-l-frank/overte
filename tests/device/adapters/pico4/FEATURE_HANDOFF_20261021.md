@@ -83,6 +83,15 @@ All24 context cases and6 independent source cases pass0.492s/44.644s with
 124/206 loaded sources unchanged. The isolated host method improves; no whole
 Browser retry or qualification is inferred. Original120s failures remain.
 
+The explicit [Pico operation host](CREATE_OPERATION_HOST.md) now retains one
+actual original CLI/adapter through the existing Session/module seam. Root34
+cases pass10.732s, with52 Parent and15 actual Child sources stable; source
+program/pipe/OFD/raw/unknown-delivery and zero kernel exit guards remain. Two
+actual append-prefix counterexamples are corrected without raising limits.
+The new27-case catalog group is a transport prerequisite; same Create Parent/
+worker/input boundary/Common observation and public capability remain open.
+The catalog contains313 disjoint groups.
+
 The selected Chat archive-v4/host-close, Avatar original preferences/Bookmarks
 and Snapshot export packets are integrated together. Eleven affected owning
 groups pass after correcting the shared original Avatar observer harness to

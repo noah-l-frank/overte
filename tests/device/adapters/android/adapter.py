@@ -74,7 +74,7 @@ ANDROID_CONTROL_CONTRACT = {
 def cli(argv=None):
     parser = PrivateParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--kind", choices=tuple(PROFILES), required=True)
-    parser.add_argument("action", choices=("discover", "describe", "invoke", "cleanup"))
+    parser.add_argument("action", choices=("discover", "describe", "invoke", "cleanup", "operation-host"))
     parser.add_argument("--target")
     parser.add_argument("--operation")
     parser.add_argument("--arguments", default="{}")
@@ -1270,6 +1270,9 @@ class AndroidAdapter:
 
 def main(argv=None) -> int:
     args, binding = cli(argv)
+    if args.action == "operation-host":
+        from adapters.pico4.operation_host import serve
+        return serve(args, binding, AndroidAdapter, create_adapter, profiles=PROFILES)
     adapter = create_adapter(args, binding, AndroidAdapter, args.kind)
     if adapter.kind != args.kind or adapter.profile != PROFILES[args.kind]:
         fail("OVT_NATIVE_BINDING_PROFILE_REJECTED")
