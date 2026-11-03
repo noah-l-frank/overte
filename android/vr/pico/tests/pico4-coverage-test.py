@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 316
+EXPECTED_CATALOG_CASES = 319
 
 
 def catalog_entries() -> list[str]:
@@ -31,6 +31,24 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_remote_emote_wrappers_select_every_case_once_and_keep_legacy_separate(self):
+        root=TEST_DIR.parents[3]
+        tree=ast.parse((root/'tests/device/self_tests/test_pico_emote_capture.py').read_text())
+        classes={'PicoEmoteRemoteCaptureTests','PicoEmoteRemoteBindingTests'}
+        expected={'self_tests.test_pico_emote_capture.'+owner.name+'.'+method.name
+            for owner in tree.body if isinstance(owner,ast.ClassDef) and owner.name in classes
+            for method in owner.body if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')}
+        selected=[]
+        for module in ('test_emote_remote_capture','test_emote_remote_capacity','test_emote_remote_binding'):
+            wrapper=ast.parse((TEST_DIR/'device'/(module+'.py')).read_text())
+            value=next(node.value for node in wrapper.body if isinstance(node,ast.Assign)
+                and any(isinstance(target,ast.Name) and target.id=='CASE_NAMES' for target in node.targets))
+            selected.extend(ast.literal_eval(value))
+        self.assertEqual(17,len(expected));self.assertEqual(17,len(selected));self.assertEqual(expected,set(selected))
+        legacy=(TEST_DIR/'pico-emote-stereo-capture-test.py').read_text()
+        self.assertIn("'self_tests.test_pico_emote_capture.PicoEmoteCaptureTests'",legacy)
+        self.assertNotIn("'self_tests.test_pico_emote_capture'",legacy)
+
     def test_actor_storage_capacity_does_not_enter_default_bounded_groups(self):
         selected=[]
         for node in ast.walk(RUNNER_TREE):

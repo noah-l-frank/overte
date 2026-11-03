@@ -673,7 +673,12 @@
         "tests/device/adapters/pico4/emote_native_cycle.py",
         "tests/device/adapters/pico4/EMOTE_NATIVE_CYCLE.md",
         "tests/device/self_tests/test_pico_emote_native_cycle.py",
-        "android/vr/pico/tests/device/test_emote_native_cycle.py"
+        "android/vr/pico/tests/device/test_emote_native_cycle.py",
+        "tests/device/adapters/pico4/emote_remote_capture.py",
+        "tests/device/adapters/pico4/EMOTE_REMOTE_CAPTURE.md",
+        "android/vr/pico/tests/device/test_emote_remote_capture.py",
+        "android/vr/pico/tests/device/test_emote_remote_capacity.py",
+        "android/vr/pico/tests/device/test_emote_remote_binding.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -711,9 +716,10 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Extend the retained ordinary Open/Play/Cancel/Close native Parent to the whole Common16 action sequence and independent remote Avatar/Model/Rig stereo lane. New16 host cases pass52.654s with224 loaded source hashes unchanged; original120s Parent admission also guards inside OpenXR staging and Qt delivery. Lost results, ignored effects, cold state and timers retain intent; original neutral plus three-second work quiet do not retire product journals. Startup disables local self-avatar rendering; use actual remote subject/draw/camera originals without changing product flags. Whole peer/public/GPU/global ownership remains open.",
+      "nextExecutableStep": "Extend the same original NativeCycle and private remote route to true Common16/28 checkpoints with a genuine globally bounded source cursor/namespace lease, independent publisher/viewer quiet and full host/resource retirement. Current Source3 viewer32 observations cannot bracket all28 points; no namespace rotation or deadline renewal is allowed. Preserve local Capture1 and startup-disabled self-avatar render gate; Native/GPU/device fields remain unqualified where not compiled/run.",
       "nativeCompilation": "unverified",
-      "deviceQualification": "untested"
+      "deviceQualification": "untested",
+      "remoteNormalCycle": "Private Capture2 joins unchanged normal Open/Play/Cancel/Close+3s native quiet to primary1/viewer2 Source3 originals, actual typed Script-lock WorldRender route, both executed model eye draws and original PNG/memory/file retirement. Canonical3+legacy12 pass24.845s/274stable; Root remote13 pass77.028s/159stable, capacity1 pass3.364s/159stable. Current29 cases partitioned without duplicate local tests. No Viewer final work quiet, independent worker, malformed model literal archival, clip/pixel cause, whole28/global cursor or global cleanup qualification."
     },
     {
       "area": "world-web",

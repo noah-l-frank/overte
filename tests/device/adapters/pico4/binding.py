@@ -961,21 +961,52 @@ def create_adapter(args, base_class):
         @_private
         def _emote_world_render_capture(self, target, source):
             from adapters.pico4.emote_sources import PicoEmoteSources
+            from adapters.pico4.avatar_remote_source import PicoRemoteAvatarSource
+            from adapters.pico4.avatar_remote_state import source_store
             from adapters.pico4.graphics_binding import PicoGraphicsBinding,SerializedWorldCapture
             from adapters.world_render_receipts import NativeWorldReceiptInventory,NativeWorldReceiptBatchFiles,INVENTORY_FILE
-            _need(isinstance(source,PicoEmoteSources) and source.role in ('primary','actor')
-                and source.store.path==self._emote_source_store(target,source.role).path)
+            remote=type(source) is PicoRemoteAvatarSource
+            if remote:
+                _need(source.phase.area=='emotes' and source.phase.run==source.run and source.primary is not None
+                    and source.identity['picoRemoteAvatarSourceVersion']==3
+                    and source.store.path==source_store(self,target,source.run,area='emotes').path)
+                role='actor'
+            else:
+                _need(isinstance(source,PicoEmoteSources) and source.role in ('primary','actor')
+                    and source.store.path==self._emote_source_store(target,source.role).path)
+                role=source.role
             lock=self._script_journey()._lock(target,source.lock);lock.assert_held()
             _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
             _need(binding==source.binding and native.pid==source.pid)
-            role=source.role;facade=PicoGraphicsBinding(self)
+            facade=PicoGraphicsBinding(self)
             foreign=[self._emote_world_render_store(target,'actor' if role=='primary' else 'primary'),self._world_render_store(target)]
             foreign.extend(facade.world_render_store(target,role=value) for value in ('primary','actor'))
             foreign.extend(self._browser_world_render_store(target,value) for value in ('primary','actor'))
             foreign.extend(self._navigation_world_render_stores(target))
             def world_guard():
-                lock.assert_held();native.guard();_need(source.guard() is not False and all(store.read() is None for store in foreign));return True
+                lock.assert_held();native.guard()
+                if remote:
+                    # A failed source acquisition still owns its issued GPU
+                    # work. Retirement requires the exact original source,
+                    # candidate and files, without authorizing another read.
+                    from adapters.native_fd_owner import require_directory
+                    from adapters.script_journey.history import same
+                    source.file.guard();require_directory(source.file.parent,source.store.path.parent)
+                    source.chunks.verify();_need(same(source.store.read(),source.previous)
+                        and source.original_guard() is not False)
+                else:_need(source.guard() is not False)
+                _need(all(store.read() is None for store in foreign));return True
             owner=WorldRenderOwner(self._emote_world_render_store(target,role),binding,world_guard,role=role)
+            acquire_send=native.send
+            if remote:
+                original_intent=owner.intent
+                def admission():
+                    source.guard();_need(source.state['phase']=='ready' and source.state['pending'] is None)
+                def acquire_intent(command):
+                    admission();return original_intent(command)
+                def acquire_send(command):
+                    admission();return native.send(command)
+                owner.intent=acquire_intent
             files=AndroidWorldRenderReceipts(self.adb,target,'org.overte.pico',world_guard)
             options=dict(monotonic=native.monotonic,sleep=native.sleep)
             storage=NativeWorldRenderStorage(native.send,files.read,native.clock_ms,world_guard,native.pid,receipt_intent=owner.receipt_intent,**options)
@@ -983,7 +1014,7 @@ def create_adapter(args, base_class):
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
                 native.clock_ms,world_guard,native.pid,owner.owned,lambda:storage.instance,**options)
             receipts=NativeWorldReceiptBatchFiles(files,inventory)
-            capture=NativeWorldRenderCapture(native.send,
+            capture=NativeWorldRenderCapture(acquire_send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+WORLD_RENDER_FILE,attempts=1),
                 storage,native.clock_ms,world_guard,native.pid,intent=owner.intent,stereo=True,require_cameras=True,**options)
             return SerializedWorldCapture(capture,storage,owner,receipts,source_lock=lock)

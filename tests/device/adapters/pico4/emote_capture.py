@@ -134,10 +134,16 @@ class PicoEmoteCapture:
     def images(self,*,create=False):
         # Exact existing stereo Graphics byte engine; stage0 is local to this
         # separately indexed Emote directory, not a Graphics feature assertion.
-        root=self.root/('emote-images-'+self.run+'-'+self.role+'-'+str(self.index))
+        root=self.image_root()
         if create:
             PrivateFeatureState(self.root/'emote-image-boundary.json')._parent();root.mkdir(mode=0o700)
         return GraphicsOriginals(root,self.binding,self.run,self.role,0,self.guard,self.image_intent,monotonic=self.monotonic)
+
+    def image_root(self):
+        return self.root/('emote-images-'+self.run+'-'+self.role+'-'+str(self.index))
+
+    def validate_retirement(self,proof,owner):
+        return retirement(proof,owner,self.pid,self.binding,self.role)
 
     def owned(self):
         value=self.world();need(isinstance(value,SerializedWorldCapture) and value.source_lock is self.lock
@@ -157,7 +163,7 @@ class PicoEmoteCapture:
             packet=request(operation);self.remember('inventory',packet);return packet
         owned.receipts.cleanup.request=inventory;owned.receipts.retire();self.bound()
         proof=dict(memory=memory,files=deepcopy(owned.receipts.proof),owner=owner)
-        retirement(proof,owner,self.pid,self.binding,self.role);self.remember('retirement',proof)
+        self.validate_retirement(proof,owner);self.remember('retirement',proof)
         need(same(owned.owner.owned(),owner));owned.owner.store.discard(owner);need(owned.owner.store.read() is None);self.bound();return proof
 
     def frame(self):

@@ -102,6 +102,16 @@ Recipe parts;531 files remain retained. Passive unknown-index/boolean-cursor
 refusals are corrected. Digital evidence remains distinct from acoustic,
 public/full Common and final product cleanup. Catalog:316 disjoint groups.
 
+The private [remote Emote normal cycle](EMOTE_REMOTE_CAPTURE.md) now joins
+actual separate client Source3 originals to the canonical Script-lock viewer
+WorldRender route and existing PNG/receipt retirement. Normal Open/Play/Cancel/
+Close plus original3s quiet is source-qualified as a component, with whole
+clip/Actor/pixel/global obligations false. Local Capture1 stays default. All29
+cases pass in independent groups; Root remote13/77.028s and capacity1/3.364s
+fit default120s separately, canonical3+legacy12 pass24.845s. The manual14-case
+141.584s aggregate is explicitly not one journey. Catalog:319 groups, with an
+exact-once partition check. Source-complete feature areas remain3/14.
+
 The selected Chat archive-v4/host-close, Avatar original preferences/Bookmarks
 and Snapshot export packets are integrated together. Eleven affected owning
 groups pass after correcting the shared original Avatar observer harness to
