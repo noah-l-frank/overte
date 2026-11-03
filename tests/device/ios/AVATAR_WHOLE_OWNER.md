@@ -269,3 +269,21 @@ Dense historical validation currently consumes substantial host CPU time;
 real 1.5-second observation returns and 25-second whole API calls remain an
 explicit qualification gap. No deadline is enlarged, renewed or satisfied by
 retiming a retained native or host original.
+
+Preparation can now resume a genuinely saved own initial image while the other
+role is still preparing. It independently reopens that original and its bound
+session/phase metadata, then makes one paired initial-barrier check. Missing
+peer preparation returns typed pending to the existing caller/Actor retry loop;
+it does not rebuild completed login/session owners or hold locks while sleeping.
+The paired CAS and both original image validators remain unchanged. Marker
+inputs retain normal current admission, and successful preparation still checks
+both current SDK bindings before returning.
+
+Three original Runtime/file/lock host cases pass: pending resumes without new
+Source/login/initialization work; a subsequently acquired peer initial completes
+the original bilateral references without duplicate input; foreign initial and
+abort metadata refuse before transport. Original files and process/stream
+cleanup are retained and verified. The preceding real-clock normal attempt
+still failed its 25-second preparation budget. The next changed normal run has
+not been started; these three cases do not establish that budget or full Avatar
+completion. All original API and image freshness limits remain unchanged.

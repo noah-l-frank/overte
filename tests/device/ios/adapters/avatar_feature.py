@@ -503,9 +503,29 @@ class IOSAvatarFeature:
             from ios.adapters.avatar_initial_barrier import bilateral
             return bilateral(self)
 
+    def initial_saved(self):
+        # Resume the original pre-marker stage without rebuilding accounts or
+        # session/native owners while the independent role is still preparing.
+        # These are historical originals only. Marker work retains its normal
+        # current admission; successful prepare still freshly checks both SDKs.
+        with self.held():
+            self.load()
+            abort=PrivateFeatureState(self.store.path.with_name('ios-avatar-'+self.role+'-'+self.run+'-abort.json'))
+            need(abort.read() is None)
+            if self.state is None or self.state['phase']!='preparing' or self.state['initial'] is None:return False
+            need(self.state['sessions'] is not None and self.state['sessions']['phase']=='bound')
+            current=self.phase.read()
+            need(current['verb']=='baseline' and current['status']['instance']==self.state['phaseInstance']
+                and current['ticket']==self.state['initialTicket'])
+            self.initial_original();return True
+
     def prepare(self,*,components=True):
         need(type(components) is bool)
-        if self.initial_admitted():
+        admitted=self.initial_admitted()
+        if not admitted and self.initial_saved():
+            self.wait_peer_initial()
+            admitted=True
+        if admitted:
             if self.primary_control is not None:self.primary_control.admit()
             current=self.phase.read();need(current['status']['instance']==self.state['phaseInstance'])
             if self.state['phase']=='preparing':need(current['verb']=='baseline')
@@ -592,32 +612,30 @@ class IOSAvatarFeature:
 
     def wait_peer_initial(self):
         other='actor' if self.role=='primary' else 'primary';path=self.runtime.state_path(self.selectors[other]).with_name('ios-avatar-'+other+'-feature.json')
-        for _ in range(251):
-            if self.initial_admitted():return
-            with self.held(paired=True):
-                self.load();self.initial_original();saved=self.state['initialBarrier']
-                # A saved barrier is never rebased, but the opposite CAS
-                # must resume from its actual current metadata prefix.
-                raw=PrivateFeatureState(path).read()
-                if raw is not None:
-                    peer=IOSAvatarFeature.archive(self.runtime,raw,self.client,self.locks)
-                    need(same(peer.state['bindings'],self.state['bindings']) and peer.state['phaseInstance']==self.state['phaseInstance']
-                        and peer.state['initialTicket']==self.state['initialTicket'])
-                    if peer.state['initial'] is not None:
-                        peer.initial_original()
-                        event=dict(subject=other,reference=deepcopy(peer.state['initial']['reference']))
-                        if saved is None:
-                            event['owner']=self.keep(raw);self.state['initialBarrier']=event;self.save()
-                        else:
-                            need(saved['subject']==other and saved['reference']==event['reference'])
-                            from ios.adapters.avatar_initial_barrier import original
-                            need(same(original(self),peer.initial_original()))
-                        # Publish only the actual opposite initial reference;
-                        # both original images are already validated here.
-                        from ios.adapters.avatar_initial_barrier import publish_peer
-                        publish_peer(self,peer)
-                        return
-            self.sleep(.1)
+        if self.initial_admitted():return
+        with self.held(paired=True):
+            self.load();self.initial_original();saved=self.state['initialBarrier']
+            # A saved barrier is never rebased, but the opposite CAS
+            # must resume from its actual current metadata prefix.
+            raw=PrivateFeatureState(path).read()
+            if raw is not None:
+                peer=IOSAvatarFeature.archive(self.runtime,raw,self.client,self.locks)
+                need(same(peer.state['bindings'],self.state['bindings']) and peer.state['phaseInstance']==self.state['phaseInstance']
+                    and peer.state['initialTicket']==self.state['initialTicket'])
+                if peer.state['initial'] is not None:
+                    peer.initial_original()
+                    event=dict(subject=other,reference=deepcopy(peer.state['initial']['reference']))
+                    if saved is None:
+                        event['owner']=self.keep(raw);self.state['initialBarrier']=event;self.save()
+                    else:
+                        need(saved['subject']==other and saved['reference']==event['reference'])
+                        from ios.adapters.avatar_initial_barrier import original
+                        need(same(original(self),peer.initial_original()))
+                    # Publish only the actual opposite initial reference;
+                    # both original images are already validated here.
+                    from ios.adapters.avatar_initial_barrier import publish_peer
+                    publish_peer(self,peer)
+                    return
         raise AvatarFeaturePending('Both untouched initial render originals must precede either ordinary marker camera change')
 
     def peer(self):
