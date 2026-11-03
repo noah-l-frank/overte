@@ -52,6 +52,7 @@ class Model(prefix.Model):
     def __init__(self,root):
         super().__init__(root);self.shown=True;self.root_dead=False;self.ignore_arrival=False
         self.retain_root=False;self.controller_calls=[];self.lose_close=False;self.owner_test=None
+        self.selected_type='string'
     def raw(self):
         value=super().raw();value.update(open=self.shown,ready=self.shown)
         if self.loaded_row is not None:
@@ -69,7 +70,10 @@ class Model(prefix.Model):
         super().source_send(request);value=self.packet;value['navigationEnvironmentVersion']=2
         value['accountServer']=self.effective
         value['settings']=dict(navigationSettingsEntriesVersion=1,instance='a'*32,capturedEpochMs=self.epoch(),selectedPresent=self.present,
-            selectedType='url' if self.present else 'absent',rawSettingsSha256='c'*64,otherSettingsSha256=self.other,handlesAbsent=True)
+            selectedType=self.selected_type if self.present else 'absent',
+            rawSettingsSha256=sha(json.dumps(dict(present=self.present,value=self.selected if self.present else None,
+                type=self.selected_type if self.present else 'absent',other=self.other),sort_keys=True,separators=(',',':'))),
+            otherSettingsSha256=self.other,handlesAbsent=True)
         value['ui'].update(open=self.shown,ready=self.shown)
     def source_read(self,request):
         directory.Model.source_read(self,request);value=self.source_packet;value['processId']=prefix.PID

@@ -16,11 +16,13 @@ from adapters.native_feature_observation import exact, integer, need, number
 from adapters.native_navigation_environment import endpoint, validate, continuation, logged_out
 from adapters.normal_feature_state import PrivateFeatureState, context
 from adapters.normal_ui import NativeUIError
+from adapters.script_journey.history import same
 from adapters.token_login_ui import validate_metadata
 from adapters.token_create_ui import scope, nonce
 from adapters.pico4.tablet_home import PicoTabletHome,validate as home_packet,validate_input as home_input
 
 VERSION = 2
+RESTORATION_VERSION = 3
 FIELDS={'navigationOriginVersion','runId','binding','original','last','ownedServer','operation','queries'}
 OP_FIELDS={'ticket','restoring','stage','pending','quiet'}
 
@@ -30,13 +32,21 @@ def sha(text):
 
 
 class NavigationOrigin:
-    def __init__(self, io, native, path, run, binding, guard, *, home=None,monotonic=time.monotonic, sleep=time.sleep):
+    def __init__(self, io, native, path, run, binding, guard, *, home=None,monotonic=time.monotonic, sleep=time.sleep,restoration_authority=None):
         need(all(callable(f) for f in (guard, monotonic, sleep)) and type(run) is str and re.fullmatch('[0-9a-f]{32}', run))
         context(binding);need(native.pid == int(binding['processIdentity'].split(':', 1)[0]))
         self.io, self.native, self.run, self.binding, self.guard = io, native, run, deepcopy(binding), guard
+        if restoration_authority is not None:
+            from adapters.pico4.navigation_origin_restart import NavigationOriginRestart
+            need(isinstance(restoration_authority,NavigationOriginRestart))
+        self.restoration_authority=restoration_authority
         need(home is None or isinstance(home,PicoTabletHome) and home.source.pid==native.pid);self.home=home
         self.monotonic, self.sleep = monotonic, sleep;self.clock = self.deadline = None
         self.store = PrivateFeatureState(path);self.disk_state = self.store.read()
+        self.physical=None
+        if self.restoration_authority is not None:
+            from adapters.pico4.navigation_originals import read_original
+            self.physical=read_original(self.store.path)
         self.state = self.decode_state(self.disk_state) if self.disk_state is not None else None
         if self.state is not None:
             self.validate_state(self.state)
@@ -54,9 +64,14 @@ class NavigationOrigin:
         need(packet['ui']['bridgeId'] == self.binding['sessionId'] and not packet['environmentOverride'])
 
     def validate_state(self, value):
-        exact(value,FIELDS|{'homeMode'})
-        need(type(value['navigationOriginVersion']) is int and value['navigationOriginVersion'] == VERSION
+        version=value.get('navigationOriginVersion');restoring=version==RESTORATION_VERSION
+        exact(value,FIELDS|{'homeMode'}|({'restartRestoration'} if restoring else set()))
+        need(type(version) is int and version in (VERSION,RESTORATION_VERSION)
+             and (self.restoration_authority is not None)==restoring
              and value['runId'] == self.run and value['binding'] == self.binding and value['homeMode'] in ('qml','ray'))
+        if restoring:
+            self.restoration_authority.validate(value['restartRestoration'],self)
+            need(value['operation']['restoring'] is True)
         endpoint(value['ownedServer']);need(not urlsplit(value['ownedServer']).path)
         self.archive(value['original']);self.archive(value['last'])
         if value['original'] != value['last']:
@@ -67,8 +82,8 @@ class NavigationOrigin:
              and value['original']['ui']['serverDraftSha256'] == sha(value['original']['selectedServer'])
              and value['last']['otherSettingsSha256'] == value['original']['otherSettingsSha256']
              and value['last']['selectedSettingPresent']
-             and value['last']['selectedServer'] in (value['original']['selectedServer'], value['ownedServer'])
-             and value['last']['effectiveServer'] in (value['original']['selectedServer'], value['ownedServer'])
+             and value['last']['selectedServer'] in (value['original']['selectedServer'], value['ownedServer'],self.original_server(value))
+             and value['last']['effectiveServer'] in (value['original']['selectedServer'], value['ownedServer'],self.original_server(value))
              and type(value['queries']) is list and 1 <= len(value['queries']) <= 256
              and all(type(v) is str and re.fullmatch('[0-9a-f]{32}', v) for v in value['queries'])
              and len(set(value['queries'])) == len(value['queries'])
@@ -119,7 +134,8 @@ class NavigationOrigin:
 
     def packet_store(self, digest):
         need(type(digest) is str and re.fullmatch('[0-9a-f]{64}', digest))
-        return PrivateFeatureState(self.store.path.parent / ('navigation-' + self.run + '-environment-' + digest + '.json'))
+        prefix='navigation-'+self.run if self.restoration_authority is None else self.store.path.stem
+        return PrivateFeatureState(self.store.path.parent / (prefix+'-environment-'+digest+'.json'))
 
     def archive_packet(self, packet):
         digest = self.packet_digest(packet);archive = self.packet_store(digest);original = archive.read()
@@ -145,9 +161,10 @@ class NavigationOrigin:
         return result
 
     def decode_state(self, value):
-        version=value.get('navigationOriginVersion');need(type(version) is int and version in (1,2))
-        exact(value,FIELDS|({'homeMode'} if version==2 else set()))
-        exact(value['operation'],OP_FIELDS|({'homeBefore','homeAfter'} if version==2 else set()))
+        version=value.get('navigationOriginVersion');need(type(version) is int and version in (1,2,RESTORATION_VERSION))
+        exact(value,FIELDS|({'homeMode'} if version in (2,RESTORATION_VERSION) else set())
+            |({'restartRestoration'} if version==RESTORATION_VERSION else set()))
+        exact(value['operation'],OP_FIELDS|({'homeBefore','homeAfter'} if version in (2,RESTORATION_VERSION) else set()))
         value=deepcopy(value)
         if version==1:
             value.update(navigationOriginVersion=VERSION,homeMode='qml');value['operation'].update(homeBefore=None,homeAfter=None)
@@ -155,8 +172,18 @@ class NavigationOrigin:
         return self.map_packets(value, self.original_packet)
 
     def save(self, value):
+        self.require_physical()
         self.validate_state(value);encoded = self.map_packets(value, self.archive_packet)
+        self.require_physical()
         self.store.write(encoded, self.disk_state);self.disk_state = deepcopy(encoded);self.state = deepcopy(value)
+        if self.restoration_authority is not None:
+            from adapters.pico4.navigation_originals import read_original
+            self.physical=read_original(self.store.path)
+
+    def require_physical(self):
+        if self.restoration_authority is not None:
+            from adapters.pico4.navigation_originals import read_original
+            need(self.physical is not None and same(read_original(self.store.path),self.physical))
 
     def sample(self):
         self.now();ui = self.io.capture();packet = self.native.read(self.run);self.now();self.archive(packet)
@@ -172,7 +199,29 @@ class NavigationOrigin:
 
     def desired(self, value=None):
         value = self.state if value is None else value
-        return value['original']['selectedServer'] if value['operation']['restoring'] else value['ownedServer']
+        return self.original_server(value) if value['operation']['restoring'] else value['ownedServer']
+
+    def original_server(self,value):
+        if value['navigationOriginVersion']==RESTORATION_VERSION:
+            need(self.restoration_authority is not None)
+            return self.restoration_authority.target(value['restartRestoration'])
+        return value['original']['selectedServer']
+
+    def seed_restoration(self,ticket,owned_server,reference):
+        """Only a proven transfer may start an already owned G1 restoration.
+
+        The baseline is sampled from this actual G1 Login page. Its native
+        PID/bridge/clock are never copied from the historical restore target.
+        """
+        need(self.restoration_authority is not None and self.state is None and self.deadline is None)
+        endpoint(owned_server);need(not urlsplit(owned_server).path and re.fullmatch('[0-9a-f]{32}',ticket))
+        _,first=self.sample();self.restoration_authority.baseline(reference,first,self)
+        need(first['navigationEnvironmentVersion']==2 and first['settings']['selectedType']=='string'
+            and first['selectedSettingPresent'] and first['selectedServer']==first['effectiveServer']==owned_server
+            and first['ui']['passwordEmpty'] is True and first['ui']['serverDraftSha256']==sha(owned_server))
+        self.save(dict(navigationOriginVersion=RESTORATION_VERSION,homeMode='ray',runId=self.run,binding=self.binding,
+            original=first,last=first,ownedServer=owned_server,queries=[first['commandId']],restartRestoration=deepcopy(reference),
+            operation=dict(ticket=ticket,restoring=True,stage=0,pending=None,quiet=[],homeBefore=None,homeAfter=None)))
 
     def final(self, packet, value=None):
         value = self.state if value is None else value
@@ -257,6 +306,9 @@ class NavigationOrigin:
             need(first['selectedSettingPresent'] and first['selectedServer'] == first['effectiveServer']
                  and first['account']['observation']['endpointSha256'] == sha(first['selectedServer'])
                  and first['ui']['passwordEmpty'] is True and first['ui']['serverDraftSha256'] == sha(first['selectedServer']))
+            # The original normal QML field stores a QString. It cannot restore
+            # an originally absent setting or preserve a QUrl QVariant type.
+            if first['navigationEnvironmentVersion']==2:need(first['settings']['selectedType']=='string')
             self.save(dict(navigationOriginVersion=VERSION,homeMode='qml' if self.home is None else 'ray', runId=self.run, binding=self.binding, original=first, last=first,
                 ownedServer=owned_server, queries=[first['commandId']],
                 operation=dict(ticket=ticket, restoring=False, stage=0, pending=None, quiet=[],homeBefore=None,homeAfter=None)))

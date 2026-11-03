@@ -45,7 +45,7 @@ and19 legacy Parent cases. Its new production main/factory/CLI5 Model route
 passes8/52.761s, with11 legacy source cases40.218s and12 observer cases0.043s.
 An actual persistent Parent must own the child process; the persistent RPC/
 Jenkins launcher and complete common/GPU/stereo/archive remain open.
-The central catalog contains303 disjoint groups, including the new Create
+The central catalog contains306 disjoint groups, including the new Create
 peer source group, four Avatar/Audio/Lifecycle groups, two G1 frame groups and
 the fast Actor storage group. The standalone capacity diagnostic stays outside
 default120s groups. Browser namespace and complete physical archive checks pass21 affected cases; previous complete
@@ -3391,3 +3391,20 @@ The terminal Lifecycle capacity receipt preserves the earlier stage1 proof and
 adds its current stage2 bill:243 main parts,256 live-part peak,5040488 decoded
 logical bytes and2013957 stored bytes. No cap, source or quiet window changes;
 all original Lifecycle handles are terminal.
+
+
+## Normal G1 directory restoration selected on 2026-11-03
+
+[Typed restart authority and normal restoration](NAVIGATION_RESTORATION_JOIN.md)
+extend the existing fifteen-action graph through normal G1 Open/Login field
+Return/Home/Close and original three-second quiet. Original QString selection,
+raw Settings hash, grounded pose and unrelated maturity preferences restore
+without private setters. Explicit Origin3 separates the historical old restore
+target from a fresh actual G1 baseline; default writer2/readers1/2 stay intact.
+Eight owning cases plus one selector check run in three disjoint groups:
+4/92.057s,1/91.912s,4/105.826s under original120s. All198/197/197 loaded source
+hashes/physical signatures remain unchanged; all22 directories/783 original
+files survive actual fixture cleanup and terminal audit. Earlier G0 retention
+failures remain incomplete evidence. Exact owned processes are absent. Changed
+A/B scenes, independent Actor, full coordinator and final resource/Host
+retirement stay open; complete source areas remain3/14.

@@ -27,9 +27,10 @@ VERSION=1
 
 class NavigationGenerationFlow:
     """One continuation of the same recipe, with no original-file migration."""
-    def __init__(self,continuation,runtime_factory,open_factory,close_factory,bookmark_factory,*,frames_factory=None):
+    def __init__(self,continuation,runtime_factory,open_factory,close_factory,bookmark_factory,*,frames_factory=None,restoration_factory=None):
         need(all(callable(fn) for fn in (runtime_factory,open_factory,close_factory,bookmark_factory)))
         need(frames_factory is None or callable(frames_factory));self.frames_factory=frames_factory
+        need(restoration_factory is None or callable(restoration_factory));self.restoration_factory=restoration_factory;self.restoration_owner=None
         self.previous=continuation;self.parent=continuation.prefix;self.lock=self.parent.lock
         self.run=self.parent.run;self.restart=continuation.restart()
         need(self.restart.state is not None and self.restart.state['phase']=='observed'
@@ -357,6 +358,14 @@ class NavigationGenerationFlow:
         need(self.frames_factory is not None)
         root=self.lock.path.with_name('navigation-prefix-generation-1-'+self.parent.role+'-images')
         return NavigationGenerationFrames(self,self.frames_factory,root).read(after_sequence)
+
+    def restore(self,call):
+        from adapters.pico4.navigation_generation_restoration import NavigationGenerationRestoration
+        need(self.lock._owner is None and callable(self.restoration_factory) and self.parent.role=='primary')
+        with self.lock.held():
+            if self.restoration_owner is None:self.restoration_owner=self.restoration_factory(self)
+            need(isinstance(self.restoration_owner,NavigationGenerationRestoration) and self.restoration_owner.flow is self)
+        return self.restoration_owner.restore(call)
 
     def pin_current(self,runtime):
         paths=[self.store.path,runtime['source'].normal.io.original.navigation.path]
