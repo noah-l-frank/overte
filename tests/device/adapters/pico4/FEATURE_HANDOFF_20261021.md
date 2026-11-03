@@ -3380,6 +3380,14 @@ Explicit staging2 reads1/2; outer snapshot1/group2/publication1 remain unchanged
 World4+storage17 pass89.538s; current defaultActor31 passes92.922s under120.
 The currentWorld4+oldCommon3 manual aggregate7 passes157.139s, across disjoint
 selectors. Historical stage1/81 remains passively readable0.958s. Current-stage2
-extended81 is still running at selection and is not claimed passed or placed
-in a default group. Required image3, whole16/G1, Parent-host-death archival,
+extended81 subsequently passes312.959s with45 scoped source hashes/physical
+identities unchanged. All486 Actor originals and1215stage parts+81roots are
+accounted, followed by original worker exit0/absence. It remains separate
+from default groups and proves baseline/Create/type capacity only. Required image3, whole16/G1, Parent-host-death archival,
 independent stereo, typed return and full final retirement remain incomplete.
+
+
+The terminal Lifecycle capacity receipt preserves the earlier stage1 proof and
+adds its current stage2 bill:243 main parts,256 live-part peak,5040488 decoded
+logical bytes and2013957 stored bytes. No cap, source or quiet window changes;
+all original Lifecycle handles are terminal.

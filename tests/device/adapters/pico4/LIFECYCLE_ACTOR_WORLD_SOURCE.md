@@ -118,8 +118,27 @@ all9 factory cases pass34.847s and the complete default31 rerun passes. Every
 real factory guard remains intact. The real same-session readonly counter
 verifies no session data or input is rewritten by profile acquisition.
 
-The current stage2 extended81 diagnostic is still pending in its own original
-handle. It is outside the central default catalog and changes no default,
-source, quiet-window or Common bound. A later confirmation of current World4
-and prior Common3 source cases is also running; neither pending result is
-counted as passing evidence here.
+The later current World4 and prior Common3 source confirmation is GREEN7/157.139s
+with44 scoped source hashes/stamps unchanged. This is a manual aggregate of
+disjoint selectors, not a single120s selector. Its current positive has the
+same12 Actor groups/72 independent queries,118 Primary queries, one full
+130456-byte ownership-history decode and939-byte SDK profile. The current raw
+ownership file is9414 bytes; Actor decoded source bytes are538465, with peak
+976157 decoded logical bytes and333371 stored bytes. The actual worker exits0
+and its original absence passes. Retained confirmation:
+`~/.local/state/overte-pico-lifecycle-world3-final-20261103-y6t8zyj7/`.
+
+The current stage2 standalone81 diagnostic is GREEN1/312.959s with45 scoped
+source hashes/stamps unchanged. It is outside the central default catalog and
+changes no default, source, quiet-window or Common bound. It exercises81 actual
+fresh source groups under baseline/Create/type, reconstructs486 Actor originals
+and separately counts6 legitimate Primary queries. It retires1215 actual stage
+parts and81 original stage roots, then observes worker exit0 and original kernel
+absence. It does not claim81 World-phase observations or full16-step effects.
+The complete current bill is appended to
+[the storage record](LIFECYCLE_ACTOR_STORAGE_V2.md). Retained original handle:
+`~/.local/state/overte-pico-lifecycle-stage2-capacity-20261103-354yw1t0/`.
+
+All original Lifecycle handles above are terminal. Actor31, World4, prior Common3,
+fast storage17 and the standalone extended81 remain separate test selections;
+no new600s default selector or widened native/source limit is introduced.

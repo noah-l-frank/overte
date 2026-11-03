@@ -165,6 +165,47 @@ and eight-field physical stamps stayed unchanged. Its JUnit, source manifests
 and result are retained in
 `~/.local/state/overte-pico-lifecycle-default-selector-20261103-r9io26l0/`.
 
+## Current staging2 confirmation
+
+The subsequent [World3 source packet](LIFECYCLE_ACTOR_WORLD_SOURCE.md) explicitly
+versions staging2 for complete nested ownership-history accounting, while keeping
+source2, outer snapshot1 and immutable source group2. Historical staging1 remains
+readable; its earlier measured proof above stays historical. Missing nested
+accounting means zero only for historical staging1, never staging2.
+
+Current staging2 also completes the standalone81-group raw-storage diagnostic:
+GREEN1/312.959s with45 scoped source SHA256 and eight-field physical stamps
+unchanged. All81 fresh groups are actual baseline/Create/type acquisitions,
+with486 Actor queries plus6 separate normal-owner queries,823969 complete raw
+native-source bytes,1215 actual stage-child retirements and81 actual stage-root
+retirements. The actual worker returns0 and its original kernel absence passes.
+There are no active original handles or pending capacity result.
+
+| Current staging2 actual bill | Value |
+| --- | ---: |
+| Main parts / files |243 /244 |
+| Main root / stored bytes |44860 /2001472 |
+| Live peak parts / files |256 /258 |
+| Container raw / decoded logical peak bytes |1859599 /5040488 |
+| Actual stored / metadata-reserved peak bytes |2013957 /2162826 |
+| Largest original root/part bytes |45212 |
+| Complete private namespace files / bytes |250 /2011866 |
+
+Retained current original evidence is
+`~/.local/state/overte-pico-lifecycle-stage2-capacity-20261103-354yw1t0/`.
+This312.959s diagnostic remains standalone and outside the central default120s
+catalog. It is raw-format/capacity admission for the three original source
+phases, not full16-step effects,81 World-phase groups, actual native freshness,
+or a complete Common time-budget fit.
+
+Separate current checks remain exact: Actor31 passes the actual default120s
+selector in92.922s; current World4 plus prior Common3 pass a disjoint manual
+aggregate7/157.139s; World4 plus fast storage17 pass21/89.538s at their original
+source checkpoint. Their frozen-source results and the explicitly covered
+legacy mock-profile compatibility change are recorded in the World3 source
+document. The current fast storage wrapper contains17 cases; the extended81
+case is never imported into it or the existing Actor selector.
+
 ## Fixed Phone architecture reference
 
 Read-only Phone reference `5e8ff8aa19571f5718b982dc47a165b8f22e0dc0`
