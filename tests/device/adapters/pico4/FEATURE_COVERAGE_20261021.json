@@ -728,7 +728,12 @@
         "android/vr/pico/tests/device/test_emote_remote_binding.py",
         "tests/device/adapters/pico4/emote_model_originals.py",
         "tests/device/self_tests/test_pico_emote_model_originals.py",
-        "android/vr/pico/tests/device/test_emote_model_originals.py"
+        "android/vr/pico/tests/device/test_emote_model_originals.py",
+        "tests/device/adapters/pico4/emote_common.py",
+        "tests/device/adapters/pico4/EMOTE_COMMON_PARENT2.md",
+        "tests/device/self_tests/test_pico_emote_common.py",
+        "android/vr/pico/tests/device/test_emote_common_pending.py",
+        "android/vr/pico/tests/device/test_emote_common_fences.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -766,10 +771,26 @@
         "Observe original pose/mapping/timer/resource retirement",
         "Restore captured prior override and closed panel"
       ],
-      "nextExecutableStep": "Extend the same original NativeCycle and private remote route to true Common16/28 checkpoints with a genuine globally bounded source cursor/namespace lease, independent publisher/viewer quiet and full host/resource retirement. Current Source3 viewer32 observations cannot bracket all28 points; no namespace rotation or deadline renewal is allowed. Preserve local Capture1 and startup-disabled self-avatar render gate; Native/GPU/device fields remain unqualified where not compiled/run. Model replies now use the unchanged bounded raw writer before parsing, including malformed/late and full1MiB returns before original262KiB parser refusal. Six new cases plus normal cycle pass18.149s;13 remote regressions79.425s/3 canonical12.420s remain source-stable. Original full28/caller-causation/challenge/independent Actor/global retirement boundaries stay open; new warm raw files supplement Capture2 without cold live adoption.",
+      "nextExecutableStep": "Provide actual bounded one-SDK source transactions and cold original hooks before implementing lossless metadata storage/warm capture/image carry, then background, independent Actor and final quiet/retirement. Existing minimum31-call composition has a static lower bound628 immutable files and1260 separate source getters; metadata packing alone cannot fit original512 limits. Preserve all actual observations/counters, original120s/16MiB/native256/role/controls32 and defaults; no historical-return relabeling.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
-      "remoteNormalCycle": "Private Capture2 joins unchanged normal Open/Play/Cancel/Close+3s native quiet to primary1/viewer2 Source3 originals, actual typed Script-lock WorldRender route, both executed model eye draws and original PNG/memory/file retirement. Canonical3+legacy12 pass24.845s/274stable; Root remote13 pass77.028s/159stable, capacity1 pass3.364s/159stable. Current29 cases partitioned without duplicate local tests. No Viewer final work quiet, independent worker, malformed model literal archival, clip/pixel cause, whole28/global cursor or global cleanup qualification."
+      "remoteNormalCycle": "Private Capture2 joins unchanged normal Open/Play/Cancel/Close+3s native quiet to primary1/viewer2 Source3 originals, actual typed Script-lock WorldRender route, both executed model eye draws and original PNG/memory/file retirement. Canonical3+legacy12 pass24.845s/274stable; Root remote13 pass77.028s/159stable, capacity1 pass3.364s/159stable. Current29 cases partitioned without duplicate local tests. No Viewer final work quiet, independent worker, malformed model literal archival, clip/pixel cause, whole28/global cursor or global cleanup qualification.",
+      "commonParentComponent": {
+        "defaultParentVersion": 1,
+        "optionalParentVersion": 2,
+        "planVersion": 1,
+        "childVersion": 1,
+        "rootCurrentMethods": 10,
+        "rootSeconds": 13.586,
+        "rootLoadedSources": 121,
+        "retainedTerminalFiles": 278,
+        "wholeCommonComplete": false,
+        "sourceGettersRawQualified": false,
+        "selectors": [
+          "emote-common-pending",
+          "emote-common-fences"
+        ]
+      }
     },
     {
       "area": "world-web",

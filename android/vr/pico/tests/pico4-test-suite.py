@@ -87,6 +87,8 @@ TESTS = (
     test("create-model-peer", "interaction", PYTHON, "device/test_create_peer_source.py", "CreatePeerSourceTests"),
     test("create-model-peer-cli", "interaction", PYTHON, "device/test_create_peer_cli.py", "CreatePeerCliTests"),
     test("emote-native-cycle", "interaction", PYTHON, "device/test_emote_native_cycle.py"),
+    test("emote-common-pending", "interaction", PYTHON, "device/test_emote_common_pending.py"),
+    test("emote-common-fences", "interaction", PYTHON, "device/test_emote_common_fences.py"),
     test("emote-stream-wire", "interaction", PYTHON, "device/test_emote_stream_wire.py"),
     test("emote-stream-fences", "interaction", PYTHON, "device/test_emote_stream_fences.py"),
     test("emote-stream-cycle", "interaction", PYTHON, "device/test_emote_stream_cycle.py"),

@@ -3906,3 +3906,22 @@ retain their separate historical63.172s proof; they were not relabeled as
 current-source reruns. New21 cases have disjoint17+4 selectors. Full normal
 Upload and the continuous Cancel500ms obligation remain RED/open; native
 product/backend values remain declared host models. Source count stays3/14.
+
+
+## Emote same-Parent input/effect continuation
+
+Optional Parent2/Common plan1/child1 retain the actual existing Parent class
+and default Parent1. Once-only normal input is separated from fresh advancing
+observation, pending natural restoration and the next normal playback. Durable
+plan/child/cursor/clock relations reject substitution before source/input.
+Root independently passed current8 plus default2 in13.586s,121 stable source
+SHA256/eight-stat identities and278 terminal originals. The two new selectors
+select1+7 exact distinct methods; catalogue395 retains all14 risks.
+
+This is a short source/model component only. Background/cleanup explicitly
+refuse; no Actor/image/full-common/public capability is added. Current whole
+minimum bounds are628 immutable files and1260 separate source getters before
+remaining originals;512/global16MiB/native256/role/controls32/120s stay fixed.
+Actual bounded source transaction, cold raw hooks, lossless metadata layout,
+warm capture, independent stereo/Actor and final retirement remain required.
+Source-complete areas remain3/14.

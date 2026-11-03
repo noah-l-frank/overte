@@ -28,15 +28,20 @@ UNRESOLVED_HOST_FILES = []
 
 
 class PicoEmoteNativeCycle:
-    def __init__(self, store, inputs, lifetime):
+    def __init__(self, store, inputs, lifetime, *, common=None):
         need(isinstance(inputs, PicoEmoteInputs) and isinstance(lifetime, PicoEmoteLifetime)
              and lifetime.source is inputs.source)
+        if common is not None:
+            from adapters.pico4.emote_common import PicoEmoteCommon
+            need(type(common) is PicoEmoteCommon)
+        self.common=self._common=common;self.version=self._version=1 if common is None else 2
         self.inputs, self.lifetime = inputs, lifetime
         self.source, self.effects = inputs.source, PicoEmoteEffects(inputs)
         self.source.lock.assert_held()
-        self.identity = dict(picoEmoteNativeCycleVersion=VERSION, binding=deepcopy(self.source.binding),
+        self.identity = dict(picoEmoteNativeCycleVersion=self.version, binding=deepcopy(self.source.binding),
             runId=self.source.run, fixtureUrl=self.source.phase.fixture_url,
             artifactRoot=str(self.source.artifact_root), parentHostProcessIdentity=host_identity())
+        if common is not None:self.identity['commonPlanSha256']=common.plan_sha
         # Keep the actual owner reachable even if its constructor fails after
         # acquiring one of its original descriptor pairs.
         self.file = object.__new__(LifecycleProcessFile)
@@ -50,6 +55,9 @@ class PicoEmoteNativeCycle:
             LifecycleProcessFile.__init__(self.file, store)
             self.previous = store.read()
             self.source.guard = self.candidate_guard
+            if common is not None:
+                need(self.previous is None) # Explicit warm Parent2; no cold owner adoption.
+                common.attach(self)
             self.guard()
             if self.previous is not None:
                 exact(self.previous, set(self.identity) | {'state'})
@@ -70,7 +78,10 @@ class PicoEmoteNativeCycle:
 
     def guard(self):
         self.source.lock.assert_held()
-        need(not self.failed and self.source.guard() is not False)
+        need(not self.failed and self.common is self._common and type(self.version) is int
+            and self.version==self._version==(1 if self.common is None else 2)
+            and self.identity['picoEmoteNativeCycleVersion']==self.version and self.source.guard() is not False)
+        if self.common is not None:self.common.guard()
         self.file.guard(); require_directory(self.file.parent, self.store.path.parent)
         need(same(self.store.read(), self.previous)
              and same(self.source.store.read(), self.source.previous)
@@ -95,11 +106,13 @@ class PicoEmoteNativeCycle:
 
     def save(self):
         self.bound()
+        if self.common is not None:self.common.validate()
         value = dict(self.identity, state=deepcopy(self.state))
         self.file.write(value, self.previous); self.previous = deepcopy(value)
         self.bound()
 
     def validate(self):
+        if self.common is not None:return self.common.validate()
         state = self.state
         exact(state, {'phase', 'started', 'epochMs', 'hostEpochMs', 'baseline', 'steps', 'cleanup'})
         need(state['phase'] in ('baseline-issued', 'ready', 'input-issued', 'cleanup-issued', 'native-quiet')
@@ -161,6 +174,7 @@ class PicoEmoteNativeCycle:
             self.failed = True; raise
 
     def act(self, call):
+        if self.common is not None:return self.common.act(call)
         self.bound(); need(self.state is not None and self.state['phase'] == 'ready')
         call = deepcopy(arguments('feature.emotes.act', call)); rows = self.state['steps']
         need(len(rows) < len(ORDER) and call['verb'] == ORDER[len(rows)]
@@ -185,7 +199,11 @@ class PicoEmoteNativeCycle:
         except BaseException:
             self.failed = True; raise
 
+    def observe(self):
+        need(self.common is not None);return self.common.observe()
+
     def cleanup(self, *, sleep=time.sleep):
+        if self.common is not None:return self.common.cleanup(sleep=sleep)
         self.bound()
         need(self.state is not None and self.state['phase'] == 'ready' and len(self.state['steps']) == 4
              and callable(sleep))
@@ -212,7 +230,8 @@ class PicoEmoteNativeCycle:
 
     def close_host(self):
         """Close only verified original host OFDs, preserving all product journals."""
-        value = self.file.close_host()
+        common_closed=True if self.common is None else self.common.close_host()
+        value = self.file.close_host() and common_closed
         self.failed = True
         if not value:
             self.failed = True
@@ -220,7 +239,7 @@ class PicoEmoteNativeCycle:
         return value
 
 
-def create(adapter, target, phase, artifact_root, source_lock):
+def create(adapter, target, phase, artifact_root, source_lock, *, common=None):
     """Existing adapter factories, exact shared held lock; no new input service."""
     source_lock.assert_held()
     store = cycle_store(adapter, target)
@@ -229,4 +248,5 @@ def create(adapter, target, phase, artifact_root, source_lock):
     source = adapter._emote_sources(target, phase, 'primary', artifact_root, source_lock)
     inputs = adapter._emote_inputs(target, source)
     lifetime = adapter._emote_lifetime(target, source)
-    return PicoEmoteNativeCycle(store, inputs, lifetime)
+    options={} if common is None else dict(common=common)
+    return PicoEmoteNativeCycle(store, inputs, lifetime,**options)
