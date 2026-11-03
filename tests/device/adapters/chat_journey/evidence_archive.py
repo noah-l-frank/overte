@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import stat
+import time
 
 from adapters.native_fd_owner import OriginalDescriptor,require_directory
 from adapters.chat_journey.archive_file import ClosedOriginalFile
@@ -20,6 +21,8 @@ from adapters.script_journey.history import same,pack,canonical
 from adapters.chat_journey.source_chunks import digest
 
 VERSION=4
+DIRECTORY_VERSION=5
+DIRECTORY_POLICY='original-directory-noreplace-250ms'
 WINDOW_VERSION=3
 CLOSED_VERSION=2
 LEGACY_VERSION=1
@@ -145,7 +148,7 @@ class ChatEvidenceArchive:
     before making its explicit catalog. A failed warm attempt cannot be retried
     or reconstructed by selecting files from disk.
     """
-    def __init__(self,catalog,directory,store,metadata,guard,inventory,*,unlink_fence=None,indexed_verify=False):
+    def __init__(self,catalog,directory,store,metadata,guard,inventory,*,unlink_fence=None,indexed_verify=False,directory_retirements=()):
         need(type(catalog) is ChatArchiveCatalog and isinstance(store,PrivateFeatureState)
             and directory.parent==store.path.parent and directory.is_absolute()
             and directory.resolve()==directory and not directory.exists() and store.read() is None
@@ -154,8 +157,17 @@ class ChatEvidenceArchive:
         need(unlink_fence is None or not catalog.hold_files and unlink_fence.guard is guard
             and all(callable(getattr(unlink_fence,name,None)) for name in ('prepare','check','complete')))
         need(type(indexed_verify) is bool and (not indexed_verify or unlink_fence is not None))
+        need(type(directory_retirements) is tuple and len(directory_retirements)<=16
+            and (not directory_retirements or indexed_verify))
+        if directory_retirements:
+            from adapters.chat_journey.directory_retirement import OriginalDirectoryRetirement
+            need(all(type(group) is OriginalDirectoryRetirement and group.catalog is catalog
+                and not group.attempted and not group.failed for group in directory_retirements))
+            labels=[label for group in directory_retirements for label in group.labels]
+            need(len(labels)==len(set(labels)) and all(label in catalog.rows for label in labels))
+        self.directory_retirements=self._original_directory_retirements=directory_retirements
         self.unlink_fence=unlink_fence;self.indexed_verify=indexed_verify
-        self.version=VERSION if indexed_verify else WINDOW_VERSION if unlink_fence is not None else LEGACY_VERSION if catalog.hold_files else CLOSED_VERSION
+        self.version=DIRECTORY_VERSION if directory_retirements else VERSION if indexed_verify else WINDOW_VERSION if unlink_fence is not None else LEGACY_VERSION if catalog.hold_files else CLOSED_VERSION
         need(directory.parent in catalog.parents);self.parent_owner=catalog.parents[directory.parent]
         self.guard,self.inventory=guard,inventory;self.previous=None;self.started=False;self.archived={};self.deleted=[]
         self.root=None;self.manifest=None;self.receipt=None;self.complete=False
@@ -274,6 +286,39 @@ class ChatEvidenceArchive:
             self.verify_archived(self.archived[name])
         self.verify_index()
 
+    def verify_group_copies(self,group):
+        """Every affected original and manifest in one full physical pass."""
+        self.verify_index();names={'manifest.json'}
+        for label in group.labels:
+            index=self.positions[label]
+            need(type(index) is int and 0<=index<len(self.labels) and self.labels[index]==label)
+            names.update((f'original-{index:04d}.json',f'manifest-{index//64:03d}.json'))
+        for name in sorted(names):self.verify_archived(self.archived[name])
+        self.verify_index()
+
+    def retire_directories(self):
+        need(self.directory_retirements is self._original_directory_retirements)
+        for index,group in enumerate(self.directory_retirements):
+            group.verify();self.verify_group_copies(group)
+            token=self.unlink_fence.prepare();wall=time.monotonic()
+            # Use the remainder of this SAME source window, even when prepare
+            # reused an earlier frame. Never renew250ms for local filesystem IO.
+            measured,epoch,ended=self.unlink_fence.clocks()
+            remainder=min(.250-(ended-self.unlink_fence.started),
+                (.250*1000-(epoch-self.unlink_fence.epoch))/1000)
+            need(remainder>0);deadline=wall+remainder
+            self.write('directory-move-issued',directoryGroup=index,
+                directoryScopeSha256=hashlib.sha256(group.scope_bytes).hexdigest(),unlinkFence=token)
+            def check():
+                self.verify_group_copies(group);self.unlink_fence.check(token)
+            def before_move():
+                self.unlink_fence.window();need(time.monotonic()<=deadline)
+            group.retire(check,before_move=before_move)
+            self.deleted.extend(group.labels)
+            self.unlink_fence.complete(token);need(time.monotonic()<=deadline)
+            self.write('retiring',deleted=[self.positions[label] for label in self.deleted],
+                directoryGroup=None,unlinkFence=None)
+
     def retire(self):
         need(not self.started);self.started=True
         self.catalog.verify_all();self.inventory(set(row['store'].path for row in self.catalog.rows.values()));self.guard()
@@ -281,23 +326,33 @@ class ChatEvidenceArchive:
         os.mkdir(self.directory.name,mode=0o700,dir_fd=self.parent_owner.fd);os.fsync(self.parent_owner.fd)
         self.root=OriginalDescriptor(self.directory,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         items=[]
+        group_by_label={label:index for index,group in enumerate(self.directory_retirements) for label in group.labels}
         for index,row in enumerate(self.catalog.rows.values()):
             self.catalog.verify(row);name=f'original-{index:04d}.json'
             archived=self.original(name,row['raw']);self.catalog.verify(row)
-            items.append(dict(label=row['label'],file=name,bytes=len(row['raw']),sha256=row['sha256'],sourceStamp=row['stamp'],archiveStamp=archived['stamp']))
+            item=dict(label=row['label'],file=name,bytes=len(row['raw']),sha256=row['sha256'],sourceStamp=row['stamp'],archiveStamp=archived['stamp'])
+            if self.version==DIRECTORY_VERSION:item['retirementGroup']=group_by_label.get(row['label'],-1)
+            items.append(item)
         # Manifest chunks keep the existing per-file size bound. Neither a
         # packed source nor its original bytes are truncated to fit a root.
         manifest=dict(chatEvidenceArchiveVersion=self.version,metadata=self.metadata,parts=[])
         if self.version>=CLOSED_VERSION:manifest['fileOwnership']=FILE_OWNERSHIP
         if self.version>=WINDOW_VERSION:manifest['unlinkPolicy']=UNLINK_POLICY
-        if self.version==VERSION:manifest['copyVerification']=COPY_POLICY
+        if self.version>=VERSION:manifest['copyVerification']=COPY_POLICY
+        if self.version==DIRECTORY_VERSION:
+            manifest['directoryRetirementPolicy']=DIRECTORY_POLICY
+            manifest['directoryRetirements']=[dict(scopeSha256=hashlib.sha256(group.scope_bytes).hexdigest(),
+                source=str(group.source),destination=str(group.destination),labelsSha256=digest(group.labels),
+                originals=len(group.labels),directoryBefore=list(group.before)) for group in self.directory_retirements]
         for index in range(0,len(items),64):
             name=f'manifest-{index//64:03d}.json';raw=(json.dumps(items[index:index+64],sort_keys=True,separators=(',',':'))+'\n').encode()
             need(len(raw)<=65536);item=self.original(name,raw);manifest['parts'].append(dict(file=name,sha256=item['sha256']))
         raw=(json.dumps(manifest,sort_keys=True,separators=(',',':'))+'\n').encode();need(len(raw)<=65536)
         self.manifest=self.original('manifest.json',raw);os.fsync(self.root.fd)
         self.write('archived',archiveSha256=self.manifest['sha256']);self.catalog.verify_all();self.verify_archive();self.guard()
+        self.retire_directories()
         for row in self.catalog.rows.values():
+            if row['label'] in self.deleted:continue
             self.catalog.verify(row)
             if not self.indexed_verify:self.verify_archive()
             deleted=set(self.deleted)
@@ -330,6 +385,7 @@ class ChatEvidenceArchive:
         receipt=dict(chatEvidenceArchiveFinalVersion=self.version,archiveSha256=self.manifest['sha256'],
             metadataSha256=digest(self.metadata),retiredCount=len(self.catalog.rows),
             retiredSha256=digest(list(self.catalog.rows)),original=pack([proof]))
+        if self.version==DIRECTORY_VERSION:receipt['directoryRetirements']=[group.receipt() for group in self.directory_retirements]
         raw=(json.dumps(receipt,sort_keys=True,separators=(',',':'))+'\n').encode();need(len(raw)<=65536)
         self.receipt=self.original('final.json',raw);os.fsync(self.root.fd)
         self.write('complete',finalSha256=self.receipt['sha256'])
@@ -358,6 +414,7 @@ class ChatEvidenceArchive:
 
     def close_host(self):
         okay=self.catalog.close_host()
+        for group in self.directory_retirements:okay=group.close_host() and okay
         for row in self.archived.values():okay=row['owner'].close() and okay
         if self.root is not None:okay=self.root.close() and okay
         return okay
@@ -383,11 +440,25 @@ def completed_archive(directory):
         finally:owner.close()
     try:
         raw,_=read('manifest.json');manifest=decode(raw.decode());manifest_sha=hashlib.sha256(raw).hexdigest()
-        version=manifest.get('chatEvidenceArchiveVersion');need(type(version) is int and version in (LEGACY_VERSION,CLOSED_VERSION,WINDOW_VERSION,VERSION))
-        exact(manifest,{'chatEvidenceArchiveVersion','metadata','parts'}|({'fileOwnership'} if version>=CLOSED_VERSION else set())|({'unlinkPolicy'} if version>=WINDOW_VERSION else set())|({'copyVerification'} if version==VERSION else set()))
+        version=manifest.get('chatEvidenceArchiveVersion');need(type(version) is int and version in (LEGACY_VERSION,CLOSED_VERSION,WINDOW_VERSION,VERSION,DIRECTORY_VERSION))
+        exact(manifest,{'chatEvidenceArchiveVersion','metadata','parts'}|({'fileOwnership'} if version>=CLOSED_VERSION else set())|({'unlinkPolicy'} if version>=WINDOW_VERSION else set())|({'copyVerification'} if version>=VERSION else set())|({'directoryRetirementPolicy','directoryRetirements'} if version==DIRECTORY_VERSION else set()))
         if version>=CLOSED_VERSION:need(manifest['fileOwnership']==FILE_OWNERSHIP)
         if version>=WINDOW_VERSION:need(manifest['unlinkPolicy']==UNLINK_POLICY)
-        if version==VERSION:need(manifest['copyVerification']==COPY_POLICY)
+        if version>=VERSION:need(manifest['copyVerification']==COPY_POLICY)
+        groups=manifest.get('directoryRetirements',[])
+        if version==DIRECTORY_VERSION:
+            need(manifest['directoryRetirementPolicy']==DIRECTORY_POLICY and type(groups) is list and 1<=len(groups)<=16)
+            for group in groups:
+                exact(group,{'scopeSha256','source','destination','labelsSha256','originals','directoryBefore'})
+                need(all(type(group[key]) is str and len(group[key])==64 and all(c in '0123456789abcdef' for c in group[key])
+                        for key in ('scopeSha256','labelsSha256'))
+                    and all(type(group[key]) is str and group[key].startswith('/') and os.path.normpath(group[key])==group[key]
+                        for key in ('source','destination')) and group['source']!=group['destination']
+                    and integer(group['originals'],1,LIMIT_FILES)
+                    and type(group['directoryBefore']) is list and len(group['directoryBefore'])==8
+                    and all(type(field) is int and field>=0 for field in group['directoryBefore'])
+                    and stat.S_ISDIR(group['directoryBefore'][2]) and stat.S_IMODE(group['directoryBefore'][2])==0o700
+                    and group['directoryBefore'][3]==os.geteuid())
         need(type(manifest['chatEvidenceArchiveVersion']) is int and manifest['chatEvidenceArchiveVersion']==version
             and type(manifest['metadata']) is dict and type(manifest['parts']) is list and 1<=len(manifest['parts'])<=LIMIT_FILES//64)
         labels=[];items=[]
@@ -400,7 +471,8 @@ def completed_archive(directory):
             items.extend(rows)
         need(1<=len(items)<=LIMIT_FILES)
         for index,item in enumerate(items):
-            exact(item,{'label','file','bytes','sha256','sourceStamp','archiveStamp'})
+            exact(item,{'label','file','bytes','sha256','sourceStamp','archiveStamp'}|({'retirementGroup'} if version==DIRECTORY_VERSION else set()))
+            if version==DIRECTORY_VERSION:need(integer(item['retirementGroup'],-1,len(groups)-1))
             need(type(item['label']) is str and item['label'].startswith(('primary/','peer/')) and item['label'].count('/')==1
                 and item['label'].rsplit('/',1)[-1] not in ('','.','..') and '\\' not in item['label']
                 and item['label'] not in labels and item['file']==f'original-{index:04d}.json' and integer(item['bytes'],1,65536)
@@ -411,15 +483,37 @@ def completed_archive(directory):
                 and type(item['archiveStamp']) is list and all(type(number) is int for number in item['archiveStamp']))
             labels.append(item['label']);raw,actual=read(item['file'])
             need(len(raw)==item['bytes'] and hashlib.sha256(raw).hexdigest()==item['sha256'] and actual==item['archiveStamp'])
-        raw,_=read('final.json');final=decode(raw.decode());exact(final,{'chatEvidenceArchiveFinalVersion','archiveSha256','metadataSha256','retiredCount','retiredSha256','original'})
+        raw,_=read('final.json');final=decode(raw.decode());exact(final,{'chatEvidenceArchiveFinalVersion','archiveSha256','metadataSha256','retiredCount','retiredSha256','original'}|({'directoryRetirements'} if version==DIRECTORY_VERSION else set()))
         need(type(final['chatEvidenceArchiveFinalVersion']) is int and final['chatEvidenceArchiveFinalVersion']==version
             and final['archiveSha256']==manifest_sha and final['metadataSha256']==digest(manifest['metadata']) and type(final['retiredCount']) is int and final['retiredCount']==len(labels) and final['retiredSha256']==digest(labels))
+        if version==DIRECTORY_VERSION:
+            receipts=final['directoryRetirements'];need(type(receipts) is list and len(receipts)==len(groups))
+            for index,(group,receipt) in enumerate(zip(groups,receipts)):
+                exact(receipt,{'originalDirectoryRetirementVersion','scopeSha256','source','destination','originals',
+                    'originalUnlinks','atomicDirectoryMoves','directoryBefore','directoryAfter'})
+                group_labels=[item['label'] for item in items if item['retirementGroup']==index]
+                original_scope=dict(originalDirectoryRetirementVersion=1,source=group['source'],destination=group['destination'],
+                    directoryStamp=group['directoryBefore'],originals=[dict(label=item['label'],name=item['label'].rsplit('/',1)[-1],
+                        stamp=item['sourceStamp'],bytes=item['bytes'],sha256=item['sha256'])
+                        for item in items if item['retirementGroup']==index])
+                need(type(receipt['originalDirectoryRetirementVersion']) is int and receipt['originalDirectoryRetirementVersion']==1
+                    and all(same(group[key],receipt[key]) for key in ('scopeSha256','source','destination','originals','directoryBefore'))
+                    and type(receipt['originalUnlinks']) is int and receipt['originalUnlinks']==0
+                    and type(receipt['atomicDirectoryMoves']) is int and receipt['atomicDirectoryMoves']==1
+                    and len(group_labels)==group['originals'] and digest(group_labels)==group['labelsSha256']
+                    and hashlib.sha256(canonical(original_scope)).hexdigest()==group['scopeSha256']
+                    and type(receipt['directoryAfter']) is list and len(receipt['directoryAfter'])==8
+                    and all(type(field) is int and field>=0 for field in receipt['directoryAfter'])
+                    and receipt['directoryAfter'][:7]==group['directoryBefore'][:7]
+                    and receipt['directoryAfter'][7]>=group['directoryBefore'][7])
         proof=unpack(final['original']);need(len(proof)==1 and type(proof[0]) is dict)
         root.require(root.fd);need({path.name for path in directory.iterdir()}==names
             and (directory.stat().st_dev,directory.stat().st_ino)==root.node and stat.S_IMODE(directory.stat().st_mode)==0o500)
         result=dict(metadata=manifest['metadata'],original=proof[0],archiveSha256=manifest_sha,finalSha256=hashlib.sha256(raw).hexdigest())
         if version>=CLOSED_VERSION:result.update(chatEvidenceArchiveVersion=version,fileOwnership=FILE_OWNERSHIP)
         if version>=WINDOW_VERSION:result['unlinkPolicy']=UNLINK_POLICY
-        if version==VERSION:result['copyVerification']=COPY_POLICY
+        if version>=VERSION:result['copyVerification']=COPY_POLICY
+        if version==DIRECTORY_VERSION:
+            result.update(directoryRetirementPolicy=DIRECTORY_POLICY,directoryRetirements=deepcopy(final['directoryRetirements']))
         return deepcopy(result)
     finally:root.close()

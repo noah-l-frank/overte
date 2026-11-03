@@ -20,6 +20,7 @@ from adapters.pico4.browser_archive_context import BrowserArchiveContext,read_co
 from adapters.script_journey.history import same,pack
 
 VERSION=2
+DIRECTORY_VERSION=3
 OWNERSHIP_VERSION=1
 
 
@@ -34,7 +35,7 @@ def metadata_pngs(metadata,context):
     """Read the complete historical inventory through its versioned reference."""
     json_digest(metadata)
     version=metadata.get('picoBrowserEvidenceArchiveVersion')
-    need(type(version) is int and version in (1,2))
+    need(type(version) is int and version in (1,2,DIRECTORY_VERSION))
     if version==1:
         pngs=metadata['pngs']
     else:
@@ -46,13 +47,16 @@ def metadata_pngs(metadata,context):
 
 
 class PicoBrowserEvidenceArchive:
-    def __init__(self,primary,captures):
+    def __init__(self,primary,captures,*,directory_retirement=False):
         from adapters.pico4.tablet_web_feature import PicoTabletWebFeature
         from adapters.pico4.browser_remote_capture_retirement import PicoBrowserRemoteCaptureRetirement
         need(type(primary) is PicoTabletWebFeature and primary.role=='primary'
             and type(captures) is PicoBrowserRemoteCaptureRetirement and captures.primary is primary
             and captures.completed and not captures.failed and primary.archive_release is None)
         self.primary,self.captures=primary,captures
+        need(type(directory_retirement) is bool)
+        self.version=DIRECTORY_VERSION if directory_retirement else VERSION
+        self.directory_retirement=directory_retirement;self.namespace_group=None
         self.started=self.completed=self.failed=False;self.archive=None;self.result=None;self.result_sha=None
         self.catalog=ChatArchiveCatalog(hold_files=False);self.tail=None;self.host_closed=False
         self.root=primary.artifact_root;self.prefix='tablet-web-'+primary.run+'-'
@@ -60,6 +64,11 @@ class PicoBrowserEvidenceArchive:
         self.context=PrivateFeatureState(self.root/(self.prefix+'archive-context.json'))
         self.store=PrivateFeatureState(self.root/(self.prefix+'archive-complete.json'))
         self.sentry=PrivateFeatureState(primary.store.path.with_name('pico-tablet-web-archive-owner.json'))
+        if directory_retirement:
+            from adapters.pico4.tablet_web_binding import archive_sentry_prefix
+            prefix=archive_sentry_prefix(primary.selector)
+            need(primary.store.path.parent.name==prefix.removesuffix('-archive-owner-'))
+            self.sentry=PrivateFeatureState(primary.store.path.parent.parent/(prefix+primary.run+'.json'))
         self.sentry_value=None;self.sentry_parent=parent_node(self.sentry)
         self.directory=self.root/(self.prefix+'source-archive')
         need(all(store.read() is None for store in (self.marker,self.context,self.store,self.sentry)) and not self.directory.exists())
@@ -122,7 +131,7 @@ class PicoBrowserEvidenceArchive:
         self.context_owner=BrowserArchiveContext(self.context,primary.run,data)
         self.context_value=deepcopy(self.context_owner.previous);self.context_stamp=self.context_owner.stamp
         common=primary.cleanup_consumption.receipt()
-        self.metadata=dict(picoBrowserEvidenceArchiveVersion=VERSION,runId=primary.run,fixtureUrl=primary.fixture_url,
+        self.metadata=dict(picoBrowserEvidenceArchiveVersion=self.version,runId=primary.run,fixtureUrl=primary.fixture_url,
             binding=deepcopy(self.source.owner['binding']),ownerToken=self.source.owner['ownerToken'],
             commonSequenceSucceeded=common['header']['sequenceSucceeded'],contextSha256=digest(data),
             sourceMarker=self.source.store.path.name,contextMarker=self.context.path.name,
@@ -131,8 +140,14 @@ class PicoBrowserEvidenceArchive:
         need(same(metadata_pngs(self.metadata,data),captures.pngs))
         self.freeze_namespace();self.source.bind_namespace_guard(self.namespace_control)
         self.fence=PicoBrowserArchiveUnlinkFence(self.source)
+        groups=()
+        if self.directory_retirement:
+            from adapters.chat_journey.directory_retirement import OriginalDirectoryRetirement
+            self.namespace_group=OriginalDirectoryRetirement(self.catalog,primary.store.path.parent,
+                self.root/(self.prefix+'state-originals'))
+            groups=(self.namespace_group,)
         self.archive=ChatEvidenceArchive(self.catalog,self.directory,self.marker,self.metadata,self.source,self.inventory,
-            unlink_fence=self.fence,indexed_verify=True)
+            unlink_fence=self.fence,indexed_verify=True,directory_retirements=groups)
 
     def pngs(self):
         original_sha,windows=self.captures.original_png_windows()
@@ -152,9 +167,12 @@ class PicoBrowserEvidenceArchive:
         """Actual complete namespace scans reject extra or missing originals."""
         p=self.primary
         state_paths,artifact_paths=self.namespace_control(remaining)
-        actual=namespace_names(self.namespace[1],'pico-tablet-web-')
+        group=getattr(self,'namespace_group',None)
+        if group is not None and group.moved:
+            group.verify(historical=True);actual=set()
+        else:actual=namespace_names(self.namespace[1],'pico-tablet-web-')
         expected_state=remaining&state_paths
-        if self.sentry.path.exists():expected_state.add(self.sentry.path)
+        if self.sentry.path.parent==self.namespace[1] and self.sentry.path.exists():expected_state.add(self.sentry.path)
         need(actual=={path.name for path in expected_state} and same(self.sentry.read(),self.sentry_value)
             and parent_node(self.sentry)==self.sentry_parent)
         expected=remaining&artifact_paths
@@ -170,6 +188,7 @@ class PicoBrowserEvidenceArchive:
             need(type(host) is PicoBrowserHostClose and host.plan is self)
             expected.update(store.path for store in (host.store,host.receipt_store) if store.path.exists())
         if self.directory.exists():expected.add(self.directory)
+        if group is not None and group.destination.exists():expected.add(group.destination)
         actual=namespace_names(self.root,self.prefix)
         need(actual=={path.name for path in expected} and same(self.context.read(),self.context_value)
             and state(self.context)[2]==self.context_stamp and parent_node(self.store)==self.parent)
@@ -192,7 +211,7 @@ class PicoBrowserEvidenceArchive:
             with p.lock.held(),p.adapter.existing_input_session(p.selector):
                 result=self.archive.retire();self.source.final(self.source.last)
                 self.tail=self.source_tail();self.source.frozen=True
-                value=dict(picoBrowserEvidenceArchiveVersion=VERSION,runId=p.run,phase='complete',
+                value=dict(picoBrowserEvidenceArchiveVersion=self.version,runId=p.run,phase='complete',
                     qualification='original-browser-source-archive-only',commonSequenceSucceeded=self.metadata['commonSequenceSucceeded'],
                     archive=result,originalSourceTail=pack(self.tail),contextSha256=self.metadata['contextSha256'],
                     hostReleased=False,fullFeatureRecipe=False,deviceAcceptance=False)

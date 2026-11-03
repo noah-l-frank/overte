@@ -1006,7 +1006,13 @@
         "tests/device/adapters/pico4/browser_host_close.py",
         "tests/device/adapters/pico4/BROWSER_EVIDENCE_ARCHIVE.md",
         "tests/device/adapters/pico4/browser_archive_context.py",
-        "tests/device/self_tests/test_pico_browser_archive_context.py"
+        "tests/device/self_tests/test_pico_browser_archive_context.py",
+        "tests/device/adapters/chat_journey/directory_retirement.py",
+        "tests/device/self_tests/test_original_directory_retirement.py",
+        "tests/device/self_tests/test_chat_archive_directories.py",
+        "tests/device/self_tests/test_chat_archive_directory_scale.py",
+        "tests/device/self_tests/test_pico_browser_directory_archive.py",
+        "tests/device/adapters/pico4/BROWSER_DIRECTORY_ARCHIVE.md"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -1045,9 +1051,9 @@
         "open"
       ],
       "missingOperationsOrEvidence": [
-        "Latest whole owning case on326c73ac26 remains red at unchanged120s after real progress: all26actions/28phases, Close63.927s and common cleanup71.729s. Original independent Actor return and complete capture quiet lead to1069 complete immutable source copies plus18 manifests;198 original unlinks are confirmed, no pending unlink, but no final receipt or host closure. All2064 remaining originals/copies and a full byte backup are retained. Whole/public completion remains unproven.",
-        "The actual short common-cleanup/typed independent-process return/capture prefix now completes original immutable archive and actual host-pair closure (two cases76.242s); lost initial intent and late final sentry-unlink counters pass75.589s. These prefixes preserve sequenceSucceeded=false and cannot qualify finalization. Complete successful common execution and the public coordinator remain unverified.",
-        "Product/GPU/Qt/DOM/Java/OS/native clock endpoints remain explicit analytical host seams. Whole APK/HMD qualification remains unavailable."
+        "The changed explicit DirectoryArchive3/SharedArchive5 whole host case now passes113.507s within the same120s: all26normal actions/28phases, original independent Actor return and capture quiet, all1069immutable source copies, one actual atomic move retaining989state originals,80ordinary artifact metadata unlinks, final source receipt and actual8host pairs/3171closed windows.208loaded sources retain SHA/eight-field stamps;2177original files/13381429B remain after actual cleanups. This supersedes only the prior whole-timeout limitation; it is host logic, not product qualification.",
+        "Public catalog->OverteSession->bound adapter operation coordination remains missing. The successful case selects directory_retirement=True explicitly in the same private warm graph; no public feature triple is advertised and no source-complete area is added.",
+        "Product/GPU/Qt/DOM/Java/OS/native clock endpoints remain explicit analytical host seams. Native compilation and whole APK/HMD qualification remain unavailable."
       ],
       "requiredOriginalEvidence": [
         "Original VR tablet Web view and current document admission",
@@ -1060,10 +1066,23 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Continue measured Browser-specific immutable namespace/path-group admission costs while preserving actual complete scans, PNG/full-byte/current-source checks. The one profiled whole diagnostic reaches unchanged120s with1087 immutable copies/manifests,119 confirmed unlinks plus one uncertain issued unlink, no final host release;2138 originals remain hash/physical stable and no matching worker remains. Profiling begins only at archive entry and adds overhead; no speed or whole completion claim. Shared guard/index changes pass legacy/new counterexamples but their limited cost savings do not close the larger gap. Failed originals cannot be adopted/resumed, and no further unchanged whole retry is authorized by this result. Later archive-only caller profiling preserves28Common phases72.877s/archive99.302s but times out120. A fixture-only clock mmap removes clock RPCs yet still times out120.044s (Common78.255s/archive104.220s); candidate is rejected and original fixture bytes restored,2122 originals retained, no owned process. Whole remains unavailable; do not infer a deadline or check reduction.",
+      "nextExecutableStep": "Join the qualified same warm Parent/common/independent Actor/retirement graph to the existing public operation-host path with original budgets and no cold journal adoption.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested",
-      "archiveRootByteAdmission": "Successful original CAS/readback pins exact canonical bytes/full8stat. Later controls acquire all current bytes through original OFD and exact namespace/stamp fences, reusing only prior JSON semantics. Context24GREEN0.492s/124stable; independent source6GREEN44.644s/206stable. Isolated1000-call host fixture median200 controls74.856ms\u219240.205ms, not whole speed/completion."
+      "archiveRootByteAdmission": "Successful original CAS/readback pins exact canonical bytes/full8stat. Later controls acquire all current bytes through original OFD and exact namespace/stamp fences, reusing only prior JSON semantics. Context24GREEN0.492s/124stable; independent source6GREEN44.644s/206stable. Isolated1000-call host fixture median200 controls74.856ms→40.205ms, not whole speed/completion.",
+      "directoryArchiveQualification": {
+        "picoVersion": 3,
+        "sharedVersion": 5,
+        "defaultPicoVersion": 2,
+        "defaultSharedVersion": 4,
+        "wholeHostSeconds": 113.507,
+        "wholeDeadlineSeconds": 120,
+        "qualifiedLoadedSourceFiles": 208,
+        "retainedOriginalFiles": 2177,
+        "publicFeatureComplete": false,
+        "nativeCompiled": false,
+        "deviceTested": false
+      }
     },
     {
       "area": "graphics",
@@ -1505,7 +1524,7 @@
       "nextExecutableStep": "Measure actual later multi-activation/flow snapshot authority and final app/archive/host continuation with the existing Common16/Dispatcher2/global cursors, preserving120s and original3s negative windows. Historical truewhole120.014s/step19/93records remains failed; its exact old runtime was not located in the bounded current search. New61-query same-phase and declared19-label code-history method corpora cannot replace that provenance. Every passive sample already creates a fresh compiled transaction. Continue actual true Common execution and final app/archive/host composition; existing Common/global-cursor/cleanup-slot/typed-return composition is present and its whole120s timeout after step19 remains historical. The40-case source reader and actual false-common Stop2/typed Actor return/kernel absence/both seals/catalog prefix pass with false sequenceSucceeded preserved. Fresh full child stats now use the exact original directory read window, retaining uncertain descriptor pairs; original54/143 history checks and7/19 load/digest counts remain. The measured limited saving does not justify another unchanged whole retry. Current61query component passes31.086s with190 loaded sources unchanged and703 original files retained. Names-only fresh listdir preserves every namespace/fullstat/read/native/clock check;12 affected counters pass0.511s. Measured11.6ms over143 inventories is a narrow gain and does not justify an unchanged whole retry. Current private17-phase80-pair source prefix passes80.912s; an additional opt-in normal18-phase/18-pair diagnostic reaches actual Background/HOME-resume and both original quiet windows, passing44.111s with193 loaded source SHA/eight-field identities stable,20readerparts/620663logical bytes and actual worker wait0/kernelabsence. It does not qualify Common whole/cleanup/typed feature return or replace failed19/93 provenance. Only action18 is profiled:130 fresh role/compiled reads,874 durable writes/fsync3.089s and1046 complete history verifies2.879s are nested costs, not whole speedup. Source limits, default two component selectors and catalog unchanged. Use these actual measurements before any further optimization; preserve all durable writes/fresh namespace/fullstat/OFD/clock/phase checks.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
-      "warmMetadataControl": "Existing Reader3 warm metadata comparison now keeps strict canonical admission at legitimate updates and pinned process-local sorted marshal2 signatures; mismatch uses unchanged strict canonical seal, including non-BMP/surrogate value and dict-key aliases. Every literal rehash and physical/native/clock proof remains. Reader46GREEN31.164s/183stable; false-commonStop2/typedreturn/ESRCH/seals/catalog1GREEN37.685s/181stable. Method19 calls21.439\u219210.151ms only; no source format/public capability/whole result change."
+      "warmMetadataControl": "Existing Reader3 warm metadata comparison now keeps strict canonical admission at legitimate updates and pinned process-local sorted marshal2 signatures; mismatch uses unchanged strict canonical seal, including non-BMP/surrogate value and dict-key aliases. Every literal rehash and physical/native/clock proof remains. Reader46GREEN31.164s/183stable; false-commonStop2/typedreturn/ESRCH/seals/catalog1GREEN37.685s/181stable. Method19 calls21.439→10.151ms only; no source format/public capability/whole result change."
     },
     {
       "area": "snapshots",
@@ -1621,7 +1640,7 @@
       "missingOperationsOrEvidence": [
         "Actual selected Save backend/authorization and real OS chooser driver",
         "Independent receiver-original/save-original/upload-original acquisition and actor",
-        "Complete export/share/upload/permissions/restart/actor/stereo and final archive around the host-verified normal Cancel\u2192Still original PNG/FD/VM/Review/OS/seven-clock quiet owner v2; retained files/plans/preferences are not retired"
+        "Complete export/share/upload/permissions/restart/actor/stereo and final archive around the host-verified normal Cancel→Still original PNG/FD/VM/Review/OS/seven-clock quiet owner v2; retained files/plans/preferences are not retired"
       ],
       "requiredOriginalEvidence": [
         "Original native queued-capture history and private PNG",

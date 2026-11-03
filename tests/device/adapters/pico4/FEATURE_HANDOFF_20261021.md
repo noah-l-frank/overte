@@ -3668,3 +3668,29 @@ DefaultNone legacy readers had79 cases1.329s/85stable; the later exact inner
 Background dispatch seam preserves both original fences and has its separate
 default case21.403s. These counts are separate frozen scopes, not a claimed
 current aggregate or a qualified Raw3/World/Actor transition.
+
+## Original Tablet Browser whole host retirement on 2026-11-03
+
+The explicit [directory archive](BROWSER_DIRECTORY_ARCHIVE.md) strategy now
+passes the same complete private26-action/28-phase journey, original independent
+Actor return, all-capture quiet, archival and actual host retirement in113.507s
+within the unchanged120s. All208 loaded source SHA/eight-field signatures stay
+fixed;2177 actual originals/13,381,429B remain after cleanup. SharedArchive5
+retains989 state originals with one atomic no-replacement directory move after
+all1069 immutable copies. The remaining80 artifact metadata unlinks keep their
+original16/250ms/1.5s source policy. Eight host pairs/3171 closed windows retire.
+
+Defaults stay shared4/Pico2; this explicit opt-in is shared5/Pico3. Historical
+readers remain. Rootless pending markers live outside the moved namespace and
+refuse actual generic cleanup before native IO/base stop (one case0.267s,
+245stable loaded sources). The17 directory/archive/989-scale cases pass3.146s;
+two separate Pico component cases pass8.520s. These are disjoint frozen scopes,
+not a claimed current aggregate. The whole proof supersedes the old whole
+retirement timeout limitation, while all old RED originals stay retained.
+
+Catalog347 adds three bounded directory groups and selects the changed whole
+strategy through the existing independent-journey selector. The old whole
+method remains manually selectable as independent-journey-legacy. Public
+catalog/OverteSession/operation-host coordination is still missing; no public
+capability is advertised and source-complete stays3/14. Native/product/GPU/Qt/
+OS producers remain analytical models; no native compilation or device run.

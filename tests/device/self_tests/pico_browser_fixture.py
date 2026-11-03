@@ -259,8 +259,8 @@ class OriginalTabletManager(OriginalManager):
 class PicoTarget(OriginalTabletTarget):
     """Pico-owned host seams; no scene or state is read from expected scenarios."""
     scene_url='http://controlled.invalid/scene.json'
-    def __init__(self,*args):
-        super().__init__(*args);self.lock=ScriptSourceLock(self.path/'script-sources.lock')
+    def __init__(self,*args,source_lock=None):
+        super().__init__(*args);self.lock=ScriptSourceLock(self.path/'script-sources.lock') if source_lock is None else source_lock
         self.vm=VmBoundary(self.path);self.vm_epoch=None;self.geometry_sequence=0;self.scroll=0;self.capture_stores=[]
         self.runtime_sequence=0;self.runtime_raw=None;self.renderer_rows={};self.inputs=[];self.command_log=[];self.service_sequence=0
         original=self.vm.objects.send

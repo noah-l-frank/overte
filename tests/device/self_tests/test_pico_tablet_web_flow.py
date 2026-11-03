@@ -35,9 +35,10 @@ class PicoTabletWebFlowTests(unittest.TestCase):
         self.url=f'http://127.0.0.1:{self.server.server_port}/feature-fixture/v1'
         self.foreign=f'http://127.0.0.1:{self.peer.server_port}/feature-fixture/v1'
         self.client=Client(self.url,self.reader);self.run,self.fixture_url=self.client.register('tablet-web')
-        self.target=PicoTarget(self.clock,self.client,self.foreign,self.path)
+        self.target=self.make_target()
         self.primary=self.flow(Client(self.url,self.adapter_token),'primary')
         self.actor=self.flow(Client(self.url,self.actor_token),'actor')
+    def make_target(self):return PicoTarget(self.clock,self.client,self.foreign,self.path)
     def stop(self,server,thread):server.shutdown();server.server_close();thread.join(timeout=2);self.assertFalse(thread.is_alive())
     def flow(self,client,role):
         return PicoTabletWebFeature(self.target,'target',PhaseFixtureReader(client,self.run,'tablet-web',epoch_ms=self.clock.epoch,

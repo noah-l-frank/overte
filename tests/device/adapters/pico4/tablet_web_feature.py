@@ -805,11 +805,12 @@ class PicoTabletWebFeature:
         self.archive_release=PicoBrowserArchiveReleaseSource(self,self.remote_capture_retirement)
         return self.archive_release
 
-    def archive_retired_sources(self):
+    def archive_retired_sources(self,*,directory_retirement=False):
         from adapters.pico4.browser_evidence_archive import PicoBrowserEvidenceArchive
         need(self.role=='primary' and self.evidence_archive is None and self.remote_capture_retirement is not None)
         # Cache the warm owner before admission opens catalog descriptors.
-        self.evidence_archive=PicoBrowserEvidenceArchive(self,self.remote_capture_retirement)
+        self.evidence_archive=PicoBrowserEvidenceArchive(self,self.remote_capture_retirement,
+            directory_retirement=directory_retirement)
         return self.evidence_archive.run()
 
     def close_archived_host(self):

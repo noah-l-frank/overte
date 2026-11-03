@@ -14,6 +14,24 @@ from adapters.pico4.tablet_browser_source import PicoTabletBrowserIO
 from adapters.pico4.tablet_home import bind_home
 from adapters.token_script_ui import TokenScriptUI
 import os
+import hashlib
+
+
+def archive_sentry_prefix(target):
+    key=hashlib.sha256(('org.overte.pico\0'+target).encode()).hexdigest()[:32]
+    return 'feature-tablet-web-'+key+'-archive-owner-'
+
+
+def archive_retained(adapter,target):
+    """Pure target-derived pending-marker scan; no native IO or adoption."""
+    if adapter.pico_configuration is None:return False
+    parent=adapter.pico_configuration[1];count=0
+    if parent.exists():
+        with os.scandir(parent) as entries:
+            for entry in entries:
+                count+=1;need(count<=4096)
+                if entry.name.startswith(archive_sentry_prefix(target)):return True
+    return False
 
 VERSION=1
 
@@ -25,6 +43,9 @@ def retained(adapter,target):
     without a readable parent. Generic application stop cannot retire them.
     """
     journey=PicoScriptJourney(adapter);journey.state_area='tablet-web'
+    # A directory-retirement marker lives outside the moved namespace. Even
+    # rootless partial writes, directories or symlinks block generic cleanup.
+    if archive_retained(adapter,target):return True
     path=journey.existing_state_path(target)
     return path is not None and any(path.parent.iterdir())
 

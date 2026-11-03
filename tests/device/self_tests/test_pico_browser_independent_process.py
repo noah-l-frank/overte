@@ -65,8 +65,9 @@ finally:target.close()
 
 
 class PicoBrowserIndependentProcessTests(unittest.TestCase):
+    stereo_fixture_type=existing.PicoTabletWebStereoFlowTests
     def setUp(self):
-        h=existing.PicoTabletWebStereoFlowTests();h.setUp();self.addCleanup(h.doCleanups)
+        h=self.stereo_fixture_type();h.setUp();self.addCleanup(h.doCleanups)
         self.f,self.model=h.fixture,h.model
         self.batches=[];self.raw='';self.batch_sequence=0;self.mutate=None;self.lose=False
         self.f.target._tablet_web_retired_captures_observer=self.reader

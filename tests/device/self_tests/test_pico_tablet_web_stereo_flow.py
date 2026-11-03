@@ -13,8 +13,9 @@ from self_tests.test_stereo_navigation_evidence import POLICY as BASE_POLICY
 
 
 class PicoTabletWebStereoFlowTests(unittest.TestCase):
+    fixture_type=flow_seams.PicoTabletWebFlowTests
     def setUp(self):
-        self.fixture=flow_seams.PicoTabletWebFlowTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
+        self.fixture=self.fixture_type();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
         self.model=RenderModel(self.fixture.target,self.fixture.artifacts);self.addCleanup(self.model.close)
         self.vm_factories=[];vm=self.fixture.target._tablet_web_vm
         def owner(target,flow):self.vm_factories.append(flow.role);return vm(target,flow)

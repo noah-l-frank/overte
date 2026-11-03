@@ -47,6 +47,8 @@ class PicoBrowserHostClose:
             for label,row in catalog.rows.items():self.add(prefix+'/'+label,row['owner'])
         for name,row in plan.archive.archived.items():self.add('immutable/'+name,row['owner'])
         self.add('immutable/root',plan.archive.root)
+        group=getattr(plan,'namespace_group',None)
+        if group is not None:self.add('retained-namespace/source-parent',group.source_parent)
         process=plan.captures.returned.process
         from fixture.chat_observer_process import LinuxChatObserverProcess
         need(type(process) is LinuxChatObserverProcess)

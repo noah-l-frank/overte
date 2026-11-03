@@ -64,9 +64,11 @@ class ProductSources:
 
     def configuration(self):
         f=self.f
-        return dict(port=self.server.server_address[1],token=self.token,path=str(f.path),modelRoot=str(self.model.root),
+        value=dict(port=self.server.server_address[1],token=self.token,path=str(f.target.path),modelRoot=str(self.model.root),
             artifacts=str(f.artifacts),nativeRoot=str(self.model.native_root),binding=deepcopy(f.target.binding),
             run=f.run,fixture=f.fixture_url,foreign=f.foreign,scene=f.target.scene_url)
+        if f.target.lock.path.parent!=f.target.path:value['sourceLock']=str(f.target.lock.path)
+        return value
 
     def close(self):
         self.server.shutdown();self.server.server_close();self.thread.join(timeout=2);need(not self.thread.is_alive())
@@ -134,7 +136,8 @@ class IndependentBrowserSources:
         self.config=config;self.rpc=Rpc(config);self.clock=Clock(self.rpc)
         self.path=Path(config['path']);self.artifacts=Path(config['artifacts']);self.model_root=Path(config['modelRoot'])
         self.native_root=Path(config['nativeRoot']);self.binding=deepcopy(config['binding']);self.scene_url=config['scene']
-        self.lock=ScriptSourceLock(self.path/'script-sources.lock');self.pid=int(self.binding['processIdentity'].split(':',1)[0])
+        self.lock=ScriptSourceLock(Path(config['sourceLock']) if 'sourceLock' in config else self.path/'script-sources.lock')
+        self.pid=int(self.binding['processIdentity'].split(':',1)[0])
     def close(self):self.rpc.close()
     def state_path(self,_selector):return self.path/'session.json'
     def _lock(self,_selector):return self.lock

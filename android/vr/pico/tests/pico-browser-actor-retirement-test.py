@@ -9,9 +9,12 @@ import argparse
 ROOT=Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(ROOT/'tests/device'))
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--part',choices=('retirement','return','independent','independent-journey','archive-source','evidence-archive','host-close-fences'),default='retirement')
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--part',choices=('retirement','return','independent','independent-journey','independent-journey-legacy','archive-source','evidence-archive','host-close-fences'),default='retirement')
     part=parser.parse_args().part
-    if part in ('independent','independent-journey','archive-source','evidence-archive','host-close-fences'):
+    if part=='independent-journey':
+        suite=unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_browser_directory_archive.PicoBrowserDirectoryArchiveTests.test_changed_whole_common_journey_then_original_archive_and_host_retirement')
+    elif part in ('independent','independent-journey-legacy','archive-source','evidence-archive','host-close-fences'):
+        if part=='independent-journey-legacy':part='independent-journey'
         from self_tests.test_pico_browser_independent_process import PicoBrowserIndependentProcessTests
         prefix='self_tests.test_pico_browser_independent_process.PicoBrowserIndependentProcessTests.'
         whole='test_complete_shared_journey_then_original_independent_return_and_all_capture_retirement'

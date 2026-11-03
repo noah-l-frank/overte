@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
-    "pico-browser-evidence-archive": 2,
+    "pico-browser-evidence-archive": 3,
     "pico-browser-archive-context": 2,
     "pico-browser-archive-ownership": 1,
     "pico-browser-host-close": 1,
@@ -162,7 +162,8 @@ REQUIRED = {
     "pico-chat-observation": 1,
     "pico-chat-cleanup-witness": 1,
     "pico-chat-application-close": 1,
-    "chat-evidence-archive": 4,
+    "chat-evidence-archive": 5,
+    "original-directory-retirement": 1,
     "pico-chat-archive-plan": 4,
     "pico-chat-cursor-archive-extension": 1,
     "pico-chat-remote-archive-extension": 1,
