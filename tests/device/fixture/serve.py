@@ -566,6 +566,12 @@ class FixtureState:
             try:lifecycle_inputs_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS Lifecycle input source request") from None
             valid=True
+        elif action == "feature-ios-audio-passive-capture":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.audio_passive_capture_source import command as passive_audio_command
+            try:passive_audio_command(command)
+            except (ValueError,RuntimeError):raise ValueError('Invalid owned passive iOS Audio capture command') from None
+            valid=True
         elif action == "feature-ios-audio-session":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.audio_session_source import command as audio_session_command

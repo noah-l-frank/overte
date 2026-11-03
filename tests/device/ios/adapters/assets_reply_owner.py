@@ -29,11 +29,20 @@ OWNER_VERSION=2
 
 
 class OwnedAssetsReplyReads:
+    CURRENT_VERSION=OWNER_VERSION
+    ALLOW_LEGACY=True
+    EXTRA_FIELDS=frozenset()
+    def profile(self):pass
+    def extra_envelope(self):return {}
+    def query_context(self,query,state):
+        need(all(query[key]==expected for key,expected in (('runId',self.run),('ticket',state['ticket']),('ownerToken',state['token']),('resource',state['resource']),('namespace',state['namespace']))))
+    def query_ticket(self,kind,values):return self.state['ticket']
+    def query_intent(self,query):return query
     def __init__(self,native,store,binding,run,url,*,lock,role='primary'):
         need(isinstance(native,source.IOSAssetsReplies) and isinstance(store,PrivateFeatureState));context(binding);identifier(run)
         need(str(native.pid)==binding['processIdentity']);self.native,self.store,self.binding,self.run,self.url,self.lock=native,store,deepcopy(binding),run,url,lock
         lock.assert_held();self.previous=store.read();self.state=None
-        self.role=role;self.storage_version=OWNER_VERSION;self.sources=ReplySources(self,role,self.source_guard,self.save)
+        self.role=role;self.storage_version=self.CURRENT_VERSION;self.sources=ReplySources(self,role,self.source_guard,self.save);self.profile()
         if self.previous is not None:
             self.state=self.decode(self.previous)
             for record in self.state['originals']:
@@ -49,9 +58,11 @@ class OwnedAssetsReplyReads:
 
     def decode(self,value):
         need(type(value) is dict and type(value.get('iosAssetsReplyOwnerVersion')) is int)
-        if value['iosAssetsReplyOwnerVersion']==VERSION:self.storage_version=VERSION;return self.legacy_state(value)
-        exact(value,{'iosAssetsReplyOwnerVersion','binding','runId','fixtureUrl','role','payload'})
-        need(value['iosAssetsReplyOwnerVersion']==OWNER_VERSION and same(value['binding'],self.binding) and value['runId']==self.run and value['fixtureUrl']==self.url and value['role']==self.role)
+        if value['iosAssetsReplyOwnerVersion']==VERSION:
+            need(self.ALLOW_LEGACY);self.storage_version=VERSION;return self.legacy_state(value)
+        exact(value,{'iosAssetsReplyOwnerVersion','binding','runId','fixtureUrl','role','payload'}|self.EXTRA_FIELDS)
+        need(same({key:value[key] for key in self.EXTRA_FIELDS},self.extra_envelope()))
+        need(value['iosAssetsReplyOwnerVersion']==self.CURRENT_VERSION and same(value['binding'],self.binding) and value['runId']==self.run and value['fixtureUrl']==self.url and value['role']==self.role)
         decoded=unpack(value['payload']);need(len(decoded)==1);stored=decoded[0]
         exact(stored,{'phase','ticket','token','resource','namespace','commands','jobs','sources'});self.sources.load(stored['sources']);entries=[]
         for index,reference in enumerate(self.sources.refs):
@@ -63,7 +74,7 @@ class OwnedAssetsReplyReads:
                 entries.extend(deepcopy(legacy['originals']))
             else:entries.append(dict(query=deepcopy(record['query']),packet=decode(record['raw'])))
         state={key:deepcopy(stored[key]) for key in ('phase','ticket','token','resource','namespace','commands','jobs')};state['originals']=entries
-        need(self.sources.pending is None or state['phase']!='closed');self.storage_version=OWNER_VERSION;return self.validate_state(state)
+        need(self.sources.pending is None or state['phase']!='closed');self.storage_version=self.CURRENT_VERSION;return self.validate_state(state)
 
     def validate_state(self,state):
         need(len(canonical([state]))<=MAX_RAW)
@@ -78,7 +89,7 @@ class OwnedAssetsReplyReads:
             need(type(job['slot']) is str and re.fullmatch('[a-z][a-z0-9-]{0,47}',job['slot']) and job['slot'] not in slots
                 and job['phase'] in ('issued','complete','failed','retiring','retired') and integer(job['issuedEpochMs'],1))
             slots.add(job['slot']);query=source.command(job['query']);need(query['operation'] in source.STARTS and query['commandId'] not in jobs)
-            need(all(query[key]==expected for key,expected in (('runId',self.run),('ticket',state['ticket']),('ownerToken',state['token']),('resource',state['resource']),('namespace',state['namespace']))))
+            self.query_context(query,state)
             if query['operation']!='inventory':need(query['sourceJob'] in jobs)
             jobs[query['commandId']]=job
             if job['proof'] is not None:need(integer(job['proof'],0,len(state['originals'])-1))
@@ -86,8 +97,7 @@ class OwnedAssetsReplyReads:
                 source.command(job['retireQuery']);need(job['retireQuery']['operation']=='retire' and job['retireQuery']['jobId']==query['commandId'])
         commands={}
         for query in state['commands']:
-            source.command(query);need(query['commandId'] not in commands and all(query[key]==expected for key,expected in (
-                ('runId',self.run),('ticket',state['ticket']),('ownerToken',state['token']),('resource',state['resource']),('namespace',state['namespace']))))
+            source.command(query);need(query['commandId'] not in commands);self.query_context(query,state)
             target=query.get('jobId',query['commandId']);need(target in jobs)
             if query['operation'] in source.STARTS:need(same(query,jobs[target]['query']))
             elif query['operation']=='retire':need(same(query,jobs[target]['retireQuery']))
@@ -129,7 +139,7 @@ class OwnedAssetsReplyReads:
         self.lock.assert_held();transport_check();need(self.native.guard() is not False and same(self.store.read(),self.previous))
         if self.storage_version==VERSION:self.sources.prepare_migration(self.previous);self.storage_version=OWNER_VERSION
         state={key:deepcopy(self.state[key]) for key in ('phase','ticket','token','resource','namespace','commands','jobs')};state['sources']=self.sources.manifest()
-        value=dict(iosAssetsReplyOwnerVersion=OWNER_VERSION,binding=self.binding,runId=self.run,fixtureUrl=self.url,role=self.role,payload=pack([state]))
+        value=dict(iosAssetsReplyOwnerVersion=self.CURRENT_VERSION,binding=self.binding,runId=self.run,fixtureUrl=self.url,role=self.role,payload=pack([state]),**self.extra_envelope())
         need(same(self.decode(value),self.state));transport_check();self.store.write(value,self.previous);sync(self.store.path.parent);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     @operation
@@ -139,8 +149,9 @@ class OwnedAssetsReplyReads:
 
     def _query(self,kind,**values):
         need(self.state is not None and self.state['phase']=='open')
-        return source.command(dict(schemaVersion=VERSION,commandId='ios-'+uuid.uuid4().hex,action=source.ACTION,
-            runId=self.run,ticket=self.state['ticket'],ownerToken=self.state['token'],resource=self.state['resource'],namespace=self.state['namespace'],operation=kind,**values))
+        query=source.command(dict(schemaVersion=VERSION,commandId='ios-'+uuid.uuid4().hex,action=source.ACTION,
+            runId=self.run,ticket=self.query_ticket(kind,values),ownerToken=self.state['token'],resource=self.state['resource'],namespace=self.state['namespace'],operation=kind,**values))
+        return self.query_intent(query)
 
     def _retain(self,query,packet):
         raw=self.native.original();need(type(raw) is str and same(decode(raw),packet));return self._retain_raw(query,packet,raw)

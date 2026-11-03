@@ -39,7 +39,7 @@ namespace overte::e2e { class IOSLifecycleWorldObservation; }
 namespace overte::e2e { class IOSAssetReplyReads; }
 #endif
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class PrivateLoginInput; class RecordedPreviewAdmission; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class PrivateLoginInput; class RecordedPreviewAdmission; class IOSAudioPassiveCapture; }
 #endif
 
 class AudioInjector;
@@ -217,6 +217,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSKeyboard(const QVariantMap& command);
 #if defined(OVERTE_E2E_VOICE_TESTS)
     Q_INVOKABLE QVariantMap featureIOSAudioSession(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSAudioPassiveCapture(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSAudioSettings(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureIOSLifecycleInputs(const QVariantMap& command);
@@ -346,6 +347,9 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::FeatureLifecycle* _featureLifecycle {nullptr};
     std::shared_ptr<overte::e2e::RecordedPreviewAdmission> _featurePreviewAdmission;
+#if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
+    std::shared_ptr<overte::e2e::IOSAudioPassiveCapture> _featureIOSAudioPassiveCapture;
+#endif
     bool featurePreviewOriginCurrent(const QVariantMap& packet) const;
     overte::e2e::AccountOriginLease* _featureAccountOriginLease {nullptr};
     QSharedPointer<overte::e2e::PrivateLoginInput> _privateLoginInput;

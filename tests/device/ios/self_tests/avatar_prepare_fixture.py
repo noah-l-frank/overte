@@ -55,7 +55,7 @@ class PrepareDomain:
     def __init__(self,test):
         self.test=test;self.clock=self.create_clock();self.scenes={};self.natives={};self.installed={};self.receivers={};self.peer_sequences={};self.role_by_url={}
         self.provider=AccountProvider(epoch_ms=self.host)
-        self.social=AvatarSocialProvider(account_authenticator(self.provider),epoch_ms=self.host,monotonic=lambda:self.clock[0])
+        self.social=AvatarSocialProvider(account_authenticator(self.provider),epoch_ms=self.host,monotonic=self.host_monotonic)
         self.reader,self.actor,self.adapter=[secrets.token_hex(32) for _ in range(3)]
         self.server=make_server(self.reader,self.actor,account_provider=self.provider,avatar_social_provider=self.social,
             adapter_token=self.adapter,tls_context=tls.AccountProviderTests.server_context)
@@ -108,7 +108,7 @@ class PrepareDomain:
             s.store=PrivateFeatureState(s.root/('ios-avatar-'+role+'-marker.json'))
             s.files=OwnedAvatarMarkerFiles(d.files,PrivateFeatureState(s.root/('ios-avatar-'+role+'-marker-files.json')),binding)
             s.originals=IOSAvatarOriginals(s.root,binding,RUN,role,s.guard,s.storage_intent,kind='inputs')
-            s.epoch_ms=self.host;s.monotonic=lambda:self.clock[0];s.sleep=n.sleep
+            s.epoch_ms=self.host;s.monotonic=self.host_monotonic;s.sleep=n.sleep
             # All native feature packets share the actual account producer and
             # the original marker-domain evaluated-frame history.
             base=n.feature.send
@@ -116,7 +116,7 @@ class PrepareDomain:
                 'sample':property(lambda _self,n=n:n.feature.sample),'original':lambda _self,n=n:n.feature.original()})
             d.boundary=wrapper_type();n.feature.send=d.native_send
             def native(bound=True,n=n,d=d):return NativeFeatureObservation(d.native_send,n.feature.original,n.epoch,lambda:True,31,ios=True,
-                native_clock_bound=bound,monotonic=lambda:self.clock[0],sleep=n.sleep)
+                native_clock_bound=bound,monotonic=self.host_monotonic,sleep=n.sleep)
             scene.native=native;scene.f.native=native;s.native=native();scene.f.now=n.epoch;scene.f.host=self.host;scene.f.run=RUN
             # Retained history timestamps precede this process' first emitted
             # capture. Every subsequent current timestamp comes from the source.
@@ -170,18 +170,18 @@ class PrepareDomain:
                     value.update(processId=31,requestedEpochMs=n.epoch(),capturedEpochMs=n.epoch())
                     value['source'].update(processId=31,selfSha256=session_sha(SESSIONS[selector]))
                 return NativeAvatarReceive(send,lambda:json.dumps(receiver.current),n.epoch,lambda:True,31,ios=True,
-                    monotonic=lambda:outer.clock[0],sleep=outer.sleep)
+                    monotonic=outer.host_monotonic,sleep=outer.sleep)
             def _avatar_peer_sources(_self,selector,client,run,role,root,lock):
                 return IOSAvatarPeerSources(PrivateFeatureState(_self.state_path(selector).with_name('ios-avatar-'+role+'-peer-sources.json')),root,
                     dict(outer.natives[selector].scope(),processIdentity='31'),run,
-                    PhaseFixtureReader(client,run,'avatar-people',epoch_ms=outer.host,monotonic=lambda:outer.clock[0]),lock,lambda:True,
-                    runtime=_self,selector=selector,role=role,epoch_ms=outer.host,monotonic=lambda:outer.clock[0])
+                    PhaseFixtureReader(client,run,'avatar-people',epoch_ms=outer.host,monotonic=outer.host_monotonic),lock,lambda:True,
+                    runtime=_self,selector=selector,role=role,epoch_ms=outer.host,monotonic=outer.host_monotonic)
             def _avatar_sources(_self,selector,client,run,role,root,lock):
                 scene=outer.scenes[selector]
                 return IOSAvatarSources(PrivateFeatureState(_self.state_path(selector).with_name('ios-avatar-'+role+'-sources.json')),root,
                     dict(outer.natives[selector].scope(),processIdentity='31'),run,role,lock,lambda:True,
-                    PhaseFixtureReader(client,run,'avatar-people',epoch_ms=outer.host,monotonic=lambda:outer.clock[0]),readers=scene.readers(),
-                    epoch_ms=outer.host,monotonic=lambda:outer.clock[0])
+                    PhaseFixtureReader(client,run,'avatar-people',epoch_ms=outer.host,monotonic=outer.host_monotonic),readers=scene.readers(),
+                    epoch_ms=outer.host,monotonic=outer.host_monotonic)
             def _avatar_marker_scope(_self,selector,client,run,role,root,ticket,lock):
                 scene=outer.scenes[selector];s=scene.scope;s.lock=lock;return s
             def _avatar_held_marker_scope(_self,selector,client,run,role,root,ticket,lock):
@@ -194,19 +194,19 @@ class PrepareDomain:
                     from ios.adapters.avatar_held_samples import IOSAvatarHeldSamples
                     Samples=IOSAvatarHeldSamples
                 return Samples(_self,selector,scope,root,policy,
-                    PhaseFixtureReader(client,run=RUN,area='avatar-people',epoch_ms=outer.host,monotonic=lambda:outer.clock[0]),lock,
-                    epoch_ms=outer.host,monotonic=lambda:outer.clock[0],sleep=outer.sleep)
+                    PhaseFixtureReader(client,run=RUN,area='avatar-people',epoch_ms=outer.host,monotonic=outer.host_monotonic),lock,
+                    epoch_ms=outer.host,monotonic=outer.host_monotonic,sleep=outer.sleep)
         self.runtime=Runtime(adapter)
         for boundary in (patch.object(script_runtime.backend,'WebDriver',side_effect=lambda url:self.natives[self.role_by_url[url]]),
             # These are the original boundary clocks for this explicit host
             # model, fixed before either unbound or bound native reader exists.
             # Production FeatureObservation defaults and saved DTOs stay intact.
             patch.object(script_runtime,'FeatureObservation',partial(feature_observation.FeatureObservation,
-                monotonic=lambda:self.clock[0],sleep=self.sleep,epoch_ms=self.host)),
+                monotonic=self.host_monotonic,sleep=self.sleep,epoch_ms=self.host)),
             patch.object(normal_input,'urlopen',side_effect=self.post),patch.object(feature_observation,'post_request',side_effect=self.post),
-            patch.object(authentication_runtime,'NativeUI',partial(NativeUI,monotonic=lambda:self.clock[0],sleep=self.sleep)),
-            patch.object(avatar_feature,'NativeUI',partial(NativeUI,monotonic=lambda:self.clock[0],sleep=self.sleep)),
-            patch.object(authentication_runtime,'IOSLoginControls',partial(IOSLoginControls,monotonic=lambda:self.clock[0],sleep=self.sleep))):
+            patch.object(authentication_runtime,'NativeUI',partial(NativeUI,monotonic=self.host_monotonic,sleep=self.sleep)),
+            patch.object(avatar_feature,'NativeUI',partial(NativeUI,monotonic=self.host_monotonic,sleep=self.sleep)),
+            patch.object(authentication_runtime,'IOSLoginControls',partial(IOSLoginControls,monotonic=self.host_monotonic,sleep=self.sleep))):
             boundary.start();test.addCleanup(boundary.stop)
         self.owners={}
         for role in ('primary','actor'):
@@ -214,8 +214,13 @@ class PrepareDomain:
                 **{('actorTarget' if role=='primary' else 'primaryTarget'):('actor' if role=='primary' else 'primary')})
             if role=='actor':config['authorityRead']=dict(mode='adapter',token=self.adapter)
             client=self.client if role=='primary' else witness.Client(self.client.url,self.actor)
-            self.owners[role]=IOSAvatarFeature(self.runtime,role,client,RUN,role,config,epoch_ms=self.host,monotonic=lambda:self.clock[0],sleep=self.sleep)
+            self.owners[role]=IOSAvatarFeature(self.runtime,role,client,RUN,role,config,epoch_ms=self.host,monotonic=self.host_monotonic,sleep=self.sleep)
     def create_clock(self):return [1.]
+
+    def host_monotonic(self):
+        # Legacy declared virtual host time stays literal. Explicit real
+        # frontdoors override this BEFORE any source/owner construction.
+        return self.clock[0]
 
     def declare_native_target(self,role,native):
         """Default model unchanged; subclasses declare targets before first bind."""

@@ -36,6 +36,9 @@ public:
     void stop() { _active = false; }
     void invalidate() { _invalid = true; _active = false; _pcm.clear(); }
     void reset() { _active = false; _invalid = false; _callbacks = 0; _pcm.clear(); _limit = 0; }
+    // Explicit passive lease retirement only. Existing legacy reset() keeps
+    // its literal behavior; this path also erases and releases PCM capacity.
+    void resetAndErase() { _pcm.fill(0); reset(); _pcm.squeeze(); }
     bool active() const { return _active; }
     bool complete() const { return !_invalid && _limit > 0 && _pcm.size() == _limit; }
     bool invalid() const { return _invalid; }

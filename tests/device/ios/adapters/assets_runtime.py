@@ -59,20 +59,73 @@ class AssetsNativeInput(NativeInput):
 
 
 class IOSAssetsRuntime(IOSScriptRuntime):
-    def __init__(self,adapter,*,monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000):
+    FILES_OWNER=OwnedAssetsFiles
+    SCENE_OWNER=AssetsSceneSources
+    USAGE_OWNER=OwnedAssetsUsage
+    PICKER_OWNER=OwnedAssetsPicker
+    REPLIES_OWNER=OwnedAssetsReplyReads
+    UPLOAD_OWNER=OwnedAssetsUpload
+    TREE_OWNER=OwnedAssetsTree
+    BAKING_OWNER=OwnedAssetsBaking
+    PARSED_OWNER=OwnedAssetsParsedInput
+    UNBAKED_OWNER=None
+    def _assets_unbaked_type(self):
+        from ios.adapters.assets_unbaked_input import OwnedAssetsUnbakedInput
+        return OwnedAssetsUnbakedInput if self.UNBAKED_OWNER is None else self.UNBAKED_OWNER
+    def _assets_unbaked_upload_components(self,*args,**kwargs):return self._assets_unbaked_components(*args,**kwargs)
+    def _assets_owner_values(self,kind,selector,run,role,lock):return {}
+    def _assets_usage_values(self,selector,run,role,tree):return {}
+    def _assets_selected_values(self,selector,run,role,lock):
+        need(self.assets_episode is None);return {}
+    def __init__(self,adapter,*,monotonic=time.monotonic,epoch_ms=lambda:time.time()*1000,episode=None):
         super().__init__(adapter);need(callable(monotonic) and callable(epoch_ms));self.monotonic,self.epoch_ms=monotonic,epoch_ms
+        if episode is not None:
+            from ios.adapters.assets_episodes import AssetsEpisodeScope
+            need(type(episode) is AssetsEpisodeScope);episode.guard()
+        self.assets_episode=episode
         self.cleanup_errors=[] # Private diagnostics only; never feature facts.
 
+    def _assets_state_path(self,selector):
+        episode=self.assets_episode
+        return self.state_path(selector) if episode is None else episode.state_path(self,selector)
+
+    def _sources(self,selector):
+        # SDK/InstalledCode/session acquisition always uses the real adapter.
+        # Only feature child outputs may reside in a separate episode subtree.
+        episode=self.assets_episode
+        if episode is not None:episode.runtime_guard(self,selector,episode.locks[episode.role(selector)])
+        parts=super()._sources(selector)
+        if episode is not None:
+            original=parts['check']
+            def checked():
+                episode.runtime_guard(self,selector,episode.locks[episode.role(selector)],parts['binding'])
+                need(original() is not False);return True
+            parts['check']=checked
+            for transport in (parts['observer'],getattr(parts['clock_source'].send,'__self__',None)):
+                need(transport is not None);before=transport.before_send
+                def final(before=before):
+                    checked()
+                    if before is not None:need(before() is not False)
+                    checked()
+                transport.before_send=final
+            checked()
+        return parts
+
     def _assets_store(self,selector,run,role,kind):
-        identifier(run);need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage','baking','model','model-sources','parsed-sources','parsed','model-removal','baked-tree'))
-        return PrivateFeatureState(self.state_path(selector).with_name('ios-assets-'+run+'-'+role+'-'+kind+'.json'))
+        identifier(run)
+        if self.assets_episode is not None:need(run==self.assets_episode.owner.run and role==self.assets_episode.role(selector))
+        need(role in ('primary','actor') and kind in ('files','picker','replies','upload','tree','backend','usage','baking','model','model-sources','parsed-sources','parsed','model-removal','baked-tree'))
+        return PrivateFeatureState(self._assets_state_path(selector).with_name('ios-assets-'+run+'-'+role+'-'+kind+'.json'))
 
     @operation
     def _assets_sources(self,selector,lock):
-        need(isinstance(lock,ScriptSourceLock) and lock.path==self.state_path(selector).with_name('script-feature-sources.lock'));lock.assert_held()
-        check();sources=super()._sources(selector);check();original_check=sources['check']
+        need(isinstance(lock,ScriptSourceLock) and lock.path==self._assets_state_path(selector).with_name('script-feature-sources.lock'));lock.assert_held()
+        if self.assets_episode is not None:self.assets_episode.runtime_guard(self,selector,lock)
+        check();sources=self._sources(selector);check();original_check=sources['check']
         def bound():
-            check();lock.assert_held();need(original_check() is not False);check()
+            check();lock.assert_held()
+            if self.assets_episode is not None:self.assets_episode.runtime_guard(self,selector,lock)
+            need(original_check() is not False);check()
         def guarded_process():bound();return sources['process']()
         observer=sources['observer'];clock=sources['clock_source'];clock_transport=getattr(clock.send,'__self__',None)
         need(isinstance(observer,FeatureObservation) and isinstance(clock_transport,FeatureObservation))
@@ -90,14 +143,14 @@ class IOSAssetsRuntime(IOSScriptRuntime):
     @operation
     def _assets_components(self,selector,run,role,fixture_url,lock):
         identifier(run);need(role in ('primary','actor'));sources=self._assets_sources(selector,lock)
-        files=OwnedAssetsFiles(sources['files'],self._assets_store(selector,run,role,'files'),sources['binding'],run,fixture_url,lock=lock,role=role)
-        picker=OwnedAssetsPicker(sources['native'],files,self._assets_store(selector,run,role,'picker'),sources['binding'],lock=lock,
-            monotonic=self.monotonic,sleep=sources['observer'].sleep)
-        replies=OwnedAssetsReplyReads(sources['replies'],self._assets_store(selector,run,role,'replies'),sources['binding'],run,fixture_url,lock=lock,role=role)
-        upload=OwnedAssetsUpload(sources['native'],sources['clock_source'],files,picker,replies,self._assets_store(selector,run,role,'upload'),
-            sources['binding'],lock=lock,role=role,monotonic=self.monotonic,sleep=sources['observer'].sleep)
-        tree=OwnedAssetsTree(upload,self._assets_store(selector,run,role,'tree'),lock=lock)
-        usage=OwnedAssetsUsage(upload,self._assets_store(selector,run,role,'usage'),lock=lock)
+        files=self.FILES_OWNER(sources['files'],self._assets_store(selector,run,role,'files'),sources['binding'],run,fixture_url,lock=lock,role=role,**self._assets_selected_values(selector,run,role,lock))
+        picker=self.PICKER_OWNER(sources['native'],files,self._assets_store(selector,run,role,'picker'),sources['binding'],lock=lock,
+            monotonic=self.monotonic,sleep=sources['observer'].sleep,**self._assets_owner_values('picker',selector,run,role,lock))
+        replies=self.REPLIES_OWNER(sources['replies'],self._assets_store(selector,run,role,'replies'),sources['binding'],run,fixture_url,lock=lock,role=role,**self._assets_owner_values('replies',selector,run,role,lock))
+        upload=self.UPLOAD_OWNER(sources['native'],sources['clock_source'],files,picker,replies,self._assets_store(selector,run,role,'upload'),
+            sources['binding'],lock=lock,role=role,monotonic=self.monotonic,sleep=sources['observer'].sleep,**self._assets_owner_values('upload',selector,run,role,lock))
+        tree=self.TREE_OWNER(upload,self._assets_store(selector,run,role,'tree'),lock=lock)
+        usage=self.USAGE_OWNER(upload,self._assets_store(selector,run,role,'usage'),lock=lock,**self._assets_usage_values(selector,run,role,tree))
         sources['check']()
         return dict(sources,owned_files=files,picker=picker,owned_replies=replies,upload=upload,tree=tree,usage=usage)
 
@@ -105,7 +158,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
     def _assets_baking_components(self,selector,run,role,fixture_url,lock,backend_config,*,parts=None):
         parts=self._assets_components(selector,run,role,fixture_url,lock) if parts is None else parts
         backend=OwnedAssetsBackend(parts['upload'],AssetsBackendClient(backend_config,parts['check']),self._assets_store(selector,run,role,'backend'),lock=lock)
-        baking=OwnedAssetsBaking(parts['usage'],backend,self._assets_store(selector,run,role,'baking'),lock=lock)
+        baking=self.BAKING_OWNER(parts['usage'],backend,self._assets_store(selector,run,role,'baking'),lock=lock,**self._assets_owner_values('baking',selector,run,role,lock))
         parts['check']();return dict(parts,backend=backend,baking=baking)
 
     @operation
@@ -122,8 +175,74 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         parts=self._assets_model_components(selector,run,role,fixture_url,lock,parts=parts) if parts is None or 'model' not in parts else parts
         if 'baking' not in parts:parts=self._assets_baking_components(selector,run,role,fixture_url,lock,backend_config,parts=parts)
         source=AssetsParsedSources(parts['model'],parts['observer'].assets_model_origin(parts['upload'].clock),self._assets_store(selector,run,role,'parsed-sources'),lock=lock)
-        parsed=OwnedAssetsParsedInput(source,parts['baking'],self._assets_store(selector,run,role,'parsed'),lock=lock)
+        parsed=self.PARSED_OWNER(source,parts['baking'],self._assets_store(selector,run,role,'parsed'),lock=lock,**self._assets_owner_values('parsed',selector,run,role,lock))
         parts['check']();return dict(parts,parsed_sources=source,parsed=parsed)
+
+    @operation
+    def _assets_unbaked_components(self,selector,run,role,fixture_url,lock,backend_config,*,parts=None):
+        from ios.adapters.assets_unbaked_input import OwnedAssetsUnbakedInput
+        if parts is not None and 'parsed' in parts:
+            need(type(parts['parsed']) is self._assets_unbaked_type() and parts['parsed'].model is parts['model']
+                and parts['parsed'].sources is parts['parsed_sources'] and parts['parsed'].backend is parts['backend']
+                and parts['backend'].upload is parts['upload'] and parts['model'].usage is parts['usage'])
+            parts['check']();return parts
+        parts=self._assets_model_components(selector,run,role,fixture_url,lock,parts=parts) if parts is None or 'model' not in parts else parts
+        backend=OwnedAssetsBackend(parts['upload'],AssetsBackendClient(backend_config,parts['check']),
+            self._assets_store(selector,run,role,'backend'),lock=lock)
+        source=AssetsParsedSources(parts['model'],parts['observer'].assets_model_origin(parts['upload'].clock),
+            self._assets_store(selector,run,role,'parsed-sources'),lock=lock)
+        parsed=self._assets_unbaked_type()(source,backend,self._assets_store(selector,run,role,'parsed'),lock=lock,**self._assets_owner_values('unbaked',selector,run,role,lock))
+        parts['check']();return dict(parts,backend=backend,parsed_sources=source,parsed=parsed)
+
+    @operation
+    def _assets_prepare_unbaked_upload(self,selector,run,role,fixture_url,ticket,lock,backend_config,*,resource,parts=None):
+        from ios.adapters.assets_unbaked_input import RESOURCES
+        need(resource in RESOURCES)
+        parts=self._assets_unbaked_upload_components(selector,run,role,fixture_url,lock,backend_config,parts=parts)
+        backend,upload=parts['backend'],parts['upload'];parts['check']()
+        if backend.state is None or backend.state['phase']=='reserved':
+            for _ in range(32):
+                if backend.admit(ticket) is not None:break
+                backend.sleep(.1)
+            else:need(False)
+        if upload.state is None:self._assets_prepare_upload(selector,run,role,fixture_url,ticket,lock,resource=resource,parts=parts)
+        need(upload.files.state['resource']==resource and upload.files.state['ticket']==ticket)
+        if backend.state['phase']=='baseline':backend.attach()
+        if upload.state['phase'] in ('ready','review','destination','starting'):self._assets_finish_upload(upload)
+        need(upload.state['phase']=='uploaded')
+        if backend.state['uploadProof'] is None:
+            self._assets_backend_checkpoint(backend,'uploaded-unbaked-input',ticket);backend.uploaded('uploaded-unbaked-input')
+        parts['check']();return parts
+
+    @operation
+    def _assets_import_unbaked(self,parts):
+        from ios.adapters.assets_unbaked_input import OwnedAssetsUnbakedInput
+        usage,model,parsed=(parts[key] for key in ('usage','model','parsed'))
+        need(type(parsed) is self._assets_unbaked_type());parts['check']()
+        if usage.state is None:usage.reserve()
+        leaf=[entry for entry in usage.state['inputs'] if entry['slot']=='usage-select-1']
+        if leaf:
+            need(len(leaf)==1)
+            if leaf[0]['resolvedBy'] is None:usage.resolve('usage-select-1')
+        else:
+            roots=[entry for entry in usage.state['inputs'] if entry['slot']=='usage-select-0']
+            if roots and roots[0]['resolvedBy'] is None:usage.resolve('usage-select-0')
+            usage.select()
+        current=usage_controls(usage.capture(),usage.source.state['page'])
+        need(current['baking']['enabled'] is False and current['baking']['checked'] is False)
+        if model.state is None:model.reserve()
+        if model.state['phase'] in ('reserved','baseline'):
+            issued=any(entry['slot']=='usage-accept-model' and entry['command'] is not None for entry in usage.state['inputs'])
+            model.recover() if issued else model.start()
+        if model.state['phase']=='issued':model.recover()
+        if model.state['phase'] in ('issued','adopted'):
+            for _ in range(16):
+                if model.observe() is not None:break
+                model.sources.readers['state'].sleep(.1)
+            else:need(False)
+        need(model.state['phase']=='geometry-observed')
+        if parsed.state is None:parsed.reserve()
+        result=parsed.observe();parts['check']();return result
 
     @operation
     def _assets_model_removal_components(self,selector,run,role,fixture_url,lock,backend_config,*,parts=None):
@@ -141,9 +260,10 @@ class IOSAssetsRuntime(IOSScriptRuntime):
     def _assets_scene_source(self,selector,run,role,lock):
         identifier(run);need(role in ('primary','actor','actor-primary'));parts=self._assets_sources(selector,lock)
         observer,clock=parts['observer'],parts['clock_source']
-        source=AssetsSceneSources(PrivateFeatureState(self.state_path(selector).with_name('ios-assets-scene-'+run+'-'+role+'.json')),
+        source=self.SCENE_OWNER(PrivateFeatureState(self._assets_state_path(selector).with_name('ios-assets-scene-'+run+'-'+role+'.json')),
             parts['binding'],run,role,lock,parts['check'],native=observer.bound_native_observer(clock),state=observer.create_state(clock),
-            domain=observer.emote_world(clock),origin=observer.assets_model_origin(clock),epoch_ms=self.epoch_ms,monotonic=self.monotonic)
+            domain=observer.emote_world(clock),origin=observer.assets_model_origin(clock),epoch_ms=self.epoch_ms,monotonic=self.monotonic,
+            **self._assets_selected_values(selector,run,role,lock))
         parts['check']();return dict(parts,scene=source)
 
     @operation
@@ -157,7 +277,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         identifier(run);parts=self._assets_sources(selector,lock)
         observer,clock=parts['observer'],parts['clock_source'];parts['check']()
         source=AssetsImageReaderPoolSources(
-            PrivateFeatureState(self.state_path(selector).with_name('ios-assets-image-pool-'+run+'.json')),
+            PrivateFeatureState(self._assets_state_path(selector).with_name('ios-assets-image-pool-'+run+'.json')),
             parts['binding'],run,lock,parts['check'],native=observer.bound_native_observer(clock),
             pool=observer.assets_image_reader_pool(clock),storage=observer.assets_image_reader_storage(clock),
             image_reader=observer.assets_image_reader(clock),epoch_ms=self.epoch_ms,monotonic=self.monotonic)
@@ -180,7 +300,7 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         from ios.adapters.assets_image_pool_ownership import inspect_pool
         from ios.adapters.assets_session_owners import directory_entries
         identifier(run);parts=self._assets_sources(selector,lock)
-        binding=deepcopy(parts['binding']);directory=self.state_path(selector).parent
+        binding=deepcopy(parts['binding']);directory=self._assets_state_path(selector).parent
         observer,clock=parts['observer'],parts['clock_source']
         def admission():
             need(parts['check']() is not False and parts['binding']==binding)
@@ -218,17 +338,18 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         peer_scene_parts=self._assets_scene_source(selector,run,'actor',lock) if peer_scene_parts is None else peer_scene_parts
         for parts in (primary_parts,primary_scene_parts,peer_scene_parts):need(parts['check']() is not False)
         owner=OwnedAssetsPeer(primary_parts['parsed'],primary_scene_parts['scene'],peer_scene_parts['scene'],
-            PrivateFeatureState(self.state_path(selector).with_name('ios-assets-peer-'+run+'.json')),lock)
+            PrivateFeatureState(self._assets_state_path(selector).with_name('ios-assets-peer-'+run+'.json')),lock)
         for parts in (primary_parts,primary_scene_parts,peer_scene_parts):need(parts['check']() is not False)
         return dict(primary=primary_parts,primary_scene=primary_scene_parts,peer_scene=peer_scene_parts,peer=owner)
 
     @operation
     def _assets_marker_components(self,selector,run,role,fixture_url,ticket,artifact_root,lock):
         identifier(run);identifier(ticket);need(role in ('primary','actor'));parts=self._assets_sources(selector,lock)
+        if self.assets_episode is not None:need(Path(artifact_root)==self.assets_episode.artifact_root(selector))
         scope=CreateMarkerScope(self,selector,artifact_root,run,role,fixture_url,ticket,lock,namespace='assets',
             epoch_ms=self.epoch_ms,monotonic=self.monotonic,sleep=parts['observer'].sleep)
         need(scope.binding==parts['binding']);marker=OwnedAssetsMarker(scope,
-            PrivateFeatureState(self.state_path(selector).with_name('ios-assets-marker-'+run+'-'+role+'.json')))
+            PrivateFeatureState(self._assets_state_path(selector).with_name('ios-assets-marker-'+run+'-'+role+'.json')))
         parts['check']();return dict(parts,marker_scope=scope,marker=marker)
 
     @operation
@@ -236,14 +357,15 @@ class IOSAssetsRuntime(IOSScriptRuntime):
         """Construct one primary image owner; no setup or capture is implicit."""
         identifier(run);identifier(ticket);need(type(request_id) is str and re.fullmatch('ios-[a-f0-9]{32}',request_id))
         root=Path(artifact_root);PrivateFeatureState(root/'assets-image-boundary.json')._parent()
+        if self.assets_episode is not None:need(root==self.assets_episode.artifact_root(selector))
         parts=self._assets_parsed_components(selector,run,'primary',fixture_url,lock,backend_config) if parts is None else parts
         marker_parts=self._assets_marker_components(selector,run,'primary',fixture_url,ticket,root,lock) if marker_parts is None else marker_parts
         need(parts['binding']==marker_parts['binding'] and marker_parts['marker'].scope.root==root)
         observer,clock=parts['observer'],parts['clock_source'];parts['check']();marker_parts['check']()
-        frame=VulkanWorldFrameOwner(PrivateFeatureState(self.state_path(selector).with_name('graphics-world-frame-primary-0-'+request_id[4:]+'.json')),
+        frame=VulkanWorldFrameOwner(PrivateFeatureState(self._assets_state_path(selector).with_name('graphics-world-frame-primary-0-'+request_id[4:]+'.json')),
             root,parts['binding'],run,'primary',0,request_id,observer.vulkan_world_frame,parts['check'],source_lock=lock,
             monotonic=self.monotonic,sleep=observer.sleep)
-        sample=AssetsImageSample(PrivateFeatureState(self.state_path(selector).with_name('ios-assets-image-'+run+'-primary-'+request_id[4:]+'.json')),
+        sample=AssetsImageSample(PrivateFeatureState(self._assets_state_path(selector).with_name('ios-assets-image-'+run+'-primary-'+request_id[4:]+'.json')),
             lock,parts['binding'],run,request_id,parts['check'],parsed=parts['parsed'],marker=marker_parts['marker'],native=observer.bound_native_observer(clock),
             state=observer.create_state(clock),models=observer.assets_model_renderers(clock),avatars=observer.avatar_renderers(clock),frame_owner=frame,
             epoch_ms=self.epoch_ms,monotonic=self.monotonic)

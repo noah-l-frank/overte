@@ -30,6 +30,14 @@ def root(value,role,*,alive=True,identifier=None):
 
 
 class OwnedAssetsPicker:
+    OWNER_VERSION=VERSION
+    def extra_envelope(self):return {}
+    def validate_extra(self,value):need(not self.extra_envelope())
+    def retirement_phase(self):return 'retired'
+    def cleanup_page(self,current,state):return root(current,'page',alive=False,identifier=state['page'])
+    def cleanup_files(self,files):
+        need(files.get('exists') is True and files['retiredPrimary'] and not files['releasing']
+            and not files['files'][0]['exists'] and all(row['exists'] for row in files['files'][1:]))
     def __init__(self,native,files,store,binding,*,lock,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(native,NativeInput) and isinstance(files,OwnedAssetsFiles) and isinstance(store,PrivateFeatureState)
             and callable(monotonic) and callable(sleep) and callable(getattr(native,'native_epoch_ms',None)));context(binding)
@@ -38,13 +46,14 @@ class OwnedAssetsPicker:
         if self.previous is not None:self.state=self.decode(self.previous)
 
     def decode(self,value):
-        exact(value,{'iosAssetsPickerOwnerVersion','runId','binding','fileOwnerToken','payload'})
-        need(type(value['iosAssetsPickerOwnerVersion']) is int and value['iosAssetsPickerOwnerVersion']==VERSION
+        exact(value,{'iosAssetsPickerOwnerVersion','runId','binding','fileOwnerToken','payload'}|set(self.extra_envelope()))
+        self.validate_extra(value)
+        need(type(value['iosAssetsPickerOwnerVersion']) is int and value['iosAssetsPickerOwnerVersion']==self.OWNER_VERSION
             and value['runId']==self.files.run and same(value['binding'],self.binding) and self.files.state is not None
             and value['fileOwnerToken']==self.files.state['token'])
         states=unpack(value['payload']);need(len(states)==1);state=states[0]
         exact(state,{'phase','page','picker','captures','inputs','workBeforeSelect','negativeWindow','cleanupWindow'})
-        need(state['phase'] in ('reserved','page-open','picker-open','primary-chosen','checking-unavailable','unavailable','canceling','picker-closed','closing-page','page-closed','retired')
+        need(state['phase'] in ('reserved','page-open','picker-open','primary-chosen','checking-unavailable','unavailable','canceling','picker-closed','closing-page','page-closed','retired',self.retirement_phase())
             and type(state['captures']) is list and len(state['captures'])<=96 and type(state['inputs']) is list and len(state['inputs'])<=16)
         for key in ('page','picker'):
             if state[key] is not None:identity(state[key])
@@ -106,16 +115,16 @@ class OwnedAssetsPicker:
             if state['phase'] in ('picker-open','primary-chosen','unavailable'):need(state['picker'] is not None)
             if state['phase']=='unavailable':
                 self._unavailable(previous,state);self._window_validate(state['negativeWindow'],state,complete=True)
-            if state['phase'] in ('picker-closed','page-closed','retired'):
+            if state['phase'] in ('picker-closed','page-closed','retired',self.retirement_phase()):
                 need(state['picker'] is not None);root(previous,'picker',alive=False,identifier=state['picker'])
             if state['phase'] in ('page-closed','retired'):root(previous,'page',alive=False,identifier=state['page'])
-            if state['phase']=='retired':
+            if state['phase']==self.retirement_phase():
                 need(self.files.state['phase']=='retired');self._window_validate(state['cleanupWindow'],state,complete=True)
         return state
 
     def save(self):
         self.lock.assert_held();transport_check();need(self.files.native.guard() is not False and same(self.store.read(),self.previous))
-        value=dict(iosAssetsPickerOwnerVersion=VERSION,runId=self.files.run,binding=self.binding,
+        value=dict(iosAssetsPickerOwnerVersion=self.OWNER_VERSION,**self.extra_envelope(),runId=self.files.run,binding=self.binding,
             fileOwnerToken=self.files.state['token'],payload=pack([self.state]))
         self.decode(value);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
@@ -286,6 +295,9 @@ class OwnedAssetsPicker:
         self.state['phase']='unavailable';self.save();return packet
 
     def _window_validate(self,window,state,*,complete):
+        return self._window_validate_with_page(window,state,complete=complete,page_check=lambda current,state:self.cleanup_page(current,state))
+
+    def _window_validate_with_page(self,window,state,*,complete,page_check):
         exact(window,{'kind','requests','hostBrackets'});kind=window['kind']
         need(kind in ('unavailable','cleanup') and type(window['requests']) is list and type(window['hostBrackets']) is list
             and len(window['requests'])==len(window['hostBrackets'])<=64 and len(set(window['requests']))==len(window['requests']))
@@ -298,8 +310,9 @@ class OwnedAssetsPicker:
                 need(previous_host['after']<=host['before']<=previous_host['after']+.25)
                 for key in ('epochMs','monotonicMs'):need(0<=packet['clockBefore'][key]-previous_packet['clockAfter'][key]<=250)
             need(source['ui']['available'] and source['ui']['complete'] and source['work']['available'] and source['work']['complete'])
-            files=source['files'];need(files.get('exists') is True and files['retiredPrimary'] and not files['releasing']
-                and not files['files'][0]['exists'] and all(row['exists'] for row in files['files'][1:]))
+            files=source['files']
+            if kind=='unavailable':OwnedAssetsPicker.cleanup_files(self,files)
+            else:self.cleanup_files(files)
             if first_jobs is None:first_jobs=source['work']['jobs']
             need(same(source['work']['jobs'],first_jobs))
             if kind=='unavailable':
@@ -307,7 +320,7 @@ class OwnedAssetsPicker:
                 self._unavailable(dict(inventory=source['ui']),state)
             else:
                 quiet(source);root(dict(inventory=source['ui']),'picker',alive=False,identifier=state['picker'])
-                root(dict(inventory=source['ui']),'page',alive=False,identifier=state['page'])
+                page_check(dict(inventory=source['ui']),state)
             previous_host,previous_packet=host,packet;frames.append(packet)
         if complete:
             need(len(frames)>=2 and window['hostBrackets'][-1]['before']-window['hostBrackets'][0]['after']>=3)

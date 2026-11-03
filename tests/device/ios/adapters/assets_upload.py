@@ -29,6 +29,20 @@ CAPTURES=160
 
 
 class OwnedAssetsUpload:
+    OWNER_VERSION=VERSION
+    EXTRA_FIELDS=frozenset()
+    def extra_envelope(self):return {}
+    def cleanup_phase(self):return 'page-dead'
+    def cleanup_page(self,current,state):return root(current,'page',alive=False,identifier=state['page'])
+    def retire_unresolved(self,index):
+        for entry in self.state['inputs']:
+            if entry['resolvedBy'] is None:entry['abandonedBy']=index
+    def cleanup_home(self):
+        current=self.current()
+        if any(row['alive'] and row['rootId']==self.state['page'] for row in current['inventory']['roots']):
+            existing=[entry for entry in self.state['inputs'] if entry['slot']=='cleanup-home']
+            if existing:self.resolve('cleanup-home')
+            else:self.input('cleanup-home','assets.home',effect=dict(kind='page-dead'),cleanup=True)
     def __init__(self,native,clock,files,picker,replies,store,binding,*,lock,role='primary',monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(native,NativeInput) and isinstance(clock,NativeFeatureObservation) and clock.ios and not clock.native_clock_bound
             and isinstance(files,OwnedAssetsFiles) and isinstance(picker,OwnedAssetsPicker) and isinstance(replies,OwnedAssetsReplyReads)
@@ -51,13 +65,14 @@ class OwnedAssetsUpload:
         return True
 
     def decode(self,value):
-        exact(value,{'iosAssetsUploadOwnerVersion','runId','binding','fileOwnerToken','role','payload'})
-        need(type(value['iosAssetsUploadOwnerVersion']) is int and value['iosAssetsUploadOwnerVersion']==VERSION
+        exact(value,{'iosAssetsUploadOwnerVersion','runId','binding','fileOwnerToken','role','payload'}|self.EXTRA_FIELDS)
+        need(same({key:value[key] for key in self.EXTRA_FIELDS},self.extra_envelope()))
+        need(type(value['iosAssetsUploadOwnerVersion']) is int and value['iosAssetsUploadOwnerVersion']==self.OWNER_VERSION
             and value['runId']==self.files.run and same(value['binding'],self.binding) and value['role']==self.role
             and self.files.state is not None and value['fileOwnerToken']==self.files.state['token'])
         decoded=unpack(value['payload']);need(len(decoded)==1);state=decoded[0]
         exact(state,{'phase','page','picker','destination','frames','pending','inputs','baseline','workBefore','workProof','readback','cleanupWindow','aborted'})
-        need(state['phase'] in ('ready','review','destination','starting','uploaded','closing','page-dead','releasing','retired')
+        need(state['phase'] in ('ready','review','destination','starting','uploaded','closing',self.cleanup_phase(),'releasing','retired')
             and type(state['frames']) is list and len(state['frames'])<=CAPTURES and type(state['inputs']) is list and len(state['inputs'])<=48
             and type(state['aborted']) is bool and state['destination']=='/e2e-'+self.files.run+'/')
         identity(state['page']);identity(state['picker']);previous=None;frames=[];projects=[];previous_native=None;roots={}
@@ -128,7 +143,7 @@ class OwnedAssetsUpload:
                 need(integer(entry['resolvedBy'],entry['before']+1,len(frames)));self.effect(entry,frames[entry['resolvedBy']-1]['ui'],state,current=projects[entry['resolvedBy']-1])
             if entry['abandonedBy'] is not None:
                 need(integer(entry['abandonedBy'],entry['before']+1,len(frames)))
-                current=projects[entry['abandonedBy']-1];root(current,'page',alive=False,identifier=state['page']);root(current,'picker',alive=False,identifier=state['picker'])
+                current=projects[entry['abandonedBy']-1];self.cleanup_page(current,state);root(current,'picker',alive=False,identifier=state['picker'])
         if state['pending'] is not None:
             exact(state['pending'],{'hostBefore','hostAfter','queries','clocks','ui','uiReceipt','original'})
             need(number(state['pending']['hostBefore'],0,1e15) and type(state['pending']['queries']) is list and type(state['pending']['clocks']) is list)
@@ -175,7 +190,7 @@ class OwnedAssetsUpload:
 
     def save(self):
         self.guard();need(same(self.store.read(),self.previous))
-        value=dict(iosAssetsUploadOwnerVersion=VERSION,runId=self.files.run,binding=self.binding,fileOwnerToken=self.files.state['token'],role=self.role,payload=pack([self.state]))
+        value=dict(iosAssetsUploadOwnerVersion=self.OWNER_VERSION,runId=self.files.run,binding=self.binding,fileOwnerToken=self.files.state['token'],role=self.role,payload=pack([self.state]),**self.extra_envelope())
         self.decode(value);self.store.write(value,self.previous);self.previous=deepcopy(value)
 
     def frame_intent(self,kind,value):
@@ -371,7 +386,7 @@ class OwnedAssetsUpload:
             records=[record for record in self.files.state['originals'] if record['query']['operation']=='observe' and record['packet']['requestId']==request];need(len(records)==1)
             packet=records[0]['packet'];source=packet['source'];quiet(source);need(source['files'].get('exists') is True and source['files']['complete']
                 and not source['files']['retiredPrimary'] and not source['files']['releasing'] and all(row['exists'] for row in source['files']['files']))
-            root(dict(inventory=source['ui']),'picker',alive=False,identifier=state['picker']);root(dict(inventory=source['ui']),'page',alive=False,identifier=state['page'])
+            root(dict(inventory=source['ui']),'picker',alive=False,identifier=state['picker']);self.cleanup_page(dict(inventory=source['ui']),state)
             if jobs is None:jobs=source['work']['jobs']
             need(same(jobs,source['work']['jobs']))
             if previous is not None:
@@ -385,9 +400,9 @@ class OwnedAssetsUpload:
 
     @operation
     def cleanup(self,*,abort=False):
-        need(self.state['phase'] in ('ready','review','destination','starting','uploaded','closing','page-dead','releasing','retired'))
+        need(self.state['phase'] in ('ready','review','destination','starting','uploaded','closing',self.cleanup_phase(),'releasing','retired'))
         if self.state['phase']=='retired':self.decode(self.previous);return self.files.state['originals'][-1]['packet']
-        if self.state['phase'] not in ('closing','page-dead','releasing'):
+        if self.state['phase'] not in ('closing',self.cleanup_phase(),'releasing'):
             need(abort or self.state['phase']=='uploaded');self.state['aborted']=abort;self.state['phase']='closing';self.save()
         if self.state['phase']=='closing':
             packet=self.capture();current=project(packet)
@@ -397,16 +412,11 @@ class OwnedAssetsUpload:
             if (any(row['alive'] and row['rootId']==self.state['page'] for row in project(packet)['inventory']['roots'])
                     and self.bundle_row(packet,'page')['destinationVisible']):
                 self.input('cleanup-destination','assets.destination.cancel',effect=dict(kind='destination-closed'),cleanup=True)
-            current=self.current()
-            if any(row['alive'] and row['rootId']==self.state['page'] for row in current['inventory']['roots']):
-                existing=[entry for entry in self.state['inputs'] if entry['slot']=='cleanup-home']
-                if existing:self.resolve('cleanup-home')
-                else:self.input('cleanup-home','assets.home',effect=dict(kind='page-dead'),cleanup=True)
-            packet=self.capture();current=project(packet);root(current,'page',alive=False,identifier=self.state['page']);root(current,'picker',alive=False,identifier=self.state['picker'])
-            for entry in self.state['inputs']:
-                if entry['resolvedBy'] is None:entry['abandonedBy']=len(self.state['frames'])
-            self.state['phase']='page-dead';self.save()
-        if self.state['phase']=='page-dead':
+            self.cleanup_home()
+            packet=self.capture();current=project(packet);self.cleanup_page(current,self.state);root(current,'picker',alive=False,identifier=self.state['picker'])
+            self.retire_unresolved(len(self.state['frames']))
+            self.state['phase']=self.cleanup_phase();self.save()
+        if self.state['phase']==self.cleanup_phase():
             self.replies.close()
             if self.state['cleanupWindow'] is None:self.state['cleanupWindow']=dict(requests=[],hostBrackets=[]);self.save()
             window=self.state['cleanupWindow']

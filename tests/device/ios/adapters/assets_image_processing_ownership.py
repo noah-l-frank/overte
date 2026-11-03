@@ -9,6 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 import re,time
 from types import SimpleNamespace
+from ios.adapters.assets_end_metadata import store as metadata_store,entries as metadata_entries,pin as metadata_pin
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.original_frame_store import OriginalFrameStore
@@ -26,23 +27,23 @@ def processing_path(name):return OWNER.fullmatch(name) is not None or FRAME.full
 def forbidden(*_args,**_kwargs):raise RuntimeError('Historical ImageReader processing inspection cannot query or write')
 
 
-def inspect_processing(directory,entries):
+def inspect_processing(directory,entries,*,metadata=None):
+    store_for=lambda path:metadata_store(path,metadata)
     directory=Path(directory);owners={};actual={};retained=[];result=[]
     def pins():
         found={}
-        for path in directory.iterdir():
+        for path in metadata_entries(directory,metadata):
             if not owned_prefix(path.name):continue
-            need(processing_path(path.name));info=path.lstat()
-            found[path]=(info.st_dev,info.st_ino,info.st_mode,info.st_nlink,info.st_uid,info.st_size,info.st_mtime_ns,info.st_ctime_ns)
+            need(processing_path(path.name));found[path]=metadata_pin(path,metadata)
         return found
     before=pins();need(set(before)=={path for path in entries if owned_prefix(path.name)})
     for path in entries:
         match=OWNER.fullmatch(path.name)
         if match:
-            run=match.group(1);value=PrivateFeatureState(path).read();need(type(value) is dict)
+            run=match.group(1);value=store_for(path).read();need(type(value) is dict)
             binding=context(value.get('binding'));need(re.fullmatch('[1-9][0-9]{0,15}',binding['processIdentity']) is not None)
             owner=object.__new__(AssetsImageReaderProcessingSources)
-            owner.store=PrivateFeatureState(path);owner.binding=deepcopy(binding);owner.run=run;owner.role=owner.storage_role='primary'
+            owner.store=store_for(path);owner.binding=deepcopy(binding);owner.run=run;owner.role=owner.storage_role='primary'
             owner.pid=int(binding['processIdentity']);owner.native=SimpleNamespace(pid=owner.pid,monotonic=time.monotonic)
             owner.readers=dict(processing=None,reader=None);owner.previous=deepcopy(value);owner._cached=[]
             owner.raws=ProcessingRawSources(owner,lambda:True,forbidden)
@@ -64,5 +65,5 @@ def inspect_processing(directory,entries):
             responsibilities.append('image-processing-source-write')
         result.append(dict(runId=run,role='primary',binding=deepcopy(owner.binding),responsibilities=responsibilities,
             successor=False,clientRetired=False))
-    for path,value in retained:need(same(PrivateFeatureState(path).read(),value))
+    for path,value in retained:need(same(store_for(path).read(),value))
     need(before==pins());return result

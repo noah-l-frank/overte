@@ -16,6 +16,7 @@ from adapters.asset_backend_source import digest
 from feature_journeys.contract import identifier
 from ios.adapters import create_state,emote_world,assets_model_origin
 from ios.adapters.create_peer import independent,domains,replicated
+from ios.adapters.assets_input_lineage import validate as validate_lineage
 
 VERSION=1
 ORIGINALS={'nativeBarrier','createBefore','domain','origin','createAfter'}
@@ -56,9 +57,11 @@ def peer_model(primary,peer,lineage):
     Callers must resolve lineage from OwnedAssetsParsedInput, not request input.
     Native loading flags and source bytes remain distinct from actual pixels.
     """
-    scene(primary);scene(peer);exact(lineage,LINEAGE)
-    need(type(lineage['assetModelBakedInputProofVersion']) is int and lineage['assetModelBakedInputProofVersion']==1
-        and primary['role']=='actor-primary' and peer['role']=='actor' and primary['runId']==peer['runId']==lineage['runId'])
+    scene(primary);scene(peer);need(type(lineage) is dict)
+    if 'assetModelBakedInputProofVersion' in lineage:exact(lineage,LINEAGE)
+    else:validate_lineage(lineage)
+    need((type(lineage['assetModelBakedInputProofVersion']) is int and lineage['assetModelBakedInputProofVersion']==1
+        if 'assetModelBakedInputProofVersion' in lineage else True) and primary['role']=='actor-primary' and peer['role']=='actor' and primary['runId']==peer['runId']==lineage['runId'])
     digest(lineage['sha256']);need(integer(lineage['bytes'],1,32768));create_state.uuid(lineage['entityId']);create_state.uuid(lineage['domainId'])
     a,b=primary['originals'],peer['originals'];left,right=a['createAfter'],b['createAfter'];id_=lineage['entityId']
     # PIDs are local to each operating system and may coincide on independent

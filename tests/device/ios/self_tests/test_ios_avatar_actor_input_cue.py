@@ -99,7 +99,7 @@ class AvatarActorInputCueTests(unittest.TestCase):
         events = []
         self.primary_state['lastCall']['phase'] = 'issued'
         self.save_primary()
-        self.actor.prepare = lambda: events.append('prepare')
+        self.actor.prepare = lambda *,components=True: events.append('prepare')
         def consent(_current):
             try:
                 self.actor.locks['primary'].assert_held()

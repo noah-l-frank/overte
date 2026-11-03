@@ -59,7 +59,7 @@ class AvatarNativeChannels:
         need(role in ('primary','actor') and not hasattr(native,'avatar_channels'))
         self.domain,self.role,self.native=domain,role,native
         self.readers={};self.originals={};self.requests=[];self.view_stage=None;self.subject=GraphicsSubject()
-        self.profile=self.PROFILE;self.http_lock=threading.RLock();native.avatar_channels=self
+        self.profile=self.PROFILE;self.http_lock=threading.RLock();self.pending_gpu=None;native.avatar_channels=self
         self.scene.domain.io.qt.menu=True
         self.old_post,self.old_execute,self.old_observed,self.old_call=native.post,native.execute,native.observed,native.call
         native.post=self.post;native.execute=self.execute;native.observed=self.observed;native.call=self.call
@@ -85,6 +85,21 @@ class AvatarNativeChannels:
     def read_source(self,key,filename,query):
         reader=self.raw_reader(key);reader.send(deepcopy(query));raw=reader.original()
         need(type(raw) is str);self.originals[filename]=raw
+        if key=='gpu':
+            # The existing native GPU producer returns pending until its
+            # original fence completes. Preserve this actual request; no
+            # second command dispatch can stand in for completion.
+            value=json.loads(raw)
+            self.pending_gpu=deepcopy(query) if value.get('pending') is True else None
+    def gpu_original(self,filename):
+        if filename!='feature-vulkan-world-frame.json' or self.pending_gpu is None:return
+        query=self.pending_gpu;raw=self.raw_reader('gpu').original();need(type(raw) is str)
+        value=json.loads(raw)
+        need(value.get('commandId')==query['commandId'] and value.get('requestId')==query['requestId'])
+        # Advance only the live pending ORIGINAL source. Once complete, retain
+        # that exact emitted body; later AFC pulls neither resample nor retime.
+        self.originals[filename]=raw
+        if value.get('pending') is not True:self.pending_gpu=None
     def packet(self,query):
         d=self.domain;n=self.native;scene=self.scene;world=scene.domain;action=query['action']
         for name,module in self.FAMILIES:
@@ -196,6 +211,7 @@ class AvatarNativeChannels:
             expected='@'+self.native.target['appId']+':documents/'+self.native.target['testBuild']['resultsDirectory']+'/'+filename
             if filename in self.originals:
                 need(session==self.native.state['sessionId'] and values==dict(remotePath=expected))
+                self.gpu_original(filename)
                 return base64.b64encode(self.originals[filename].encode()).decode()
         return self.old_execute(session,operation,values)
     def observed(self):
@@ -224,7 +240,18 @@ class AvatarNativeChannels:
             if not n.login.dialog and (name.startswith(('scripts.','script-file.','view.')) or name=='tablet.home'):
                 rows=[row for row in n.observed()['controls'] if row['id']==name];need(len(rows)==1 and rows[0]['token']==token)
                 world=self.scene.domain
-                if name=='scripts.menu':world.io.activate(name);n.menu='root';self.view_stage=None
+                if name=='tablet.home':
+                    if any(row['id']==name for row in world.io.capture()['controls']):
+                        # The actual Script page owns its own Home delegate.
+                        world.io.activate(name)
+                    else:
+                        # Avatar/People/home chrome comes from the existing
+                        # QtWidget producer, not Script Qt's page-only rows.
+                        widget=self.domain.widgets[self.role]
+                        need(widget.shown and any(row['id']==name for row in widget.rows()))
+                        widget.screen='home';widget.dialog='none'
+                    n.menu='home';self.view_stage=None
+                elif name=='scripts.menu':world.io.activate(name);n.menu='root';self.view_stage=None
                 elif name=='view.menu':self.view_stage='view'
                 elif name in MODES.values():
                     world.world_template['source']['view']['mode']=next(mode for mode,key in MODES.items() if key==name);world.io.qt.page='home';n.menu='home';self.view_stage=None

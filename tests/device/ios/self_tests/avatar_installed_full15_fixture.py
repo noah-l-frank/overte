@@ -65,12 +65,14 @@ class OriginalAvatarActor:
 
 class NativeCanonicalTerminalDomain(CanonicalTerminalDomain):
     def create_clock(self):return RealtimeProducerClock()
+    def host_monotonic(self):return time.monotonic()
     def declare_native_target(self,role,native):
         super().declare_native_target(role,native);AvatarNativeChannels(self,role,native)
 
 
 class NativeInstalledFrontdoor(AvatarCanonicalFrontdoor):
     domain_type=NativeCanonicalTerminalDomain
+    AUDIT_NATIVE_QUERIES=True
 
 
 class AvatarInstalledFull15:

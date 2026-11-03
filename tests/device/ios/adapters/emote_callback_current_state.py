@@ -138,12 +138,27 @@ def collect(snapshot,*,lock,primary_lock):
     return drains.checked_read(roots,captured)
 
 
-def current(snapshot,*,lock,primary_lock):
+def current(snapshot,*,lock,primary_lock,historical_rows=None):
     """Current metadata and typed originals in one full unchanged inventory.
 
-    No copied metadata is accepted as an original read. Every referenced
-    sample/PNG/chunk/drain/native/source/input file is literally redecoded.
-    The outer guard spans BOTH actual metadata collection and typed replay.
+    Metadata capture, exact copied-State/GPU joins and current admission never
+    enter the historical row cache. The explicit flow policy can share only
+    the existing immutable original derivation round across collect/read.
     """
     roots=[Path(snapshot['artifactRoot']),lock.path.parent,primary_lock.path.parent]
-    return drains.checked_read(roots,lambda:collect(snapshot,lock=lock,primary_lock=primary_lock).read())
+    def literal():return drains.checked_read(roots,lambda:collect(snapshot,lock=lock,primary_lock=primary_lock).read())
+    if historical_rows is None:return literal()
+    from ios.adapters.emote_callback_live_records import CallbackLiveRecords
+    need(type(historical_rows) is CallbackLiveRecords)
+    if not historical_rows.literal():return literal()
+    def captured():
+        need(historical_rows.literal())
+        with original_round(snapshot,lock=lock,primary_lock=primary_lock):
+            copied=collect(snapshot,lock=lock,primary_lock=primary_lock)
+            need(historical_rows.literal())
+            result=copied.read()
+            need(historical_rows.literal())
+            return result
+    # Full actual inventory still spans both phases. No round/result survives
+    # this synchronous read; every copied current owner is checked as before.
+    return drains.checked_read(roots,captured)

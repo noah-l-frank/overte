@@ -90,12 +90,14 @@ class IOSEmoteTerminal:
         if self.inventory is not None:self.inventory.guard()
         self.clock();return True
 
+    def make_live(self,flow,owner):return self.Live(owner)
+
     def local_window(self,flow):
         parts=flow.components();scope,samples,observer=parts['scope'],parts['samples'],parts['observer']
         need(scope.state['phase']=='released' and scope.state['pending'] is None and samples.state['phase']=='ready'
             and observer.state['pending'] is None and parts['sources'].state['pending'] is None)
         owner=flow.retirement_owner(parts);owner.current()
-        live=self.Live(owner);need(live.state['pending'] is None and live.state['records'])
+        live=self.make_live(flow,owner);need(live.state['pending'] is None and live.state['records'])
         snapshot=live.read_frame(live.state['records'][-1])['snapshot']
         need(same(snapshot,self.snapshot_capture(owner,flow.state['cleanup'][-1])))
         rendered=owner.rendered_owner;native=rendered.native_owner

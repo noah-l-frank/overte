@@ -24,6 +24,15 @@ READS=frozenset(('tree-before','tree-rename-admission','tree-renamed','tree-dele
 
 
 class OwnedAssetsTree:
+    def client_page(self,packet,state):return root(controls(packet),'page',alive=False,identifier=self.upload.state['page'])
+    def retire_unresolved(self,index):
+        for entry in self.state['inputs']:
+            if entry['resolvedBy'] is None:entry['abandonedBy']=index
+    OWNER_VERSION=VERSION
+    RENAME_REQUIRED=True
+    EXTRA_FIELDS=frozenset()
+    def extra_envelope(self):return {}
+    def delete_prefix(self):return self.prefix(self.RENAME_REQUIRED)
     def __init__(self,upload,store,*,lock):
         need(isinstance(upload,OwnedAssetsUpload) and isinstance(store,PrivateFeatureState));lock.assert_held()
         self.upload,self.store,self.lock=upload,store,lock;self.native=upload.native;self.monotonic=upload.monotonic
@@ -34,8 +43,9 @@ class OwnedAssetsTree:
         self.lock.assert_held();self.upload.guard();need(same(self.upload.store.read(),self.upload.previous));return True
 
     def decode(self,value):
-        exact(value,{'iosAssetsTreeOwnerVersion','runId','role','binding','fileOwnerToken','page','payload'})
-        need(type(value['iosAssetsTreeOwnerVersion']) is int and value['iosAssetsTreeOwnerVersion']==VERSION
+        exact(value,{'iosAssetsTreeOwnerVersion','runId','role','binding','fileOwnerToken','page','payload'}|self.EXTRA_FIELDS)
+        need(same({key:value[key] for key in self.EXTRA_FIELDS},self.extra_envelope()))
+        need(type(value['iosAssetsTreeOwnerVersion']) is int and value['iosAssetsTreeOwnerVersion']==self.OWNER_VERSION
             and value['runId']==self.upload.files.run and value['role']==self.upload.role and same(value['binding'],self.upload.binding)
             and value['fileOwnerToken']==self.upload.files.state['token'] and value['page']==self.upload.state['page'])
         decoded=unpack(value['payload']);need(len(decoded)==1);state=decoded[0]
@@ -43,6 +53,8 @@ class OwnedAssetsTree:
             and type(state['captures']) is list and len(state['captures'])<=128 and state['captures']==sorted(set(state['captures']))
             and type(state['inputs']) is list and len(state['inputs'])<=32 and type(state['reads']) is list and len(state['reads'])<=8
             and all(type(slot) is str and slot in READS for slot in state['reads']) and len(state['reads'])==len(set(state['reads'])))
+        if not self.RENAME_REQUIRED:
+            need(state['phase'] not in ('renaming','renamed') and not any(name.startswith('tree-rename') for name in state['reads']))
         previous=None;stable=None
         for index in state['captures']:
             packet=self.packet(index);inventory(packet['assetTreeInventory'],pid=self.upload.clock.pid,ui=packet['assetInventory'])
@@ -58,6 +70,7 @@ class OwnedAssetsTree:
             exact(entry,{'slot','id','action','text','before','command','receipt','effect','resolvedBy','abandonedBy'})
             need(type(entry['slot']) is str and re.fullmatch('[a-z][a-z0-9-]{0,47}',entry['slot']) and entry['slot'] not in slots
                 and control_id(entry['id']) and entry['action'] in ('activate','replace') and entry['before'] in state['captures'])
+            if not self.RENAME_REQUIRED:need(not entry['id'].startswith('assets.rename'))
             slots.add(entry['slot']);packet=self.packet(entry['before']);reference=controls(packet);targets=[row for row in reference['controls'] if row['id']==entry['id']]
             need(len(targets)==1 and targets[0]['assetControl']['rootId']==value['page'])
             if entry['action']=='replace':need(entry['id']=='assets.rename.path');owned_root(entry['text'])
@@ -83,7 +96,7 @@ class OwnedAssetsTree:
                 need(entry['abandonedBy']==state['clientClosedBy']);root(controls(self.packet(entry['abandonedBy'])),'page',alive=False,identifier=value['page'])
         if state['phase'] in ('browsed','renaming','renamed','deleting','deleted'):
             self.baseline(self.read_proof('tree-before'));self.resolved(state,'browse-primary')
-        if state['phase'] in ('renamed','deleting','deleted'):
+        if self.RENAME_REQUIRED and state['phase'] in ('renamed','deleting','deleted'):
             admission=self.read_proof('tree-rename-admission');self.baseline(admission)
             self.renamed_proof(admission,self.read_proof('tree-renamed'));self.read_after_input(state,'confirm-rename','tree-rename-admission','tree-renamed');self.resolved(state,'renamed-primary')
         if state['phase']=='deleted':
@@ -91,7 +104,7 @@ class OwnedAssetsTree:
             self.deleted_proof(admission,self.read_proof('tree-deleted'));self.read_after_input(state,'confirm-delete','tree-delete-admission','tree-deleted')
         if state['clientClosedBy'] is not None:
             need(state['clientClosedBy'] in state['captures'] and self.upload.state['phase']=='retired')
-            root(controls(self.packet(state['clientClosedBy'])),'page',alive=False,identifier=value['page'])
+            self.client_page(self.packet(state['clientClosedBy']),state)
         return state
 
     def packet(self,index):
@@ -99,8 +112,8 @@ class OwnedAssetsTree:
 
     def save(self):
         self.guard();need(same(self.store.read(),self.previous))
-        value=dict(iosAssetsTreeOwnerVersion=VERSION,runId=self.upload.files.run,role=self.upload.role,binding=self.upload.binding,
-            fileOwnerToken=self.upload.files.state['token'],page=self.upload.state['page'],payload=pack([self.state]))
+        value=dict(iosAssetsTreeOwnerVersion=self.OWNER_VERSION,runId=self.upload.files.run,role=self.upload.role,binding=self.upload.binding,
+            fileOwnerToken=self.upload.files.state['token'],page=self.upload.state['page'],payload=pack([self.state]),**self.extra_envelope())
         self.decode(value);self.store.write(value,self.previous);self.previous=deepcopy(value)
 
     @operation
@@ -132,11 +145,12 @@ class OwnedAssetsTree:
         need(sorted(expected,key=lambda row:row['path'].encode('utf-16be'))==after['mappings'])
 
     def delete_admission(self,proof):
+        if not self.RENAME_REQUIRED:self.baseline(proof);return
         original=self.read_proof('tree-renamed');need([row for row in proof['mappings'] if row['path'].startswith(self.prefix(True))]
             ==[row for row in original['mappings'] if row['path'].startswith(self.prefix(True))] and not any(row['path'].startswith(self.prefix()) for row in proof['mappings']))
 
     def deleted_proof(self,before,after):
-        need(after['mappings']==[row for row in before['mappings'] if not row['path'].startswith(self.prefix(True))]
+        need(after['mappings']==[row for row in before['mappings'] if not row['path'].startswith(self.delete_prefix())]
             and not any(row['path'].startswith((self.prefix(),self.prefix(True))) for row in after['mappings']))
 
     def effect(self,entry,packet):
@@ -154,7 +168,7 @@ class OwnedAssetsTree:
             need(not old)
             if kind=='deleted':need(not new)
             else:need({row['path'][len(self.prefix(True)):] for row in new if not row['folder']}==set(BUNDLES[self.upload.files.state['resource']][1]))
-        elif kind=='delete-open':need(actual['deleteVisible'] and actual['selectedPaths']==[self.prefix(True)])
+        elif kind=='delete-open':need(actual['deleteVisible'] and actual['selectedPaths']==[self.delete_prefix()])
         elif kind=='rename-canceled':need(not actual['renameVisible'])
         elif kind=='delete-canceled':need(not actual['deleteVisible'])
         else:need(False)
@@ -163,6 +177,7 @@ class OwnedAssetsTree:
     def input(self,slot,identifier,effect,*,action='activate',text=None,cleanup=False):
         need(not any(entry['slot']==slot for entry in self.state['inputs']) and len(self.state['inputs'])<32)
         need(cleanup and identifier in ('assets.rename.cancel','assets.delete.cancel') or not any(entry['resolvedBy'] is None and entry['abandonedBy'] is None for entry in self.state['inputs']))
+        if not self.RENAME_REQUIRED:need(not identifier.startswith('assets.rename'))
         packet=self.capture();actual=self.page(packet)
         if identifier.startswith('assets.tree.row.'):
             target=next(row for row in packet['controls'] if row['id']==identifier)['assetControl']['row'];need(target['model']['path'].startswith((self.prefix(),self.prefix(True))))
@@ -171,7 +186,7 @@ class OwnedAssetsTree:
             if action=='replace':need(text==self.prefix(True))
             if identifier.endswith('.accept'):need(self.state['phase']=='renaming' and actual['renameText']==self.prefix(True));self.baseline(self.read_proof('tree-rename-admission'))
         elif identifier.startswith('assets.delete') and not identifier.endswith('.cancel'):
-            need(actual['selectedPaths']==[self.prefix(True)] and actual['currentPath']==self.prefix(True))
+            need(actual['selectedPaths']==[self.delete_prefix()] and actual['currentPath']==self.delete_prefix())
             if identifier.endswith('.accept'):need(self.state['phase']=='deleting');self.delete_admission(self.read_proof('tree-delete-admission'))
         entry=dict(slot=slot,id=identifier,action=action,text=text,before=len(self.upload.state['frames']),command=None,receipt=None,
             effect=deepcopy(effect),resolvedBy=None,abandonedBy=None);self.state['inputs'].append(entry);self.save()
@@ -243,7 +258,7 @@ class OwnedAssetsTree:
 
     @operation
     def rename(self):
-        need(self.state['phase']=='browsed');self.select(self.prefix(),'rename-root');self.input('open-rename','assets.rename',dict(kind='rename-open'))
+        need(self.RENAME_REQUIRED and self.state['phase']=='browsed');self.select(self.prefix(),'rename-root');self.input('open-rename','assets.rename',dict(kind='rename-open'))
         self.input('focus-rename','assets.rename.path',dict(kind='rename-focus'));self.input('replace-rename','assets.rename.path',dict(kind='rename-text'),action='replace',text=self.prefix(True))
         self.baseline(self.read('tree-rename-admission'));self.state['phase']='renaming';self.save();self.input('confirm-rename','assets.rename.accept',dict(kind='renamed'));return self.finish_rename()
 
@@ -256,7 +271,7 @@ class OwnedAssetsTree:
 
     @operation
     def delete(self):
-        need(self.state['phase']=='renamed');self.select(self.prefix(True),'delete-root');self.input('open-delete','assets.delete',dict(kind='delete-open'))
+        need(self.state['phase']==('renamed' if self.RENAME_REQUIRED else 'browsed'));self.select(self.delete_prefix(),'delete-root');self.input('open-delete','assets.delete',dict(kind='delete-open'))
         self.delete_admission(self.read('tree-delete-admission'));self.state['phase']='deleting';self.save();self.input('confirm-delete','assets.delete.accept',dict(kind='deleted'));return self.finish_delete()
 
     @operation
@@ -264,17 +279,16 @@ class OwnedAssetsTree:
         need(self.state['phase']=='deleting');pending=[entry for entry in self.state['inputs'] if entry['resolvedBy'] is None and entry['abandonedBy'] is None]
         if pending:need(len(pending)==1 and pending[0]['slot']=='confirm-delete');self.resolve('confirm-delete')
         before=self.read_proof('tree-delete-admission');after=self.read('tree-deleted');self.deleted_proof(before,after)
-        self.joined(after,self.page(),True);self.state['phase']='deleted';self.save();return after
+        self.joined(after,self.page(),self.RENAME_REQUIRED);self.state['phase']='deleted';self.save();return after
 
     @operation
     def close_clients(self):
         if self.state['clientClosedBy'] is not None:self.decode(self.previous);return
-        if self.upload.state['phase'] not in ('closing','page-dead','releasing','retired'):
+        if self.upload.state['phase'] not in ('closing',self.upload.cleanup_phase(),'releasing','retired'):
             actual=self.page()
             if actual['renameVisible']:self.input('cleanup-rename','assets.rename.cancel',dict(kind='rename-canceled'),cleanup=True)
             if actual['deleteVisible']:self.input('cleanup-delete','assets.delete.cancel',dict(kind='delete-canceled'),cleanup=True)
         self.upload.cleanup(abort=self.state['phase']!='deleted');self.capture();index=len(self.upload.state['frames'])
-        root(controls(self.packet(index)),'page',alive=False,identifier=self.upload.state['page']);self.state['clientClosedBy']=index
-        for entry in self.state['inputs']:
-            if entry['resolvedBy'] is None:entry['abandonedBy']=index
+        self.client_page(self.packet(index),self.state);self.state['clientClosedBy']=index
+        self.retire_unresolved(index)
         self.save()

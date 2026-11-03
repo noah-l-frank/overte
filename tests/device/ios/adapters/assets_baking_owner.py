@@ -21,6 +21,10 @@ SLOT='usage-bake-on'
 
 
 class OwnedAssetsBaking:
+    OWNER_VERSION=VERSION
+    def extra_envelope(self):return {}
+    def ticket(self):return self.usage.source.files.state['ticket']
+    def validate_extra(self,value):need(not self.extra_envelope())
     def __init__(self,usage,backend,store,*,lock):
         need(isinstance(usage,OwnedAssetsUsage) and isinstance(backend,OwnedAssetsBackend) and usage.source is backend.upload
             and isinstance(store,PrivateFeatureState));lock.assert_held()
@@ -57,8 +61,9 @@ class OwnedAssetsBaking:
 
     def decode(self,value):
         source=self.usage.source
-        exact(value,{'iosAssetsBakingOwnerVersion','binding','runId','role','fileOwnerToken','page','path','backendConfiguration','payload'})
-        need(type(value['iosAssetsBakingOwnerVersion']) is int and value['iosAssetsBakingOwnerVersion']==VERSION and same(value['binding'],source.binding)
+        exact(value,{'iosAssetsBakingOwnerVersion','binding','runId','role','fileOwnerToken','page','path','backendConfiguration','payload'}|set(self.extra_envelope()))
+        self.validate_extra(value)
+        need(type(value['iosAssetsBakingOwnerVersion']) is int and value['iosAssetsBakingOwnerVersion']==self.OWNER_VERSION and same(value['binding'],source.binding)
             and value['runId']==source.files.run and value['role']==source.role and value['fileOwnerToken']==source.files.state['token']
             and value['page']==source.state['page'] and value['path']==self.usage.path() and same(value['backendConfiguration'],self.backend.config))
         states=unpack(value['payload']);need(len(states)==1);state=states[0];exact(state,{'phase','admissions','baseline','readSlot','observations','result'})
@@ -82,7 +87,7 @@ class OwnedAssetsBaking:
 
     def save(self):
         self.guard();need(same(self.store.read(),self.previous));source=self.usage.source
-        value=dict(iosAssetsBakingOwnerVersion=VERSION,binding=source.binding,runId=source.files.run,role=source.role,fileOwnerToken=source.files.state['token'],
+        value=dict(iosAssetsBakingOwnerVersion=self.OWNER_VERSION,**self.extra_envelope(),binding=source.binding,runId=source.files.run,role=source.role,fileOwnerToken=source.files.state['token'],
             page=source.state['page'],path=self.usage.path(),backendConfiguration=self.backend.config,payload=pack([self.state]))
         self.decode(value);self.store.write(value,self.previous);self.previous=deepcopy(value)
 
@@ -96,7 +101,7 @@ class OwnedAssetsBaking:
         need(self.state['phase'] in ('reserved','baseline') and len(self.state['admissions'])<8 and not any(entry['slot']==SLOT for entry in self.usage.state['inputs']))
         if self.backend.state is None:self.backend.reserve()
         number=len(self.state['admissions'])+1;slot='usage-bake-baseline-'+str(number)
-        packet=self.backend.checkpoint(slot,self.usage.source.files.state['ticket'])
+        packet=self.backend.checkpoint(slot,self.ticket())
         if packet is None:return None
         index=next(index for index,row in enumerate(self.backend.state['samples'],1) if row['slot']==slot);self.state['admissions'].append(index);self.save()
         if not self.admissible(index):return None
@@ -128,7 +133,7 @@ class OwnedAssetsBaking:
             self.usage.source.decode(self.usage.source.previous);self.usage.decode(self.usage.previous);self.backend.decode(self.backend.previous)
             self.decode(self.previous);return deepcopy(self.state['result']['proof'])
         need(self.input()['resolvedBy'] is not None and len(self.state['observations'])<16)
-        slot='usage-bake-result-'+str(len(self.state['observations'])+1);packet=self.backend.checkpoint(slot,self.usage.source.files.state['ticket'])
+        slot='usage-bake-result-'+str(len(self.state['observations'])+1);packet=self.backend.checkpoint(slot,self.ticket())
         if packet is None:return None
         index=next(index for index,row in enumerate(self.backend.state['samples'],1) if row['slot']==slot)
         need(index not in self.state['observations']);self.state['observations'].append(index);self.save();proof=self.proof(index)

@@ -21,6 +21,7 @@ from ios.adapters import assets_model_renderers as models,avatar_renderers,creat
 from ios.adapters.create_marker_identity import marker
 from ios.adapters.emote_images import avatar_box,within
 from ios.adapters.graphics_history import follow_native
+from ios.adapters.assets_input_lineage import validate as validate_lineage
 
 VERSION=1
 FIELDS={'createBefore','modelsBefore','avatarsBefore','capture','retirement','avatarsAfter','modelsAfter','createAfter','clockJoin'}
@@ -75,18 +76,25 @@ def exclusions(create,model_packet,avatar_packet,entity_id,marker_id,roi,view,ex
 
 
 def compose(run,ticket,binding,frame,raw,policy,parsed_proof,marker_original,*,after_epoch,previous=None,changed=False,absence_basis=None):
-    identifier(run);identifier(ticket);context(binding);exact(frame,FIELDS);exact(parsed_proof,PROOF)
-    for key in ('domainId','entityId'):create_state.uuid(parsed_proof[key])
-    for key in ('creationRequestId','originRequestId','nativeGeometryRequestId'):
-        need(type(parsed_proof[key]) is str and re.fullmatch('ios-[a-f0-9]{32}',parsed_proof[key]))
-    for key in ('backendRequestId','bakeRequestId'):
-        need(type(parsed_proof[key]) is str and re.fullmatch('assets-[a-f0-9]{32}',parsed_proof[key]))
-    need(type(parsed_proof['assetModelBakedInputProofVersion']) is int and parsed_proof['assetModelBakedInputProofVersion']==1
-        and parsed_proof['runId']==run and parsed_proof['processId']==int(binding['processIdentity'])
-        and integer(parsed_proof['bytes'],1) and type(parsed_proof['sha256']) is str and re.fullmatch('[a-f0-9]{64}',parsed_proof['sha256'])
-        and type(parsed_proof['readerId']) is str and re.fullmatch('[a-f0-9]{32}',parsed_proof['readerId'])
-        and type(parsed_proof['path']) is str and len(parsed_proof['path'])<=4096 and parsed_proof['path'].startswith('/')
-        and type(parsed_proof['outputPath']) is str and len(parsed_proof['outputPath'])<=4096 and parsed_proof['outputPath'].startswith('/.baked/'))
+    identifier(run);identifier(ticket);context(binding);exact(frame,FIELDS);need(type(parsed_proof) is dict)
+    if 'assetModelBakedInputProofVersion' in parsed_proof:
+        # Literal baked v1 consumer grammar is preserved independently of
+        # the current producer's narrower retained-body limit.
+        exact(parsed_proof,PROOF)
+        for key in ('domainId','entityId'):create_state.uuid(parsed_proof[key])
+        for key in ('creationRequestId','originRequestId','nativeGeometryRequestId'):
+            need(type(parsed_proof[key]) is str and re.fullmatch('ios-[a-f0-9]{32}',parsed_proof[key]))
+        for key in ('backendRequestId','bakeRequestId'):
+            need(type(parsed_proof[key]) is str and re.fullmatch('assets-[a-f0-9]{32}',parsed_proof[key]))
+        need(type(parsed_proof['assetModelBakedInputProofVersion']) is int and parsed_proof['assetModelBakedInputProofVersion']==1
+            and parsed_proof['runId']==run and parsed_proof['processId']==int(binding['processIdentity'])
+            and integer(parsed_proof['bytes'],1) and type(parsed_proof['sha256']) is str and re.fullmatch('[a-f0-9]{64}',parsed_proof['sha256'])
+            and type(parsed_proof['readerId']) is str and re.fullmatch('[a-f0-9]{32}',parsed_proof['readerId'])
+            and type(parsed_proof['path']) is str and len(parsed_proof['path'])<=4096 and parsed_proof['path'].startswith('/')
+            and type(parsed_proof['outputPath']) is str and len(parsed_proof['outputPath'])<=4096 and parsed_proof['outputPath'].startswith('/.baked/'))
+    else:
+        validate_lineage(parsed_proof)
+        need(parsed_proof['runId']==run and parsed_proof['processId']==int(binding['processIdentity']))
     exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target' and integer(after_epoch,1))
     clock=validate_join(frame['clockJoin'],originals(frame));first,last=clock['nativeBefore'],clock['nativeAfter'];pid=int(binding['processIdentity'])
     epoch=last['capturedEpochMs'];need(first['processId']==last['processId']==pid and clock['hostBeforeEpochMs']>=after_epoch

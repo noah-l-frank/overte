@@ -296,6 +296,9 @@ class FeatureObservation:
         elif command.get('action')=='feature-web-dom-observe':web_dom_command(command,ios=True)
         elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='feature-ios-keyboard':keyboard_command(command)
+        elif command.get('action')=='feature-ios-audio-passive-capture':
+            from ios.adapters.audio_passive_capture_source import command as passive_audio_command
+            passive_audio_command(command)
         elif command.get('action')=='feature-ios-audio-session':audio_session_command(command)
         elif command.get('action')=='feature-ios-audio-settings':audio_settings_command(command)
         elif command.get('action')=='feature-ios-assets-model-origin':assets_model_origin_command(command)

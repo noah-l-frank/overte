@@ -13,6 +13,7 @@ from adapters.normal_ui import NativeUIError
 from feature_journeys.witness import Client
 from ios.adapters.emote_callback_live import IOSEmoteCallbackLive
 from ios.adapters.emote_callback_window import IOSEmoteCallbackWindow
+from ios.adapters.emote_callback_terminal import IOSEmoteCallbackTerminal
 from ios.adapters.emote_terminal_window import IOSEmoteTerminalWindow
 from ios.adapters import emote_callback_archive as archive
 from ios.adapters import emote_rooted_publications as legacy_publications
@@ -41,7 +42,7 @@ class CallbackWindowTests(unittest.TestCase):
         primary.sleep=waiting
         self.assertEqual(dict(performed=True),primary.cleanup(cleanup))
         self.assertEqual('primary-scene-ordered',primary.state['retirement']['kind'])
-        pairs=[];first={}
+        pairs=[];first={};histories={}
         for index in range(3):
             p=primary.observe(call);a=actor.observe(call);journal=witness.request('/runs/'+primary.run)
             matches=[entry for entry in journal['entries'] if entry['actorSequence']==a['sequence']]
@@ -49,13 +50,19 @@ class CallbackWindowTests(unittest.TestCase):
             if index==0:
                 for flow in (primary,actor):
                     with flow.held(30):
-                        flow.load();owner=flow.retirement_owner(flow.components());live=IOSEmoteCallbackLive(owner)
+                        flow.load();owner=flow.retirement_owner(flow.components());live=IOSEmoteCallbackTerminal.make_live(flow,owner)
+                        histories[flow.role]=flow._callback_live_historical_rows
+                        self.assertIs(histories[flow.role],live._historical_rows)
+                        self.assertTrue(histories[flow.role].literal(),repr(histories[flow.role].unsupported_members()))
                         first[flow.role]=deepcopy(live.state['records'][-1])
             if index<2:f.target.domain.sleep(1.6)
         with actor.held(30):
             lives={}
             for flow in (primary,actor):
-                flow.load();owner=flow.retirement_owner(flow.components());lives[flow.role]=IOSEmoteCallbackLive(owner)
+                flow.load();owner=flow.retirement_owner(flow.components());lives[flow.role]=IOSEmoteCallbackTerminal.make_live(flow,owner)
+                self.assertIs(histories[flow.role],lives[flow.role]._historical_rows)
+                self.assertIs(histories[flow.role],flow._callback_live_historical_rows)
+                self.assertTrue(histories[flow.role].literal(),repr(histories[flow.role].unsupported_members()))
             window=IOSEmoteCallbackWindow(lives['primary'],lives['actor']);description=window.describe(first)
             store=PrivateFeatureState(actor.store.path.with_name('phase-publication-emotes-'+primary.run+'-actor.json'))
             before=self.queries(f);proof=window.qualify(description,pairs,first,publisher_store=store)

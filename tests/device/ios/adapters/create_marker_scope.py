@@ -97,7 +97,11 @@ class CreateMarkerScope:
         self.runtime,self.selector,self.root=runtime,selector,Path(root)
         self.run,self.role,self.fixture_url,self.ticket=identifier(run),role,fixture_url,identifier(ticket)
         self.lock,self.monotonic,self.epoch_ms,self.sleep=lock,monotonic,epoch_ms,sleep;self.namespace=namespace
-        self.store=PrivateFeatureState(runtime.state_path(selector).with_name(marker_name(role,namespace)))
+        output_path=runtime.state_path(selector)
+        if namespace=='assets':
+            from ios.adapters.assets_runtime import IOSAssetsRuntime
+            need(isinstance(runtime,IOSAssetsRuntime));output_path=runtime._assets_state_path(selector)
+        self.store=PrivateFeatureState(output_path.with_name(marker_name(role,namespace)))
         need(lock.path==self.store.path.with_name('script-feature-sources.lock'));lock.assert_held()
         self.live=runtime._sources(selector);self.binding=deepcopy(context(self.live['binding']));self.pid=int(self.binding['processIdentity'])
         self.guard=self.live['check'];observer=self.live['observer'];clock=self.live['clock_source']
@@ -131,7 +135,11 @@ class CreateMarkerScope:
         return value
 
     def marker_store(self,kind):
-        return PrivateFeatureState(self.store.path.with_name(marker_name(self.role,getattr(self,'namespace','create'),kind)))
+        path=self.store.path.with_name(marker_name(self.role,getattr(self,'namespace','create'),kind))
+        if getattr(self,'namespace','create')=='assets' and getattr(self,'_assets_metadata',None) is not None:
+            from ios.adapters.assets_end_metadata import store
+            return store(path,self._assets_metadata)
+        return PrivateFeatureState(path)
 
     def decode(self,value):
         need(type(value) is dict);version=value.get('iosCreateMarkerScopeVersion');namespace=getattr(self,'namespace','create')

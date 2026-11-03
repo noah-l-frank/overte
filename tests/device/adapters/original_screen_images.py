@@ -69,9 +69,10 @@ class OriginalScreenImages:
     PROFILE=None
     def __init__(self,store,root,binding,run,role,stage,client,clock_ms,guard,*,source_lock=None,
                  epoch_ms=lambda:int(time.time()*1000),monotonic=time.monotonic):
-        need(self.PROFILE in ('graphics','tablet'))
+        need(self.PROFILE in ('graphics','tablet','assets'))
         self.namespace,self.version_key={'graphics':('graphics','graphicsScreenImagesVersion'),
-            'tablet':('tablet-web','tabletWebScreenImagesVersion')}[self.PROFILE]
+            'tablet':('tablet-web','tabletWebScreenImagesVersion'),
+            'assets':('assets-ui','assetsUiScreenImagesVersion')}[self.PROFILE]
         self.store,self.root,self.binding=store,Path(root),deepcopy(context(binding))
         self.run,self.role,self.stage=identifier(run),role,stage
         need(role in ('primary','actor') and type(stage) is int and stage in (0,1)

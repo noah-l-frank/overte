@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import time
 from types import SimpleNamespace
+from ios.adapters.assets_end_metadata import store as metadata_store,entries as metadata_entries
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.original_frame_store import OriginalFrameStore
@@ -50,14 +51,14 @@ PARSED_FRAME=re.compile(r'assets-parsed-(?:source|native)-frame-sources-([a-f0-9
 def forbidden(*_args,**_kwargs):raise RuntimeError('Historical Assets inspection cannot acquire or write sources')
 
 
-def directory_entries(directory):
+def directory_entries(directory,*,metadata=None):
     directory=Path(directory)
     if not directory.exists():return []
     PrivateFeatureState(directory/'assets-read-boundary.json')._parent()
-    result=list(directory.iterdir());need(len(result)<=4096);return sorted(result,key=lambda path:path.name)
+    result=metadata_entries(directory,metadata);need(len(result)<=4096);return sorted(result,key=lambda path:path.name)
 
 
-def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_context=None):
+def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_context=None,metadata=None,image_contexts=None):
     """Return private responsibilities, not fresh product-state observations."""
     from ios.adapters.assets_scene_ownership import scene_path,inspect_scenes
     from ios.adapters.assets_image_reader_lifecycle_ownership import lifecycle_path,inspect_lifecycles
@@ -66,7 +67,8 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
     from ios.adapters.assets_image_pool_ownership import pool_path,inspect_pool
     from ios.adapters.assets_image_ownership import ImageInventoryContext,inventory_path,inspect_session
     need(image_context is None or isinstance(image_context,ImageInventoryContext))
-    directory=Path(directory);entries=directory_entries(directory);groups={};frame_paths={};backend_paths={};file_paths={};reply_paths={};model_paths={};parsed_paths={}
+    store_for=lambda path:metadata_store(path,metadata)
+    directory=Path(directory);entries=directory_entries(directory,metadata=metadata);groups={};frame_paths={};backend_paths={};file_paths={};reply_paths={};model_paths={};parsed_paths={}
     for path in entries:
         if lifecycle_path(path.name) or processing_path(path.name) or storage_path(path.name) or pool_path(path.name):continue
         if inventory_path(path.name):
@@ -74,7 +76,7 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
         if scene_path(path.name):continue
         match=OWNER.fullmatch(path.name)
         if match:
-            run,role,kind=match.groups();identifier(run);groups.setdefault((run,role),{})[kind]=(path,PrivateFeatureState(path).read());continue
+            run,role,kind=match.groups();identifier(run);groups.setdefault((run,role),{})[kind]=(path,store_for(path).read());continue
         match=FRAME.fullmatch(path.name)
         if match:frame_paths.setdefault(match.groups(),set()).add(path);continue
         match=BACKEND_FRAME.fullmatch(path.name)
@@ -101,10 +103,18 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
         # These are pure codec contexts, not alternate/live managers. Their
         # constructors are deliberately not called; no transports or clocks
         # can be acquired, and every attempted write is explicitly forbidden.
-        files=object.__new__(OwnedAssetsFiles);files.native=SimpleNamespace(pid=pid,monotonic=time.monotonic);files.run,files.url,files.binding=run,url,deepcopy(binding)
+        Files=OwnedAssetsFiles;selected=None
+        if 'files' in values and values['files'].get('iosAssetsFileOwnerVersion')==3:
+            from ios.adapters.assets_selected_profile import SelectedAssetsFiles
+            selected=getattr(metadata,'selection',None);need(selected is not None);selected.selected_guard();Files=SelectedAssetsFiles
+            need(role=='primary' and selected.context['runId']==run and selected.context['fixtureUrl']==url
+                and Path(selected.context['roles'][role]['stateRoot'])==directory and same(selected.context['roles'][role]['binding'],binding))
+        files=object.__new__(Files)
+        if selected is not None:files.selection=selected;files.selection_read_only=True
+        files.native=SimpleNamespace(pid=pid,monotonic=time.monotonic);files.run,files.url,files.binding=run,url,deepcopy(binding)
         files.state=None;files.role=role;file_covered=set();migration_pending=False
         if 'files' in values:
-            files.store=PrivateFeatureState(records['files'][0]);files.sources=FileSources(files,role,lambda:True,forbidden)
+            files.store=store_for(records['files'][0]);files.sources=FileSources(files,role,lambda:True,forbidden)
             files.state=files.decode(values['files']);file_covered=files.sources.owned_paths()
             if files.storage_version==1:
                 extra=files.sources.legacy_migration_paths();file_covered|=extra;migration_pending=bool(extra)
@@ -115,7 +125,7 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
         replies=object.__new__(OwnedAssetsReplyReads);replies.native=SimpleNamespace(pid=pid,monotonic=time.monotonic);replies.run,replies.url,replies.binding=run,url,deepcopy(binding);replies.state=None
         reply_covered=set();reply_migration_pending=False;replies.role=role
         if 'replies' in values:
-            replies.store=PrivateFeatureState(records['replies'][0]);replies.sources=ReplySources(replies,role,lambda:True,forbidden);replies.state=replies.decode(values['replies']);reply_covered=replies.sources.owned_paths()
+            replies.store=store_for(records['replies'][0]);replies.sources=ReplySources(replies,role,lambda:True,forbidden);replies.state=replies.decode(values['replies']);reply_covered=replies.sources.owned_paths()
             if replies.storage_version==1:
                 extra=replies.sources.legacy_migration_paths();reply_covered|=extra;reply_migration_pending=bool(extra)
         need(reply_paths.get((run,role),set())==reply_covered)
@@ -123,7 +133,7 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
         if 'upload' in values:
             need(files.state is not None and picker.state is not None and replies.state is not None)
             upload=object.__new__(OwnedAssetsUpload);upload.files,upload.picker,upload.replies=files,picker,replies
-            upload.store=PrivateFeatureState(records['upload'][0]);upload.previous=deepcopy(values['upload'])
+            upload.store=store_for(records['upload'][0]);upload.previous=deepcopy(values['upload'])
             upload.binding,upload.role,upload.clock=deepcopy(binding),role,SimpleNamespace(pid=pid)
             upload.state=None;upload._cached=[];upload._validated_refs=[];upload._projects=[]
             upload.originals=OriginalFrameStore(directory,binding,run,role,lambda:True,forbidden,namespace='assets-upload',schema_prefix='iosAssetsUpload')
@@ -134,7 +144,7 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
         if 'tree' in values:
             need(upload is not None);tree=object.__new__(OwnedAssetsTree);tree.upload=upload;tree.state=None;tree.state=tree.decode(values['tree'])
         if 'usage' in values:
-            need(upload is not None);usage=object.__new__(OwnedAssetsUsage);usage.source=upload;usage.store=PrivateFeatureState(records['usage'][0]);usage.previous=deepcopy(values['usage']);usage.state=None;usage.state=usage.decode(values['usage'])
+            need(upload is not None);usage=object.__new__(OwnedAssetsUsage);usage.source=upload;usage.store=store_for(records['usage'][0]);usage.previous=deepcopy(values['usage']);usage.state=None;usage.state=usage.decode(values['usage'])
         need(frame_paths.get((run,role),set())==covered)
         if 'backend' in values:
             backend=object.__new__(OwnedAssetsBackend);backend.upload=upload if upload is not None else SimpleNamespace(files=files,state=None)
@@ -150,7 +160,7 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
             need(usage is not None and backend is not None);baking=object.__new__(OwnedAssetsBaking);baking.usage,baking.backend=usage,backend;baking.previous=deepcopy(values['baking']);baking.state=None;baking.state=baking.decode(values['baking'])
         if 'model-sources' in values:
             need(usage is not None);model_source=object.__new__(AssetsModelSources);model_source.usage=usage;model_source.native=SimpleNamespace(pid=pid,monotonic=time.monotonic)
-            model_source.binding,model_source.run,model_source.role=deepcopy(binding),run,role;model_source.store=PrivateFeatureState(records['model-sources'][0]);model_source._cached=[]
+            model_source.binding,model_source.run,model_source.role=deepcopy(binding),run,role;model_source.store=store_for(records['model-sources'][0]);model_source._cached=[]
             model_source.raws=ModelRawSources(model_source,role,lambda:True,forbidden);model_source.originals=OriginalFrameStore(directory,binding,run,role,lambda:True,forbidden,namespace='assets-model-source',schema_prefix='iosAssetsModelSource')
             model_source.state=model_source.decode(values['model-sources']);model_covered|=model_source.raws.owned_paths()
             for reference in model_source.state['frames']:model_covered.add(model_source.originals.path(model_source.originals.expand(reference)))
@@ -163,7 +173,7 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
         if 'parsed-sources' in values:
             need(model is not None);parsed_source=object.__new__(AssetsParsedSources);parsed_source.usage,parsed_source.model=usage,model
             parsed_source.native=SimpleNamespace(pid=pid,monotonic=time.monotonic);parsed_source.binding,parsed_source.run,parsed_source.role=deepcopy(binding),run,role
-            parsed_source.store=PrivateFeatureState(records['parsed-sources'][0]);parsed_source._cached=[]
+            parsed_source.store=store_for(records['parsed-sources'][0]);parsed_source._cached=[]
             parsed_source.raws=ParsedRawSources(parsed_source,role,lambda:True,forbidden)
             parsed_source.originals=OriginalFrameStore(directory,binding,run,role,lambda:True,forbidden,namespace='assets-parsed-source',schema_prefix='iosAssetsParsedSource')
             parsed_source.state=parsed_source.decode(values['parsed-sources']);parsed_covered|=parsed_source.raws.owned_paths()
@@ -174,7 +184,7 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
         need(parsed_paths.get((run,role),set())==parsed_covered)
         if 'parsed' in values:
             need(parsed_source is not None and baking is not None);parsed=object.__new__(OwnedAssetsParsedInput);parsed.sources,parsed.model,parsed.baking=parsed_source,model,baking
-            parsed.store=PrivateFeatureState(records['parsed'][0]);parsed.previous=deepcopy(values['parsed']);parsed.state=None;parsed.state=parsed.decode(values['parsed'])
+            parsed.store=store_for(records['parsed'][0]);parsed.previous=deepcopy(values['parsed']);parsed.state=None;parsed.state=parsed.decode(values['parsed'])
         if image_context is not None and (run,role)==(image_context.run,'primary'):
             need(parsed is not None and same(binding,image_context.binding));parsed.lock=image_context.lock
             image_parsed,image_url=parsed,url
@@ -220,16 +230,16 @@ def inspect_directory(directory,*,primary_directory=None,_contexts=None,image_co
         result.append(dict(runId=run,role=role,binding=deepcopy(binding),responsibilities=responsibilities,
             successor=upload is not None,clientRetired=upload is not None and upload.state['phase']=='retired'))
         if _contexts is not None:_contexts[(run,role)]=dict(parsed=parsed)
-        for kind,(path,value) in records.items():need(same(PrivateFeatureState(path).read(),value))
-    result+=inspect_scenes(directory,entries,primary_directory=primary_directory)
-    result+=inspect_lifecycles(directory,entries)
-    result+=inspect_processing(directory,entries)
-    result+=inspect_storage(directory,entries)
-    result+=inspect_pool(directory,entries)
+        for kind,(path,value) in records.items():need(same(store_for(path).read(),value))
+    result+=inspect_scenes(directory,entries,primary_directory=primary_directory,metadata=metadata,image_contexts=image_contexts)
+    result+=inspect_lifecycles(directory,entries,metadata=metadata)
+    result+=inspect_processing(directory,entries,metadata=metadata)
+    result+=inspect_storage(directory,entries,metadata=metadata)
+    result+=inspect_pool(directory,entries,metadata=metadata)
     if image_context is not None:
-        need(image_parsed is not None);report=inspect_session(directory,image_context,image_parsed,image_url)
+        need(image_parsed is not None);report=inspect_session(directory,image_context,image_parsed,image_url,metadata=metadata)
         result.append({key:value for key,value in report.items() if key!='paths'})
-    need([path.name for path in directory_entries(directory)]==[path.name for path in entries]);return result
+    need([path.name for path in directory_entries(directory,metadata=metadata)]==[path.name for path in entries]);return result
 
 
 def owners_absent(adapter,selector):
@@ -243,5 +253,7 @@ def ensure_released(adapter,selector):
 def installed_entry(function):
     @wraps(function)
     def invoke(adapter,selector,operation,values):
-        ensure_released(adapter,selector);return function(adapter,selector,operation,values)
+        from ios.adapters.assets_end_process import admitted_stop
+        if not admitted_stop(adapter,selector,operation,values):ensure_released(adapter,selector)
+        return function(adapter,selector,operation,values)
     return invoke

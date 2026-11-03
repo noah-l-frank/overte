@@ -23,6 +23,9 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QVariantMap>
 #include "RecordedPreviewObservation.h"
+#if defined(OVERTE_E2E_VOICE_TESTS)
+#include "PassiveAcousticCapture.h"
+#endif
 #endif
 
 #include <fstream>
@@ -290,6 +293,14 @@ public slots:
     QVariantMap featureRecordedVoiceEvidence() const;
     // Diagnostic admission only; called on AudioClient owner thread. No audio operation.
     void observeRecordedPreviewAdmission(std::shared_ptr<const overte::e2e::RecordedPreviewAdmission> admission);
+#if defined(OVERTE_E2E_VOICE_TESTS)
+    // Passive diagnostic only, owned on AudioClient's original thread. These
+    // calls never start/restart input, select a route or apply permission/mode.
+    bool startFeaturePassiveAcoustic(const QString& run, const QString& lease, int seconds);
+    QVariantMap featurePassiveAcousticObservation() const;
+    QByteArray featurePassiveAcousticWav() const;
+    bool releaseFeaturePassiveAcoustic(const QString& run, const QString& lease, quint64 generation);
+#endif
     void releaseFeatureRecordedVoiceEvidence();
     bool releaseOwnedFeatureRecordedVoiceEvidence(quint64 cycle, qint64 startedEpochMs);
 #endif
@@ -389,6 +400,9 @@ private:
     void processMicAudioInput(QByteArray& inputByteArray
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         , overte::e2e::RecordedPreviewReadTicket* origin = nullptr
+#if defined(OVERTE_E2E_VOICE_TESTS)
+        , overte::e2e::PassiveAcousticReadTicket* passiveOrigin = nullptr
+#endif
 #endif
     );
     void prepareLocalAudioInjectors(std::unique_ptr<Lock> localAudioLock = nullptr);
@@ -465,6 +479,11 @@ private:
     std::shared_ptr<const overte::e2e::RecordedPreviewAdmission> _e2ePreviewAdmission;
     QPointer<QObject> _e2eInputSource, _e2eInputDevice;
     quint64 _e2eInputGeneration {0}, _e2eInputReadSequence {0};
+#if defined(OVERTE_E2E_VOICE_TESTS)
+    overte::e2e::PassiveAcousticCapture _e2ePassiveAcoustic;
+    QTimer* _e2ePassiveAcousticTimer {nullptr};
+    bool e2ePassiveAcousticInputCurrent() const;
+#endif
     bool e2ePreviewInputCurrent() const;
     void e2eInputReplaced(QObject* source, QObject* device);
 #endif

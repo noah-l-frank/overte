@@ -26,7 +26,7 @@ from adapters.phase_retirement_publisher import PhaseRetirementPublisher,Publica
 from adapters.phase_retirement_reader import PhaseRetirementReader
 from feature_journeys.retirement_receipts import AVATAR_SCOPED_STAGE as SCENE_STAGE
 from adapters.script_feature.history import pack,unpack,same
-from adapters.script_feature.lock import ScriptSourceLock
+from adapters.script_feature.lock import ScriptSourceBusy,ScriptSourceLock
 from feature_journeys.avatar_accounts import session_binding
 from feature_journeys.contract import arguments,identifier,VERSION as CONTRACT_VERSION
 from feature_journeys.phase_fixture import PhaseFixtureReader,PhasePending
@@ -42,7 +42,7 @@ from adapters.feature_fixture_access import AdapterFixtureClient
 from ios.adapters.avatar_login_owner import IOSAvatarLoginOwner,AvatarLoginPending
 from ios.adapters.avatar_observer import IOSAvatarObserver
 from ios.adapters.avatar_runtime import IOSAvatarRuntime
-from ios.adapters.avatar_api_entry import operation as api_operation
+from ios.adapters.avatar_api_entry import operation as api_operation,check as api_check
 from ios.adapters.avatar_whole_snapshots import AvatarWholeSnapshots
 from ios.adapters.avatar_scene import IOSAvatarScene,Frozen
 from ios.adapters.avatar_final import IOSAvatarFinal,checked as final_checked
@@ -491,7 +491,30 @@ class IOSAvatarFeature:
             expected_code=pins(),epoch_ms=self.epoch_ms,monotonic=self.monotonic)
         return parts|dict(scope=scope,samples=samples,surfaces=surfaces,observer=observer)
 
-    def prepare(self):
+    def initial_admitted(self):
+        # This role can resume its already paired-admitted immutable initial
+        # while the independent role owns its SDK for ordinary marker input.
+        with self.held():
+            self.load()
+            abort=PrivateFeatureState(self.store.path.with_name('ios-avatar-'+self.role+'-'+self.run+'-abort.json'))
+            need(abort.read() is None)
+            if self.state is None or self.state['phase'] not in ('preparing','ready') or self.state['initialBarrier'] is None:return False
+            self.initial_original()
+            from ios.adapters.avatar_initial_barrier import bilateral
+            return bilateral(self)
+
+    def prepare(self,*,components=True):
+        need(type(components) is bool)
+        if self.initial_admitted():
+            if self.primary_control is not None:self.primary_control.admit()
+            current=self.phase.read();need(current['status']['instance']==self.state['phaseInstance'])
+            if self.state['phase']=='preparing':need(current['verb']=='baseline')
+            self.prepare_marker()
+            with self.held(paired=True):
+                self.load();need(self.state['phase']=='ready')
+                if not components:
+                    self.actual();return None
+                return self.components(self.source_parts())
         # initialize() acquires fresh Installed/native originals from BOTH
         # SDKs. Use the same ordered pair as every other paired acquisition;
         # role-only locks would let concurrent workers overwrite each other's
@@ -532,14 +555,25 @@ class IOSAvatarFeature:
         # Both untouched images must exist before either ordinary camera
         # selection, despite the marker entities themselves being local.
         self.wait_peer_initial()
+        self.prepare_marker()
         with self.held(paired=True):
-            self.load();parts=self.source_parts()
+            self.load();need(self.state['phase']=='ready')
+            if not components:
+                self.actual();return None
+            return self.components(self.source_parts())
+
+    def prepare_marker(self):
+        # Both untouched originals were admitted under the paired barrier.
+        # Ordinary marker/Script/camera work issues commands only to this SDK;
+        # the independent role must remain able to complete its own setup.
+        with self.held():
+            self.load()
             if self.state['phase']=='preparing':
+                self.initial_original();need(self.state['initialBarrier'] is not None)
                 scope=self.marker_scope()
                 with self.runtime.existing_input_session(self.selector):scope.prepare()
                 if scope.state['webAdmission'] is None:scope.admit_rendered()
                 self.state['phase']='ready';self.save()
-            return self.components(parts)
 
     def initial_original(self):
         from ios.adapters.avatar_restoration_frames import IOSAvatarRestorationFrames
@@ -559,17 +593,29 @@ class IOSAvatarFeature:
     def wait_peer_initial(self):
         other='actor' if self.role=='primary' else 'primary';path=self.runtime.state_path(self.selectors[other]).with_name('ios-avatar-'+other+'-feature.json')
         for _ in range(251):
+            if self.initial_admitted():return
             with self.held(paired=True):
                 self.load();self.initial_original();saved=self.state['initialBarrier']
-                raw=self.kept(saved['owner']) if saved is not None else PrivateFeatureState(path).read()
+                # A saved barrier is never rebased, but the opposite CAS
+                # must resume from its actual current metadata prefix.
+                raw=PrivateFeatureState(path).read()
                 if raw is not None:
                     peer=IOSAvatarFeature.archive(self.runtime,raw,self.client,self.locks)
                     need(same(peer.state['bindings'],self.state['bindings']) and peer.state['phaseInstance']==self.state['phaseInstance']
                         and peer.state['initialTicket']==self.state['initialTicket'])
                     if peer.state['initial'] is not None:
-                        peer.initial_original();event=dict(subject=other,owner=self.keep(raw),reference=deepcopy(peer.state['initial']['reference']))
-                        if saved is None:self.state['initialBarrier']=event;self.save()
-                        else:need(same(saved,event))
+                        peer.initial_original()
+                        event=dict(subject=other,reference=deepcopy(peer.state['initial']['reference']))
+                        if saved is None:
+                            event['owner']=self.keep(raw);self.state['initialBarrier']=event;self.save()
+                        else:
+                            need(saved['subject']==other and saved['reference']==event['reference'])
+                            from ios.adapters.avatar_initial_barrier import original
+                            need(same(original(self),peer.initial_original()))
+                        # Publish only the actual opposite initial reference;
+                        # both original images are already validated here.
+                        from ios.adapters.avatar_initial_barrier import publish_peer
+                        publish_peer(self,peer)
                         return
             self.sleep(.1)
         raise AvatarFeaturePending('Both untouched initial render originals must precede either ordinary marker camera change')
@@ -594,11 +640,35 @@ class IOSAvatarFeature:
         need(same(admission['binding'],self.state['bindings'][other]))
         return self.runtime._avatar_sources(self.selector,self.client,self.run,self.role,self.root,self.lock)
 
+    def prepare_for_call(self,*,components=True):
+        """Coordinate Primary preparation within its original API budget.
+
+        Actor workers already handle typed pending/lock contention themselves.
+        A public Primary call must allow that independent ordinary preparation
+        to progress. Each failed prepare exits every held scope before waiting;
+        its existing WAL resumes completed login/close/marker responsibilities.
+        Source/foreign/clock failures remain errors, not pending work.
+        Callers that discard the preparation graph may explicitly omit that
+        graph; paired fresh binding/current guards still run before return.
+        The default retains the original public preparation result.
+        """
+        need(type(components) is bool)
+        prepare=self.prepare if components else lambda:self.prepare(components=False)
+        if self.role!='primary':return prepare()
+        for attempt in range(251):
+            api_check()
+            try:return prepare()
+            except (ScriptSourceBusy,AvatarFeaturePending):
+                api_check()
+                if attempt==250:raise
+            self.sleep(.1)
+            api_check()
+
     @api_operation
     def act(self,call):
         need(self.role=='primary');call=deepcopy(arguments('feature.avatar-people.act',call))
         need(call['runId']==self.run and call['fixtureUrl']==self.phase.fixture_url)
-        self.prepare()
+        self.prepare_for_call(components=False)
         with self.held():
             self.load();need(self.state['phase']=='ready');status=self.phase.read()
             need(status['ticket']==call['ticket'] and status['verb']==call['verb'] and same(status['inputs'],call['inputs']))
@@ -637,7 +707,6 @@ class IOSAvatarFeature:
         for lock in self.locks.values():lock.assert_held()
         need(current['status']['active'] and current['status']['instance']==self.state['phaseInstance'])
         if current['verb']=='cleanup':return False
-        if current['verb']=='baseline':return True
         barrier=self.state['initialBarrier'];need(barrier is not None and barrier['subject']=='primary')
         admitted=self.kept(barrier['owner']);path=self.runtime.state_path(self.selectors['primary']).with_name('ios-avatar-primary-feature.json')
         raw=PrivateFeatureState(path).read()
@@ -646,6 +715,11 @@ class IOSAvatarFeature:
         primary=IOSAvatarFeature.archive(self.runtime,raw,self.client,self.locks)
         need(primary.role=='primary' and primary.run==self.run and same(primary.selectors,self.selectors)
             and same(primary.state['bindings'],self.state['bindings']) and primary.state['phaseInstance']==self.state['phaseInstance'])
+        # Baseline has no Primary input call. It still needs actual completed
+        # peer preparation before taking both SDKs for a current observation.
+        # False is an ordering cue only; the caller releases its pair and the
+        # existing Actor loop handles pending without replaying any input.
+        if current['verb']=='baseline':return primary.state['phase']=='ready'
         last=primary.state['lastCall']
         if primary.state['phase']!='ready' or last is None or last['phase']!='complete' or last['call']['ticket']!=current['ticket']:return False
         call=arguments('feature.avatar-people.act',last['call'])
@@ -665,7 +739,7 @@ class IOSAvatarFeature:
             with self.held():self.load();terminal_ready=self.state['phase']=='terminal-ready'
             if terminal_ready:return self.observe_terminal(call['afterSequence'])
             return self.observe_cleaned(call['afterSequence'])
-        self.prepare()
+        self.prepare_for_call(components=False)
         if self.role=='actor':self.consent(current)
         with self.held(paired=True):
             self.load();need(self.state['phase']=='ready')

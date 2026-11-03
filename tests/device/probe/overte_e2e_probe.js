@@ -118,6 +118,9 @@
     var lastAccountOriginCommand = "";
     var accountProbeTimer = null;
     var lastRecordedPreviewRequest = "";
+    // Explicit passive original-file profile; legacy shared quotas unchanged.
+    var passiveAudioRequests = {};
+    var passiveAudioRequestCount = 0;
     var completedFrameCommand = null;
     var completedFrameTimer = null;
     var lastCompletedFrameCommand = "";
@@ -1122,6 +1125,37 @@
                     }
                 } catch (_sceneInventoryError) { /* Unknown/partial global scope is never empty absence. */ }
                 Test.saveObject(sceneInventory,"feature-ios-scene-inventory.json");
+            }
+            return;
+        }
+        if (command && command.action === "feature-ios-audio-passive-capture") {
+            var passiveFields=["schemaVersion","commandId","action","operation","instance","runId","role","leaseId","startCommandId"];
+            if (command.operation==="start") {passiveFields.push("seconds");}
+            if (command.operation==="read") {passiveFields.push("kind","offset","bytes");}
+            var passiveInteger=function(value,low,high) {return typeof value==="number" && isFinite(value)
+                && Math.floor(value)===value && value>=low && value<=high;};
+            if (command.schemaVersion===1 && command.role==="actor" && typeof command.commandId==="string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length===36
+                    && typeof command.instance==="string" && /^[0-9a-f]{32}$/.test(command.instance) && command.instance.length===32
+                    && typeof command.runId==="string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length===32
+                    && typeof command.leaseId==="string" && /^[0-9a-f]{32}$/.test(command.leaseId) && command.leaseId.length===32
+                    && /^(start|observe|capture|read|release|recover|files)$/.test(String(command.operation))
+                    && typeof command.startCommandId==="string" && /^ios-[0-9a-f]{32}$/.test(command.startCommandId)
+                    && command.startCommandId.length===36
+                    && (command.operation!=="start" || (passiveInteger(command.seconds,6,10) && command.startCommandId===command.commandId))
+                    && (command.operation!=="read" || (/^(intent|capture|wav)$/.test(String(command.kind))
+                        && passiveInteger(command.offset,0,2097152) && passiveInteger(command.bytes,1,4096)
+                        && command.offset+command.bytes<=2097152)) && objectKeysMatch(command,passiveFields)) {
+                if (passiveAudioRequests[command.commandId] || passiveAudioRequestCount>=65536) {return;}
+                passiveAudioRequests[command.commandId]=true;passiveAudioRequestCount+=1;
+                var passiveOriginal={passiveAcousticReplyVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureIOSAudioPassiveCapture==="function") {
+                        var passiveReply=Test.featureIOSAudioPassiveCapture(command);
+                        if (passiveReply && passiveReply.commandId===command.commandId) {passiveOriginal=passiveReply;}
+                    }
+                } catch (_passiveAudioError) { /* Missing original ownership is never empty memory or acoustic success. */ }
+                Test.saveObject(passiveOriginal,"feature-ios-audio-passive-capture.json");
             }
             return;
         }

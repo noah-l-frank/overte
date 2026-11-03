@@ -27,6 +27,20 @@ VERSION=1
 
 
 class TabletWebSamples:
+    OWNER_KEY='tabletWebSamplesVersion'
+    SAMPLE_KEY='tabletWebScreenSampleVersion'
+    PREFIX='tabletweb'
+    SCREEN_NAMESPACE='tablet-web'
+    SCREEN_VERSION='tabletWebScreenImagesVersion'
+    FRAME_NAMESPACE='tabletweb-screen-samples'
+    FRAME_SCHEMA='tabletWebScreenSample'
+    SCREEN_TYPE=IOSTabletWebImages
+    ARCHIVE_TYPE=TabletWebScreenArchive
+
+    def feature_store(self,path):return PrivateFeatureState(path)
+    def admit_frame(self,value):return page_frame(value,self.binding)
+    def measure(self,ticket,before,after,capture,raw,*,previous=None,changed=False):
+        return compose(self.run,ticket,self.binding,before,after,capture,raw,self.policy,previous=previous,changed=changed)
     def __init__(self,runtime,root,policy,*,historical=False,tail_validator=None):
         self.runtime=runtime;source=runtime.observer.source
         self.source,self.binding,self.run,self.role,self.lock=source,source.binding,source.run,source.role,source.lock
@@ -35,19 +49,19 @@ class TabletWebSamples:
         need(tail_validator is None or historical and callable(tail_validator))
         self.tail_validator=runtime.validate_tail_source if tail_validator is None else runtime._image_tail_validator(tail_validator)
         self.historical=historical;self.started=self.last=None;self.failed=False
-        self.store=PrivateFeatureState(source.root/('tabletweb-screen-samples-'+self.run+'-'+self.role+'.json'));self.saved=self.store.read()
+        self.store=self.feature_store(source.root/(self.PREFIX+'-screen-samples-'+self.run+'-'+self.role+'.json'));self.saved=self.store.read()
         if self.saved is None:self.state=dict(records=[],pending=None,original=None,nextRaw=1);self.save()
         else:
-            exact(self.saved,{'tabletWebSamplesVersion','binding','runId','role','artifactRoot','policy','payload'})
-            need(type(self.saved['tabletWebSamplesVersion']) is int and self.saved['tabletWebSamplesVersion']==VERSION
+            exact(self.saved,{self.OWNER_KEY,'binding','runId','role','artifactRoot','policy','payload'})
+            need(type(self.saved[self.OWNER_KEY]) is int and self.saved[self.OWNER_KEY]==VERSION
                 and same(self.saved['binding'],self.binding) and self.saved['runId']==self.run and self.saved['role']==self.role
                 and self.saved['artifactRoot']==str(self.root) and same(self.saved['policy'],self.policy))
             rows=unpack(self.saved['payload']);need(len(rows)==1);self.state=rows[0]
         self._original_storage();self.decode()
     def _original_storage(self):
         self.originals=OriginalFrameStore(self.root,self.binding,self.run,self.role,self.file_guard,self.intent,
-            namespace='tabletweb-screen-samples',schema_prefix='tabletWebScreenSample',monotonic=self.source.monotonic)
-        self.raw=TabletWebScreenArchive(self.root,self.binding,self.run,self.role,self.file_guard,self.raw_intent,monotonic=self.source.monotonic)
+            namespace=self.FRAME_NAMESPACE,schema_prefix=self.FRAME_SCHEMA,monotonic=self.source.monotonic)
+        self.raw=self.ARCHIVE_TYPE(self.root,self.binding,self.run,self.role,self.file_guard,self.raw_intent,monotonic=self.source.monotonic)
     def record_references(self):return self.state['records']
     def _next_index(self):return len(self.record_references())+1
     def live(self):need(not self.historical);self.source.bound()
@@ -55,7 +69,7 @@ class TabletWebSamples:
         if not self.historical:self.live()
         return True
     def save(self):
-        self.live();value=dict(tabletWebSamplesVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,
+        self.live();value=dict(**{self.OWNER_KEY:VERSION},binding=self.binding,runId=self.run,role=self.role,
             artifactRoot=str(self.root),policy=self.policy,payload=pack([self.state]))
         self.store.write(value,self.saved);self.saved=deepcopy(value)
     def intent(self,kind,value):
@@ -70,12 +84,12 @@ class TabletWebSamples:
         self.last=now;return True
     def screen_guard(self):return self.source.guard
     def screen(self,client):
-        return IOSTabletWebImages(PrivateFeatureState(self.source.root/('tabletweb-screen-owner-'+self.run+'-'+self.role+'.json')),
+        return self.SCREEN_TYPE(self.feature_store(self.source.root/(self.PREFIX+'-screen-owner-'+self.run+'-'+self.role+'.json')),
             self.root,self.binding,self.run,self.role,0,client,self.runtime.native_clock,self.screen_guard(),source_lock=self.lock,
             epoch_ms=self.source.epoch_ms,monotonic=self.source.monotonic)
     def record(self,row,index):
-        exact(row,{'tabletWebScreenSampleVersion','index','ticket','status','before','after','png','raw','archive'})
-        need(type(row['tabletWebScreenSampleVersion']) is int and row['tabletWebScreenSampleVersion']==VERSION
+        exact(row,{self.SAMPLE_KEY,'index','ticket','status','before','after','png','raw','archive'})
+        need(type(row[self.SAMPLE_KEY]) is int and row[self.SAMPLE_KEY]==VERSION
             and type(row['index']) is int and row['index']==index and row['status'] in ('acquiring','returned','failed'))
         identifier(row['ticket'])
         for name in ('before','after'):
@@ -92,7 +106,7 @@ class TabletWebSamples:
             with_capture(row['raw'],row['png']['capture']);need(row['png']['nonce']==row['raw']['requestId'][4:] and row['png']['phase']=='saved')
             png=row['png'];exact(png,{'nonce','name','ticket','phase','file','capture'});identifier(png['nonce'])
             exact(png['file'],{'device','inode'})
-            need(png['ticket']==row['ticket'] and png['name']=='tablet-web-'+self.run+'-'+self.role+'-0-'+png['nonce']+'.png'
+            need(png['ticket']==row['ticket'] and png['name']==self.SCREEN_NAMESPACE+'-'+self.run+'-'+self.role+'-0-'+png['nonce']+'.png'
                 and integer(png['file']['device'],0,2**64-1) and integer(png['file']['inode'],1,2**64-1))
         return row
     def decode(self):
@@ -136,7 +150,7 @@ class TabletWebSamples:
         full=self.originals.expand(reference);index=full['index'];references=self.record_references();need(1<=index<=len(references) and same(reference,references[index-1]))
         row=self.record(self.originals.read(full),index);need(row['status']=='returned')
         raw=self.raw.read(row['archive']);before=self.runtime.validate_tail_source(row['before']);after=self.runtime.validate_tail_source(row['after'])
-        measured,subject=compose(self.run,row['ticket'],self.binding,before,after,row['png']['capture'],raw,self.policy,previous=previous,changed=changed)
+        measured,subject=self.measure(row['ticket'],before,after,row['png']['capture'],raw,previous=previous,changed=changed)
         return dict(row=row,raw=raw,measured=measured,subject=subject)
     def artifact(self,reference,sequence,*,previous=None,changed=False):
         """Return a public name only after original pixels and page authority.
@@ -179,9 +193,9 @@ class TabletWebSamples:
         Immutable fragment originals remain owned by the final archive.
         """
         self.lock.assert_held();self.decode()
-        owner=object.__new__(IOSTabletWebImages)
-        owner.namespace,owner.version_key='tablet-web','tabletWebScreenImagesVersion'
-        owner.store=PrivateFeatureState(self.source.root/('tabletweb-screen-owner-'+self.run+'-'+self.role+'.json'))
+        owner=object.__new__(self.SCREEN_TYPE)
+        owner.namespace,owner.version_key=self.SCREEN_NAMESPACE,self.SCREEN_VERSION
+        owner.store=self.feature_store(self.source.root/(self.PREFIX+'-screen-owner-'+self.run+'-'+self.role+'.json'))
         owner.root,owner.binding,owner.run,owner.role,owner.stage=self.root,self.binding,self.run,self.role,0
         owner.lock,owner.guard=self.lock,self.file_guard;owner._load()
         need(all(row['phase']=='removed' for row in owner.rows))
@@ -217,7 +231,7 @@ class TabletWebSamples:
                     and child._next_index()>1 and same(part['reference'],child.reference(child._next_index()-1)))
             self.started=admitted_before['row']['clockJoin']['hostBeforeMonotonic']
             self.clock()
-        row=dict(tabletWebScreenSampleVersion=VERSION,index=self._next_index(),ticket=ticket,status='acquiring',before=None,after=None,png=None,raw=None,archive=None)
+        row=dict(**{self.SAMPLE_KEY:VERSION},index=self._next_index(),ticket=ticket,status='acquiring',before=None,after=None,png=None,raw=None,archive=None)
         self.state['pending']=row;self.save();outer=self
         def capture_clock():
             outer.clock()
@@ -249,7 +263,7 @@ class TabletWebSamples:
                 # screenshot GET. A login sheet/unavailable/foreign page may
                 # not become a new private screenshot merely because a later
                 # pixel or document comparison would reject it.
-                page_frame(self.runtime.validate_tail_source(row['before']),self.binding);self.clock()
+                self.admit_frame(self.tail_validator(row['before']));self.clock()
                 row['png'],_raw=owner.capture(ticket);self.save()
                 row['after']=self.runtime.tail_source();self.save();self.clock()
                 row['status']='returned';self.record(row,row['index']);reference=self.originals.write(row['index'],deepcopy(row))

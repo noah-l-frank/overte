@@ -89,6 +89,7 @@ class RunningDomain(Domain):
     def __init__(self,scope):
         super().__init__(scope);self.files=DiskFiles(self);scope.files.native=self.files;self.io=IO(self)
         self.worker=None;self.engine=None;self.marker=None;self.terminal_events=[];self.context=None;self.running=False;self.sequences['work']=0
+        self.marker_program=None  # Preserve literal dynamic PROGRAM lookup unless explicitly overridden.
         self.world_template['source']['view']['mode']='first person look at'
         scope.manager=self.manager;scope.surface=lambda:SimpleNamespace(select_camera=self.select_view)
         scope.work=SimpleNamespace(last=None,read=self.work)
@@ -113,7 +114,8 @@ class RunningDomain(Domain):
         self.io.actions.append('view.'+mode);self.world_template['source']['view']['mode']=mode;self.io.tablet(False)
     def start(self):
         raw=(self.files.root/'script-bundle/main.js').read_bytes();companion=(self.files.root/'script-bundle/companion.js').read_text()
-        actual_id=str(uuid.uuid4());result=subprocess.run(['node','-e',PROGRAM],input=json.dumps(dict(main=raw.decode(),companion=companion,uuid=actual_id)),
+        program=PROGRAM if self.marker_program is None else self.marker_program
+        actual_id=str(uuid.uuid4());result=subprocess.run(['node','-e',program],input=json.dumps(dict(main=raw.decode(),companion=companion,uuid=actual_id)),
             capture_output=True,text=True,timeout=5,check=True);self.vm=json.loads(result.stdout)
         assert len(self.vm['added'])==1 and self.vm['deleted']==[actual_id]
         self.time+=.005;self.worker=dict(instance=uuid.uuid4().hex,assigned=True,url=self.file_url(),loadGeneration=1,assignedEpochMs=self.epoch())
@@ -159,10 +161,18 @@ class RunningDomain(Domain):
         value=super().terminal(after);value['source'].update(eventSequence=len(self.terminal_events),events=deepcopy(self.terminal_events));self.scope.terminals.last=deepcopy(value);return value
     def work(self,manager,after):
         assert self.running and manager==self.worker['instance'];sequence=self.tick('work');request='ios-'+format(6000+sequence,'032x')
-        source=dict(complete=True,revision=1,manager=deepcopy(self.worker),code=deepcopy(self.engine['code']),workers=[dict(membership=deepcopy(self.worker),
-            running=True,stopping=False,finished=False,done=False)],work=dict(scriptWorkVersion=1,requestId=request,sequence=sequence,requestedEpochMs=self.epoch(),
-            capturedEpochMs=self.epoch(),signalCallbacks=0,timerCallbacks=0,evaluating=False,timers=[]))
-        value=dict(schemaVersion=1,requestId=request,instance='7'*32,sequence=sequence,processId=31,requestedEpochMs=self.epoch(),capturedEpochMs=self.epoch(),source=source)
+        # One new queued work acquisition has one original start and one
+        # original completion. A real CPU clock can cross a millisecond while
+        # copying its manager/code; inner and outer aliases must still name
+        # those same two actual events, never independent later resamples.
+        requested=self.epoch();selected=deepcopy(self.worker);code=deepcopy(self.engine['code'])
+        workers=[dict(membership=deepcopy(self.worker),running=True,stopping=False,finished=False,done=False)]
+        captured=self.epoch()
+        source=dict(complete=True,revision=1,manager=selected,code=code,workers=workers,
+            work=dict(scriptWorkVersion=1,requestId=request,sequence=sequence,requestedEpochMs=requested,
+                capturedEpochMs=captured,signalCallbacks=0,timerCallbacks=0,evaluating=False,timers=[]))
+        value=dict(schemaVersion=1,requestId=request,instance='7'*32,sequence=sequence,processId=31,
+            requestedEpochMs=requested,capturedEpochMs=captured,source=source)
         self.scope.work.last=deepcopy(value);return value
     def widgets(self):
         value=super().widgets();shown=self.io.qt.opened;value['tabletShown']=shown

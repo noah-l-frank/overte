@@ -36,13 +36,19 @@ class Domain:
     def tick(self,name):self.time+=.005;self.sequences[name]+=1;return self.sequences[name]
     def native_send(self,query):
         self.time+=.005;self.boundary.send(query);p=self.boundary.sample;sequence=p['sequence'];epoch=self.epoch()
-        p.update(processId=31,requestedEpochMs=epoch,capturedEpochMs=epoch)
+        # An actual composed Account producer has already sampled its child
+        # inside the base request. Preserve that NEW request's original start;
+        # a later animation-envelope clock cannot move it after the Account.
+        composed_account=type(p.get('account')) is dict and 'observation' in p['account']
+        requested=p['requestedEpochMs'] if composed_account else epoch
+        p.update(processId=31,requestedEpochMs=requested,capturedEpochMs=epoch)
         a=p['animation'];a.update(capturedEpochMs=epoch,evaluationSequence=100+sequence,overrideActive=False);a.pop('clip',None)
-        p['animationFence'].update(requestedEpochMs=epoch,sequence=99+sequence)
+        p['animationFence'].update(requestedEpochMs=requested,sequence=99+sequence)
         self.history.append(dict(frameSequence=sequence,overrideSequence=0,evaluationSequence=100+sequence,capturedEpochMs=epoch,
             overrideActive=False,joints=[dict(index=0,pose=deepcopy(a['joints'][0]))]))
         a['history']=dict(historyVersion=2,instance='e'*32,available=True,callSequence=0,overrideSequence=0,
             frameSequence=sequence,droppedEvents=0,droppedFrames=max(0,len(self.history)-32),events=[],frames=deepcopy(self.history[-32:]))
+        if composed_account:p['capturedEpochMs']=self.epoch()
     def world(self,run):
         assert run==RUN;sequence=self.tick('world');value=deepcopy(self.world_template)
         value.update(sequence=sequence,requestId='ios-'+format(sequence+3000,'032x'))

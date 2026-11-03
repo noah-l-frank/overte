@@ -43,12 +43,14 @@ class TabletScreenParts(OriginalPacketSegments):PROFILE='tabletweb-screen'
 
 
 class TabletWebScreenArchive:
+    VERSION_KEY='tabletWebScreenArchiveVersion'
+    PARTS_TYPE=TabletScreenParts
     def __init__(self,root,binding,run,role,guard,intent,*,monotonic):
         need(role in ('primary','actor') and callable(intent));self.intent=intent;self.writing=None
-        self.parts=TabletScreenParts(root,binding,run,role,role,guard,self.transition,monotonic=monotonic)
+        self.parts=self.PARTS_TYPE(root,binding,run,role,role,guard,self.transition,monotonic=monotonic)
     def parent(self,value):
-        exact(value,{'tabletWebScreenArchiveVersion','raw','bytes','sha256','first','parts','complete'})
-        need(type(value['tabletWebScreenArchiveVersion']) is int and value['tabletWebScreenArchiveVersion']==VERSION
+        exact(value,{self.VERSION_KEY,'raw','bytes','sha256','first','parts','complete'})
+        need(type(value[self.VERSION_KEY]) is int and value[self.VERSION_KEY]==VERSION
             and integer(value['bytes'],1,PNG_LIMIT) and type(value['parts']) is list and len(value['parts'])<=6
             and integer(value['first'],1,MAX_FRAMES) and type(value['complete']) is bool)
         raw_original(value['raw']);need(value['bytes']==value['raw']['bytes'] and value['sha256']==value['raw']['sha256'])
@@ -71,7 +73,7 @@ class TabletWebScreenArchive:
         self.parent(value);need(self.intent(deepcopy(value)) is not False)
     def write(self,original,raw,first):
         need(self.writing is None);raw_original(original,raw)
-        value=dict(tabletWebScreenArchiveVersion=VERSION,raw=deepcopy(original),bytes=len(raw),sha256=sha(raw),first=first,parts=[],complete=False)
+        value=dict(**{self.VERSION_KEY:VERSION},raw=deepcopy(original),bytes=len(raw),sha256=sha(raw),first=first,parts=[],complete=False)
         self.parent(value);need(self.intent(deepcopy(value)) is not False);self.writing=value
         try:
             cursor=first

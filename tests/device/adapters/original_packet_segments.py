@@ -23,7 +23,9 @@ AVATAR_LABELS=frozenset({'scripts','http','people','uikit','geometry','partial',
 TABLET_COMPONENTS=frozenset({'native','sources','trace','dom','emissions','buttons','state','uikit','keys','pointer','closures','deferred',
     'scripts','work','terminal','dialogs','widgets','geometry','http','phase','record','partial'})
 POSTLOGOUT_LABELS=frozenset({'parts','record','partial'})
-PROFILES={'tabletweb-screen':dict(parent='tabletWebScreenSegmentsVersion',body='tabletWebScreenSegmentBodyVersion',schema='tabletWebScreenSegment',
+PROFILES={'assets-ui-screen':dict(parent='assetsUiScreenSegmentsVersion',body='assetsUiScreenSegmentBodyVersion',schema='assetsUiScreenSegment',
+        labels=frozenset({'png'}),subjects=frozenset({'primary','actor'})),
+    'tabletweb-screen':dict(parent='tabletWebScreenSegmentsVersion',body='tabletWebScreenSegmentBodyVersion',schema='tabletWebScreenSegment',
         labels=frozenset({'png'}),subjects=frozenset({'primary','actor'})),
     'snapshot-causal-dispatch':dict(parent='snapshotCausalDispatchPartsVersion',body='snapshotCausalDispatchPartBodyVersion',schema='snapshotCausalDispatchPart',
         labels=frozenset({'raw'}),subjects=frozenset({'upload'})),
@@ -63,7 +65,8 @@ class OriginalPacketSegments:
         need(type(self).PROFILE not in ('snapshot-upload-sources','snapshot-combined-work','snapshot-combined-http','snapshot-causal-dispatch') or role=='primary')
         need(subject in profile['subjects'] and callable(intent));self.subject,self.intent=subject,intent
         self.parent_key,self.body_key,self.labels=profile['parent'],profile['body'],profile['labels']
-        namespace=('snapshot-causal-'+subject+'-parts' if type(self).PROFILE=='snapshot-causal-dispatch' else
+        namespace=('assets-ui-'+subject+'-screen-parts' if type(self).PROFILE=='assets-ui-screen' else
+            'snapshot-causal-'+subject+'-parts' if type(self).PROFILE=='snapshot-causal-dispatch' else
             'snapshot-http-'+subject+'-parts' if type(self).PROFILE=='snapshot-combined-http' else
             'snapshot-combined-'+subject+'-parts' if type(self).PROFILE=='snapshot-combined-work' else
             'assets-backend-'+subject+'-parts' if type(self).PROFILE=='assets-backend-sources' else

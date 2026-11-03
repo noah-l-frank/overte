@@ -23,7 +23,7 @@ def identity(value):
 
 
 def text(value,limit=4096):
-    need(type(value) is str and len(value)<=limit and all(ord(char)>=32 and ord(char)!=127 for char in value));return value
+    need(type(value) is str and len(value)<=limit and re.search(r'[\x00-\x1f\x7f]',value) is None);return value
 
 
 def local(value):

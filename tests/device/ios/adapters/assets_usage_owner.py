@@ -24,6 +24,14 @@ VERSION=1
 
 
 class OwnedAssetsUsage:
+    def client_page(self,packet,state):return root(controls(packet),'page',alive=False,identifier=self.source.state['page'])
+    def retire_unresolved(self,index):
+        for entry in self.state['inputs']:
+            if entry['resolvedBy'] is None:entry['abandonedBy']=index
+    OWNER_VERSION=VERSION
+    EXTRA_FIELDS=frozenset()
+    def extra_envelope(self):return {}
+    def envelope_guard(self):return True
     def __init__(self,source,store,*,lock):
         need(isinstance(source,OwnedAssetsUpload) and isinstance(store,PrivateFeatureState));lock.assert_held()
         self.source,self.store,self.lock=source,store,lock;self.native,self.monotonic=source.native,source.monotonic
@@ -33,13 +41,15 @@ class OwnedAssetsUsage:
     def guard(self):
         self.lock.assert_held();self.source.guard();need(same(self.source.store.read(),self.source.previous));return True
 
-    def path(self):return self.source.state['destination']+BUNDLES[self.source.files.state['resource']][0]
+    def directory(self):return self.source.state['destination']
+    def path(self):return self.directory()+BUNDLES[self.source.files.state['resource']][0]
     def url(self):return 'atp:'+self.path()
     def packet(self,index):need(integer(index,1,len(self.source._cached)));return self.source._cached[index-1]['ui']
 
     def decode(self,value):
-        exact(value,{'iosAssetsUsageOwnerVersion','binding','runId','role','fileOwnerToken','page','path','payload'})
-        need(type(value['iosAssetsUsageOwnerVersion']) is int and value['iosAssetsUsageOwnerVersion']==VERSION
+        exact(value,{'iosAssetsUsageOwnerVersion','binding','runId','role','fileOwnerToken','page','path','payload'}|self.EXTRA_FIELDS)
+        need(same({key:value[key] for key in self.EXTRA_FIELDS},self.extra_envelope()) and self.envelope_guard() is not False)
+        need(type(value['iosAssetsUsageOwnerVersion']) is int and value['iosAssetsUsageOwnerVersion']==self.OWNER_VERSION
             and same(value['binding'],self.source.binding) and value['runId']==self.source.files.run and value['role']==self.source.role
             and value['fileOwnerToken']==self.source.files.state['token'] and value['page']==self.source.state['page'] and value['path']==self.path())
         decoded=unpack(value['payload']);need(len(decoded)==1);state=decoded[0];exact(state,{'captures','inputs','reads','clientClosedBy'})
@@ -92,18 +102,18 @@ class OwnedAssetsUsage:
                 proof=self.proof(entry['admission']['slot']);need(0<=self.packet(entry['before'])['sampleEpochMs']-proof['captured']['epochMs']<=1500)
         if state['clientClosedBy'] is not None:
             need(state['clientClosedBy'] in state['captures'] and self.source.state['phase']=='retired')
-            root(controls(self.packet(state['clientClosedBy'])),'page',alive=False,identifier=value['page'])
+            self.client_page(self.packet(state['clientClosedBy']),state)
         return state
 
     def save(self):
         self.guard();need(same(self.store.read(),self.previous))
-        value=dict(iosAssetsUsageOwnerVersion=VERSION,binding=self.source.binding,runId=self.source.files.run,role=self.source.role,
-            fileOwnerToken=self.source.files.state['token'],page=self.source.state['page'],path=self.path(),payload=pack([self.state]))
+        value=dict(iosAssetsUsageOwnerVersion=self.OWNER_VERSION,binding=self.source.binding,runId=self.source.files.run,role=self.source.role,
+            fileOwnerToken=self.source.files.state['token'],page=self.source.state['page'],path=self.path(),payload=pack([self.state]),**self.extra_envelope())
         self.decode(value);self.store.write(value,self.previous);self.previous=deepcopy(value)
 
     @operation
     def reserve(self):
-        need(self.state is None and self.source.state is not None and self.source.files.state['resource']=='asset-stand.fbx' and self.source.replies.state['phase']=='open')
+        need(self.state is None and self.source.state is not None and self.source.files.state['resource'] in BUNDLES and self.source.replies.state['phase']=='open')
         self.state=dict(captures=[],inputs=[],reads=[],clientClosedBy=None);self.save()
 
     @operation
@@ -136,7 +146,7 @@ class OwnedAssetsUsage:
         current=usage(packet,self.source.state['page']);identifier=entry['id'];effect=entry['effect'];kind=effect.get('kind')
         exact(effect,{'kind'}|({'path'} if kind=='selected' else {'checked'} if kind=='baking-ui' else {'model'} if kind=='accepted-ui' else set()))
         if ROW.fullmatch(identifier):
-            need(kind=='selected' and entry['admission'] is None and effect['path'] in (self.source.state['destination'],self.path()))
+            need(kind=='selected' and entry['admission'] is None and effect['path'] in (self.directory(),self.path()))
             row=next(row for row in packet['controls'] if row['id']==identifier)['assetControl']['row'];need(row['model']['path']==effect['path']);return
         self.selected(current)
         if identifier=='assets.model.cancel':need(entry['admission'] is None)
@@ -186,7 +196,7 @@ class OwnedAssetsUsage:
 
     @operation
     def select(self):
-        for number,path in enumerate((self.source.state['destination'],self.path())):
+        for number,path in enumerate((self.directory(),self.path())):
             packet=self.capture();current=tree(packet,self.source.state['page']);rows=[row for row in current['rows'] if row['model']['path']==path];need(len(rows)==1)
             if path.endswith('/') and rows[0]['expanded']:continue
             self.input('usage-select-'+str(number),'assets.tree.row.'+str(rows[0]['index']),dict(kind='selected',path=path))
@@ -210,11 +220,10 @@ class OwnedAssetsUsage:
     @operation
     def close_clients(self):
         if self.state['clientClosedBy'] is not None:self.decode(self.previous);return
-        if self.source.state['phase'] not in ('closing','page-dead','releasing','retired'):
+        if self.source.state['phase'] not in ('closing',self.source.cleanup_phase(),'releasing','retired'):
             packet=self.capture();current=usage(packet,self.source.state['page'])
             if current['model']['visible']:self.cancel_model()
         self.source.cleanup(abort=self.source.state['phase']!='uploaded');self.capture();index=len(self.source.state['frames'])
-        root(controls(self.packet(index)),'page',alive=False,identifier=self.source.state['page']);self.state['clientClosedBy']=index
-        for entry in self.state['inputs']:
-            if entry['resolvedBy'] is None:entry['abandonedBy']=index
+        self.client_page(self.packet(index),self.state);self.state['clientClosedBy']=index
+        self.retire_unresolved(index)
         self.save()

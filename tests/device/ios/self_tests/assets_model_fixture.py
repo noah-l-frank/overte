@@ -27,6 +27,7 @@ class Model:
 
 
 class Boundary(usage.Boundary):
+    MODEL_TYPE=Model
     def __init__(self,directory):
         self.entities={};self.models={};self.entity_events_seen=0;self.model_sequence=0;self.model_work_sequence=0;self.model_source_instance=uuid.uuid4().hex;self.model_work_instance=uuid.uuid4().hex;self.entity_tree_instance=uuid.uuid4().hex;self.entity_revision=0;self.lifetimes={}
         super().__init__(directory)
@@ -39,7 +40,7 @@ class Boundary(usage.Boundary):
             item.properties=dict(id=event['id'],hostType='domain',name=args[0],type=event['type'],shape='',dimensions=[1,1,1],modelURL=args[1],textures=args[2],
                 position=[args[7][axis] for axis in ('x','y','z')],rotation=[0,0,0,1],sourceUrl='',userData='',collisionless=args[5],lastEditedBy=self.usage_ids['clientNodeId'],
                 createdEpochUs=str(item.created),lastEditedEpochUs=str(item.created),locked=False,visible=True,voxels={})
-            self.entities[event['id']]=item;self.models[event['id']]=Model();self.entity_revision+=1
+            self.entities[event['id']]=item;self.models[event['id']]=self.MODEL_TYPE();self.entity_revision+=1
         self.entity_events_seen=len(events);return result
 
     def observe_lifetime(self,id_,item,model):

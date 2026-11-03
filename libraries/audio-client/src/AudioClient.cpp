@@ -1801,6 +1801,10 @@ void AudioClient::e2eInputReplaced(QObject* source, QObject* device) {
     // Never called by a getter or a preview cycle begin/clear operation.
     if (_e2eInputGeneration < 1000000001) { ++_e2eInputGeneration; }
     _e2eInputSource = source; _e2eInputDevice = device;
+#if defined(OVERTE_E2E_VOICE_TESTS)
+    // Even a stop/start at the same address invalidates the original capture.
+    if (_e2ePassiveAcoustic.owned()) { _e2ePassiveAcoustic.invalidate(); }
+#endif
 }
 
 bool AudioClient::e2ePreviewInputCurrent() const {
@@ -1831,6 +1835,82 @@ bool AudioClient::e2ePreviewInputCurrent() const {
     return false;
 #endif
 }
+
+#if defined(OVERTE_E2E_VOICE_TESTS)
+bool AudioClient::e2ePassiveAcousticInputCurrent() const {
+#if defined(Q_OS_IOS) && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (QThread::currentThread() != thread() || !QCoreApplication::arguments().contains("--testScript") ||
+            !_e2ePreviewAdmission || !overte::e2e::RecordedPreviewAdmission::available(_e2ePreviewAdmission->state()) ||
+            _recordedVoiceTestActive || _isMuted || _audioPaused || !_audioLifecycleRunning ||
+            _shouldEchoLocally || _shouldEchoToServer || _isPlayingBackRecording ||
+            _voiceTestInputEnabled || _voiceTestSignal.active() || _acousticCapture.active() ||
+            !_audioInput || !_inputDevice || _dummyAudioInput ||
+            _audioInput->state() != QAudio::ActiveState || _audioInput->error() != QAudio::NoError ||
+            _e2eInputSource.data() != _audioInput || _e2eInputDevice.data() != _inputDevice ||
+            !_e2eInputGeneration || _e2eInputGeneration > 1000000000 ||
+            _inputFormat.sampleFormat() != QAudioFormat::Int16 || Q_BYTE_ORDER != Q_LITTLE_ENDIAN ||
+            _inputFormat.channelCount() < 1 || _inputFormat.channelCount() > 2 ||
+            _inputFormat.sampleRate() < 8000 || _inputFormat.sampleRate() > 48000) { return false; }
+    // These existing getters only observe. Unlike permission/mode APIs, they
+    // do not refresh/activate the native audio session or change a Domain.
+    const auto native = overteIOSAudioSessionTestState();
+    const auto route = overteIOSAcousticTestState();
+    if (!native.available || native.osPermission != overte::audio::Permission::Granted ||
+            native.gate.permission != overte::audio::Permission::Granted || !native.gate.captureAllowed ||
+            !native.gate.foreground || native.gate.interrupted ||
+            native.gate.outcome != overte::audio::Outcome::Capturing ||
+            !route.physicalDevice || !route.builtInMicrophone) { return false; }
+    return !_e2ePassiveAcoustic.owned() ||
+        (_e2ePassiveAcoustic.admission() == _e2ePreviewAdmission &&
+        _e2ePassiveAcoustic.bound(_audioInput, _inputDevice, _e2eInputGeneration, overteIOSAudioOutputRevision()));
+#else
+    return false;
+#endif
+}
+
+bool AudioClient::startFeaturePassiveAcoustic(const QString& run, const QString& lease, int seconds) {
+    if (QThread::currentThread() != thread() || _e2ePassiveAcoustic.owned() || _e2ePassiveAcousticTimer ||
+            !e2ePassiveAcousticInputCurrent()) { return false; }
+#if defined(Q_OS_IOS)
+    if (!_e2ePassiveAcoustic.start(run, lease, seconds, _inputFormat.sampleRate(), _inputFormat.channelCount(),
+            _e2ePreviewAdmission, _audioInput, _inputDevice, _e2eInputGeneration, overteIOSAudioOutputRevision())) { return false; }
+    const auto generation = _e2ePassiveAcoustic.captureGeneration();
+    _e2ePassiveAcousticTimer = new QTimer(this);
+    _e2ePassiveAcousticTimer->setSingleShot(true);
+    connect(_e2ePassiveAcousticTimer, &QTimer::timeout, this,
+        [this, generation] { _e2ePassiveAcoustic.stop(generation); });
+    _e2ePassiveAcousticTimer->start((seconds + 1) * 1000);
+    return true;
+#else
+    Q_UNUSED(run); Q_UNUSED(lease); Q_UNUSED(seconds);
+    return false;
+#endif
+}
+
+QVariantMap AudioClient::featurePassiveAcousticObservation() const {
+    if (QThread::currentThread() != thread()) { return {}; }
+    auto result = _e2ePassiveAcoustic.snapshot(e2ePassiveAcousticInputCurrent());
+    result["watchdogOwned"] = _e2ePassiveAcousticTimer != nullptr;
+    result["watchdogActive"] = _e2ePassiveAcousticTimer && _e2ePassiveAcousticTimer->isActive();
+    return result;
+}
+
+QByteArray AudioClient::featurePassiveAcousticWav() const {
+    if (QThread::currentThread() != thread()) { return {}; }
+    return _e2ePassiveAcoustic.wav(e2ePassiveAcousticInputCurrent());
+}
+
+bool AudioClient::releaseFeaturePassiveAcoustic(const QString& run, const QString& lease, quint64 generation) {
+    // Exact original lease cleanup remains possible after source/admission
+    // loss. It cannot release a different generation or start another capture.
+    if (QThread::currentThread() != thread() || !_e2ePassiveAcoustic.release(run, lease, generation)) { return false; }
+    if (_e2ePassiveAcousticTimer) {
+        _e2ePassiveAcousticTimer->stop();
+        delete _e2ePassiveAcousticTimer; _e2ePassiveAcousticTimer = nullptr;
+    }
+    return true;
+}
+#endif
 
 QVariantMap AudioClient::featureRecordedVoiceEvidence() const {
     if (QThread::currentThread() != thread() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
@@ -2407,7 +2487,34 @@ void AudioClient::handleMicAudioInput() {
         origin.beforeMono = overte::e2e::previewOriginMonotonicMs();
     }
 #endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_VOICE_TESTS)
+    overte::e2e::PassiveAcousticReadTicket passiveOrigin;
+    if (_e2ePassiveAcoustic.active() && e2ePassiveAcousticInputCurrent() && _e2eInputReadSequence < 1000000000) {
+        passiveOrigin.eligible = true; passiveOrigin.source = _audioInput; passiveOrigin.device = _inputDevice;
+        passiveOrigin.ownerThread = QThread::currentThread(); passiveOrigin.admission = _e2ePreviewAdmission;
+        passiveOrigin.admissionState = passiveOrigin.admission->state(); passiveOrigin.generation = _e2eInputGeneration;
+        passiveOrigin.sequence = ++_e2eInputReadSequence;
+        passiveOrigin.captureGeneration = _e2ePassiveAcoustic.captureGeneration();
+        passiveOrigin.rate = _inputFormat.sampleRate(); passiveOrigin.channels = _inputFormat.channelCount();
+#if defined(Q_OS_IOS)
+        passiveOrigin.routeRevision = overteIOSAudioOutputRevision();
+#endif
+        passiveOrigin.beforeEpoch = QDateTime::currentMSecsSinceEpoch();
+        passiveOrigin.beforeMono = overte::e2e::previewOriginMonotonicMs();
+    }
+#endif
     QByteArray inputByteArray = _inputDevice->readAll();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_VOICE_TESTS)
+    if (passiveOrigin.eligible) {
+        passiveOrigin.afterEpoch = QDateTime::currentMSecsSinceEpoch();
+        passiveOrigin.afterMono = overte::e2e::previewOriginMonotonicMs(); passiveOrigin.bytes = &inputByteArray;
+        if (!inputByteArray.isEmpty() && inputByteArray.size() <= 16 * 1024 * 1024) {
+            passiveOrigin.readDigest = QCryptographicHash::hash(inputByteArray, QCryptographicHash::Sha256);
+        }
+        passiveOrigin.eligible = e2ePassiveAcousticInputCurrent() && !inputByteArray.isEmpty() &&
+            inputByteArray.size() <= 16 * 1024 * 1024;
+    }
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (origin.eligible) {
         origin.afterEpoch = QDateTime::currentMSecsSinceEpoch();
@@ -2422,6 +2529,9 @@ void AudioClient::handleMicAudioInput() {
     processMicAudioInput(inputByteArray
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         , &origin
+#if defined(OVERTE_E2E_VOICE_TESTS)
+        , &passiveOrigin
+#endif
 #endif
     );
 }
@@ -2525,8 +2635,22 @@ void AudioClient::resetAcousticCapture() {
 void AudioClient::processMicAudioInput(QByteArray& inputByteArray
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     , overte::e2e::RecordedPreviewReadTicket* origin
+#if defined(OVERTE_E2E_VOICE_TESTS)
+    , overte::e2e::PassiveAcousticReadTicket* passiveOrigin
+#endif
 #endif
 ) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(OVERTE_E2E_VOICE_TESTS)
+    if (_e2ePassiveAcoustic.active() && !inputByteArray.isEmpty()) {
+        quint64 routeRevision {0};
+#if defined(Q_OS_IOS)
+        routeRevision = overteIOSAudioOutputRevision();
+#endif
+        _e2ePassiveAcoustic.append(passiveOrigin, inputByteArray, e2ePassiveAcousticInputCurrent(),
+            _audioInput, _inputDevice, _e2eInputGeneration, routeRevision,
+            _inputFormat.sampleRate(), _inputFormat.channelCount());
+    }
+#endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     if (_voiceTestInputEnabled) { ++_voiceTestMicCallbacks; }
 #if defined(Q_OS_IOS)

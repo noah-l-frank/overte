@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import time
 from types import SimpleNamespace
+from ios.adapters.assets_end_metadata import store as metadata_store
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.original_frame_store import OriginalFrameStore
@@ -28,9 +29,18 @@ def scene_path(name):return SCENE.fullmatch(name) is not None or PEER.fullmatch(
 def forbidden(*_args,**_kwargs):raise RuntimeError('Historical Assets Scene inspection cannot acquire or write sources')
 
 
-def source(path,value,run,role):
+def source(path,value,run,role,*,metadata=None):
+    store_for=lambda path:metadata_store(path,metadata)
     binding=context(value.get('binding'));need(re.fullmatch('[1-9][0-9]{0,15}',binding['processIdentity']) is not None)
-    owner=object.__new__(AssetsSceneSources);owner.store=PrivateFeatureState(path);owner.binding=deepcopy(binding);owner.run,owner.role=run,role
+    Source=AssetsSceneSources;selected=None
+    if value.get('iosAssetsSceneSourcesVersion')==2:
+        from ios.adapters.assets_selected_profile import SelectedAssetsScene
+        selected=getattr(metadata,'selection',None);need(selected is not None);selected.selected_guard();Source=SelectedAssetsScene
+        target_role='actor' if role=='actor' else 'primary';info=selected.context['roles'][target_role]
+        need(selected.run==run and Path(info['stateRoot'])==path.parent and same(info['binding'],binding))
+    owner=object.__new__(Source)
+    if selected is not None:owner.selection=selected;owner.selection_read_only=True
+    owner.store=store_for(path);owner.binding=deepcopy(binding);owner.run,owner.role=run,role
     owner.pid=int(binding['processIdentity']);owner.native=SimpleNamespace(pid=owner.pid,monotonic=time.monotonic)
     owner.storage_role='actor' if role=='actor' else 'primary';owner._cached=[];owner.previous=deepcopy(value)
     owner.raws=SceneRawSources(owner,lambda:True,forbidden)
@@ -44,20 +54,21 @@ def source(path,value,run,role):
     return owner,covered
 
 
-def inspect_scenes(directory,entries,*,primary_directory=None):
+def inspect_scenes(directory,entries,*,primary_directory=None,metadata=None,image_contexts=None):
+    store_for=lambda path:metadata_store(path,metadata)
     directory=Path(directory);sources={};actual={};peers={};retained=[];result=[]
     for path in entries:
         match=SCENE.fullmatch(path.name)
         if match:
-            run,role=match.groups();value=PrivateFeatureState(path).read();need(type(value) is dict)
-            owner,covered=source(path,value,run,role);sources[(run,role)]=(owner,covered);retained.append((path,value));continue
+            run,role=match.groups();value=store_for(path).read();need(type(value) is dict)
+            owner,covered=source(path,value,run,role,metadata=metadata);sources[(run,role)]=(owner,covered);retained.append((path,value));continue
         match=FRAME.fullmatch(path.name)
         if match:
             name,_kind,run,storage=match.groups();role=next(key for key,value in NAMES.items() if value==name)
             need(storage==('actor' if role=='actor' else 'primary'));actual.setdefault((run,role),set()).add(path);continue
         match=PEER.fullmatch(path.name)
         if match:
-            value=PrivateFeatureState(path).read();need(type(value) is dict);peers[match.group(1)]=(path,value);retained.append((path,value))
+            value=store_for(path).read();need(type(value) is dict);peers[match.group(1)]=(path,value);retained.append((path,value))
     need(len(sources)<=192 and len(peers)<=64 and set(actual)<=set(sources))
     for (run,role),(owner,covered) in sorted(sources.items()):
         need(actual.get((run,role),set())==covered)
@@ -71,22 +82,23 @@ def inspect_scenes(directory,entries,*,primary_directory=None):
         need(primary_directory is not None);primary_directory=Path(primary_directory)
         need(primary_directory!=directory)
         from ios.adapters.assets_session_owners import inspect_directory,directory_entries
-        contexts={};inspect_directory(primary_directory,_contexts=contexts)
-        primary_entries=directory_entries(primary_directory)
+        contexts={};inspect_directory(primary_directory,_contexts=contexts,metadata=metadata,
+            image_context=None if image_contexts is None else image_contexts.get(primary_directory),image_contexts=image_contexts)
+        primary_entries=directory_entries(primary_directory,metadata=metadata)
         for run,(path,value) in sorted(peers.items()):
             need(value.get('primaryDirectory')==str(primary_directory) and (run,'primary') in contexts
                 and (run,'actor') in sources and (run,'actor-primary') not in sources)
             primary_path=primary_directory/('ios-assets-scene-'+run+'-actor-primary.json')
-            need(primary_path in primary_entries);primary_value=PrivateFeatureState(primary_path).read()
-            primary,_covered=source(primary_path,primary_value,run,'actor-primary');peer=sources[(run,'actor')][0]
+            need(primary_path in primary_entries);primary_value=store_for(primary_path).read()
+            primary,_covered=source(primary_path,primary_value,run,'actor-primary',metadata=metadata);peer=sources[(run,'actor')][0]
             parsed=contexts[(run,'primary')]['parsed'];need(parsed is not None
                 and same(primary.binding,parsed.model.usage.source.binding)
                 and primary.binding['targetFingerprint']!=peer.binding['targetFingerprint'])
             owner=object.__new__(OwnedAssetsPeer);owner.parsed,owner.primary,owner.peer=parsed,primary,peer
-            owner.store=PrivateFeatureState(path);owner.run=run;owner.state=owner.decode(value)
+            owner.store=store_for(path);owner.run=run;owner.state=owner.decode(value)
             responsibilities=['peer-resource-retirement']
             if owner.state['result'] is None:responsibilities.append('peer-observation')
             result.append(dict(runId=run,role='actor',binding=deepcopy(peer.binding),responsibilities=responsibilities,successor=False,clientRetired=False))
-            need(same(PrivateFeatureState(primary_path).read(),primary_value))
-    for path,value in retained:need(same(PrivateFeatureState(path).read(),value))
+            need(same(store_for(primary_path).read(),primary_value))
+    for path,value in retained:need(same(store_for(path).read(),value))
     return result

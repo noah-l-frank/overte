@@ -12,12 +12,12 @@ from io import BytesIO
 import json
 from types import SimpleNamespace
 import uuid
-from unittest.mock import patch
 from urllib.request import Request
 from PIL import Image,ImageDraw
 from adapters.graphics_subject_geometry import projected_box
 from adapters.native_avatar_receive import NativeAvatarReceive
-from adapters.native_vulkan_world_frame import NativeVulkanWorldFrame
+from adapters.native_vulkan_world_frame import NativeVulkanWorldFrame,command as gpu_command
+from adapters.native_feature_observation import need
 from ios.adapters.avatar_peer import session_sha
 from ios.self_tests.avatar_social_domain import SocialDomain,RUN,SESSIONS
 from ios.self_tests import emote_marker_domain_fixture as marker_native
@@ -27,19 +27,23 @@ from self_tests.test_native_vulkan_world_frame import World as GPU
 from self_tests.test_native_completed_frame import view as native_view
 
 
+def role_marker_program(position):
+    # Each explicit native producer owns its program before first admission.
+    # No process-global module value changes while the two markers execute.
+    assert type(position) is list and position in ([0,0,4],[1.5,0,4])
+    literal='MyAvatar:{position:{x:0,y:0,z:4}'
+    replacement='MyAvatar:{position:'+json.dumps(dict(zip(('x','y','z'),position)),separators=(',',':'))
+    assert marker_native.PROGRAM.count(literal)==1
+    return marker_native.PROGRAM.replace(literal,replacement)
+
+
 class ImageDomain(SocialDomain):
     def __init__(self,test):
         super().__init__(test);outer=self;self.positions=dict(primary=[0,0,4],actor=[1.5,0,4])
         for role,scene in self.scenes.items():
             d,f,n=scene.domain,scene.f,self.natives[role];position=self.positions[role]
             d.world_template['source']['avatar']['feetPosition']=deepcopy(position);d.world_template['source']['view']['position']=[position[0],1.6,8];d.world_template['source']['domain']['avatarMixerSha256']='c'*64
-            start=d.start
-            def starting(old=start,role=role):
-                point=outer.positions[role];literal='MyAvatar:{position:{x:0,y:0,z:4}'
-                replacement='MyAvatar:{position:'+json.dumps(dict(zip(('x','y','z'),point)),separators=(',',':'))
-                assert literal in marker_native.PROGRAM
-                with patch.object(marker_native,'PROGRAM',marker_native.PROGRAM.replace(literal,replacement)):return old()
-            d.start=starting
+            d.marker_program=role_marker_program(self.positions[role])
             world=d.world
             def current_world(run,old=world,role=role,d=d):
                 value=old(run);own=outer.mesh(role);value['source']['avatar'].update(modelScale=own['scale'],boundsReady=True,bounds=deepcopy(own['bounds']))
@@ -133,11 +137,14 @@ class ImageDomain(SocialDomain):
             with self.opener.open(request,timeout=5) as response:raw=response.read(65537)
             marker=Image.open(BytesIO(raw)).convert('RGBA').resize((round(box[2]-box[0]),round(box[3]-box[1])),Image.Resampling.NEAREST)
             image.paste(marker,(round(box[0]),round(box[1])))
+        # Transient producer metadata binds the exact view actually used above.
+        # It is consumed before PNG serialization, never a current-data cache.
+        image.info['avatarOriginalPaintView']=deepcopy(view)
         return image
     def vulkan(self,role,intent,receipt):
         scene=self.scenes[role];d=scene.domain;n=self.natives[role];current=[None];outer=self
         def sending(query):
-            request=query['requestId']
+            gpu_command(query);request=query['requestId']
             if request not in scene.gpus:
                 class SharedGPU(GPU):
                     @property
@@ -151,9 +158,21 @@ class ImageDomain(SocialDomain):
                     if 'image' in value.get('source',{}):value['source']['image'].update(width=1600,height=1000)
                     if 'renderTrace' in value.get('source',{}):
                         trace=value['source']['renderTrace'];trace['frameId']=request[4:]
-                        trace['recordedView']=outer.recorded_view(role)
+                        need(hasattr(gpu,'original_paint_view'))
+                        trace['recordedView']=deepcopy(gpu.original_paint_view)
                 gpu.fault=observed;scene.gpus[request]=gpu
-            current[0]=scene.gpus[request];image=self.paint(role);out=BytesIO();image.save(out,format='PNG');current[0].png=out.getvalue();current[0].raw_pixels=image.tobytes()
+            current[0]=scene.gpus[request]
+            if query['operation']=='read' and current[0].request is not None:
+                need(current[0].request==dict(query,action='feature-completed-frame'))
+                return # The exact uncertain input keeps its original fence/pixels.
+            if query['operation']=='read':
+                # Only a genuinely new frame input paints this lease. Storage,
+                # lifetime and uncertain duplicate Read commands keep the exact
+                # original PNG/pixels, even if the live scene later changes.
+                image=self.paint(role);view=image.info.pop('avatarOriginalPaintView')
+                need(type(view) is dict);current[0].original_paint_view=deepcopy(view)
+                out=BytesIO();image.save(out,format='PNG')
+                current[0].png=out.getvalue();current[0].raw_pixels=image.tobytes()
             current[0].send(query);scene.gpu_sequence=max(scene.gpu_sequence,current[0].sequence)
         def reading():return current[0].original()
         return NativeVulkanWorldFrame(sending,reading,n.epoch,lambda:True,31,intent,receipt=receipt,monotonic=lambda:self.clock[0],sleep=self.sleep)

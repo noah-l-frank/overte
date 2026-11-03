@@ -23,6 +23,8 @@ COPY_VERSION=1
 
 class IOSEmoteFinalArchive:
     VERSION=VERSION
+    PHASE_AREA='emotes'
+    EXTRA_FIELDS=frozenset()
     READS=READS
     COPY_VERSION=COPY_VERSION
     ARCHIVE_KEY='iosEmoteFinalArchiveVersion'
@@ -42,7 +44,9 @@ class IOSEmoteFinalArchive:
         if self.previous is not None:
             actual=self.previous.get(self.ARCHIVE_KEY);need(type(actual) is int and actual in self.READS);self.version=actual
         if self.previous is not None:self.state=self.decode(self.previous)
-    def envelope(self,state):return {self.ARCHIVE_KEY:self.version,**dict(runId=self.run,role=self.role,binding=self.binding,
+    def extra_envelope(self):return {}
+
+    def envelope(self,state):return {self.ARCHIVE_KEY:self.version,**self.extra_envelope(),**dict(runId=self.run,role=self.role,binding=self.binding,
         artifactRoot=str(self.root),paths=[str(path.path) for path in self.paths],payload=pack([state]))}
     def record_store(self,index):
         need(integer(index,1,len(self.paths)));return PrivateFeatureState(self.root/(self.COPY_PREFIX+self.run+'-'+self.role+'-'+str(index)+'.json'))
@@ -54,13 +58,13 @@ class IOSEmoteFinalArchive:
         rows=unpack(value['payload']);need(len(rows)==1 and (rows[0] is None or type(rows[0]) is dict));return rows[0]
     def copies(self):return {str(self.paths[ref['index']-1].path):self.copy(ref) for ref in self.state['records']}
     def decode(self,value):
-        exact(value,{self.ARCHIVE_KEY,'runId','role','binding','artifactRoot','paths','payload'});rows=unpack(value['payload'])
+        exact(value,{self.ARCHIVE_KEY,'runId','role','binding','artifactRoot','paths','payload'}|self.EXTRA_FIELDS);rows=unpack(value['payload'])
         need(len(rows)==1 and same(value,self.envelope(rows[0])));state=rows[0]
         exact(state,{'phase','phaseOriginal','hashes','records','pending','retired'})
         need(state['phase'] in self.PHASES and type(state['hashes']) is list and len(state['hashes'])==len(self.paths)
             and type(state['records']) is list and len(state['records'])<=len(self.paths)
             and type(state['retired']) is int and 0<=state['retired']<=len(self.paths))
-        status=state['phaseOriginal'];phase_packet(status,run=self.run,area='emotes',request=status['requestId'],epoch=status['capturedEpochMs']);need(not status['active'])
+        status=state['phaseOriginal'];phase_packet(status,run=self.run,area=self.PHASE_AREA,request=status['requestId'],epoch=status['capturedEpochMs']);need(not status['active'])
         for index,ref in enumerate(state['records'],1):need(ref['index']==index and digest(self.copy(ref))==state['hashes'][index-1])
         if state['pending'] is not None:
             p=state['pending'];exact(p,{'index','value'});need(state['phase']=='freezing' and p['index']==len(state['records'])+1
@@ -77,7 +81,7 @@ class IOSEmoteFinalArchive:
         self.bound();value=self.envelope(self.state);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
     def begin(self,phase):
         self.bound();need(self.state is None)
-        phase_packet(phase,run=self.run,area='emotes',request=phase['requestId'],epoch=phase['capturedEpochMs']);need(not phase['active'])
+        phase_packet(phase,run=self.run,area=self.PHASE_AREA,request=phase['requestId'],epoch=phase['capturedEpochMs']);need(not phase['active'])
         self.state=dict(phase='freezing',phaseOriginal=deepcopy(phase),hashes=[digest(path.read()) for path in self.paths],records=[],pending=None,retired=0);self.save()
     def freeze(self):
         self.bound();need(self.state is not None)

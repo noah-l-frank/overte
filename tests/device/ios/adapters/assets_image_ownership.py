@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import time
 from types import SimpleNamespace
+from ios.adapters.assets_end_metadata import store as metadata_store,entries as metadata_entries,coverage as metadata_coverage
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.original_file_reads import scope as read_scope,record as record_read
@@ -68,10 +69,11 @@ def independent_context(directory,artifact_root,binding,run,lock,parsed,marker):
     return directory,artifact_root
 
 
-def archived_sample(directory,artifact_root,binding,run,request,lock,parsed,marker):
+def archived_sample(directory,artifact_root,binding,run,request,lock,parsed,marker,*,metadata=None):
+    store_for=lambda path:metadata_store(path,metadata)
     directory,artifact_root=independent_context(directory,artifact_root,binding,run,lock,parsed,marker)
-    store=PrivateFeatureState(directory/sample_path(run,request));value=store.read();need(value is not None)
-    child=VulkanWorldFrameOwner(PrivateFeatureState(directory/('graphics-world-frame-primary-0-'+request[4:]+'.json')),
+    store=store_for(directory/sample_path(run,request));value=store.read();need(value is not None)
+    child=VulkanWorldFrameOwner(store_for(directory/('graphics-world-frame-primary-0-'+request[4:]+'.json')),
         artifact_root,binding,run,'primary',0,request,forbidden,lambda:True,source_lock=lock)
     owner=object.__new__(AssetsImageSample)
     owner.store,owner.lock,owner.binding,owner.run,owner.role=store,lock,deepcopy(binding),run,'primary'
@@ -84,14 +86,15 @@ def archived_sample(directory,artifact_root,binding,run,request,lock,parsed,mark
     return owner
 
 
-def inspect_sample(directory,artifact_root,binding,run,request,lock,parsed,marker):
+def inspect_sample(directory,artifact_root,binding,run,request,lock,parsed,marker,*,metadata=None):
+    store_for=lambda path:metadata_store(path,metadata)
     """Typed current sample/WAL plus exact nested original and GPU coverage.
 
     This returns private responsibilities. It never supplies a current image,
     a whole-directory admission or Model/texture/renderer/OS retirement.
     """
     with read_scope(fresh=True) as actual_reads:
-        owner=archived_sample(directory,artifact_root,binding,run,request,lock,parsed,marker);state=owner.state
+        owner=archived_sample(directory,artifact_root,binding,run,request,lock,parsed,marker,metadata=metadata);state=owner.state
         covered={owner.store.path}|owner.raws.owned_paths();responsibilities=[]
         if state['phase']=='reading':responsibilities.append('image-acquisition')
         if owner.raws.pending is not None:
@@ -127,7 +130,7 @@ def inspect_sample(directory,artifact_root,binding,run,request,lock,parsed,marke
                 try:child._file(descriptor)
                 finally:os.close(descriptor)
                 record_read(path)
-        need(covered<=actual_reads and same(owner.store.read(),owner.previous))
+        need(metadata_coverage(covered,actual_reads,metadata) and same(owner.store.read(),owner.previous))
         if current is not None:need(same(child.store.read(),current))
         # Retained host originals and the separate marker/Model owners still
         # belong to the enclosing journey even when the native child is quiet.
@@ -135,7 +138,8 @@ def inspect_sample(directory,artifact_root,binding,run,request,lock,parsed,marke
         return dict(owner=owner,paths=covered,responsibilities=responsibilities)
 
 
-def inspect_directory(directory,artifact_root,binding,run,lock,parsed,marker):
+def inspect_directory(directory,artifact_root,binding,run,lock,parsed,marker,*,metadata=None):
+    store_for=lambda path:metadata_store(path,metadata)
     """Close this run's image namespaces; generic PNG peers remain separate.
 
     Other features may legitimately own generic Vulkan children in the same
@@ -143,7 +147,7 @@ def inspect_directory(directory,artifact_root,binding,run,lock,parsed,marker):
     nodes. This function never guesses their owner from a generic filename.
     """
     directory,artifact_root=independent_context(directory,artifact_root,binding,run,lock,parsed,marker)
-    before=sorted(directory.iterdir(),key=lambda path:path.name);need(len(before)<=4096)
+    before=sorted(metadata_entries(directory,metadata),key=lambda path:path.name);need(len(before)<=4096)
     owner_pattern=re.compile('ios-assets-image-'+run+r'-primary-([a-f0-9]{32})\.json')
     source_pattern=re.compile('assets-image-(native|source)-frame-sources-'+run+r'-primary-[0-9]{4}-[a-f0-9]{64}\.json')
     owners=[];wanted=set()
@@ -154,13 +158,14 @@ def inspect_directory(directory,artifact_root,binding,run,lock,parsed,marker):
             need(source_pattern.fullmatch(path.name) is not None);wanted.add(path)
     need(len(owners)<=32);covered=set();reports=[]
     for path,request in owners:
-        report=inspect_sample(directory,artifact_root,binding,run,request,lock,parsed,marker)
+        report=inspect_sample(directory,artifact_root,binding,run,request,lock,parsed,marker,metadata=metadata)
         need(path in report['paths'] and not (covered&report['paths']));covered|=report['paths'];reports.append(report)
-    need(wanted<=covered and [path.name for path in sorted(directory.iterdir(),key=lambda path:path.name)]==[path.name for path in before])
+    need(wanted<=covered and [path.name for path in sorted(metadata_entries(directory,metadata),key=lambda path:path.name)]==[path.name for path in before])
     return dict(owners=reports,paths=covered,responsibilities=[item for report in reports for item in report['responsibilities']])
 
 
-def inspect_session(directory,authorization,parsed,fixture_url):
+def inspect_session(directory,authorization,parsed,fixture_url,*,metadata=None):
+    store_for=lambda path:metadata_store(path,metadata)
     """Compose the closed image inventory with the original released marker.
 
     An active/uncertain marker's current child metadata remains unavailable to
@@ -175,20 +180,20 @@ def inspect_session(directory,authorization,parsed,fixture_url):
         and same(parsed.sources.binding,binding) and parsed.sources.run==a.run and parsed.sources.role=='primary')
     a.lock.assert_held()
     with read_scope(fresh=True) as actual_reads:
-        marker_store=PrivateFeatureState(directory/('ios-assets-marker-'+a.run+'-primary.json'))
+        marker_store=store_for(directory/('ios-assets-marker-'+a.run+'-primary.json'))
         value=marker_store.read();need(value is not None)
         marker=OwnedAssetsMarker.from_archive(value,marker_store,artifact_root=root,binding=binding,run=a.run,
-            role='primary',fixture_url=fixture_url,ticket=a.initial_ticket,lock=a.lock)
+            role='primary',fixture_url=fixture_url,ticket=a.initial_ticket,lock=a.lock,metadata=metadata)
         need(marker.state['phase']=='released' and marker.state['pending'] is None)
         # Actual ordinary cleanup discards these two child ledgers. A retained
         # one is not silently classified as an already retired child.
         for kind in ('files','script'):need(marker.scope.marker_store(kind).read() is None)
         marker_paths=set()
         for parent in {directory,root}:
-            entries=list(parent.iterdir());need(len(entries)<=4096)
+            entries=metadata_entries(parent,metadata);need(len(entries)<=4096)
             marker_paths|={path for path in entries if path.name.startswith(('ios-assets-marker-','assets-marker-'))}
-        need(marker_store.path in marker_paths and marker.scope.store.path in marker_paths and marker_paths<=actual_reads)
-        report=inspect_directory(directory,root,binding,a.run,a.lock,parsed,marker)
+        need(marker_store.path in marker_paths and marker.scope.store.path in marker_paths and metadata_coverage(marker_paths,actual_reads,metadata))
+        report=inspect_directory(directory,root,binding,a.run,a.lock,parsed,marker,metadata=metadata)
         need(same(marker.store.read(),value))
         return dict(runId=a.run,role='primary',binding=deepcopy(binding),
             responsibilities=['marker-originals']+report['responsibilities'],successor=False,clientRetired=False,

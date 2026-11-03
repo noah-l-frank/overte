@@ -22,6 +22,10 @@ SLOT='parsed-output-1'
 
 
 class OwnedAssetsParsedInput:
+    OWNER_VERSION=VERSION
+    def extra_envelope(self):return {}
+    def ticket(self):return self.sources.usage.source.files.state['ticket']
+    def validate_extra(self,value):need(not self.extra_envelope())
     def __init__(self,sources,baking,store,*,lock):
         need(isinstance(sources,AssetsParsedSources) and isinstance(baking,OwnedAssetsBaking) and sources.usage is baking.usage
             and isinstance(store,PrivateFeatureState));lock.assert_held()
@@ -74,8 +78,9 @@ class OwnedAssetsParsedInput:
 
     def decode(self,value):
         usage=self.sources.usage;source=usage.source
-        exact(value,{'iosAssetsParsedInputOwnerVersion','binding','runId','role','fileOwnerToken','page','path','payload'})
-        need(type(value['iosAssetsParsedInputOwnerVersion']) is int and value['iosAssetsParsedInputOwnerVersion']==VERSION and same(value['binding'],source.binding)
+        exact(value,{'iosAssetsParsedInputOwnerVersion','binding','runId','role','fileOwnerToken','page','path','payload'}|set(self.extra_envelope()))
+        self.validate_extra(value)
+        need(type(value['iosAssetsParsedInputOwnerVersion']) is int and value['iosAssetsParsedInputOwnerVersion']==self.OWNER_VERSION and same(value['binding'],source.binding)
             and value['runId']==source.files.run and value['role']==source.role and value['fileOwnerToken']==source.files.state['token']
             and value['page']==source.state['page'] and value['path']==usage.path())
         states=unpack(value['payload']);need(len(states)==1);state=states[0];exact(state,{'phase','sourceIndex','backendIndex','backendStarted','backendReturned','result'})
@@ -94,7 +99,7 @@ class OwnedAssetsParsedInput:
 
     def save(self):
         self.guard();usage=self.sources.usage;source=usage.source
-        value=dict(iosAssetsParsedInputOwnerVersion=VERSION,binding=source.binding,runId=source.files.run,role=source.role,
+        value=dict(iosAssetsParsedInputOwnerVersion=self.OWNER_VERSION,**self.extra_envelope(),binding=source.binding,runId=source.files.run,role=source.role,
             fileOwnerToken=source.files.state['token'],page=source.state['page'],path=usage.path(),payload=pack([self.state]))
         self.decode(value);self.store.write(value,self.previous);self.previous=deepcopy(value)
 
@@ -127,7 +132,7 @@ class OwnedAssetsParsedInput:
                 if self.sources.state['pending'] is not None:self.sources.recover_capture()
                 else:self.sources.capture(self.sources.epoch_ms())
             self.frame(index);self.state.update(phase='backend',backendStarted=self.sources.monotonic());self.save()
-        backend=self.baking.backend;packet=backend.checkpoint(SLOT,self.sources.usage.source.files.state['ticket'])
+        backend=self.baking.backend;packet=backend.checkpoint(SLOT,self.ticket())
         if packet is None:return None
         index=next(i for i,row in enumerate(backend.state['samples'],1) if row['slot']==SLOT)
         proof=self.proof(self.state['sourceIndex'],index)

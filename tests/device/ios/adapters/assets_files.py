@@ -236,11 +236,15 @@ class IOSAssetsFiles:
 
 class OwnedAssetsFiles:
     """Write-ahead storage ownership; lost mutations are recovered by reads only."""
+    OWNER_VERSION=OWNER_VERSION
+    EXTRA_FIELDS=frozenset()
+    def extra_envelope(self):return {}
+    def envelope_guard(self):return True
     def __init__(self,native,store,binding,run,url,*,lock,role='primary'):
         need(isinstance(native,IOSAssetsFiles) and isinstance(store,PrivateFeatureState));context(binding);identifier(run)
         self.native,self.store,self.binding,self.run,self.url,self.lock=native,store,deepcopy(binding),run,url,lock
         need(str(native.pid)==binding['processIdentity']);lock.assert_held();self.previous=store.read();self.state=None
-        self.role=role;self.storage_version=OWNER_VERSION;self.sources=FileSources(self,role,self.source_guard,self.save)
+        self.role=role;self.storage_version=self.OWNER_VERSION;self.sources=FileSources(self,role,self.source_guard,self.save)
         if self.previous is not None:
             self.state=self.decode(self.previous)
             if self.state['originals']:
@@ -249,7 +253,7 @@ class OwnedAssetsFiles:
     def source_guard(self):
         # These are retained local originals, not fresh device facts. Native
         # candidate/process/clock guards remain on every actual native request.
-        self.lock.assert_held();PrivateFeatureState(self.store.path)._parent();return True
+        self.lock.assert_held();need(self.envelope_guard() is not False);PrivateFeatureState(self.store.path)._parent();return True
 
     def legacy_state(self,value):
         exact(value,{'iosAssetsFileOwnerVersion','runId','fixtureUrl','binding','payload'})
@@ -262,8 +266,9 @@ class OwnedAssetsFiles:
         need(type(value) is dict and type(value.get('iosAssetsFileOwnerVersion')) is int)
         if value['iosAssetsFileOwnerVersion']==VERSION:
             self.storage_version=VERSION;return self.legacy_state(value)
-        exact(value,{'iosAssetsFileOwnerVersion','runId','fixtureUrl','binding','role','payload'})
-        need(value['iosAssetsFileOwnerVersion']==OWNER_VERSION and value['runId']==self.run and value['fixtureUrl']==self.url and same(value['binding'],self.binding) and value['role']==self.role)
+        exact(value,{'iosAssetsFileOwnerVersion','runId','fixtureUrl','binding','role','payload'}|self.EXTRA_FIELDS)
+        need(same({key:value[key] for key in self.EXTRA_FIELDS},self.extra_envelope()) and self.envelope_guard() is not False)
+        need(value['iosAssetsFileOwnerVersion']==self.OWNER_VERSION and value['runId']==self.run and value['fixtureUrl']==self.url and same(value['binding'],self.binding) and value['role']==self.role)
         states=unpack(value['payload']);need(len(states)==1);stored=states[0]
         exact(stored,{'phase','token','ticket','resource','inputManifest','directory','sources'});self.sources.load(stored['sources'])
         planned=inputs(self.run,stored['ticket'],self.url,stored['resource']);expected=[dict(path=path,bytes=len(original_bytes(raw)),sha256=hashlib.sha256(original_bytes(raw)).hexdigest()) for path,raw in planned.items()]
@@ -275,7 +280,7 @@ class OwnedAssetsFiles:
                 need(all(same(legacy[key],stored[key]) for key in ('token','ticket','resource')) and same(legacy['files'],planned));entries.extend(deepcopy(legacy['originals']))
             else:entries.append(dict(query=deepcopy(record['query']),packet=decode(record['raw'])))
         state=dict(phase=stored['phase'],token=stored['token'],ticket=stored['ticket'],resource=stored['resource'],files=planned,directory=stored['directory'],originals=entries)
-        need(self.sources.pending is None or state['phase']!='retired');self.storage_version=OWNER_VERSION;return self.validate_state(state)
+        need(self.sources.pending is None or state['phase']!='retired');self.storage_version=self.OWNER_VERSION;return self.validate_state(state)
 
     def validate_state(self,state):
         need(len(canonical(state))<=MAX_RAW)
@@ -325,11 +330,11 @@ class OwnedAssetsFiles:
 
     def save(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous) and self.native.guard() is not False)
-        if self.storage_version==VERSION:self.sources.prepare_migration(self.previous);self.storage_version=OWNER_VERSION
+        if self.storage_version==VERSION:self.sources.prepare_migration(self.previous);self.storage_version=self.OWNER_VERSION
         state={key:deepcopy(self.state[key]) for key in ('phase','token','ticket','resource','directory')}
         state['inputManifest']=[dict(path=path,bytes=len(original_bytes(raw)),sha256=hashlib.sha256(original_bytes(raw)).hexdigest()) for path,raw in self.state['files'].items()]
         state['sources']=self.sources.manifest()
-        value=dict(iosAssetsFileOwnerVersion=OWNER_VERSION,runId=self.run,fixtureUrl=self.url,binding=self.binding,role=self.role,payload=pack([state]))
+        value=dict(iosAssetsFileOwnerVersion=self.OWNER_VERSION,runId=self.run,fixtureUrl=self.url,binding=self.binding,role=self.role,payload=pack([state]),**self.extra_envelope())
         decoded=self.decode(value);need(same(decoded,self.state));self.store.write(value,self.previous);sync(self.store.path.parent);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def retain(self,query,packet):

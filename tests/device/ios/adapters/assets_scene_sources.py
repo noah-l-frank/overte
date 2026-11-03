@@ -36,6 +36,10 @@ class SceneRawSources(ModelRawSources):
 
 class AssetsSceneSources(AssetsModelSources):
     """Reuse only bounded prefix/recovery mechanics, with separate schemas."""
+    OWNER_VERSION=VERSION
+    EXTRA_FIELDS=frozenset()
+    def extra_envelope(self):return {}
+    def envelope_guard(self):return True
     def __init__(self,store,binding,run,role,lock,guard,*,native,state,domain,origin,epoch_ms,monotonic):
         need(isinstance(store,PrivateFeatureState) and isinstance(lock,ScriptSourceLock) and callable(guard)
             and isinstance(native,NativeFeatureObservation) and native.ios and native.native_clock_bound and isinstance(state,create_state.IOSCreateState)
@@ -56,17 +60,18 @@ class AssetsSceneSources(AssetsModelSources):
                 last=self._cached[-1]['scene'];restore_native(self.native,last['clockJoin']['nativeAfter'])
                 for kind,key in (('state','createAfter'),('domain','domain'),('origin','origin')):self.readers[kind].last=deepcopy(last['originals'][key])
 
-    def local_guard(self):self.lock.assert_held();PrivateFeatureState(self.store.path)._parent();return True
+    def local_guard(self):self.lock.assert_held();need(self.envelope_guard() is not False);PrivateFeatureState(self.store.path)._parent();return True
     def guard(self):
         self.local_guard();need(self.check() is not False and self.native.guard() is not False and same(self.store.read(),self.previous));return True
     def reader_module(self,kind):return {'state':create_state,'domain':emote_world,'origin':assets_model_origin}[kind]
     def envelope(self):
         self.state['rawSources']=self.raws.manifest()
-        return dict(iosAssetsSceneSourcesVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,payload=pack([self.state]))
+        return dict(iosAssetsSceneSourcesVersion=self.OWNER_VERSION,binding=self.binding,runId=self.run,role=self.role,payload=pack([self.state]),**self.extra_envelope())
 
     def decode(self,value):
-        exact(value,{'iosAssetsSceneSourcesVersion','binding','runId','role','payload'})
-        need(type(value['iosAssetsSceneSourcesVersion']) is int and value['iosAssetsSceneSourcesVersion']==VERSION
+        exact(value,{'iosAssetsSceneSourcesVersion','binding','runId','role','payload'}|self.EXTRA_FIELDS)
+        need(same({key:value[key] for key in self.EXTRA_FIELDS},self.extra_envelope()) and self.envelope_guard() is not False)
+        need(type(value['iosAssetsSceneSourcesVersion']) is int and value['iosAssetsSceneSourcesVersion']==self.OWNER_VERSION
             and same(value['binding'],self.binding) and value['runId']==self.run and value['role']==self.role)
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0];exact(state,{'frames','pending','interrupted','nextIndex','rawSources'})
         self.raws.load(state['rawSources']);need(type(state['frames']) is list and len(state['frames'])<=32

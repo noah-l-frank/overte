@@ -9,6 +9,7 @@ peer, cache, renderer or OS responsibility when its marker alone is released.
 from copy import deepcopy
 from pathlib import Path
 import time
+from ios.adapters.assets_end_metadata import store as metadata_store
 from adapters.native_feature_observation import exact,need
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.script_feature.history import pack,unpack,same
@@ -24,7 +25,7 @@ VERSION=1
 
 class OwnedAssetsMarker:
     @classmethod
-    def from_archive(cls,value,store,*,artifact_root,binding,run,role,fixture_url,ticket,lock):
+    def from_archive(cls,value,store,*,artifact_root,binding,run,role,fixture_url,ticket,lock,metadata=None):
         """Independently authorized paths/context; no live constructor or SDK.
 
         This is a historical parent lease, not a current marker or pixel
@@ -36,7 +37,8 @@ class OwnedAssetsMarker:
             and same(store.read(),value))
         scope=object.__new__(CreateMarkerScope);scope.root=Path(artifact_root);scope.binding=binding;scope.run,scope.role=run,role
         scope.namespace,scope._version,scope.lock='assets',3,lock;scope.fixture_url,scope.ticket=fixture_url,ticket
-        scope.store=PrivateFeatureState(store.path.with_name(marker_name(role,'assets')));scope.failed=True
+        scope._assets_metadata=metadata
+        scope.store=metadata_store(store.path.with_name(marker_name(role,'assets')),metadata);scope.failed=True
         owner=object.__new__(cls);owner.scope,owner.store,owner.lock,owner.run,owner.role=scope,store,lock,run,role
         owner.monotonic=time.monotonic;owner.previous=deepcopy(value);owner.state=owner.decode(value);return owner
 
@@ -61,7 +63,7 @@ class OwnedAssetsMarker:
         # Completed child frames do not replace abandoned read originals. The
         # original recovery decoder reopens its exact records and any retained
         # byte prefix without acquiring a live SDK or replaying that read.
-        result.store=self.scope.store;IOSCreateMarkerRecovery(result)
+        result.store=self.scope.store;result._assets_metadata=getattr(self.scope,'_assets_metadata',None);IOSCreateMarkerRecovery(result)
         return result
 
     def prefix(self,before,after):

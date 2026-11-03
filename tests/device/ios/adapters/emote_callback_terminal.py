@@ -80,6 +80,13 @@ class IOSEmoteCallbackTerminal(IOSEmoteTerminal):
     Inventory=IOSEmoteCallbackInventory
     snapshot_capture=staticmethod(archive.capture)
 
+    @staticmethod
+    def make_live(flow,owner):
+        need(isinstance(flow,IOSEmoteCallbackLiveFeature))
+        live=flow.live_owner(owner)
+        need(type(live) is IOSEmoteCallbackLive and live._historical_rows is flow._callback_live_historical_rows)
+        return live
+
     def sample_envelope(self,raw):
         projection=raw['sampleOwners']
         need(type(projection) is dict and type(projection.get('iosEmoteCallbackSampleOwnersVersion')) is int

@@ -157,6 +157,9 @@
 #include "../../../tests/device/native/PrivateScriptFiles.h"
 #include "../../../tests/device/native/PrivateAccountOrigin.h"
 #include "../../../tests/device/native/PrivateAccountOriginLease.h"
+#if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
+#include "../../../tests/device/native/IOSAudioPassiveCapture.h"
+#endif
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
@@ -2666,6 +2669,56 @@ bool TestScriptingInterface::featurePreviewOriginCurrent(const QVariantMap& pack
         && origin.value("instance").toString() == _featureObservationInstance
         && origin.value("admissionEpoch").toUInt() == _featurePreviewAdmission->state();
 }
+
+#if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_VOICE_TESTS)
+QVariantMap TestScriptingInterface::featureIOSAudioPassiveCapture(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this, [&] { result = featureIOSAudioPassiveCapture(command); }, Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (QThread::currentThread() != qApp->thread() || _testResultsLocation.isEmpty() ||
+            !QCoreApplication::arguments().contains("--testScript") || !DependencyManager::isSet<AudioClient>() ||
+            !overte::e2e::previewDirectory(_testResultsLocation)) { return {}; }
+    const auto audio = DependencyManager::get<AudioClient>();
+    if (!_featureIOSAudioPassiveCapture) {
+        if (!_featureLifecycle || _featureLifecycle->snapshot().isEmpty() || !_featurePreviewAdmission ||
+                !overte::e2e::RecordedPreviewAdmission::available(_featurePreviewAdmission->state())) { return {}; }
+        _featureIOSAudioPassiveCapture = std::make_shared<overte::e2e::IOSAudioPassiveCapture>(_featureObservationInstance);
+    }
+    overte::e2e::IOSAudioPassiveCapture::Audio callbacks;
+    callbacks.start = [audio](const QString& run, const QString& lease, int seconds) {
+        bool started {false}; const auto call = [&] { started = audio->startFeaturePassiveAcoustic(run, lease, seconds); };
+        if (QThread::currentThread() == audio->thread()) { call(); }
+        else if (!QMetaObject::invokeMethod(audio.data(), call, Qt::BlockingQueuedConnection)) { return false; }
+        return started;
+    };
+    callbacks.status = [audio] {
+        QVariantMap value; const auto call = [&] { value = audio->featurePassiveAcousticObservation(); };
+        if (QThread::currentThread() == audio->thread()) { call(); }
+        else if (!QMetaObject::invokeMethod(audio.data(), call, Qt::BlockingQueuedConnection)) { return QVariantMap(); }
+        return value;
+    };
+    callbacks.wav = [audio] {
+        QByteArray value; const auto call = [&] { value = audio->featurePassiveAcousticWav(); };
+        if (QThread::currentThread() == audio->thread()) { call(); }
+        else if (!QMetaObject::invokeMethod(audio.data(), call, Qt::BlockingQueuedConnection)) { return QByteArray(); }
+        return value;
+    };
+    callbacks.release = [audio](const QString& run, const QString& lease, quint64 generation) {
+        bool released {false}; const auto call = [&] { released = audio->releaseFeaturePassiveAcoustic(run, lease, generation); };
+        if (QThread::currentThread() == audio->thread()) { call(); }
+        else if (!QMetaObject::invokeMethod(audio.data(), call, Qt::BlockingQueuedConnection)) { return false; }
+        return released;
+    };
+    callbacks.admissionCurrent = [this] {
+        return _featureLifecycle && !_featureLifecycle->snapshot().isEmpty() && _featurePreviewAdmission &&
+            overte::e2e::RecordedPreviewAdmission::available(_featurePreviewAdmission->state()) &&
+            _featurePreviewAdmission->instance() == _featureObservationInstance;
+    };
+    return _featureIOSAudioPassiveCapture->request(_testResultsLocation, command, callbacks);
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureRecordedVoiceEvidence(const QString& requestId) {
     if (QThread::currentThread() != thread()) {
