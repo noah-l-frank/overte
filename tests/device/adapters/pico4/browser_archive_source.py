@@ -15,7 +15,8 @@ from adapters.chat_journey.source_chunks import ChatSourceChunks,digest,json_dig
 from adapters.native_feature_observation import fresh,need,number
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
-from adapters.observer_return import parent_node,state
+from adapters.observer_return import parent_node,state,raw_file
+from adapters.chat_journey.archive_file import signature
 from adapters.original_source_unlink_fence import OriginalSourceUnlinkFence
 from adapters.pico4.browser_actor_retirement import acquire_original_retirement_frame,validate_original_frame
 from adapters.script_journey.history import canonical,same
@@ -39,6 +40,7 @@ class PicoBrowserArchiveReleaseSource:
         self.store=PrivateFeatureState(primary.artifact_root/('tablet-web-'+primary.run+'-archive-release.json'))
         need(self.store.read() is None);ChatSourceChunks(self.store,{}).inventory(0)
         self.parent=parent_node(self.store);self.previous=None;self.root_stamp=None;self.previous_sha=json_digest(None)
+        self.root_raw=self._sealed_root_raw=None;self._sealed_root_stamp=None
         self.failed=False;self.frozen=False;self.started=self.epoch=None;self.last_sha=None
         self._proof_bytes=self._sealed_proof_bytes=None
         self._namespace_guard=self._sealed_namespace_guard=None
@@ -109,17 +111,31 @@ class PicoBrowserArchiveReleaseSource:
             and self.facts is self._sealed_facts and type(self.facts) is tuple
             and canonical(self.scope)==self.facts[0] and canonical(self.vm.origin)==self.facts[5]
             and json_digest(self.previous)==self.previous_sha
-            and parent_node(self.store)==self.parent and same(self.store.read(),self.previous))
-        if self.root_stamp is not None:need(state(self.store)[2]==self.root_stamp)
+            and parent_node(self.store)==self.parent)
+        if self.root_stamp is None:
+            need(self.root_raw is self._sealed_root_raw is self._sealed_root_stamp is None
+                and self.previous is None and self.store.read() is None)
+        else:
+            # The last successful CAS already admitted strict canonical JSON.
+            # Reuse only that immutable decoding: acquire ALL current bytes,
+            # the exact original OFD window and every physical field anew.
+            need(type(self.root_raw) is bytes and self.root_raw is self._sealed_root_raw
+                and type(self._sealed_root_stamp) is tuple and tuple(self.root_stamp)==self._sealed_root_stamp
+                and canonical(self.previous)+b'\n'==self.root_raw)
+            raw,physical=raw_file(self.store)
+            need(raw==self.root_raw and physical==self.root_stamp)
         self.chunks.verify()
         need(self._namespace_guard is self._sealed_namespace_guard
             and (self._namespace_guard is None or callable(self._namespace_guard)))
         if self._namespace_guard is not None:self._namespace_guard()
+        if self.root_stamp is not None:need(signature(self.store.path.lstat())==self.root_stamp)
 
     def save(self,phase,chunks,*,pending=None):
         self.control();value={**self.scope,'phase':phase,'chunks':deepcopy(chunks),'pending':deepcopy(pending)}
-        self.store.write(value,self.previous);observed,_raw,self.root_stamp=state(self.store)
-        need(same(observed,value));self.previous=deepcopy(value);self.previous_sha=json_digest(value);self.control()
+        self.store.write(value,self.previous);observed,raw,self.root_stamp=state(self.store)
+        need(same(observed,value));self.previous=deepcopy(value);self.previous_sha=json_digest(value)
+        self.root_raw=self._sealed_root_raw=raw;self._sealed_root_stamp=tuple(self.root_stamp)
+        self.control()
 
     def phase(self,value,previous):
         f=self.flow;phase_packet(value,run=f.run,area='tablet-web',request=value['requestId'],epoch=value['capturedEpochMs'],previous=previous)

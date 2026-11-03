@@ -77,6 +77,12 @@ input inventories, frame counts and original Close host-clock values preserved. 
 clock renewed; full Common16/Actor/OS Share/raw settings/global retirement
 remain open. The catalog now contains312 disjoint groups.
 
+Browser archive release controls now reuse admitted strict JSON only after a
+fresh original full-byte/OFD/eight-field root read and final namespace stamp.
+All24 context cases and6 independent source cases pass0.492s/44.644s with
+124/206 loaded sources unchanged. The isolated host method improves; no whole
+Browser retry or qualification is inferred. Original120s failures remain.
+
 The selected Chat archive-v4/host-close, Avatar original preferences/Bookmarks
 and Snapshot export packets are integrated together. Eleven affected owning
 groups pass after correcting the shared original Avatar observer harness to

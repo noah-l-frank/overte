@@ -271,12 +271,47 @@ class BrowserArchiveNamespaceTests(unittest.TestCase):
         source.admitted=source._sealed_admitted=b'{}'
         source.facts=source._sealed_facts=(b'{}',)*7
         source.previous=None;source.previous_sha=json_digest(None);source.root_stamp=None
+        source.root_raw=source._sealed_root_raw=None;source._sealed_root_stamp=None
         source.started=source.epoch=None
         source.store=PrivateFeatureState(plan.root/(plan.prefix+'namespace-control-only.json'))
         source.parent=parent_node(source.store);source.chunks=ChatSourceChunks(source.store,{})
         source._proof_bytes=None;source._namespace_guard=source._sealed_namespace_guard=None
         if bind:source.bind_namespace_guard(plan.namespace_control)
         return source
+
+    def test_original_root_bytes_remain_live_after_strict_cas_admission(self):
+        plan,*_=self.make();source=self.source_control(plan,bind=False)
+        source.save('ready',[])
+        original=source.root_raw
+        with patch.object(source.store,'read',side_effect=AssertionError('Redundant JSON decode')):
+            source.control()
+        self.assertEqual(original,source.store.path.read_bytes())
+        replacement=source.store.path.with_name('replacement.json')
+        replacement.write_bytes(original);replacement.chmod(0o600);replacement.replace(source.store.path)
+        with self.assertRaises(NativeUIError):source.control()
+        self.assertEqual(original,source.store.path.read_bytes())
+
+    def test_changed_root_or_mutable_admission_never_qualifies_current_bytes(self):
+        for mutation in ('same-byte-carrier','expected-value','physical-stamp','current-bytes'):
+            with self.subTest(mutation=mutation):
+                plan,*_=self.make();source=self.source_control(plan,bind=False);source.save('ready',[])
+                if mutation=='same-byte-carrier':source.root_raw=bytes(bytearray(source.root_raw))
+                elif mutation=='expected-value':source.previous['phase']='foreign'
+                elif mutation=='physical-stamp':source.root_stamp[-1]+=1
+                else:source.store.path.write_bytes(source.root_raw.replace(b'ready',b'other'))
+                with self.assertRaises(NativeUIError):source.control()
+
+    def test_replacement_after_actual_read_window_is_not_hidden_by_admission(self):
+        from adapters.pico4 import browser_archive_source as module
+        plan,*_=self.make();source=self.source_control(plan,bind=False);source.save('ready',[])
+        original=module.raw_file
+        def replace(store):
+            value=original(store)
+            replacement=store.path.with_name('after-read.json')
+            replacement.write_bytes(value[0]);replacement.chmod(0o600);replacement.replace(store.path)
+            return value
+        with patch.object(module,'raw_file',side_effect=replace):
+            with self.assertRaises(NativeUIError):source.control()
 
     def test_remaining_omission_and_foreign_original_cannot_change_the_complete_namespace(self):
         plan,remaining,observed=self.make()

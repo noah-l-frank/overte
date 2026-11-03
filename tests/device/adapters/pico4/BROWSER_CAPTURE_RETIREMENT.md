@@ -401,3 +401,36 @@ No archived/current owner, clock, source, cursor or input is replayed. No compil
 device run, cap/deadline increase or complete Browser claim follows. Continue
 from the retained caller/source evidence rather than retrying an unchanged
 whole attempt.
+
+## Reuse strict root decoding only after current original-byte verification
+
+The archive release source now retains the exact canonical root bytes and full
+eight-field physical stamp only after its successful original CAS/readback.
+Every subsequent control still opens a fresh original OFD window, reads every
+current byte, checks all physical fields and verifies the parent and complete
+chunk namespace. The admitted byte carrier and original stamp are independently
+pinned; mutable expected DTOs still undergo strict JSON/digest comparison. A
+final named-root stamp check follows the current namespace callback. No current
+file, candidate, phase, source or clock verdict is cached or renewed.
+
+This removes two repeated JSON reads of the same admitted root per control.
+The24 context/PNG/namespace cases pass0.492s with124 loaded source identities
+unchanged, including same-byte inode substitution, changed bytes/expected DTOs,
+replaced admitted carriers, changed stamps and replacement after the actual
+read window. Six original independent-process source cases pass44.644s with206
+loaded sources unchanged, including original VM/browser/capture queries,
+immutable inspection, failed capture and late final CAS without resend.
+
+A fresh private host fixture calls the actual source control1000 times before
+and after. The median cost per200 calls changes from74.856ms to40.205ms;
+redundant store JSON reads fall from2000 to zero. This is a bounded method
+measurement with actual file/OFD checks, not a whole Browser speedup or a live
+source/Actor qualification. Its completed private fixture is not adopted as an
+old source owner. Results and runner remain under
+`~/.local/state/overte-pico-resume-integration-20261102-24qkewqw/`.
+
+The original complete120s failures remain retained. This limited isolated
+saving does not justify an unchanged whole retry or a whole/public completion
+claim. Independent transport/current-copy inventories remain measured next
+work; original inputs, quiet,1.5s source ages,16-unlink/250ms windows, limits and
+all fresh candidate/phase checks are unchanged.
