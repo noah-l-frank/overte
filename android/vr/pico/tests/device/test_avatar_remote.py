@@ -35,6 +35,8 @@ def load_tests(loader, _tests, _pattern):
         'self_tests.test_pico_avatar_remote.RemoteAvatarTests',
         'self_tests.test_pico_remote_joint_pose.ProducerSourceTests',
         'self_tests.test_pico_remote_joint_pose.RemoteJointPoseTests',
+        'self_tests.test_pico_remote_joint_pose.JointInterpolationTests',
+        'self_tests.test_pico_avatar_source_capacity.RemoteSourceCapacityTests',
         __name__ + '.RemoteAvatarBindingTests',
     ])
 

@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.pico4 import avatar_remote as remote
+from adapters.pico4 import joint_interpolation
 from adapters.pico4.avatar_remote_source import create
 from adapters.pico4.avatar_remote_state import source_store, retained
 from adapters.script_journey.history import canonical
@@ -83,18 +84,42 @@ class RemoteBoundary:
         if not legacy:
             # Explicit remote committed-section/copy boundary model. This does
             # not execute the uncompiled AvatarData/Rig/OtherAvatar producer.
-            raw=bytes([1,0,0])+struct.pack('<f',1.0)
+            raw=bytes([1,1,0xbf,0xff,0xbf,0xff,0x3f,0xff,1])+struct.pack('<fhhh',1.0,1638,3277,4915)
             received=dict(kind='joint-data',sequence=max(1,self.sequence),subjectSessionId=subject['sessionId'],jointCount=1,
                 parsedEpochMs=epoch-5,committedEpochMs=epoch-4,parseTimestampUs=(epoch-5)*1000,
                 bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),base64=base64.b64encode(raw).decode())
-            subject['remoteJointPose']=dict(remoteJointPoseVersion=1,instance=('7' if primary else '6')*32,
+            subject['remoteJointPose']=dict(remoteJointPoseVersion=2,instance=('7' if primary else '6')*32,
                 copySequence=max(1,self.sequence),copiedSequence=max(1,self.sequence),externalSequence=max(1,self.sequence),subjectSessionId=subject['sessionId'],
                 avatarInstance=subject['avatarInstance'],modelInstance=subject['modelInstance'],rigId=subject['rigId'],
                 geometryInstance=subject['geometry']['instance'],
                 available=True,inputJointCount=1,skeletonJointCount=1,begunEpochMs=epoch-3,copiedEpochMs=epoch-2,
                 capturedEpochMs=epoch-1,relativeJoints=[[0.,0.,0.,1.,.1,.2,.3]],joints=[[0.,0.,0.,1.,.1,.2,.3]],
                 received=dict(jointData=received,defaultFlags=None))
-        source = dict(picoRemoteAvatarVersion=1 if legacy else 2, runId=RUN,
+            pose=subject['remoteJointPose']
+            q=joint_interpolation.wire_value(received,0,0); p=joint_interpolation.wire_value(received,0,1)
+            q=[struct.unpack('>f',struct.pack('>f',v))[0] for v in q]
+            channels=[[struct.pack('>f',v).hex() for v in q],[struct.pack('>f',v).hex() for v in p],False,False]
+            nodes=[dict(id=c+1,joint=0,channel=c,op='wire',value=deepcopy(value),parents=[],source=received['sequence'],detail={})
+                for c,value in enumerate(channels)]
+            for c in range(2): nodes.append(dict(id=c+5,joint=0,channel=c,op='interpolate',value=deepcopy(channels[c]),
+                parents=[c+1,c+1],source=None,detail=dict(thetaBits='3f800000')))
+            pose['relativeJoints']=pose['joints']=[q+p]
+            pose['interpolation']=dict(jointInterpolationVersion=1,available=True,assignmentPending=False,failure='',nowUs=epoch*1000,
+                historyResets=1,historyAppends=max(1,self.sequence),historyPrunes=0,roots=[[5,6,3,4]],nodes=nodes,sections=[deepcopy(received)],
+                selection=[dict(joint=0,mode='newest-clamp',historySize=1,historyStart=0,oldIndex=0,newIndex=0,
+                    oldTimeUs=epoch*1000-1000,newTimeUs=epoch*1000-1000,latencyUs=0,timePointUs=epoch*1000,
+                    thetaBits='3f800000',old=[1,2,3,4],new=[1,2,3,4],output=[5,6,3,4])])
+            # Native node identifiers live for the original Avatar instance.
+            offset=max(1,self.sequence)*10
+            for node in nodes:
+                node['id']+=offset; node['parents']=[p+offset for p in node['parents']]
+            pose['interpolation']['roots']=[[p+offset for p in row] for row in pose['interpolation']['roots']]
+            for row in pose['interpolation']['selection']:
+                for field in ('old','new','output'): row[field]=[p+offset for p in row[field]]
+            pose['rigInput']=dict(inputs=[channels],rotationZeroThreshold=1e-6,rigToGeometryRotation=[0.,0.,0.,1.],
+                decisions=[dict(joint=0,parent=-1,rotationChoice='rig-input',absoluteRotation=q,defaultRotation=[0.,0.,0.,1.],
+                    translationChoice='rig-input',relativeRotation=q,translation=p,defaultTranslation=[0.,0.,0.])])
+        source = dict(picoRemoteAvatarVersion=1 if legacy else 3, runId=RUN,
             clientBefore=self.client(SUBJECT if primary else SELF,epoch), clientAfter=self.client(SUBJECT if primary else SELF,epoch),
             selfSessionId=SUBJECT if primary else SELF, subjectSessionId=SELF if primary else SUBJECT,
             subject=subject, worldRenderInstance=('3'*32 if primary else self.gpu.capture['instance']),

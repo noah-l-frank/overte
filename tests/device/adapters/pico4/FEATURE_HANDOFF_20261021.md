@@ -3463,3 +3463,21 @@ all incomplete Share/Actor/pixel/resource obligations. The newer frozen Phone
 lease comparison records why its initialized baseline cannot replace Pico's
 passive uninitialized-cache original. Source-complete stays3/14. No compiler,
 device or remote action was used. Earlier full-run refusals remain retained.
+
+
+## Remote interpolation and bounded raw acquisition selected on 2026-11-03
+
+[Current remote originals](AVATAR_REMOTE_ORIGINALS.md) add Remote3/Pose2/Source3
+and nested jointInterpolation1. The actual native parser assignments, selected
+history endpoints/weights and Rig default/rejection/parent decisions are
+observed without reading inactive float storage. Current inputs remain bounded
+and explicitly Pico-only; all five original non-E2E bodies are unchanged.
+The native producer has not been compiled or executed.
+
+Root46 cases pass17.243s with222 loaded sources unchanged. Five new counters
+first reproduce raw-capacity and post-capacity timing failures, then verify
+complete allowed literals or zero next send/getter under original512/16MiB/
+64KiB/1.5s limits. Historical1/2 remain read-only authority; current3 retains
+its original host/area/120s/32-observation ownership. Changed pose/receipt is
+correlation, with per-channel effect, skin palette, visible pixels, independent
+Actor/contacts and complete retirement still open. Source-complete remains3/14.

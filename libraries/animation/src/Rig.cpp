@@ -2784,6 +2784,9 @@ void Rig::copyJointsFromJointData(const QVector<JointData>& jointDataVec) {
     rotations.reserve(numJoints);
     const glm::quat rigToGeometryRot(glmExtractRotation(_rigToGeometryTransform));
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantList observedInputs,observedDecisions;
+#endif
     for (int i = 0; i < numJoints; i++) {
         const JointData& data = jointDataVec.at(i);
         if (data.rotationIsDefaultPose || !isFiniteQuaternion(data.rotation) ||
@@ -2793,6 +2796,17 @@ void Rig::copyJointsFromJointData(const QVector<JointData>& jointDataVec) {
             // JointData rotations are in absolute rig-frame so we rotate them to absolute model-frame
             rotations.push_back(rigToGeometryRot * data.rotation);
         }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if(originalCopy && _e2eRemoteJointPose.inputsObserved()) {
+            observedInputs.append(QVariant(overte::e2e::RemoteJointPoseObservation::input(data)));
+            const auto& q=rotations.back();const auto& d=absoluteDefaultPoses[i].rot();
+            const QString choice=data.rotationIsDefaultPose ? "default-flag" : !isFiniteQuaternion(data.rotation) ? "default-nonfinite"
+                : glm::length2(data.rotation)<=EPSILON ? "default-zero":"rig-input";
+            observedDecisions.append(QVariantMap{{"joint",i},{"parent",_animSkeleton->getParentIndex(i)},
+                {"rotationChoice",choice},{"absoluteRotation",QVariantList{q.x,q.y,q.z,q.w}},
+                {"defaultRotation",QVariantList{d.x,d.y,d.z,d.w}}});
+        }
+#endif
     }
 
     // convert rotations from absolute to parent relative.
@@ -2812,6 +2826,16 @@ void Rig::copyJointsFromJointData(const QVector<JointData>& jointDataVec) {
             // JointData translations are in relative-frame
             _internalPoseSet._relativePoses[i].trans() = data.translation;
         }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if(originalCopy && _e2eRemoteJointPose.inputsObserved()) {
+            auto decision=observedDecisions[i].toMap();const auto& q=rotations[i];
+            const auto& p=_internalPoseSet._relativePoses[i].trans();const auto& d=relativeDefaultPoses[i].trans();
+            decision.insert("translationChoice",data.translationIsDefaultPose ? "default-flag" : !isFiniteVector(data.translation) ? "default-nonfinite":"rig-input");
+            decision.insert("relativeRotation",QVariantList{q.x,q.y,q.z,q.w});
+            decision.insert("translation",QVariantList{p.x,p.y,p.z});decision.insert("defaultTranslation",QVariantList{d.x,d.y,d.z});
+            observedDecisions[i]=decision;
+        }
+#endif
     }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if(originalCopy) {
@@ -2820,7 +2844,9 @@ void Rig::copyJointsFromJointData(const QVector<JointData>& jointDataVec) {
             const auto& pose=_internalPoseSet._relativePoses[index];const auto& q=pose.rot();const auto& p=pose.trans();
             relative.append(QVariant(QVariantList{q.x,q.y,q.z,q.w,p.x,p.y,p.z}));
         }
-        _e2eRemoteJointPose.copied(originalCopy,relative);
+        _e2eRemoteJointPose.copied(originalCopy,relative,{{"inputs",observedInputs},{"decisions",observedDecisions},
+            {"rigToGeometryRotation",QVariantList{rigToGeometryRot.x,rigToGeometryRot.y,rigToGeometryRot.z,rigToGeometryRot.w}},
+            {"rotationZeroThreshold",static_cast<double>(EPSILON)}});
     }
 #endif
 }

@@ -14,7 +14,7 @@ from adapters.world_render_evidence import recorded_view
 from adapters.pico4.emote_model_draws import validate as draw_packet, ACTION as DRAW_ACTION
 from adapters.pico4 import remote_joint_pose
 
-VERSION = 2
+VERSION = 3
 ACTION = 'feature-pico-remote-avatar-observe'
 FILE = 'feature-pico-remote-avatar.json'
 LIMIT = 196608
@@ -64,7 +64,7 @@ def validate(value, request, pid, epoch, *, current=False):
     exact(source, {'picoRemoteAvatarVersion', 'runId', 'clientBefore', 'clientAfter', 'selfSessionId',
         'subjectSessionId', 'subject', 'worldRenderInstance', 'cameraMode', 'view'})
     version = source['picoRemoteAvatarVersion']
-    need(type(version) is int and version in (1,VERSION) and (not current or version == VERSION)
+    need(type(version) is int and version in (1,2,3) and (not current or version == VERSION)
          and source['runId'] == request['runId'] and source['subjectSessionId'] == request['subjectSessionId'])
     before = client(source['clientBefore'], source['runId'], value['capturedEpochMs'])
     after = client(source['clientAfter'], source['runId'], value['capturedEpochMs'])
@@ -76,7 +76,7 @@ def validate(value, request, pid, epoch, *, current=False):
     # The original null/missing subject or empty Rig is retained by the caller
     # before this refusal. It cannot become a local-avatar or desired-UUID fact.
     exact(subject, {'sessionId', 'avatarInstance', 'modelInstance', 'rigId', 'rig', 'loaded', 'visible',
-        'addedToScene', 'avatarShouldRender', 'geometry', 'pose'} | ({'remoteJointPose'} if version == 2 else set()))
+        'addedToScene', 'avatarShouldRender', 'geometry', 'pose'} | ({'remoteJointPose'} if version >= 2 else set()))
     need(subject['sessionId'] == source['subjectSessionId'] and nonce(subject['avatarInstance'])
          and nonce(subject['modelInstance']) and integer(subject['rigId'])
          and all(type(subject[k]) is bool for k in ('loaded', 'visible', 'addedToScene', 'avatarShouldRender')))
@@ -89,7 +89,7 @@ def validate(value, request, pid, epoch, *, current=False):
         if subject['rig']:
             need(integer(subject['rig'].get('capturedEpochMs'),1,value['capturedEpochMs']))
             rig(subject['rig'], subject['rigId'], subject['rig']['capturedEpochMs'])
-        remote_joint_pose.validate(subject['remoteJointPose'], subject, value['capturedEpochMs'])
+        remote_joint_pose.validate(subject['remoteJointPose'], subject, value['capturedEpochMs'],version=1 if version == 2 else 2)
     geometry = subject['geometry']
     if geometry is not None:
         exact(geometry, {'instance', 'sourcePresent', 'sourceSha256'})

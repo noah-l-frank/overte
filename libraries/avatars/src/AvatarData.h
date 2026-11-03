@@ -38,6 +38,9 @@
 
 #include <AvatarConstants.h>
 #include <JointData.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "JointInterpolationObservation.h"
+#endif
 #include <NLPacket.h>
 #include <Node.h>
 #include <NumericalConstants.h>
@@ -1601,8 +1604,9 @@ protected:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     // Accessed only while the existing joint-data lock is held. Section commit
     // provenance is independent of simulation/interpolation bookkeeping.
-    void e2eCommitJointSection(const QString& kind,const unsigned char* begin,const unsigned char* end,
+    bool e2eCommitJointSection(const QString& kind,const unsigned char* begin,const unsigned char* end,
         int joints,qint64 parsedEpochMs,quint64 parseTimestampUs);
+    overte::e2e::JointInterpolationObservation _e2eJointInterpolation;
     quint64 _e2eJointReceiveSequence{0};bool _e2eJointReceiveFailed{false};
     QVariantMap _e2eJointReceiveData,_e2eJointReceiveDefaults;
 #endif

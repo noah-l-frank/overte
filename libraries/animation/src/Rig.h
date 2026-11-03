@@ -215,9 +215,10 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap e2eAnimationObservation() const;
     int e2eRigId() const { return _rigId; }
+    void e2eRemoteInputsObserved(bool allowed) {_e2eRemoteJointPose.allowInputs(allowed);}
     quint64 e2eJointCopySequence() const {return _e2eRemoteJointPose.sequence();}
     QVariantMap e2eRemoteJointPose(const QString& subject,const QString& avatar,const QString& model,const QString& geometry,
-        quint64 before,const QVariantMap& received) const {return _e2eRemoteJointPose.snapshot(subject,avatar,model,geometry,before,received);}
+        quint64 before,const QVariantMap& received,const QVariantMap& interpolation) const {return _e2eRemoteJointPose.snapshot(subject,avatar,model,geometry,before,received,interpolation);}
 #endif
     AnimNode::ConstPointer findAnimNodeByName(const QString& name) const;
     AnimSkeleton::ConstPointer getAnimSkeleton() const { return _animSkeleton; }

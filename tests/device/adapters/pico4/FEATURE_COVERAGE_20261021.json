@@ -333,7 +333,10 @@
         "libraries/animation/src/RemoteJointPoseObservation.h",
         "tests/device/self_tests/test_pico_avatar_remote.py",
         "tests/device/self_tests/test_pico_remote_joint_pose.py",
-        "android/vr/pico/tests/device/test_avatar_remote.py"
+        "android/vr/pico/tests/device/test_avatar_remote.py",
+        "libraries/avatars/src/JointInterpolationObservation.h",
+        "tests/device/adapters/pico4/joint_interpolation.py",
+        "tests/device/self_tests/test_pico_avatar_source_capacity.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -380,7 +383,7 @@
       "nextExecutableStep": "Continue the same Parent beyond normal request/cancel/Close to independently authenticated account/backend, accept/reject/remove, page restoration, loaded-model/stereo and final retirement. Canonical role resolution occurs separately before Parent reservation; waits hold neither role lock and every issued input rechecks the exact reserved Parent bytes/full physical identity. Ten component cases and five canonical-binding plus six legacy Parent cases pass with declared SDK/QML/transport/time models. Parent reads1/2, retaining v1 until actual People reservation. No complete nine-field observation or cleanup capability is advertised.",
       "nativeCompilation": "Original NavigationUi/QML/script, MyAvatar preference/model-setter/save/Scale/cached Favorite, Bookmarks and Setting Handle/Manager/WriteWorker/JSON sources host-compiled. Existing common16/OverteSession/URL3/Favorites1 Parent remains independently verified with retained owners; old no-op/persistence30 limits unchanged. New separate actual selected Avatar/Model methods, GeometryResourceWatcher/copy/ModelCache and full FST/FBX/Draco/Baker/HFM/material/Texture CPU chain compile in82 original/generated TUs plus link (81.449s Ninja), agent owning106.341s/actual native23.916s under original combined90 and outer120/remaining service<=60. Genuine2meshes/69joints and clone weak death observed; resource QObjects/LRU remain alive, distinct from expired old shared-control handles. Full constructors/AvatarData/Rig/Scene/Renderer/EntityTree/SDK/OS are explicit seams. Peer/stereo, full storage21,634,937bytes>16MiB and complete final retirement remain open. Root ae304b035b independently passes1/108.417s (109.050external),82freshTUs+link84.511s/native23.136s of remaining34.739s; all13,635 checkout hashes/physical identities unchanged, default Draco discovery203 package files hash/physical matched. Complete Root disjoint runtime/source bill136files/21,680,381bytes remains above16MiB; no whole storage/cache or feature retirement.",
       "deviceQualification": "untested",
-      "remoteOriginals": "Private Remote2/Pose1/Source2 observes actual complete AvatarData joint sections and Rig copy/external poses.31 no-build cases pass6.204s with226 loaded sources unchanged. Current ownership stays in the original host; versions1/2 remain separately historical-readable. Remote empty local Rig is retained truthfully. Packet-to-interpolation/draw causality, independent Actor/full contacts/stereo/retirement and native compilation remain open; no complete capability is advertised."
+      "remoteOriginals": "Private Remote3/Pose2/Source3 with nested jointInterpolation1 retains actual per-channel assignment/history/selection and Rig branch/parent inputs. Native collectors are Pico-only and uncompiled. Historical Remote/Source1/2/3 and Pose1/2 stay separate from current ownership. Root46 cases pass17.243s with222 loaded sources stable, including guaranteed full raw-capacity preflight before send/getter and original1.5s final fences. Per-channel effect, packet-to-skin/draw/pixels, whole independent Actor/contacts/Emotes and final retirement remain open; no complete capability."
     },
     {
       "area": "create",

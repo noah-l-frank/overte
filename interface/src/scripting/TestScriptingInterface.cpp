@@ -346,7 +346,7 @@ QVariantMap TestScriptingInterface::featurePicoRemoteAvatarOriginal(const std::s
             || manager->getMyAvatar()!=self || manager->getAvatarBySessionID(subjectId)!=original || qApp->getGPUContext()!=context
             || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
     if(avatar && !_featureRemoteAvatar->originals(nodes.data(),manager.data(),avatar,avatar->getSkeletonModel())) {return {};}
-    const QVariantMap source{{"picoRemoteAvatarVersion",2},{"runId",run},{"clientBefore",before.values},{"clientAfter",after.values},
+    const QVariantMap source{{"picoRemoteAvatarVersion",3},{"runId",run},{"clientBefore",before.values},{"clientAfter",after.values},
         {"selfSessionId",self->getSessionUUID().toString(QUuid::WithoutBraces)},
         {"subjectSessionId",command.value("subjectSessionId")},{"subject",subject},{"worldRenderInstance",renderer},
         {"cameraMode",camera.getModeString()},{"view",view}};

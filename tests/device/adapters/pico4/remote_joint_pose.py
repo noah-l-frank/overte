@@ -9,10 +9,12 @@ from adapters.native_avatar_render import nonce
 from adapters.native_graphics_subject import rotation, vector
 from adapters.script_journey.history import same
 
-VERSION = 1
+from adapters.pico4 import joint_interpolation
+
+VERSION = 2
 
 
-def committed(value, kind, subject, count, before, epoch):
+def committed(value, kind, subject, count, before, epoch, *, require_fresh=True):
     exact(value, {'kind','sequence','subjectSessionId','jointCount','parsedEpochMs','committedEpochMs',
         'parseTimestampUs','bytes','sha256','base64'})
     need(value['kind'] == kind and integer(value['sequence'],1,9007199254740991)
@@ -26,15 +28,18 @@ def committed(value, kind, subject, count, before, epoch):
          and hashlib.sha256(raw).hexdigest() == value['sha256'] and raw[0] == count)
     # Parse/commit belongs to the actual incoming joint section. A later local
     # recopy must not hide that section's original age under its own new clock.
-    if kind == 'joint-data': fresh(value['parsedEpochMs'], epoch)
+    if kind == 'joint-data' and require_fresh: fresh(value['parsedEpochMs'], epoch)
     return value
 
 
-def validate(value, subject, epoch):
+def validate(value, subject, epoch, *, version=None):
+    need(type(value) is dict)
+    observed=value.get('remoteJointPoseVersion')
+    need(type(observed) is int and observed in (1,2) and (version is None or observed == version))
     exact(value, {'remoteJointPoseVersion','instance','copySequence','copiedSequence','externalSequence',
         'subjectSessionId','avatarInstance','modelInstance','geometryInstance','rigId','available','inputJointCount','skeletonJointCount',
-        'begunEpochMs','copiedEpochMs','capturedEpochMs','relativeJoints','joints','received'})
-    need(type(value['remoteJointPoseVersion']) is int and value['remoteJointPoseVersion'] == VERSION
+        'begunEpochMs','copiedEpochMs','capturedEpochMs','relativeJoints','joints','received'} | ({'interpolation','rigInput'} if observed == 2 else set()))
+    need(type(value['remoteJointPoseVersion']) is int and value['remoteJointPoseVersion'] == observed
          and nonce(value['instance']) and integer(value['copySequence'],1,9007199254740991)
          and type(value['copiedSequence']) is int and value['copiedSequence'] == value['copySequence']
          and type(value['externalSequence']) is int and value['externalSequence'] == value['copySequence']
@@ -56,12 +61,15 @@ def validate(value, subject, epoch):
     committed(received['jointData'],'joint-data',value['subjectSessionId'],value['inputJointCount'],value['begunEpochMs'],epoch)
     if received['defaultFlags'] is not None:
         committed(received['defaultFlags'],'default-flags',value['subjectSessionId'],value['inputJointCount'],value['begunEpochMs'],epoch)
+    if observed == 2:
+        joint_interpolation.validate_rig(value['rigInput'],value)
+        joint_interpolation.validate(value['interpolation'],value['rigInput'],value,committed)
     return value
 
 
 def continuity(before, after):
     need(all(same(before[key],after[key]) for key in
-        ('instance','subjectSessionId','avatarInstance','modelInstance','rigId'))
+        ('remoteJointPoseVersion','instance','subjectSessionId','avatarInstance','modelInstance','rigId'))
          and after['copySequence'] >= before['copySequence'] and after['capturedEpochMs'] >= before['capturedEpochMs'])
     if after['copySequence'] == before['copySequence']: need(same(before,after))
     for key in ('jointData','defaultFlags'):
@@ -70,6 +78,13 @@ def continuity(before, after):
         need(b is not None and b['sequence'] >= a['sequence'] and b['parsedEpochMs'] >= a['parsedEpochMs']
              and b['committedEpochMs'] >= a['committedEpochMs'])
         if b['sequence'] == a['sequence']: need(same(a,b))
+    if after['remoteJointPoseVersion'] == 2:
+        a,b=before['interpolation'],after['interpolation']
+        need(all(b[k] >= a[k] for k in ('nowUs','historyResets','historyAppends','historyPrunes')))
+        for key,identity in (('nodes','id'),('sections','sequence')):
+            previous={row[identity]:row for row in a[key]}
+            for row in b[key]:
+                if row[identity] in previous: need(same(row,previous[row[identity]]))
 
 
 def changed(before, after):
@@ -87,5 +102,5 @@ def changed(before, after):
         return orientation > .001 or any(abs(x-y) > .001 for x,y in zip(a[4:],b[4:]))
     changed_joints = [index for index,(a,b) in enumerate(zip(before['joints'],after['joints'])) if moving(a,b)]
     need(bool(changed_joints))
-    return dict(remoteJointPoseVersion=VERSION, copiedPoseChanged=True, changedJoints=changed_joints,newCommittedSections=fresh_sections,
+    return dict(remoteJointPoseVersion=after['remoteJointPoseVersion'], copiedPoseChanged=True, changedJoints=changed_joints,newCommittedSections=fresh_sections,
         before=deepcopy(before),after=deepcopy(after))

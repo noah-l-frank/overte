@@ -1529,7 +1529,13 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
         // All variable-length fields are complete and valid. Apply them only
         // now so a truncated tail cannot resize or partially replace joints.
         QWriteLocker writeLock(&_jointDataLock);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _e2eJointInterpolation.openAssignments();
+#endif
         _jointData.resize(numJoints);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _e2eJointInterpolation.prepare(_jointData,true);
+#endif
         JointData* jointData = _jointData.data();
 
         if (_hasNewJointDataVec.size() != static_cast<size_t>(numJoints)) {
@@ -1567,7 +1573,8 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
         _jointDataRate.increment(numBytesRead);
         _jointDataUpdateRate.increment();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        e2eCommitJointSection("joint-data",startSection,endJointSection,numJoints,originalJointParseEpoch,now);
+        const bool committed=e2eCommitJointSection("joint-data",startSection,endJointSection,numJoints,originalJointParseEpoch,now);
+        _e2eJointInterpolation.assigned(_jointData,validRotations,validTranslations,_e2eJointReceiveData,false,committed);
 #endif
 
         if (hasGrabJoints) {
@@ -1618,7 +1625,13 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
         sourceBuffer += bitVectorSize;
 
         QWriteLocker writeLock(&_jointDataLock);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _e2eJointInterpolation.openAssignments();
+#endif
         _jointData.resize(numJoints);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _e2eJointInterpolation.prepare(_jointData,true);
+#endif
         JointData* jointData = _jointData.data();
         if (_hasNewJointDataVec.size() != static_cast<size_t>(numJoints)) {
             _hasNewJointDataVec.resize(numJoints, false);
@@ -1634,7 +1647,8 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
         _jointDefaultPoseFlagsRate.increment(numBytesRead);
         _jointDefaultPoseFlagsUpdateRate.increment();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        e2eCommitJointSection("default-flags",startSection,sourceBuffer,numJoints,originalJointParseEpoch,now);
+        const bool committed=e2eCommitJointSection("default-flags",startSection,sourceBuffer,numJoints,originalJointParseEpoch,now);
+        _e2eJointInterpolation.assigned(_jointData,rotationFlags,translationFlags,_e2eJointReceiveDefaults,true,committed);
 #endif
     }
 
@@ -1648,11 +1662,11 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-void AvatarData::e2eCommitJointSection(const QString& kind,const unsigned char* begin,const unsigned char* end,
+bool AvatarData::e2eCommitJointSection(const QString& kind,const unsigned char* begin,const unsigned char* end,
         int joints,qint64 parsedEpochMs,quint64 parseTimestampUs) {
     // Called only at the actual completed joint-section assignments with the
     // original nonrecursive _jointDataLock already held. Never acquire it here.
-    if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) {return;}
+    if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) {return false;}
     const auto committed=QDateTime::currentMSecsSinceEpoch();
     const auto previous=std::max(_e2eJointReceiveData.value("parsedEpochMs").toLongLong(),
         _e2eJointReceiveDefaults.value("parsedEpochMs").toLongLong());
@@ -1660,7 +1674,7 @@ void AvatarData::e2eCommitJointSection(const QString& kind,const unsigned char* 
     if(_e2eJointReceiveFailed || (kind!="joint-data" && kind!="default-flags") || size<=0 || size>8192
             || joints<0 || joints>256 || parsedEpochMs<=0 || committed<parsedEpochMs || parsedEpochMs<previous
             || _e2eJointReceiveSequence>=9007199254740991ULL) {
-        _e2eJointReceiveFailed=true;_e2eJointReceiveData.clear();_e2eJointReceiveDefaults.clear();return;
+        _e2eJointReceiveFailed=true;_e2eJointReceiveData.clear();_e2eJointReceiveDefaults.clear();return false;
     }
     const QByteArray raw(reinterpret_cast<const char*>(begin),static_cast<int>(size));
     const QVariantMap original{{"kind",kind},{"sequence",static_cast<qulonglong>(++_e2eJointReceiveSequence)},
@@ -1669,6 +1683,7 @@ void AvatarData::e2eCommitJointSection(const QString& kind,const unsigned char* 
         {"bytes",raw.size()},{"sha256",QString::fromLatin1(QCryptographicHash::hash(raw,QCryptographicHash::Sha256).toHex())},
         {"base64",QString::fromLatin1(raw.toBase64())}};
     if(kind=="joint-data") {_e2eJointReceiveData=original;}else {_e2eJointReceiveDefaults=original;}
+    return true;
 }
 #endif
 

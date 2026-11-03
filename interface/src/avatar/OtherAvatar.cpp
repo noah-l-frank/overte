@@ -272,6 +272,9 @@ void OtherAvatar::interpolateJoints() {
     // Network parsing can replace or resize the pose while the avatar renders.
     QWriteLocker writeLock(&_jointDataLock);
     auto now = usecTimestampNow();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eJointInterpolation.begin(_jointData,now,(size_t)_jointData.size()!=_jointHistory.size());
+#endif
 
     // there's no history to interpolate from,
     // just set the rig poses to whatever we have
@@ -305,6 +308,9 @@ void OtherAvatar::interpolateJoints() {
         auto timePoint = now - latency;
         // Retrieve previous and current joint data.
         Q_ASSERT(history.size() > 0);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if(history.empty()) {_e2eJointInterpolation.empty(i);}
+#endif
         if (history.size() == 0) continue;
         // If every retained sample is in the future, hold the oldest sample
         // in the look-back window instead of extrapolating from the newest.
@@ -338,11 +344,16 @@ void OtherAvatar::interpolateJoints() {
             static_cast<float>(std::max(newKeyframe.first - oldKeyframe.first, 1ULL)));
         _jointData[i].rotation = glm::slerp(oldKeyframe.second.rotation, newKeyframe.second.rotation, theta);
         _jointData[i].translation = glm::mix(oldKeyframe.second.translation, newKeyframe.second.translation, theta);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _e2eJointInterpolation.selected(i,history.size(),historyStart,oldKeyframeIndex,newKeyframeIndex,
+            oldKeyframe,newKeyframe,latency,timePoint,theta,_jointData[i]);
+#endif
     }
 
 finishRigSetup:
     glm::mat4 rootTransform = glm::scale(_skeletonModel->getScale()) * glm::translate(_skeletonModel->getOffset());
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    _skeletonModel->getRig().e2eRemoteInputsObserved(_e2eJointInterpolation.activeInputsObserved());
     const auto originalCopy=_skeletonModel->getRig().e2eJointCopySequence();
 #endif
     _skeletonModel->getRig().copyJointsFromJointData(_jointData);
@@ -356,7 +367,7 @@ finishRigSetup:
         const auto geometry=_skeletonModel->getGeometry();
         const auto pose=_skeletonModel->getRig().e2eRemoteJointPose(getSessionUUID().toString(QUuid::WithoutBraces),
             e2eAvatarLoads().value("instance").toString(),_skeletonModel->e2eModelInstance(),
-            geometry && geometry->isHFMModelLoaded() ? geometry->e2eGeometryInstance() : QString(),originalCopy,received);
+            geometry && geometry->isHFMModelLoaded() ? geometry->e2eGeometryInstance() : QString(),originalCopy,received,_e2eJointInterpolation.snapshot(_jointData));
         QWriteLocker observed(&_e2eRemoteJointPoseLock);_e2eRemoteJointPose=pose;
     }
 #endif
@@ -408,8 +419,15 @@ void OtherAvatar::simulate(float deltaTime, bool inView) {
                     if (_jointHistory.size() != static_cast<size_t>(_jointData.size())) {
                         _jointHistory.clear();
                         _jointHistory.resize(_jointData.size());
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                        _e2eJointInterpolation.prepare(_jointData);
+                        _e2eJointInterpolation.resetHistory(_jointHistory.size());
+#endif
                         for (size_t i = 0; i < _jointHistory.size(); i++) {
                             _jointHistory[i].push_back({currentTime, _jointData[i]});
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                            _e2eJointInterpolation.append(i,_jointHistory[i].size()-1,currentTime,_jointData[i]);
+#endif
                         }
                         qDebug() << "clearing joint history";
                     }
@@ -418,11 +436,17 @@ void OtherAvatar::simulate(float deltaTime, bool inView) {
                         if (_hasNewJointDataVec[i]) {
                             _hasNewJointDataVec[i] = false;
                             _jointHistory[i].push_back({currentTime, _jointData[i]});
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                            _e2eJointInterpolation.append(i,_jointHistory[i].size()-1,currentTime,_jointData[i]);
+#endif
                             // Cleanup old data and shorten the vector.
                             if (_jointHistory[i].size() > OTHER_AVATAR_JOINT_HISTORY_SIZE) {
                                 for (size_t historyIndex = 0; historyIndex < OTHER_AVATAR_JOINT_HISTORY_LOOK_BACK; historyIndex++) {
                                     _jointHistory[i][historyIndex] = _jointHistory[i][static_cast<qsizetype>(historyIndex + _jointHistory[i].size() - OTHER_AVATAR_JOINT_HISTORY_LOOK_BACK)];
                                 }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                                _e2eJointInterpolation.prune(i,_jointHistory[i].size());
+#endif
                                 _jointHistory[i].resize(OTHER_AVATAR_JOINT_HISTORY_LOOK_BACK);
                             }
                         }

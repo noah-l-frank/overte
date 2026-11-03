@@ -11,14 +11,14 @@ from adapters.native_feature_observation import decode, exact, fresh, integer, n
 from adapters.native_fd_owner import require_directory
 from adapters.host_process_identity import host_identity
 from adapters.normal_feature_state import context
-from adapters.pico4.avatar_remote import NativePicoRemoteAvatar, command, validate, continuity, independent, FILE
+from adapters.pico4.avatar_remote import NativePicoRemoteAvatar, command, validate, continuity, independent, FILE, LIMIT as RAW_LIMIT
 from adapters.pico4.avatar_remote_state import source_store, namespace_owned
 from adapters.pico4.lifecycle_process_file import LifecycleProcessFile
-from adapters.script_journey.history import same, canonical
+from adapters.script_journey.history import same, canonical, MAX_FRAMES, MAX_RAW
 from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.phase_fixture import PhaseFixtureReader, validate as phase_packet
 
-VERSION = 2
+VERSION = 3
 UNRESOLVED_HOST_FILES = []
 
 
@@ -38,6 +38,7 @@ class PicoRemoteAvatarSource:
             primarySha256=None if primary is None else hashlib.sha256(canonical(primary)).hexdigest())
         self.previous = None; self.failed = False; self.packets = []; self.rows = []; self.operation = None
         self.clock = self.epoch = self.host = None; self.state = None
+        self.operation_native_epoch = None
         self.file = object.__new__(LifecycleProcessFile)
         try:
             lock.assert_held()
@@ -91,10 +92,50 @@ class PicoRemoteAvatarSource:
         self.state['chunks'] = self.chunks.append(value, self.state['chunks'])
         self.rows.append(deepcopy(value)); self.save(); return index
 
+    def raw_capacity(self):
+        """Guarantee one allowed literal before dispatch/acquisition.
+
+        A later decoder may refuse it, but an already returned original must
+        fit all existing chunks and metadata. This does not reserve a fresh
+        clock, accept a reply, or add a new history/budget domain.
+        """
+        self.guard();pending=self.state['pending'];need(pending is not None and pending['partialRaw'] is None)
+        parts=(RAW_LIMIT+4095)//4096
+        need(len(self.state['chunks'])+parts<=MAX_FRAMES
+             and self.chunks.raw_bytes+6*RAW_LIMIT+parts*64<=MAX_RAW)
+        # Exact worst-case header sizing only; these capacity sentinels are
+        # never persisted or interpreted as observed references/digests.
+        reference=dict(parts=[MAX_FRAMES-1]*parts,bytes=RAW_LIMIT,sha256='f'*64)
+        future=deepcopy(self.state);future['chunks']+=['f'*64]*parts
+        future['pending']['raw'].append(deepcopy(reference));future['pending']['partialRaw']=reference
+        need(len(canonical(dict(self.identity,**future)))+1<=65536)
+        # Charge actual retained children plus the conservative maximum new
+        # physical parts and overlapping original/next root within16MiB too.
+        stored=sum(row[2] for row in self.chunks.identities)+self.store.path.lstat().st_size
+        need(stored+(parts+2)*65536<=MAX_RAW)
+
+    def query_age(self):
+        # Capacity/header/original-file work belongs to the same original
+        # operation window, including time spent in the final native clock.
+        need(self.operation is not None and self.operation_native_epoch is not None)
+        before=self.monotonic();epoch=self.clock_ms();finished=self.monotonic()
+        need(number(before,self.operation,1e15) and number(finished,before,1e15)
+             and integer(epoch,self.operation_native_epoch)
+             and max((finished-self.operation)*1000,epoch-self.operation_native_epoch)<1500)
+
+    def capacity_send(self,request):
+        self.query_age();return self.send(request)
+
+    def capacity_read(self):
+        self.raw_capacity();self.query_age();return self.read_raw()
+
     def retain(self, kind, value):
         pending = self.state['pending']; need(pending is not None)
         if kind == 'request':
-            need(pending['request'] is None); pending['request'] = self.put(dict(kind='request', value=value)); self.save(); return
+            need(pending['request'] is None); pending['request'] = self.put(dict(kind='request', value=value)); self.save()
+            # Retention/preflight precedes the existing reader's final
+            # original pre-send clock fence, rather than following it.
+            self.raw_capacity();self.query_age();return
         need(kind == 'raw' and type(value) is str and len(value.encode()) <= 196608)
         need(len(pending['raw']) < 51 and pending['partialRaw'] is None)
         pending['partialRaw'] = dict(parts=[], bytes=len(value.encode()), sha256=hashlib.sha256(value.encode()).hexdigest()); self.save()
@@ -137,7 +178,7 @@ class PicoRemoteAvatarSource:
             need(query['runId'] == self.run and query['subjectSessionId'] == self.subject
                  and (self.clock is None or record['hostStarted'] >= self.clock))
             packet = decode(self.raw(record['raw'])); validate(packet, query, self.pid, packet['capturedEpochMs'],
-                current=self.identity['picoRemoteAvatarSourceVersion']==2)
+                current=self.identity['picoRemoteAvatarSourceVersion']==VERSION)
             need(packet['source']['picoRemoteAvatarVersion'] == self.identity['picoRemoteAvatarSourceVersion'])
             before, after = (self.rows[record[k]]['value'] for k in ('before', 'after'))
             self.phase_pair(before, after, previous=previous_phase); previous_phase = after
@@ -155,6 +196,7 @@ class PicoRemoteAvatarSource:
         self.guard(); need(self.state['phase'] == 'ready' and self.state['pending'] is None and len(self.packets) < 32)
         self.operation = self.monotonic()
         native_anchor, host_anchor = self.clock_ms(), self.phase.epoch_ms()
+        self.operation_native_epoch = native_anchor
         self.state.update(phase='reading', pending=dict(request=None, raw=[], partialRaw=None, before=None, after=None, hostStarted=self.operation))
         self.save()
         try:
@@ -163,7 +205,7 @@ class PicoRemoteAvatarSource:
                 for offset in range(0, len(raw), 4096): self.put(dict(kind='primary', value=raw[offset:offset+4096]))
             floor = None if not self.state['records'] else self.rows[self.state['records'][-1]['after']]['value']
             before = self.phase.read(floor)['status']; self.state['pending']['before'] = self.put(dict(kind='phase', value=before)); self.save()
-            reader = NativePicoRemoteAvatar(self.send, self.read_raw, self.clock_ms, self.guard, self.pid,
+            reader = NativePicoRemoteAvatar(self.capacity_send, self.capacity_read, self.clock_ms, self.guard, self.pid,
                 retain=self.retain, monotonic=self.monotonic, sleep=self.sleep)
             reader.restore(self.packets); packet = reader.read(self.run, self.subject)
             if self.primary is not None: independent(self.primary, packet)
@@ -194,7 +236,7 @@ class PicoRemoteAvatarSource:
             except BaseException:
                 if self.file not in UNRESOLVED_HOST_FILES: UNRESOLVED_HOST_FILES.append(self.file)
             self.failed = True; raise
-        finally: self.operation = None
+        finally: self.operation = self.operation_native_epoch = None
 
     def close_host(self):
         result = self.file.close_host(); self.failed = True
@@ -203,9 +245,9 @@ class PicoRemoteAvatarSource:
 
     @classmethod
     def archive(cls, store, phase, *, guard, monotonic=time.monotonic):
-        """Read-only original Source1/2 history; no live owner or input authority.
+        """Read-only original Source1/2/3 history; no live owner or input authority.
 
-        In particular, a retained Source1 can never acquire a Source2 observer,
+        In particular, a retained Source1 can never acquire a Source3 observer,
         renew a clock or reinterpret its empty legacy Rig as a remote pose.
         """
         need(isinstance(phase,PhaseFixtureReader) and callable(guard) and callable(monotonic))
@@ -213,9 +255,9 @@ class PicoRemoteAvatarSource:
         try:
             need(guard() is not False); LifecycleProcessFile.__init__(file,store)
             header=store.read(); need(type(header) is dict)
-            version=header.get('picoRemoteAvatarSourceVersion'); need(type(version) is int and version in (1,2))
+            version=header.get('picoRemoteAvatarSourceVersion'); need(type(version) is int and version in (1,2,3))
             identity={'picoRemoteAvatarSourceVersion','binding','runId','fixtureUrl','subjectSessionId',
-                'producerHostProcessIdentity','primarySha256'} | ({'area'} if version==2 else set())
+                'producerHostProcessIdentity','primarySha256'} | ({'area'} if version>=2 else set())
             exact(header,identity | {'phase','chunks','records','pending','started','epochMs','hostEpochMs'})
             need(header['runId']==phase.run and header['fixtureUrl']==phase.fixture_url
                  and phase.area in ('avatar-people','emotes')
