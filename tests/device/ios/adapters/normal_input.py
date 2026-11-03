@@ -75,6 +75,9 @@ def observation(value, pid, now_ms=None):
     now_ms = time.time() * 1000 if now_ms is None else now_ms
     fields = {'schemaVersion', 'instance', 'frameSpace', 'processId', 'sampleEpochMs',
               'elapsedMs', 'lastSequence', 'tabletShown', 'ready', 'controls'}
+    if type(value) is dict and 'snapshotReviewInventory' in value:
+        from ios.adapters.snapshot_review import inventory as review_inventory
+        review_inventory(value['snapshotReviewInventory']);fields.add('snapshotReviewInventory')
     if type(value) is dict and 'lifecycleNavigation' in value:
         from ios.adapters.lifecycle_navigation_controls import inventory as navigation_inventory
         navigation_inventory(value['lifecycleNavigation']);fields.add('lifecycleNavigation')

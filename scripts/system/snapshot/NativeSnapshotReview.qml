@@ -253,6 +253,7 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 220
                         Quick.Image {
+                            objectName: root.featureObservation ? "snapshotStillPreview" : ""
                             anchors.fill: parent
                             visible: !root.isGif(modelData.localPath)
                             source: visible ? root.imageUrl(modelData.localPath) : ""

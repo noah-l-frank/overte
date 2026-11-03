@@ -62,6 +62,13 @@ transport joins reject foreign processes and stale nested clocks. The new
 normal Stop, original OS quiet and SDK absence; it preserves failed status and
 all remaining ownership. These components do not increase the completed count.
 
+The new [capture and rendered-review component](SNAPSHOT_RENDERED_REVIEW.md)
+joins completed Capture2, original Page2 UI and a separately retained WDA PNG.
+Fourteen distinct host cases pass across its positive/recovery/pixel selections;
+failed predecessor attempts remain retained. Original scene/Actor agreement,
+resume and paired whole retirement stay required. Feature11 remains partial;
+this component does not increase the five-of-fourteen source-complete count.
+
 Snapshots now also has [native owned-file responsibility](SNAPSHOT_OWNED_FILES.md).
 It joins the actual empty-prefix/list/status or write-path originals, rejects
 pre-existing/changed output, and observes one exact native unlink plus the actual

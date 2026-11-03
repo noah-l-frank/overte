@@ -5071,6 +5071,18 @@
         2
       ]
     },
+    "ios-snapshot-capture-rendered-review": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-capture-review-owner": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
     "ios-snapshot-captures": {
       "current": 1,
       "reads": [
@@ -5693,6 +5705,18 @@
       ]
     },
     "ios-snapshot-remove-owner": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-review-inventory": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-review-screen-images": {
       "current": 1,
       "reads": [
         1
@@ -8460,6 +8484,18 @@
       ]
     },
     "snapshot-photos-sdk-slot": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-rendered-review-join": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-review-pixels": {
       "current": 1,
       "reads": [
         1

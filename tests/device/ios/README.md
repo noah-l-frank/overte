@@ -424,3 +424,10 @@ original account preference restoration, three process replacements and
 independent native/server evidence. Both full features require explicit private
 admission through the canonical installed-candidate adapter. Their sources are
 host-tested; native compilation and all device qualification remain unverified.
+
+The internal [Snapshot rendered-review owner](SNAPSHOT_RENDERED_REVIEW.md) joins
+the existing combined normal capture and actual Page observations to an
+independently retained WDA screen PNG. It preserves unknown-delivery ownership
+and fixed pixel/clock checks; scene/Actor, resume, destinations and whole
+retirement remain required. Native instrumentation is uncompiled and devices
+are untested.

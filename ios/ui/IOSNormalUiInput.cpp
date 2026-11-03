@@ -44,6 +44,7 @@
 #include "../../tests/device/native/IOSAssetTreeControls.h"
 #include "../../tests/device/native/IOSAssetUsageControls.h"
 #include "../../tests/device/native/IOSTabletBackControls.h"
+#include "../../tests/device/native/IOSSnapshotReviewInventory.h"
 #include "IOSLifecycleFieldControls.h"
 #include "IOSLifecycleNavigation.h"
 #endif
@@ -589,6 +590,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["assetTreeInventory"]=overte::e2e::asset_tree_ui::inventory(overte::e2e::IOSAssetUiInventory::shared().retained());
     result["assetUsageControlsVersion"]=1;
     result["assetUsageInventory"]=overte::e2e::asset_usage_ui::inventory(overte::e2e::IOSAssetUiInventory::shared().retained());
+    result["snapshotReviewInventory"]=overte::e2e::snapshot_review::inventory({hud,tablet},inventoryComplete && !ambiguous);
 #endif
     result["loginRootOwnership"]=loginInventory.observation(inventoryComplete);
     result["tabletAppControlsVersion"]=1;
