@@ -3644,3 +3644,27 @@ root/file SHA/eight-field stamps survive, while the TLS thread/socket and origin
 OFD pair really close. Retention-correct SDK/raw/flow qualification remains in
 progress. No C restoration, full Navigation or new source-complete area is claimed.
 Private audit: `overte-pico-navigation-retention-reaudit-20261103-vhujgz1u/result.json`.
+
+
+## Retention-correct private Navigation sources selected on 2026-11-03
+
+The [private Scene source packet](NAVIGATION_SCENE_OWNER.md) joins the original
+C lease, versioned preparation bridge and ordinary G0/G1/restoration sources to
+the canonical bounded SDK wire reader. Fourteen exact SDK4/raw7/ownCAS2/actual
+registered-cleanup1 counters pass10.429s/10.842outer,236 loaded sources stable.
+All33 declared roots/637files/454231B survive real cleanup, and no owned worker
+remains. These are separate cases, not a compound feature budget or C success.
+
+The original120s component remains RED at Origin3.select before C construction;
+extra6scene/G1 image proofs were absent. Scene-only packed-memory relations
+preserve existing current file/source/clock checks and legitimate Primary-authored
+Actor loads; own unknown firstCAS cannot reseal. Historical CPU3.24x/3.07x/2.89x
+savings are not whole timing. The earlier32GREEN retention correction above still
+applies. Catalog343 selects disjoint4/7/3 plus the separate early Binding guard1;
+no whole/C diagnostic enters defaults. Source-complete stays3/14.
+
+The original optional Lifecycle reader IO seams are integrated at86fa350730.
+DefaultNone legacy readers had79 cases1.329s/85stable; the later exact inner
+Background dispatch seam preserves both original fences and has its separate
+default case21.403s. These counts are separate frozen scopes, not a claimed
+current aggregate or a qualified Raw3/World/Actor transition.

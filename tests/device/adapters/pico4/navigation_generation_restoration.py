@@ -34,7 +34,7 @@ from adapters.token_login_ui import TokenLoginUI
 from openxr_input.controller_protocol import validate_envelope
 from feature_journeys.contract import arguments
 
-VERSION=1
+VERSION=2
 PHASES=('admission','opening','entry','origin','closing','quiet','complete')
 
 
@@ -43,6 +43,11 @@ class NavigationGenerationRestoration:
         from adapters.pico4.navigation_generation_flow import NavigationGenerationFlow
         need(isinstance(flow,NavigationGenerationFlow) and flow.parent.role=='primary')
         self.flow,self.adapter,self.target=flow,adapter,target;self.lock=flow.lock;self.run=flow.run;self.binding=deepcopy(flow.binding)
+        from adapters.pico4.navigation_scene_generation import scene_owner
+        self.scene_owner=scene_owner(flow.parent);self.packet_version=2 if self.scene_owner is not None else 1
+        self._scene_relation=self._original_scene_relation=None
+        self._scene_relation_failed=False
+        self.scene_channel=None;self.passive_raw=None
         self.lock.assert_held()
         self.store=PrivateFeatureState(self.lock.path.with_name('navigation-prefix-generation-1-restoration.json'))
         self.origin_path=self.store.path.with_name('navigation-prefix-generation-1-restoration-origin.json')
@@ -54,9 +59,15 @@ class NavigationGenerationRestoration:
         self.intent_callback=self.controller_intent;self.publish_callback=self.before_publish
         if self.disk is not None:
             exact(self.disk,{'navigationGenerationRestorationVersion','scope','payload'})
-            need(type(self.disk['navigationGenerationRestorationVersion']) is int and self.disk['navigationGenerationRestorationVersion']==VERSION
+            need(type(self.disk['navigationGenerationRestorationVersion']) is int and self.disk['navigationGenerationRestorationVersion'] in (1,VERSION)
                 and same(self.disk['scope'],self.scope()))
-            rows=unpack(self.disk['payload']);need(len(rows)==1);self.state=rows[0];self.validate(self.state)
+            self.packet_version=self.disk['navigationGenerationRestorationVersion']
+            rows=unpack(self.disk['payload']);need(len(rows)==1);self.state=rows[0]
+            if self.scene_owner is not None:
+                from adapters.pico4.navigation_scene_relation import NavigationMemoryRelation
+                need(same(self.store.read(),self.disk))
+                self._scene_relation=self._original_scene_relation=NavigationMemoryRelation(self.disk,self.state)
+            self.validate(self.state)
             self.physical=read_original(self.store.path)
 
     def scope(self):
@@ -67,22 +78,35 @@ class NavigationGenerationRestoration:
         value=self.flow.parent.now();need(number(value,0,1e15));return value
 
     def host(self):
+        if self.scene_owner is not None:need(self._scene_relation_failed is False)
         self.lock.assert_held();self.flow.control();self.flow.validate_links(self.flow.state)
         need(self.scope_sha==json_digest(self.scope()) and self.flow.state['phase']=='ready'
             and [row['verb'] for row in self.flow.state['completed']]==['open','bookmark-delete','close'])
         if self.state is not None:
-            need(same(self.store.read(),self.disk) and same(unpack(self.disk['payload']),[self.state]))
+            need(same(self.store.read(),self.disk));self.memory_relation()
             if self.physical is not None:need(same(read_original(self.store.path),self.physical))
         if self.origin is not None:self.origin.require_physical()
 
+    def memory_relation(self):
+        from adapters.pico4.navigation_scene_generation import scene_owner
+        owner=scene_owner(self.flow.parent);need(owner is self.scene_owner)
+        if owner is None:need(same(unpack(self.disk['payload']),[self.state]));return
+        need(self._scene_relation_failed is False)
+        from adapters.pico4.navigation_scene_relation import NavigationMemoryRelation
+        need(self._scene_relation is self._original_scene_relation and type(self._scene_relation) is NavigationMemoryRelation)
+        self._scene_relation.require(self.disk,self.state)
+
     def live(self):
         if self.runtime is not None:return self.runtime
+        # New-format historical reads do not cold-adopt a missing scene owner.
+        need(self.packet_version==1 or self.scene_owner is not None)
         self.host();a=self.adapter;t=self.target;installed=a._installation(t);identity=a.require_controlled_debug_identity(t)
         need(identity==self.binding['processIdentity']==a.require_pico_session_identity(t)
             and all(installed[k]==self.binding[k] for k in ('sourceRevision','artifactSha256'))
             and hashlib.sha256((t+'\0'+str(a.pico_configuration)).encode()).hexdigest()==self.binding['targetFingerprint'])
         scene=normal_scripts.configuration(os.environ);need(scene==self.flow.parent.source.inputs['sceneUrl'])
-        normal,_observe,binding=normal_scripts.runtime(a,t,scene,installed,identity,self.ui_path,lambda *_args:need(False))
+        from adapters.pico4.navigation_scene_generation import normal_runtime
+        normal,_observe,binding=normal_runtime(a,t,self.flow.parent,scene,installed,identity,self.ui_path,lambda *_args:need(False))
         need(same(binding,self.binding));native=a._native_feature_observer(t)
         normal.io.navigation.io.bind_before_send(self.qml_callback)
         normal.io.navigation.io.bind_controller_admission(self.controller_callback,intent=self.intent_callback,before_publish=self.publish_callback)
@@ -94,16 +118,24 @@ class NavigationGenerationRestoration:
         # otherwise retain a previous owner's archive writer after recovery.
         environment=runtime['environment'];need(not hasattr(environment,'_pico_navigation_restoration_owner'))
         environment._pico_navigation_restoration_owner=self
-        original=environment.original;native_guard=environment.guard
-        def environment_original():
-            raw=original();need(type(raw) is str and len(raw.encode())<=262144)
-            # Preserve the original transport bytes BEFORE native parsing.
-            value=deepcopy(self.state);value['nativeOriginals'].append(dict(phase=value['phase'],raw=raw,hostMonotonic=self.now()))
-            self.save(value,host_only=True);return raw
-        def environment_guard():
-            need(environment.original is environment_original and environment._pico_navigation_restoration_owner is self)
-            return native_guard()
-        environment.original=environment_original;environment.guard=environment_guard
+        if self.packet_version==1:
+            original=environment.original;native_guard=environment.guard
+            def environment_original():
+                raw=original();need(type(raw) is str and len(raw.encode())<=262144)
+                # Preserve the original transport bytes BEFORE native parsing.
+                value=deepcopy(self.state);value['nativeOriginals'].append(dict(phase=value['phase'],raw=raw,hostMonotonic=self.now()))
+                self.save(value,host_only=True);return raw
+            def environment_guard():
+                need(environment.original is environment_original and environment._pico_navigation_restoration_owner is self)
+                return native_guard()
+            environment.original=environment_original;environment.guard=environment_guard
+        else:
+            from adapters.pico4.navigation_scene_generation import NavigationSceneEnvironment
+            def retained(reference,request):
+                value=deepcopy(self.state);value['nativeOriginals'].append(dict(phase=value['phase'],reference=deepcopy(reference),
+                    request=deepcopy(request),hostMonotonic=self.now()))
+                self.save(value,host_only=True)
+            self.scene_channel=NavigationSceneEnvironment(self.scene_owner,environment,self.binding,retained)
         self.runtime=runtime;return self.runtime
 
     def guard(self):
@@ -128,8 +160,18 @@ class NavigationGenerationRestoration:
             and type(value['nativeOriginals']) is list and len(value['nativeOriginals'])<=1024
             and type(value['acquisitions']) is list and len(value['acquisitions'])<=8)
         for row in value['nativeOriginals']:
-            exact(row,{'phase','raw','hostMonotonic'});need(row['phase'] in PHASES and type(row['raw']) is str
-                and len(row['raw'].encode())<=262144 and number(row['hostMonotonic'],0,1e15))
+            exact(row,{'phase','raw','hostMonotonic'} if self.packet_version==1 else {'phase','reference','request','hostMonotonic'})
+            need(row['phase'] in PHASES and number(row['hostMonotonic'],0,1e15))
+            if self.packet_version==1:need(type(row['raw']) is str and len(row['raw'].encode())<=262144)
+            else:
+                from adapters.native_navigation_environment import command
+                command(row['request']);need(row['request']['runId']==self.run)
+                ref=row['reference'];exact(ref,{'audioRawRangeVersion','scopeSha256','read','sha256'})
+                need(type(ref['audioRawRangeVersion']) is int and ref['audioRawRangeVersion']==1
+                    and type(ref['read']) is int and ref['read']>=0)
+                import re
+                need(all(type(ref[key]) is str and re.fullmatch('[0-9a-f]{64}',ref[key]) for key in ('scopeSha256','sha256')))
+                if self.scene_owner is not None:need(ref['scopeSha256']==self.scene_owner.raw.scope_sha)
         for row in value['acquisitions']:
             exact(row,{'phase','packets'});need(row['phase'] in ('reading','complete') and type(row['packets']) is dict
                 and set(row['packets'])<={'environment','home','graphicsBefore','pose','bookmarks','panels','modals','graphics'})
@@ -163,6 +205,24 @@ class NavigationGenerationRestoration:
             first,last=value['quiet'][0],value['quiet'][-1]
             need(last['environment']['capturedEpochMs']-first['environment']['capturedEpochMs']>=3000
                 and last['hostMonotonic']-first['hostMonotonic']>=3)
+
+    def native_literal(self,row):
+        """Exact historical literal; this never grants a new source read."""
+        if self.packet_version==1:return row['raw']
+        if self.scene_owner is not None:return self.scene_owner.raw.literal(row['reference'])
+        from adapters.pico4.audio_pc_originals import AudioPCRawOriginals
+        source=AudioPCRawOriginals(self.store.path.with_name('navigation-scene-raw.json'))
+        try:
+            scope=source.disk['scope']
+            need(scope.get('navigationScenePrefixVersion') in (1,2) and type(scope['navigationScenePrefixVersion']) is int
+                and scope['runId']==self.run and same(scope['binding'],self.flow.parent.binding)
+                and scope['sourceLock']==str(self.lock.path)
+                and scope['path']==str(self.lock.path.with_name('navigation-scene-owner.json')))
+            value=source.literal(row['reference'])
+            for file in source.files.values():
+                if callable(getattr(file,'read',None)):file.read()
+            return value
+        finally:need(source.close())
 
     def archive_quiet(self,row,previous=None):
         exact(row,{'environment','home','graphicsBefore','graphics','pose','bookmarks','panels','modals','hostMonotonic','sourceAnchor','statusIndex'})
@@ -209,8 +269,16 @@ class NavigationGenerationRestoration:
 
     def save(self,value,*,host_only=False):
         self.host() if host_only else self.guard();self.validate(value)
-        body=dict(navigationGenerationRestorationVersion=VERSION,scope=self.scope(),payload=pack([value]))
-        self.store.write(body,self.disk);self.disk=deepcopy(body);self.state=deepcopy(value);self.physical=read_original(self.store.path)
+        body=dict(navigationGenerationRestorationVersion=self.packet_version,scope=self.scope(),payload=pack([value]))
+        try:
+            self.store.write(body,self.disk);self.disk=deepcopy(body);self.state=deepcopy(value);self.physical=read_original(self.store.path)
+            if self.scene_owner is not None:
+                from adapters.pico4.navigation_scene_relation import NavigationMemoryRelation
+                need(same(self.store.read(),self.disk))
+                self._scene_relation=self._original_scene_relation=NavigationMemoryRelation(self.disk,self.state)
+        except BaseException:
+            if self.scene_owner is not None:self._scene_relation_failed=True
+            raise
 
     def stage(self,phase):
         value=deepcopy(self.state);value['phase']=phase;self.save(value)
@@ -255,8 +323,10 @@ class NavigationGenerationRestoration:
         self.save(value,host_only=True);self.before_publish(envelope)
 
     def before_publish(self,envelope):
+        self.flow.outer_publish_fence()
         self.age();row=self.state['controllers'][-1]
         need(row['kind']==self.kind and same(row['envelope'],envelope) and same(row['anchor'],self.anchor))
+        self.flow.outer_publish_fence()
 
     def home_stage(self,pose):
         self.guard();need(self.state['phase']=='origin' and self.origin is not None)
@@ -360,8 +430,16 @@ class NavigationGenerationRestoration:
                 phase=self.flow.parent.phase.read();need(phase['verb']=='cleanup' and phase['inputs']=={}
                     and phase['status']['activations'][:-1]==self.flow.state['fixture']['activations'])
                 value=dict(phase='admission',ticket=phase['ticket'],fixture=phase['status'],reference=None,entry=None,qml=[],controllers=[],originSha256=None,quiet=[],nativeOriginals=[],acquisitions=[])
-                self.validate(value);body=dict(navigationGenerationRestorationVersion=VERSION,scope=self.scope(),payload=pack([value]))
-                self.store.write(body,None);self.disk=body;self.state=value;self.physical=read_original(self.store.path)
+                self.validate(value);body=dict(navigationGenerationRestorationVersion=self.packet_version,scope=self.scope(),payload=pack([value]))
+                try:
+                    self.store.write(body,None);self.disk=body;self.state=value;self.physical=read_original(self.store.path)
+                    if self.scene_owner is not None:
+                        from adapters.pico4.navigation_scene_relation import NavigationMemoryRelation
+                        need(same(self.store.read(),self.disk))
+                        self._scene_relation=self._original_scene_relation=NavigationMemoryRelation(self.disk,self.state)
+                except BaseException:
+                    if self.scene_owner is not None:self._scene_relation_failed=True
+                    raise
             self.guard()
             if self.state['phase']=='admission':
                 reference=self.authority.create();value=deepcopy(self.state);value.update(reference=reference,phase='opening');self.save(value)

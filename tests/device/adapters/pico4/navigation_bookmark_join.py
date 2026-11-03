@@ -206,9 +206,12 @@ class NavigationBookmarkJoin:
         self.save(current);self.before_publish(envelope)
 
     def before_publish(self,envelope):
-        if self.state['phase']=='transit':self.transit_original().before_publish(envelope);return
-        self.age();record=self.state['controller']
-        need(record is not None and same(record['anchor'],self.anchor) and record['sha256']==json_digest(envelope) and same(record['envelope'],envelope))
+        self.parent.outer_publish_fence()
+        if self.state['phase']=='transit':self.transit_original().before_publish(envelope)
+        else:
+            self.age();record=self.state['controller']
+            need(record is not None and same(record['anchor'],self.anchor) and record['sha256']==json_digest(envelope) and same(record['envelope'],envelope))
+        self.parent.outer_publish_fence()
 
     def transit_original(self,value=None):
         value=self.state if value is None else value

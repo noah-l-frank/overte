@@ -29,6 +29,14 @@
     "tests/device/adapters/android-phone/overte_phone_navigation_scene.py": {
       "sha256": "ca4505ff0945bd8cb7d6ba943432ffef11637c7c6f7dc5f5e27841bfc3cbefc5",
       "gitBlob": "d5a0089f7d8c14205087f1dbe0b05ef8f3712ee1"
+    },
+    "tests/device/adapters/android-phone/overte_phone_snapshots_history_pass.py": {
+      "sha256": "ea912151628ed9b6dca93134e56f3e24491bd861f2cfd653450651eeed5c8207",
+      "gitBlob": "0f019c2a86f62a0d0e38d5bfacef26a0dd9d7d82"
+    },
+    "tests/device/adapters/android-phone/overte_phone_snapshots_constructor_history.py": {
+      "sha256": "c1d9502f49fffb8d19fda3352021daf71e3d5939fe3ee7931d9e6ece267ce6cf",
+      "gitBlob": "74e8778202abecba139e925bb7531c5648a535d0"
     }
   },
   "selectedReuse": [
@@ -46,5 +54,20 @@
   ],
   "picoNext": "Explicit Origin3 restart-restoration handoff: preserve original G0 target+type+physical graph, require genuine oldPID absence/newPID/nativebirth/Session, independent fresh G1 baseline, cleanup-specific normal Login/Return/Home/Close authority and exact current Settings/account/quiet. Original maturity is unchanged, observed through independent Settings digest.",
   "picoJoin": "navigation_generation_restoration.py + navigation_origin_restart.py: same original-target authority and private ownership architecture; current Pico original normal controls, typed Settings, restart, native environment and independent three-second quiet.",
-  "qualification": "Static source reuse and scoped modeled-host composition only; no Phone device result or full-feature claim transfers to Pico."
+  "qualification": "Static source reuse and scoped modeled-host composition only; no Phone device result or full-feature claim transfers to Pico.",
+  "snapshotReadPassAudit": {
+    "status": "Read-only design reference; not imported as live Navigation authority",
+    "rule": "Single-use historical file replay grants no target request/input/publication/recovery; retain actual original readers and requalify current locked authority after replay",
+    "navigationBoundary": "Any future passive fixed-file pass must end before every actual Native/SDK/input/publication callback and preserve original bytes/full physical identities and clocks"
+  },
+  "picoSceneOriginalRetentionAudit": {
+    "status": "Work in progress; historical execution/source stability does not establish complete original retention",
+    "inspectedEvidenceFolders": 63,
+    "historicalGreenResultsWithMissingDeclaredModelRoot": 32,
+    "missingDeclaredRootEntriesAcrossAllInspectedOutcomes": 150,
+    "cause": "An originally registered bound Model.close still called TemporaryDirectory.cleanup after a later close replacement; detaching a finalizer did not suppress that explicit cleanup",
+    "correction": "Exclusive scene fixture retains the original model directory before any input; the original registered close and actual server/thread/OFD shutdown still execute",
+    "missingOriginals": "Not reconstructed, adopted, regenerated or retrospectively qualified",
+    "boundary": "No whole Navigation, original-C restoration, role/host retirement or device qualification is claimed"
+  }
 }

@@ -3947,6 +3947,8 @@ def create_adapter(args, base_class):
             # normal inputs and originals. Generic teardown cannot retire it.
             # Check before any product query, input or base application stop.
             if self.pico_configuration is not None:
+                from adapters.pico4.navigation_scene_state import retained as navigation_scene_retained
+                _need(not navigation_scene_retained(self, target))
                 from adapters.pico4.lifecycle_background_raw_state import retained as background_raw_retained
                 _need(not background_raw_retained(self, target))
                 from adapters.pico4.create_operation_owner import retained as create_operation_retained

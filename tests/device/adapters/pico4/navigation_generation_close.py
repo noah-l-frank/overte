@@ -122,8 +122,10 @@ class NavigationGenerationClose:
         self.parent.record_controller(envelope,'close-home');self.home_before_publish(envelope)
 
     def home_before_publish(self,envelope):
+        self.parent.outer_publish_fence()
         self.parent.controller_recorded(envelope,'close-home');self.age();need(self.state['homeController'] is not None and same(envelope,self.state['homeController']['envelope'])
             and same(self.anchor,self.state['homeController']['anchor']))
+        self.parent.outer_publish_fence()
 
     def before_controller(self,operation):
         self.parent.control();need(operation=='tablet.close' and self.state['phase']=='closing' and self.state['controller'] is None)
@@ -135,8 +137,10 @@ class NavigationGenerationClose:
         self.parent.record_controller(envelope,'close');self.before_publish(envelope)
 
     def before_publish(self,envelope):
+        self.parent.outer_publish_fence()
         self.parent.controller_recorded(envelope,'close');self.age();need(self.state['controller'] is not None and same(envelope,self.state['controller']['envelope'])
             and same(self.anchor,self.state['controller']['anchor']))
+        self.parent.outer_publish_fence()
 
     def admit_qml(self,_command):need(False)
 

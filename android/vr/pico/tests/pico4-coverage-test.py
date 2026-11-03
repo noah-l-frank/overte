@@ -10,7 +10,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 339
+EXPECTED_CATALOG_CASES = 343
 
 
 def catalog_entries() -> list[str]:
@@ -31,6 +31,18 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_scene_wrappers_keep_exact_retention_correct_counter_partition(self):
+        selected=[]
+        for name,count in (('test_navigation_scene_probe',4),('test_navigation_scene_raw',7),
+                           ('test_navigation_scene_memory_retention',3)):
+            tree=ast.parse((TEST_DIR/'device'/(name+'.py')).read_text())
+            assignment=next(node for node in tree.body if isinstance(node,ast.Assign)
+                and any(isinstance(target,ast.Name) and target.id=='CASE_NAMES' for target in node.targets))
+            names=ast.literal_eval(assignment.value)
+            self.assertEqual(count,len(names));selected.extend(names)
+        self.assertEqual(14,len(selected));self.assertEqual(14,len(set(selected)))
+        self.assertFalse(any('complete_scene' in name or 'full_recipe' in name for name in selected))
+
     def test_current_keyboard_groups_keep_the_timed_out_prefix_out_of_defaults(self):
         expected={
             'world-current-keyboard-reader':('device/test_world_current_keyboard_reader.py',[]),

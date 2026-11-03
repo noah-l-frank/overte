@@ -143,8 +143,10 @@ class NavigationGenerationOpen:
         self.parent.record_controller(envelope,'open');self.before_publish(envelope)
 
     def before_publish(self,envelope):
+        self.parent.outer_publish_fence()
         self.parent.controller_recorded(envelope,'open');self.age();need(self.state['controller'] is not None and same(envelope,self.state['controller']['envelope'])
             and same(self.anchor,self.state['controller']['anchor']))
+        self.parent.outer_publish_fence()
 
     def home_intent(self,stage,before,control):
         need(stage=='tablet-home-ray' and control=='tablet.home-ray' and self.state['phase']=='home'
@@ -167,8 +169,10 @@ class NavigationGenerationOpen:
         self.parent.record_controller(envelope,'open-home');self.home_before_publish(envelope)
 
     def home_before_publish(self,envelope):
+        self.parent.outer_publish_fence()
         self.parent.controller_recorded(envelope,'open-home');self.age();need(self.state['homeController'] is not None and same(envelope,self.state['homeController']['envelope'])
             and same(self.anchor,self.state['homeController']['anchor']))
+        self.parent.outer_publish_fence()
 
     def entry_intent(self,pending):
         self.parent.control();need(self.state['phase']=='entry' and self.state['pending'] is None)

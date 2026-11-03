@@ -22,22 +22,31 @@ from adapters.token_script_ui import TokenScriptUI
 from openxr_input.controller_protocol import validate_envelope
 from feature_journeys.contract import identifier
 
-VERSION=2
+VERSION=3
 
 
 class NavigationTransitJoin:
-    def __init__(self,parent,transit,normal,graphics,path,*,kind='directory',prior=None):
+    def __init__(self,parent,transit,normal,graphics,path,*,kind='directory',prior=None,preparation=None):
         need(isinstance(transit,NavigationTransit) and isinstance(normal,TokenScriptUI)
             and isinstance(normal.io,PicoScriptIO) and isinstance(graphics,PicoGraphicsSource)
             and transit.defer_stereo and transit.home is not None and transit.directory is parent.directory
             and transit.ui.io.original is normal.io is parent.source.normal.io.original
             and same(transit.binding,parent.binding) and transit.run==parent.run)
         need(kind in ('directory','bookmark') and ((prior is None)==(kind=='directory')))
+        self.preparation=preparation;self.preparation_reference=None;self.passive_preparation=False
+        if preparation is not None:
+            from adapters.pico4.navigation_scene_prefix import NavigationScenePrefix
+            need(type(preparation) is NavigationScenePrefix and kind=='directory')
+            self.preparation_reference,prior=preparation.directory_bridge(parent)
         self.kind=kind;self.verb='directory-select' if kind=='directory' else 'bookmark-visit'
         self.prior=deepcopy(parent.state['home']['envelope'] if prior is None else prior)
         validate_envelope(self.prior,parent.session.profile)
         self.parent,self.transit,self.normal,self.graphics=parent,transit,normal,graphics
         self.store=PrivateFeatureState(path);self.disk=self.store.read();self.state=None;self.close_owner=None
+        if self.disk is not None and self.disk.get('navigationTransitJoinVersion')==3 and preparation is None:
+            from adapters.pico4.navigation_scene_bridge import read_bridge
+            need(kind=='directory');self.preparation_reference=deepcopy(self.disk['preparation'])
+            self.prior=read_bridge(self.preparation_reference,parent);self.passive_preparation=True
         self.anchor=self.anchor_sha=None
         self.home_callback=self.stage_home;transit.home.stage=self.home_callback
         self.admission_callback=self.before_controller;self.intent_callback=self.intent;self.publish_callback=self.before_publish
@@ -45,6 +54,7 @@ class NavigationTransitJoin:
 
     def context(self,*,memory_only=False):
         p=self.parent;p.lock.assert_held();p.control()
+        need(not self.passive_preparation)
         need(p.role=='primary' and same(p.state,p.disk) and p.state['phase']=='acting'
             and p.state['active']['verb']==self.verb and p.state['active']['stage']==('transit' if self.kind=='directory' else 'return'))
         if not memory_only:need(same(p.store.read(),p.disk))
@@ -52,14 +62,20 @@ class NavigationTransitJoin:
     def validate(self,value):
         exact(value,{'navigationTransitJoinVersion','runId','binding','parentScopeSha256','parentPath','ticket','phase',
             'qml','controllers','transitSha256','closeSha256','stereoSha256'}
-            |({'kind','prior'} if value.get('navigationTransitJoinVersion')==2 else set()))
+            |({'kind','prior'} if value.get('navigationTransitJoinVersion') in (2,3) else set())
+            |({'preparation'} if value.get('navigationTransitJoinVersion')==3 else set()))
         p=self.parent
-        need(type(value['navigationTransitJoinVersion']) is int and value['navigationTransitJoinVersion'] in (1,VERSION)
+        need(type(value['navigationTransitJoinVersion']) is int and value['navigationTransitJoinVersion'] in (1,2,VERSION)
             and (value['navigationTransitJoinVersion']==1 and self.kind=='directory'
-                or value['navigationTransitJoinVersion']==2 and value['kind']==self.kind and same(value['prior'],self.prior))
+                or value['navigationTransitJoinVersion'] in (2,3) and value['kind']==self.kind and same(value['prior'],self.prior))
             and value['runId']==p.run and same(value['binding'],p.binding) and value['parentScopeSha256']==p.scope_sha
             and value['parentPath']==str(p.store.path) and value['phase'] in ('transit-issued','transited','close-issued','image-issued','closed')
             and type(value['qml']) is list and len(value['qml'])<=70)
+        if value['navigationTransitJoinVersion']==3:
+            from adapters.pico4.navigation_scene_bridge import read_bridge
+            need(self.kind=='directory' and same(value['preparation'],self.preparation_reference)
+                and same(read_bridge(value['preparation'],p),self.prior))
+        else:need(self.preparation is None and self.preparation_reference is None)
         identifier(value['ticket'])
         need(any(row['ticket']==value['ticket'] and row['verb']==self.verb for row in p.state['completed'])
             or p.state['active'] is not None and p.state['active']['ticket']==value['ticket'] and p.state['active']['verb']==self.verb)
@@ -157,11 +173,13 @@ class NavigationTransitJoin:
         self.save(current);self.before_publish(envelope)
 
     def before_publish(self,envelope):
+        self.parent.outer_publish_fence()
         # Original Session lock: retained DTO, host CAS/clock only. No phase,
         # source, SDK, normal UI, Session reentry or physical source read.
         self.age();record=self.state['controllers'][self.anchor['kind']]
         need(record is not None and same(record['anchor'],self.anchor) and record['sha256']==json_digest(envelope)
             and same(record['envelope'],envelope))
+        self.parent.outer_publish_fence()
 
     def close_original(self):
         if self.close_owner is None:
@@ -182,10 +200,12 @@ class NavigationTransitJoin:
     def act(self,ticket):
         self.context()
         if self.state is None:
-            self.save(dict(navigationTransitJoinVersion=1 if self.kind=='directory' else VERSION,runId=self.parent.run,binding=deepcopy(self.parent.binding),
+            version=3 if self.preparation is not None else 1 if self.kind=='directory' else 2
+            self.save(dict(navigationTransitJoinVersion=version,runId=self.parent.run,binding=deepcopy(self.parent.binding),
                 parentScopeSha256=self.parent.scope_sha,parentPath=str(self.parent.store.path),ticket=ticket,
                 phase='transit-issued',qml=[],controllers=dict(home=None,close=None),transitSha256=None,closeSha256=None,stereoSha256=None,
-                **(dict(kind=self.kind,prior=deepcopy(self.prior)) if self.kind=='bookmark' else {})))
+                **(dict(kind=self.kind,prior=deepcopy(self.prior)) if version in (2,3) else {}),
+                **(dict(preparation=deepcopy(self.preparation_reference)) if version==3 else {})))
         need(self.state['ticket']==ticket)
         if self.state['phase']=='transit-issued':
             self.parent.fence();self.transit.act(ticket,self.kind)

@@ -37,7 +37,9 @@ def runtime(adapter,target,parent,inputs,state,*,input_owner=None):
     scene=normal_scripts.configuration(os.environ);need(scene==parent.source.inputs['sceneUrl'])
     path=parent.lock.path.with_name('navigation-prefix-generation-1-'+parent.role+'-ui.json')
     def no_input(*_args,**_kwargs):need(False)
-    normal,_observe,binding=normal_scripts.runtime(adapter,target,scene,installed,identity,path,no_input)
+    from adapters.pico4.navigation_scene_generation import normal_runtime,outer
+    outer(parent)
+    normal,_observe,binding=normal_runtime(adapter,target,parent,scene,installed,identity,path,no_input)
     if input_owner is None:
         # Action 12 observes startup only. Later ordinary inputs require their
         # explicit G1 owner; none can be delivered by this read-only runtime.
@@ -57,10 +59,15 @@ def runtime(adapter,target,parent,inputs,state,*,input_owner=None):
     if plan['phase']=='observed':need(same(binding,plan['newBinding']))
     native=adapter._native_feature_observer(target)
     need(native.pid==int(identity.split(':',1)[0]))
-    def guard():parent.lock.assert_held();native.guard();need(adapter._installation(target)==installed)
+    def guard():
+        outer(parent);parent.lock.assert_held();native.guard();need(adapter._installation(target)==installed);outer(parent)
     def probe(after):
         guard();value=adapter.read_probe_snapshot(target,'org.overte.pico',after);guard();return value
     arrival=NavigationArrival(probe,adapter._graphics_subject_observer(target),native.clock_ms,guard,parent.run,binding,scene,monotonic=native.monotonic)
+    from adapters.pico4.navigation_scene_generation import scene_owner
+    enclosing=scene_owner(parent)
+    if enclosing is not None and enclosing.probe_factory is not None:
+        enclosing.bind_probe(arrival,adapter,target,guard,parent.role)
     source=NavigationPrefixSource(TokenPlacesUI(PicoPlacesIO(normal.io),no_input,parent.run,monotonic=native.monotonic,sleep=native.sleep),
         arrival,adapter._location_bookmarks(target),adapter._navigation_panels(target),adapter._navigation_environment(target),
         adapter._navigation_modals(target),adapter._navigation_directory_source(target),parent.source.status,

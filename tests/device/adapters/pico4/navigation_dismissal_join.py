@@ -115,8 +115,10 @@ class NavigationDismissalJoin:
         self.save(current);self.before_publish(envelope)
 
     def before_publish(self,envelope):
+        self.parent.outer_publish_fence()
         self.age();record=self.state['controller'];need(record is not None and same(record['anchor'],self.anchor)
             and record['sha256']==json_digest(envelope) and same(record['envelope'],envelope))
+        self.parent.outer_publish_fence()
 
     def close_original(self):
         if self.close_owner is None:

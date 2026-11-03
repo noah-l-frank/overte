@@ -100,8 +100,10 @@ class NavigationMissingJoin:
         self.save(current);self.before_publish(envelope)
 
     def before_publish(self,envelope):
+        self.parent.outer_publish_fence()
         self.age();record=self.state['controllers'][-1]
         need(same(record['anchor'],self.anchor) and record['sha256']==json_digest(envelope) and same(record['envelope'],envelope))
+        self.parent.outer_publish_fence()
 
     def receipt(self):
         need(self.state is not None and self.state['phase']=='visible');self.validate(self.state)

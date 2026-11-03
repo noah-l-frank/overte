@@ -46,12 +46,13 @@ def limit(value):return {1:5,2:7,3:8,4:9,5:10,6:11}[value['navigationPrefixVersi
 
 
 class NavigationPrefix:
-    def __init__(self,path,source,phase,lock,origin,directory,bookmarks,session,*,role='primary',monotonic=time.monotonic,transit_factory=None,missing_factory=None,dismissal_factory=None,bookmark_factory=None):
+    def __init__(self,path,source,phase,lock,origin,directory,bookmarks,session,*,role='primary',monotonic=time.monotonic,transit_factory=None,missing_factory=None,dismissal_factory=None,bookmark_factory=None,outer_guard=None):
         need(isinstance(source,NavigationPrefixSource) and isinstance(phase,PhaseFixtureReader) and phase.area==AREA
             and phase.run==source.run and isinstance(lock,ScriptSourceLock) and isinstance(origin,NavigationOrigin)
             and isinstance(directory,NavigationDirectory) and isinstance(bookmarks,NavigationBookmarks)
             and isinstance(session,PicoOpenXrAdapterSession) and callable(monotonic) and origin.home is not None
             and role in ('primary','actor'))
+        need(outer_guard is None or callable(outer_guard));self.outer_guard=self.original_outer_guard=outer_guard
         self.store=PrivateFeatureState(path);self.source,self.phase,self.lock=source,phase,lock
         self.origin,self.directory,self.bookmarks=origin,directory,bookmarks
         self.run,self.binding=source.run,deepcopy(source.binding);self.monotonic=monotonic;self.clock=None
@@ -209,10 +210,16 @@ class NavigationPrefix:
         state=deepcopy(self.state);state['home']=dict(envelope=deepcopy(envelope),sha256=json_digest(envelope),anchor=deepcopy(self.home_anchor));self.save(state)
         self.home_publish(envelope)
 
+    def outer_publish_fence(self):
+        need(self.outer_guard is self.original_outer_guard)
+        if self.outer_guard is not None:self.outer_guard()
+
     def home_publish(self,envelope):
+        self.outer_publish_fence()
         self.lock.assert_held();self.home_age();original=self.state['home']
         need(original is not None and same(original['anchor'],self.home_anchor)
             and json_digest(envelope)==original['sha256'] and same(original['envelope'],envelope))
+        self.outer_publish_fence()
 
     def intent(self,value):
         self.lock.assert_held();need(self.state is not None and self.state['phase']=='acting'

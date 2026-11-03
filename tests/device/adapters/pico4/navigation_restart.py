@@ -49,10 +49,14 @@ class NavigationRestart:
         self.inputs=RestartInputs(PrivateFeatureState(store.path.with_name('navigation-prefix-restart-inputs.json')),
             [parent.bookmarks.store,PrivateFeatureState(store.path.with_name('navigation-prefix-generation-1-bookmarks.json')),parent.store],monotonic=parent.monotonic)
         self.disk=self.store.read();self.state=None;self.anchor=None;self.runtime=None
+        from adapters.pico4.navigation_scene_generation import scene_owner
+        self._scene_relation_owner=scene_owner(parent);self._scene_relation=self._original_scene_relation=None
+        self._scene_relation_failed=False
         self.capture_anchor=self.capture_anchor_sha=None
         if self.disk is not None:self.load()
 
     def scope(self):
+        if self._scene_relation_owner is not None:need(self._scene_relation_failed is False)
         p=self.parent;p.lock.assert_held();p.control()
         root=self.store_path.parent
         need(self.store.path==self.store_path and self.scope_sha==json_digest(p.scope()) and same(self.binding,p.binding)
@@ -61,11 +65,22 @@ class NavigationRestart:
             and [owner.path for owner in self.inputs.owners]==[root/'navigation-prefix-bookmarks.json',root/'navigation-prefix-generation-1-bookmarks.json',p.store.path]
             and self.inputs.owner_files==[str(owner.path) for owner in self.inputs.owners])
         if self.state is not None:
-            need(same(self.store.read(),self.disk) and same(unpack(self.disk['payload']),[self.state]))
+            need(same(self.store.read(),self.disk));self.memory_relation()
             verify_originals(self.state['files'],self.store.path.parent,self.run,self.state['normalUiPath'],p.lock)
         return dict(parent=deepcopy(p.disk),restart=deepcopy(self.disk),scopeSha256=self.scope_sha)
 
+    def memory_relation(self):
+        from adapters.pico4.navigation_scene_generation import scene_owner
+        owner=scene_owner(self.parent);need(owner is self._scene_relation_owner)
+        if owner is None:need(same(unpack(self.disk['payload']),[self.state]));return
+        need(self._scene_relation_failed is False)
+        from adapters.pico4.navigation_scene_relation import NavigationMemoryRelation
+        need(self._scene_relation is self._original_scene_relation and type(self._scene_relation) is NavigationMemoryRelation)
+        self._scene_relation.require(self.disk,self.state)
+
     def fence(self):
+        from adapters.pico4.navigation_scene_generation import outer
+        outer(self.parent)
         # No dead original Qt/runtime guard is queried during Stop/Launch.
         # The route-specific candidate/process-or-stopped admission precedes
         # the exact independent HTTP phase; only clocks follow that phase.
@@ -77,9 +92,12 @@ class NavigationRestart:
             and max(epoch-current['status']['capturedEpochMs'],(now-started)*1000)<=1500)
         self.anchor=dict(hostMonotonic=now,nativeEpochMs=epoch,fixtureEpochMs=current['status']['capturedEpochMs'])
         self.anchor_sha=json_digest(self.anchor)
+        outer(self.parent)
         return current
 
     def publish(self,operation):
+        from adapters.pico4.navigation_scene_generation import outer
+        outer(self.parent)
         # Called while the original Session mutex is held: host/CAS/clock only.
         self.scope();need(operation in ('app.stop','app.launch') and self.anchor is not None
             and self.anchor_sha==json_digest(self.anchor))
@@ -87,6 +105,7 @@ class NavigationRestart:
         need(now>=a['hostMonotonic'] and max(a['nativeEpochMs']-a['fixtureEpochMs'],0)+(now-a['hostMonotonic'])*1000<=1500)
         if operation=='app.stop':
             need(max(a['nativeEpochMs']-self.state['oldFrame']['before']['ui']['observedEpochMs'],0)+(now-a['hostMonotonic'])*1000<=1500)
+        outer(self.parent)
 
     def bookmark_original(self):
         # A warm independent actor can predate the primary's normal Add/Rename
@@ -142,15 +161,33 @@ class NavigationRestart:
             need(frame['before']['pose']['subject']['instance']!=value['oldFrame']['after']['pose']['subject']['instance'])
 
     def load(self):
+        if self._scene_relation_owner is not None:
+            need(self._scene_relation_failed is False)
+            if self.state is not None:self.memory_relation()
         body=self.store.read();exact(body,{'navigationRestartVersion','runId','binding','parentScopeSha256','payload'})
         need(type(body['navigationRestartVersion']) is int and body['navigationRestartVersion']==VERSION
             and body['runId']==self.run and same(body['binding'],self.binding) and body['parentScopeSha256']==self.scope_sha)
         rows=unpack(body['payload']);need(len(rows)==1);self.validate(rows[0]);self.disk=deepcopy(body);self.state=rows[0]
+        if self._scene_relation_owner is not None:
+            from adapters.pico4.navigation_scene_relation import NavigationMemoryRelation
+            need(same(self.store.read(),self.disk))
+            self._scene_relation=self._original_scene_relation=NavigationMemoryRelation(self.disk,self.state)
 
     def save(self,value):
+        if self._scene_relation_owner is not None:
+            need(self._scene_relation_failed is False)
+            if self.state is not None:self.memory_relation()
         self.validate(value)
         body=dict(navigationRestartVersion=VERSION,runId=self.run,binding=deepcopy(self.binding),parentScopeSha256=self.scope_sha,payload=pack([value]))
-        self.store.write(body,self.disk);self.disk=deepcopy(body);self.state=deepcopy(value)
+        try:
+            self.store.write(body,self.disk);self.disk=deepcopy(body);self.state=deepcopy(value)
+            if self._scene_relation_owner is not None:
+                from adapters.pico4.navigation_scene_relation import NavigationMemoryRelation
+                need(same(self.store.read(),self.disk))
+                self._scene_relation=self._original_scene_relation=NavigationMemoryRelation(self.disk,self.state)
+        except BaseException:
+            if self._scene_relation_owner is not None:self._scene_relation_failed=True
+            raise
 
     def prepare(self,call):
         p=self.parent;self.scope();need(self.state is None and isinstance(self.native,NativeFeatureObservation)

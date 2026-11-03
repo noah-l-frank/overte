@@ -40,6 +40,9 @@ class NavigationGenerationFlow:
         self.runtime_factory,self.open_factory,self.close_factory,self.bookmark_factory=runtime_factory,open_factory,close_factory,bookmark_factory
         self.store=PrivateFeatureState(self.lock.path.with_name('navigation-prefix-generation-1-parent.json'))
         self.scope_sha=json_digest(self.scope());self.disk=self.store.read();self.state=None
+        from adapters.pico4.navigation_scene_generation import scene_owner
+        self._scene_relation_owner=scene_owner(self.parent);self._scene_relation=self._original_scene_relation=None
+        self._scene_relation_failed=False
         self.runtime=None;self.open_owner=self.close_owner=None;self.native_anchor=None
         self.adopted=None
         # Save exact bound-method objects once for the existing original IO
@@ -60,11 +63,21 @@ class NavigationGenerationFlow:
         if self.state is not None:need(same(self.store.read(),self.disk))
 
     def memory_control(self):
+        if self._scene_relation_owner is not None:need(self._scene_relation_failed is False)
         self.lock.assert_held();self.parent.control()
         need(self.scope_sha==json_digest(self.scope()) and json_digest(self.restart.disk)==self.restart_sha
-            and same(unpack(self.restart.disk['payload']),[self.restart.state])
             and json_digest(self.previous.continuation_disk)==self.previous_sha)
-        if self.state is not None:need(same(unpack(self.disk['payload']),[self.state]))
+        self.restart.memory_relation()
+        if self.state is not None:self.memory_relation()
+
+    def memory_relation(self):
+        from adapters.pico4.navigation_scene_generation import scene_owner
+        owner=scene_owner(self.parent);need(owner is self._scene_relation_owner)
+        if owner is None:need(same(unpack(self.disk['payload']),[self.state]));return
+        need(self._scene_relation_failed is False)
+        from adapters.pico4.navigation_scene_relation import NavigationMemoryRelation
+        need(self._scene_relation is self._original_scene_relation and type(self._scene_relation) is NavigationMemoryRelation)
+        self._scene_relation.require(self.disk,self.state)
 
     def validate(self,value):
         exact(value,{'phase','fixture','completed','active','receipt','frames','qml','controllers','openSha256','closeSha256','bookmarksSha256','tabPending','tabHistory'})
@@ -165,16 +178,31 @@ class NavigationGenerationFlow:
                 and tablet['sourceKind']=='generation-places' and json_digest(tablet)==final['closeSha256'])
 
     def load(self):
+        if self._scene_relation_owner is not None:
+            need(self._scene_relation_failed is False)
+            if self.state is not None:self.memory_relation()
         body=self.store.read();exact(body,{'navigationGenerationFlowVersion','scope','payload'})
         need(type(body['navigationGenerationFlowVersion']) is int and body['navigationGenerationFlowVersion']==VERSION and same(body['scope'],self.scope()))
         rows=unpack(body['payload']);need(len(rows)==1);self.validate(rows[0]);self.disk=deepcopy(body);self.state=rows[0]
+        if self._scene_relation_owner is not None:
+            from adapters.pico4.navigation_scene_relation import NavigationMemoryRelation
+            need(same(self.store.read(),self.disk))
+            self._scene_relation=self._original_scene_relation=NavigationMemoryRelation(self.disk,self.state)
 
     def save(self,value,*,host_only=False):
         if host_only:self.memory_control()
         else:self.control()
         self.validate(value)
         body=dict(navigationGenerationFlowVersion=VERSION,scope=self.scope(),payload=pack([value]))
-        self.store.write(body,self.disk);self.disk=deepcopy(body);self.state=deepcopy(value)
+        try:
+            self.store.write(body,self.disk);self.disk=deepcopy(body);self.state=deepcopy(value)
+            if self._scene_relation_owner is not None:
+                from adapters.pico4.navigation_scene_relation import NavigationMemoryRelation
+                need(same(self.store.read(),self.disk))
+                self._scene_relation=self._original_scene_relation=NavigationMemoryRelation(self.disk,self.state)
+        except BaseException:
+            if self._scene_relation_owner is not None:self._scene_relation_failed=True
+            raise
 
     def source(self):
         if self.runtime is None:
@@ -222,7 +250,11 @@ class NavigationGenerationFlow:
 
     def before_controller(self,operation):return self.child().before_controller(operation)
     def controller_intent(self,envelope):return self.child().intent(envelope)
-    def before_publish(self,envelope):return self.child().before_publish(envelope)
+    def outer_publish_fence(self):
+        from adapters.pico4.navigation_scene_generation import outer
+        outer(self.parent)
+    def before_publish(self,envelope):
+        self.outer_publish_fence();result=self.child().before_publish(envelope);self.outer_publish_fence();return result
 
     def child(self):
         need(self.state is not None and self.state['active'] is not None)
