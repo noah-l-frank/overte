@@ -415,6 +415,7 @@ TESTS = (
     test("emote-input-effects", "interaction", PYTHON, "pico-emote-input-effects-test.py"),
     test("emote-lifetime", "interaction", PYTHON, "pico-emote-lifetime-test.py"),
     test("emote-remote-capture", "interaction", PYTHON, "device/test_emote_remote_capture.py"),
+    test("emote-model-originals", "interaction", PYTHON, "device/test_emote_model_originals.py"),
     test("emote-remote-capacity", "interaction", PYTHON, "device/test_emote_remote_capacity.py"),
     test("emote-remote-binding", "interaction", PYTHON, "device/test_emote_remote_binding.py"),
     test("emote-stereo-capture", "interaction", PYTHON, "pico-emote-stereo-capture-test.py"),

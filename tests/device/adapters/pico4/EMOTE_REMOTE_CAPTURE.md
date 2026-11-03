@@ -85,8 +85,35 @@ retains its actual planned/opened file responsibility.
 The PNG is saved before the later model query or remote bookend can fail.
 The exact model request is journaled before dispatch, and its original guard,
 send and reply getter remain inside the unchanged Parent/capture interval.
-Malformed model-draw reply bytes are not separately archived by this component;
-the retained request, PNG and resource owner do not qualify such a reply.
+New acquisitions now retain actual model-draw replies before parsing through
+[the same bounded raw writer](emote_model_originals.py). A separately versioned
+`picoEmoteModelOriginalsVersion:1` scope pins the actual Capture2 identity, journal
+and original Parent-prefix digest. Existing raw journal/range/index1 containers
+are reused unchanged; their Audio naming supplies no acoustic fact. Each model
+send and reply getter first reserves the writer's existing1MiB maximum; the
+original model parser remains262144 bytes. Every acquired allowed literal is
+fsynced and indexed before parser, type, nonce or final business-clock refusal.
+Malformed polls share the original request; no new model query is sent.
+
+Admission counts the complete current private Parent/primary/viewer/artifact
+forest, stored bytes and every simultaneously retained packed transcript. It
+conservatively counts existing files as parts, the raw metadata and a projected
+50-part/3276800-byte final viewer acquisition. No extra512-part/16MiB quota is
+created. Reservation work is followed by the original final Parent/capture
+fence before Native dispatch/getter. Return archival uses only its own original
+host/scope/directory/OFD/raw-prefix authority, so a late return remains durable
+while business delivery fails. Replies beyond the raw writer's1MiB bound remain
+unresolved; their full literal completeness is not claimed.
+
+Warm delivery rechecks the raw journal/parts/index originals. Resource-only
+recovery may still retire the same already-issued capture after a raw journal
+loss; it cannot query another model, return a successful image or erase the
+rootless raw responsibility. New raw host descriptors close with that same
+Capture2 host owner; uncertain constructor/descriptor owners stay strongly
+retained. Capture2's historical envelope remains unchanged, and old records
+cannot invent raw bytes they never retained. The existing passive raw reader
+can inspect the separately typed originals, including pending/unsealed tails;
+it grants no cold live owner or fresh model/feature authority.
 
 Retirement may inspect a logically failed or acquisition-expired Source3 only
 through its same original file/directory OFDs, complete immutable transcript,
@@ -143,6 +170,12 @@ These cases cover actual Script-vs-Graphics lock admission, separately retained
 Native Avatar UUIDs versus unrelated QML bridge IDs, wrong client/renderer/eye,
 original source capacity, lost acquisition/model/journal results, preserved PNG,
 late model dispatch, original OFD/process boundaries, final CAS, callbacks and
-Parent timers. Qt/SDK/GPU producer values remain explicit models. Malformed
-model reply raw retention, whole28, independent publisher/viewer quiet, clip
+Parent timers. Qt/SDK/GPU producer values remain explicit models. The six new malformed/maximum/late/reservation/footprint/journal counters plus
+one unchanged normal cycle pass7/18.149s with168 loaded sources unchanged.
+The actual prior committed implementation independently fails the footprint
+counter (no refusal); its exact Git body and failed source scope are retained.
+The new current predicate sends zero model queries there. Thirteen affected
+remote cases pass79.425s with167 sources stable; three actual canonical binding
+cases pass12.420s with254 sources stable. No native source, compiler or device
+is used by this addition. Whole28, independent publisher/viewer quiet, clip
 causation, challenge pixels and final global retirement remain open.

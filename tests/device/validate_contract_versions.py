@@ -389,6 +389,7 @@ REQUIRED = {
     "pico-emote-pixel-policy": 1,
     "pico-emote-pixels": 1,
     "pico-emote-capture": 2,
+    "pico-emote-model-originals": 1,
     "pico-emote-remote-cycle": 1,
     "pico-emote-view": 4,
     "pico-view-menu-controls": 1,

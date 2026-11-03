@@ -82,7 +82,7 @@ class PicoEmoteRemoteCapture(PicoEmoteCapture):
         self.store=PrivateFeatureState(parent.store.path.with_name(parent.store.path.name+'.child-remote-capture-'+key+'-'+str(index)+'.json'))
         self.previous=None;self.failed=False;self.started=self.clock=None;self.recovering=False
         self.state={key:None for key in REMOTE_FIELDS};self.state['phase']='ready'
-        self.parent_prefix=None;self.guard=self.bound
+        self.parent_prefix=None;self.guard=self.bound;self.model_originals=None
         self.file=object.__new__(LifecycleProcessFile)
         try:
             self.locks()
@@ -133,6 +133,8 @@ class PicoEmoteRemoteCapture(PicoEmoteCapture):
                 source.file.guard();source.chunks.verify();need(same(source.store.read(),source.previous))
                 need(source.original_guard() is not False)
             else:source.guard()
+        if self.model_originals is not None and not self.recovering:
+            self.model_originals.archive.verify()
         now=self.monotonic();need(number(now,0 if self.clock is None else self.clock,1e15)
             and (self.started is None or now-self.started<5));self.clock=now;return now
 
@@ -281,9 +283,16 @@ class PicoEmoteRemoteCapture(PicoEmoteCapture):
                     self.bound();need(model_guard() is not False);self.bound();return True
                 def send_model(command):
                     need(self.state['modelRequest'] is None);draw_command(command)
-                    self.remember('modelRequest',command);self.bound();model_send(command)
+                    self.remember('modelRequest',command)
+                    from adapters.pico4.emote_model_originals import EmoteModelOriginals
+                    need(self.model_originals is None);self.model_originals=EmoteModelOriginals(self)
+                    self.model_originals.reserve(command);self.bound();model_send(command)
                 def get_model():
-                    self.bound();value=model_get();self.bound();return value
+                    self.bound();need(self.model_originals is not None)
+                    if self.model_originals.token is None:self.model_originals.reserve(self.state['modelRequest'])
+                    self.bound();value=model_get()
+                    self.model_originals.retain(value) # DURABLE before parser or business freshness refusal.
+                    self.bound();return value
                 reader.guard,reader.send,reader.original=guard_model,send_model,get_model
                 intent,send=owned.capture.intent,owned.capture.send
                 def reserve(command):
@@ -345,7 +354,9 @@ class PicoEmoteRemoteCapture(PicoEmoteCapture):
             wholeFeatureComplete=False,independentActorQualified=False,pixelsQualified=False,originalsRetained=True)
 
     def close_host(self):
-        value=self.file.close_host();self.failed=True
+        value=self.file.close_host()
+        if self.model_originals is not None:value=self.model_originals.close_host() and value
+        self.failed=True
         if not value and self.file not in UNRESOLVED_HOST_FILES:UNRESOLVED_HOST_FILES.append(self.file)
         return value
 
