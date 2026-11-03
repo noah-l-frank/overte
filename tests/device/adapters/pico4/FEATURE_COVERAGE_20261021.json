@@ -1693,7 +1693,17 @@
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "normalCloseComposition": "Current continuous pre-input lease/Cancel/Still/Save/offline+successful TLS Upload/Resume/return PNG/normal Mode+Format/Close/raw settings/3s quiet component passes1/99.130s under original120s,233 loaded sources stable. Original same Session/nonce/cursor retained. Strict passive Close source acquisition now avoids the open-only Upload effect predicate, which remains mandatory for ordinary Upload. Raw Settings/cache restoration, OS chooser/receiver, independent Actor/challenge pixels, whole Common16 and global retirement remain unqualified.",
-      "closeOriginalStorage": "CloseOriginals2 retains complete unchanged acquired frames in one existing immutable part when pure preflight fits; explicit original-role fallback otherwise. No IO-error fallback or old1 migration. Eight storage cases0.590s and unchanged whole flow95.441s,234 loaded files stable. Complete measured namespace418 parts/441files/1,603,278storedB/4,922,886decodedB; identifier counts, input inventories and original model host-clock sequence unchanged, no global admission/cleanup claim."
+      "closeOriginalStorage": "CloseOriginals2 retains complete unchanged acquired frames in one existing immutable part when pure preflight fits; explicit original-role fallback otherwise. No IO-error fallback or old1 migration. Eight storage cases0.590s and unchanged whole flow95.441s,234 loaded files stable. Complete measured namespace418 parts/441files/1,603,278storedB/4,922,886decodedB; identifier counts, input inventories and original model host-clock sequence unchanged, no global admission/cleanup claim.",
+      "loadedCodecPrerequisite": {
+        "version": 1,
+        "rootCases": 12,
+        "rootSeconds": 0.128,
+        "rootLoadedSources": 55,
+        "selector": "loaded-chunk-codec",
+        "scope": "Original loaded host zlib bound and OFD ownership only; Source2 transport, complete namespace and normal close remain open.",
+        "nativeCompiled": false,
+        "devicesTested": false
+      }
     },
     {
       "area": "scripts",

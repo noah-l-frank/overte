@@ -3942,3 +3942,17 @@ Native sources remain uncompiled; Node providers/SDK/Qt are declared models.
 Actual Pending3/Source8/outer-exit/full eighth segment and full120s admission
 remain open; prior103 and actual512 groups retain their separate epochs.
 Catalogue400 maps14 risks; source-complete count stays3/14.
+
+## Loaded host codec prerequisite, 2026-11-03
+
+OriginalChunkCodec pins the already loaded zlib dependency, original compression
+functions, actual ABI and original file descriptors. SnapshotSettingsCodec is a
+prospective Source2 limit facade only. Root independently passes12 cases in0.128s
+with55 loaded source SHA/eight-field identities unchanged. Unknown holders stay
+strongly retained; only normal known closure checks balanced descriptors. Forged closed flags and
+foreign holders cannot certify retirement while original FDs remain open. The
+actual compatible compressBound replaces an unsupported portable bound
+assumption; its larger upper bound does not prove an observed output overrun.
+The caller must charge its codec reservation and all global resources.
+Source2 raw transport/namespace/normal close remain open. Catalogue401 contains
+one new disjoint prerequisite selector; complete areas remain3/14, devices0.
