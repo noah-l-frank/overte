@@ -66,15 +66,17 @@ class ChatArchiveFileTests(unittest.TestCase):
         self.assertEqual(row['raw'],original.read_bytes());self.assertEqual(row['raw'],foreign.read_bytes())
         self.assertIsNone(row['owner'].active)
 
-    def test_same_inode_change_after_json_validation_is_refused_before_read_window_return(self):
-        from adapters.chat_journey import evidence_archive
-        row=self.add();validate=evidence_archive.original_json
-        def change(raw,expected):
-            validate(raw,expected)
-            with row['store'].path.open('r+b') as stream:
-                stream.seek(0);stream.write(b'[');stream.flush();os.fsync(stream.fileno())
-        with patch.object(evidence_archive,'original_json',side_effect=change),self.assertRaises(NativeUIError):
+    def test_same_inode_change_after_current_byte_validation_is_refused_before_read_window_return(self):
+        row=self.add();read=ClosedOriginalFile.read;observed=[]
+        def current(window,validate=None):
+            def change(raw):
+                self.assertIsNotNone(validate);validate(raw);observed.append(raw)
+                with row['store'].path.open('r+b') as stream:
+                    stream.seek(0);stream.write(b'[');stream.flush();os.fsync(stream.fileno())
+            return read(window,change)
+        with patch.object(ClosedOriginalFile,'read',current),self.assertRaises(NativeUIError):
             self.catalog.verify(row)
+        self.assertEqual([row['raw']],observed)
         self.assertTrue(row['owner'].failed);self.assertIsNone(row['owner'].active)
     def test_original_held_directory_replacement_during_reopened_window_keeps_foreign_file_untouched(self):
         row=self.add();saved=self.root.with_name(self.root.name+'-original');moved=[False];pread=os.pread

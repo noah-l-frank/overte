@@ -3978,3 +3978,22 @@ acts, quiet and original Common consumption, then expires the same120s budget
 during Actor return (121.260s observed). No complete feature, archive or host
 release is claimed. See [the scoped record](BROWSER_OPERATION_SCOPE.md).
 Catalogue404 contains two additional component groups; complete areas stay3/14.
+
+## Original file construction on the Snapshot path, 2026-11-04
+
+Existing ClosedOriginalFile and LifecycleProcessFile retain the original
+descriptor holder before its constructor, including a pending atomic writer.
+Root18 pass2.025s/35 loaded sources unchanged: six actual constructor/GC/FD
+cases, three existing Lifecycle cases and nine closed-archive cases. Known
+original pairs can close safely; recycled or unknown pairs remain retained.
+The archive mutation counter now changes the actual same inode after its
+current byte validator, with exactly one real mutation and unchanged refusal.
+Catalogue405 adds only the six-case constructor prerequisite. Source2 endpoint/
+restoration and complete feature qualification do not follow; areas stay3/14.
+
+The later Browser750ms/publication-cursor experiment is withheld privately. Its
+corrected bootstrap reaches26 normal acts but expires120s before Common
+completion (120.610s observed), without improving the integrated400ms scope.
+Those three experimental files were saved with SHA/full physical records and
+restored exactly to19203ff443; all failed originals remain. No unchanged whole
+retry, source-cap increase or feature promotion is made.

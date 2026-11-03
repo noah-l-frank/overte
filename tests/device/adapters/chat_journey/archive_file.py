@@ -29,7 +29,8 @@ class ClosedOriginalFile:
         owner=None
         try:
             self.parent_guard()
-            owner=self.active=OriginalDescriptor(self.path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+            owner=self.active=object.__new__(OriginalDescriptor)
+            OriginalDescriptor.__init__(owner,self.path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
             info=os.fstat(owner.fd)
             need(stat.S_ISREG(info.st_mode) and info.st_uid==os.geteuid() and stat.S_IMODE(info.st_mode)==self.mode
                 and info.st_nlink==1 and 0<info.st_size<=65536)

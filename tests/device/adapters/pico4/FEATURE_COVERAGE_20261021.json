@@ -1728,6 +1728,14 @@
         "scope": "Original loaded host zlib bound and OFD ownership only; Source2 transport, complete namespace and normal close remain open.",
         "nativeCompiled": false,
         "devicesTested": false
+      },
+      "constructorOwnershipPrerequisite": {
+        "newCases": 6,
+        "rootAffectedCases": 18,
+        "rootSeconds": 2.025,
+        "rootLoadedSources": 35,
+        "selector": "snapshot-constructor-originals",
+        "scope": "Actual known/unknown original FD pairs through constructor response loss; no endpoint or restoration qualification."
       }
     },
     {

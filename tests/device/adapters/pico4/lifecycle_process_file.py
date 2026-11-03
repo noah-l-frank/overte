@@ -13,13 +13,15 @@ from adapters.script_journey.history import canonical
 class LifecycleProcessFile:
     def __init__(self,store):
         self.store,self.path=store,store.path
-        self.parent=self._parent=OriginalDescriptor(self.path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+        self.parent=self._parent=object.__new__(OriginalDescriptor)
+        OriginalDescriptor.__init__(self.parent,self.path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         self.file=self._file=None;self.raw=self.stamp=None;self.uncertain=[]
         self.temporary=None;self.failed=False
         self.parent_guard()
         try:self.path.lstat()
         except FileNotFoundError:return
-        self.file=self._file=OriginalDescriptor(self.path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+        self.file=self._file=object.__new__(OriginalDescriptor)
+        OriginalDescriptor.__init__(self.file,self.path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
         self.raw,self.stamp=self.read(self.file,self.path)
 
     def parent_guard(self):
@@ -55,7 +57,8 @@ class LifecycleProcessFile:
         try:
             with os.fdopen(descriptor,'wb') as stream:
                 stream.write(raw);stream.flush();os.fsync(stream.fileno())
-            candidate=OriginalDescriptor(temporary,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+            candidate=object.__new__(OriginalDescriptor)
+            OriginalDescriptor.__init__(candidate,temporary,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
             observed,_stamp=self.read(candidate,self.path.parent/temporary);need(observed==raw)
             self.guard();need(self.store.read()==previous)
             # Retain the actual prepared OFD before publication. Opening the
