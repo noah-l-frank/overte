@@ -9,6 +9,7 @@ Only the existing exact bounded sender factory has a reusable dependency graph.
 from contextvars import ContextVar
 from copy import deepcopy
 import inspect
+import hashlib
 from pathlib import Path
 import stat
 import sys
@@ -37,18 +38,26 @@ def function(value):
     return target,getattr(target,'__code__',None),id(getattr(value,'__self__',None))
 
 
-def module_signature(namespace):
+def module_signature(namespace,*,class_cache=None):
+    class_cache={} if class_cache is None else class_cache
     values=[]
     for name,value in sorted(namespace.items()):
         if isinstance(value,FunctionType):values.append((name,function(value)))
         elif isinstance(value,type):
-            methods=[]
-            for parent in value.__mro__:
-                for key,item in sorted(vars(parent).items()):
-                    if key in _MUTATORS:continue
-                    if isinstance(item,(staticmethod,classmethod)):item=item.__func__
-                    if isinstance(item,FunctionType):methods.append((parent,key,function(item)))
-            values.append((name,value,tuple(methods)))
+            # Imported aliases refer to the same actual class. Compute its
+            # complete current MRO/method signature once per guard pass; this
+            # dictionary never survives original_methods()/qml_authority().
+            entry=class_cache.get(id(value))
+            if entry is None:
+                methods=[]
+                for parent in value.__mro__:
+                    for key,item in sorted(vars(parent).items()):
+                        if key in _MUTATORS:continue
+                        if isinstance(item,(staticmethod,classmethod)):item=item.__func__
+                        if isinstance(item,FunctionType):methods.append((parent,key,function(item)))
+                entry=(value,tuple(methods));class_cache[id(value)]=entry
+            need(entry[0] is value)
+            values.append((name,value,entry[1]))
         elif isinstance(value,ContextVar):values.append((name,id(value)))
         elif isinstance(value,ModuleType):values.append((name,id(value)))
         elif name.isupper() and isinstance(value,(str,int,float,bool,tuple,frozenset,type(None))):values.append((name,value))
@@ -74,9 +83,64 @@ def register(name,namespace):
             pending.append(vars(module))
 
 
+_QML_AUTHORITIES=('ios.adapters.chat_qml_owner_binding','ios.adapters.chat_qml_cache_loaded',
+    'ios.adapters.chat_qml_sources','ios.adapters.qt_image_bytes','ios.adapters.bundle_identity',
+    'ios.adapters.installed_code','ios.adapters.chat_script_sources')
+
+
+def qml_constant(value,depth=0):
+    # New loaded profiles add independently selected source-data files and
+    # mutable constant grammars to the original Python parser authority.
+    need(depth<=16)
+    if value is None or type(value) in (str,int,float,bool):return value
+    if type(value) in (bytes,bytearray):
+        need(len(value)<=65536);return (type(value).__name__,bytes(value).hex())
+    if isinstance(value,Path):
+        need(value.is_absolute() and value.resolve(strict=True)==value)
+        before=node(value);need(stat.S_ISREG(before[2]) and before[6]<=65536)
+        raw=value.read_bytes();need(node(value)==before and len(raw)==before[6])
+        return ('source-data-file',str(value),before,hashlib.sha256(raw).hexdigest())
+    if type(value) in (tuple,list):
+        need(len(value)<=1024);return (type(value).__name__,tuple(qml_constant(item,depth+1) for item in value))
+    if type(value) in (set,frozenset):
+        need(len(value)<=1024);return (type(value).__name__,tuple(sorted((qml_constant(item,depth+1) for item in value),key=repr)))
+    if type(value) is dict:
+        need(len(value)<=1024 and all(type(key) is str for key in value))
+        return ('dict',tuple((key,qml_constant(value[key],depth+1)) for key in sorted(value)))
+    need(False)
+
+
+def qml_authority():
+    # Extend authority only for a loaded-profile round. Literal profiles6/7
+    # retain their original imported dependency frontier and memory key.
+    pending=[]
+    for name in _QML_AUTHORITIES:
+        module=sys.modules.get(name);need(type(module) is ModuleType);pending.append(module)
+    signatures={};seen=set();classes={}
+    while pending:
+        module=pending.pop();name=getattr(module,'__name__','')
+        if name in seen or name==__name__:continue
+        seen.add(name)
+        if not name.startswith(('adapters.','ios.adapters.','feature_journeys.')):continue
+        namespace=vars(module);rows=[]
+        for key,value in sorted(namespace.items()):
+            new_authority=name not in _DEPENDENCIES and name not in _MODULES
+            if (name in _QML_AUTHORITIES or new_authority) and key.isupper() and isinstance(value,(Path,dict,list,set,bytes,bytearray)):
+                rows.append((key,qml_constant(value)))
+            target=value if isinstance(value,ModuleType) else sys.modules.get(getattr(value,'__module__',''))
+            if type(target) is ModuleType:pending.append(target)
+        # Existing immutable/function/class guards remain authoritative. The
+        # new round adds only previously unreachable QML authority plus data
+        # constants ignored by the old generic frontier.
+        methods=None if name in _DEPENDENCIES or name in _MODULES else module_signature(namespace,class_cache=classes)
+        signatures[name]=(id(module),methods,tuple(rows))
+    return tuple((name,signatures[name]) for name in sorted(signatures))
+
+
 def original_methods():
-    return (all(name in _BASELINES and module_signature(_BASELINES[name][0])==_BASELINES[name][1] for name in _MODULES)
-        and all(module_signature(namespace)==expected for namespace,expected in _DEPENDENCIES.values()))
+    classes={}
+    return (all(name in _BASELINES and module_signature(_BASELINES[name][0],class_cache=classes)==_BASELINES[name][1] for name in _MODULES)
+        and all(module_signature(namespace,class_cache=classes)==expected for namespace,expected in _DEPENDENCIES.values()))
 
 
 def factory(context):
@@ -87,8 +151,15 @@ def factory(context):
     wrapped=context.sender_owner;inner=getattr(wrapped,'__wrapped__',None)
     need(isinstance(inner,FunctionType) and inner.__code__ in IOSChatDraftRuntime._chat_receipt_contexts.__code__.co_consts)
     closure=inspect.getclosurevars(inner).nonlocals
-    need(set(closure)=={'contexts','fixture_url','receive','run','self'}
+    base={'contexts','fixture_url','receive','run','self'}
+    need(set(closure) in (base,base|{'qml_artifacts'})
         and closure['receive'] is context.receive and type(closure['receive']) is IOSChatReceiveSources)
+    artifacts=closure.get('qml_artifacts')
+    if 'qml_artifacts' in closure:
+        need(type(artifacts) is dict and set(artifacts)=={'primary','peer'})
+        from ios.adapters.chat_qml_owner_binding import selected_artifact
+        artifacts=tuple((role,selected_artifact(artifacts[role],context.receive.primary_binding if role=='primary' else context.receive.binding))
+            for role in ('primary','peer'))
     contexts=closure['contexts'];need(type(contexts) is dict and set(contexts)=={'primary','peer'}
         and contexts[context.recipient_role] is context and all(type(item) is IOSChatPeerReceipts for item in contexts.values()))
     role,selector=inner.__defaults__;runtime=closure['self'];source=context.receive
@@ -96,14 +167,18 @@ def factory(context):
     path=runtime.state_path(selector).with_name('ios-chat-draft-owner.json')
     lock=source.primary_lock if role=='primary' else source.lock
     need(path==lock.path.with_name('ios-chat-draft-owner.json'))
-    return (id(context),id(wrapped),function(inner),inner.__defaults__,closure['fixture_url'],closure['run'],
+    signature=(id(context),id(wrapped),function(inner),inner.__defaults__,closure['fixture_url'],closure['run'],
         id(source),id(runtime),id(runtime.adapter),function(runtime.state_path),function(runtime.adapter.state_path),
         tuple((role,id(contexts[role])) for role in ('primary','peer')),str(path))
+    if artifacts is None:return signature
+    return signature+('loaded-qml-artifacts-v1',tuple((role,str(path),digest,node(path),node(path.parent)) for role,(path,digest) in artifacts))
 
 
 def memory(owner):
     value={key:getattr(owner,key) for key in _FIELDS if hasattr(owner,key)}
     value['root']=str(value['root']);value['storePath']=str(owner.store.path);value['lockPath']=str(owner.lock.path)
+    if getattr(owner,'qml_bound',False):
+        path,digest=owner.qml_artifact;value['qml_bound']=True;value['qmlArtifact']=(str(path),digest,node(path),node(path.parent))
     if hasattr(owner,'primary_lock'):value['primaryLockPath']=str(owner.primary_lock.path)
     frames=owner.frames
     value['frames']={key:str(getattr(frames,key)) if key=='root' else getattr(frames,key)
@@ -138,7 +213,7 @@ def eligible(owner):
     if type(owner) not in (IOSChatDraftOwner,IOSChatReceiveSources):return False
     context=getattr(owner,'peer_receipts',None)
     if context is None and not (_ACTIVE.get() is not None and type(owner) is IOSChatReceiveSources):return False
-    if context is not None and not (owner.source_bound and owner.version in (6,7) and owner.previous is not None):return False
+    if context is not None and not (owner.source_bound and owner.version in (6,7,9,11) and owner.previous is not None):return False
     if not original_methods():return False
     if (type(owner.store) is not PrivateFeatureState or type(owner.frames) is not OriginalFrameStore
             or type(owner.lock) is not ScriptSourceLock or not all(unshadowed(item) for item in (owner,owner.store,owner.frames,owner.lock))):return False
@@ -149,7 +224,7 @@ def eligible(owner):
         if owner.historical:
             need(owner.guard.__closure__ is None
                 and owner.guard.__code__ in IOSChatDraftOwner.archive.__func__.__code__.co_consts)
-        return owner.source_bound and owner.version in (6,7) and owner.previous is not None
+        return owner.source_bound and owner.version in (6,7,9,11) and owner.previous is not None
     except (AttributeError,KeyError,TypeError,ValueError,RuntimeError):return False
 
 
@@ -184,11 +259,19 @@ class ArchiveRound:
         self.closed=False;self.hits=0;self.disabled=False
         self.roots=tuple(sorted({Path(source.bound_record[role+'ArtifactRoot']['path']) for role in ('primary','peer')}
             |{source.store.path.parent,owner.store.path.parent,source.primary_lock.path.parent,source.lock.path.parent},key=str))
+        if getattr(owner,'qml_bound',False):
+            # Original selected IPA bytes are an explicit dependency. Their
+            # real parent/file metadata participates in every actual lease
+            # check; the first literal proof still reads and hashes the IPA.
+            artifacts=inspect.getclosurevars(owner.peer_receipts.sender_owner.__wrapped__).nonlocals['qml_artifacts']
+            self.roots=tuple(sorted(set(self.roots)|{path.parent for path,_digest in artifacts.values()},key=str))
         self.files=inventory(self.roots)
+        self.qml_authority=qml_authority() if getattr(owner,'qml_bound',False) else None
 
     def check(self):
         need(not self.closed and original_methods() and memory(self.source)==self.source_memory
             and tuple(factory(item) for item in self.receipts)==self.contexts)
+        if self.qml_authority is not None:need(qml_authority()==self.qml_authority)
         for owner,expected in tuple(self.active.items()):
             need(memory(owner)==expected and all(unshadowed(item) for item in (owner,owner.store,owner.frames,owner.lock)))
         need(all(unshadowed(item) for item in (self.source,self.source.store,self.source.frames,self.source.lock,self.source.primary_lock)))

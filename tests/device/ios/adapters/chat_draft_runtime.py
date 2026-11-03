@@ -20,21 +20,40 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSChatDraftRuntime(IOSScriptRuntime):
-    def _chat_receipt_contexts(self,primary_selector,peer_selector,run,client,receive):
+    def _chat_receipt_contexts(self,primary_selector,peer_selector,run,client,receive,*,qml_artifacts=None):
         from ios.adapters.chat_peer_receipts import IOSChatPeerReceipts
         from ios.adapters.chat_receive_sources import IOSChatReceiveSources
         need(isinstance(receive,IOSChatReceiveSources) and run==receive.run
             and receive.primary_lock.path==self.state_path(primary_selector).with_name('script-feature-sources.lock')
             and receive.lock.path==self.state_path(peer_selector).with_name('script-feature-sources.lock'))
         receive.bound();fixture_url=PhaseFixtureReader(client,run,'chat').fixture_url;contexts={}
+        need(qml_artifacts is None or type(qml_artifacts) is dict and set(qml_artifacts)=={'primary','peer'})
+        if qml_artifacts is not None:
+            from ios.adapters.chat_qml_owner_binding import selected_artifact
+            # Independently supplied candidate artifacts, never paths selected
+            # from a sender journal. Archive construction makes no SDK call.
+            qml_artifacts={role:selected_artifact(value,receive.primary_binding if role=='primary' else receive.binding)
+                for role,value in qml_artifacts.items()}
         for recipient,sender_role,selector in (('primary','peer',peer_selector),('peer','primary',primary_selector)):
-            @contextmanager
-            def sender(ticket,through,role=sender_role,selector=selector):
-                binding=receive.primary_binding if role=='primary' else receive.binding
-                lock=receive.primary_lock if role=='primary' else receive.lock;lock.assert_held()
-                yield IOSChatDraftOwner.archive(PrivateFeatureState(self.state_path(selector).with_name('ios-chat-draft-owner.json')),
-                    receive.bound_record[role+'ArtifactRoot']['path'],binding,run,lock,fixture_url,
-                    source_bound=True,peer_actor=role=='peer',peer_receipts=contexts[role],through=through,ticket=ticket)
+            if qml_artifacts is None:
+                # Preserve the literal default factory's original closure and
+                # completed historical proof policy for profiles6/7.
+                @contextmanager
+                def sender(ticket,through,role=sender_role,selector=selector):
+                    binding=receive.primary_binding if role=='primary' else receive.binding
+                    lock=receive.primary_lock if role=='primary' else receive.lock;lock.assert_held()
+                    yield IOSChatDraftOwner.archive(PrivateFeatureState(self.state_path(selector).with_name('ios-chat-draft-owner.json')),
+                        receive.bound_record[role+'ArtifactRoot']['path'],binding,run,lock,fixture_url,
+                        source_bound=True,peer_actor=role=='peer',peer_receipts=contexts[role],through=through,ticket=ticket)
+            else:
+                @contextmanager
+                def sender(ticket,through,role=sender_role,selector=selector):
+                    binding=receive.primary_binding if role=='primary' else receive.binding
+                    lock=receive.primary_lock if role=='primary' else receive.lock;lock.assert_held()
+                    yield IOSChatDraftOwner.archive(PrivateFeatureState(self.state_path(selector).with_name('ios-chat-draft-owner.json')),
+                        receive.bound_record[role+'ArtifactRoot']['path'],binding,run,lock,fixture_url,
+                        source_bound=True,peer_actor=role=='peer',peer_receipts=contexts[role],through=through,ticket=ticket,
+                        qml_bound=True,qml_artifact=qml_artifacts[role])
             contexts[recipient]=IOSChatPeerReceipts(receive,sender,recipient_role=recipient,bounded_sender=True)
         return contexts
 
@@ -52,7 +71,7 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
                 source_bound=True,peer_actor=True)
         return IOSChatPeerReceipts(receive,sender)
 
-    def _chat_send_operation(self,selector,run,root,client,receive,*,sender_role='primary',peer_receipts=None):
+    def _chat_send_operation(self,selector,run,root,client,receive,*,sender_role='primary',peer_receipts=None,qml_bound=False):
         from pathlib import Path
         from ios.adapters.chat_receive_sources import IOSChatReceiveSources
         from ios.adapters.chat_send_operation import IOSChatSendOperation
@@ -64,7 +83,8 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
             and str(Path(root))==receive.bound_record[sender_role+'ArtifactRoot']['path'])
         lock=receive.primary_lock if sender_role=='primary' else receive.lock
         need(lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
-        options=dict(source_bound=True,lock=lock)
+        need(type(qml_bound) is bool)
+        options=dict(source_bound=True,lock=lock,qml_bound=qml_bound)
         if sender_role=='peer':options['peer_actor']=True
         if peer_receipts is not None:options['peer_receipts']=peer_receipts
         return IOSChatSendOperation(receive,lambda:self.draft_owner(selector,run,root,client,
@@ -80,7 +100,7 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
         need(type(source_bound) is bool and type(peer_actor) is bool and (not peer_actor or source_bound)
             and (peer_receipts is None or isinstance(peer_receipts,IOSChatPeerReceipts) and source_bound
                 and peer_receipts.recipient_role==('peer' if peer_actor else 'primary')))
-        need(type(qml_bound) is bool and (not qml_bound or source_bound and not peer_actor and peer_receipts is None))
+        need(type(qml_bound) is bool and (not qml_bound or source_bound))
         path=self.state_path(selector).with_name('script-feature-sources.lock')
         if lock is None:lock=ScriptSourceLock(path)
         else:need(isinstance(lock,ScriptSourceLock) and lock.path==path);lock.assert_held()

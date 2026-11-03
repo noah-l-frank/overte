@@ -10,6 +10,10 @@ The default remains literal version 3, and existing explicit versions 4–7 keep
 their grammar. Version 8 cannot join the peer/Receive profiles or adopt their
 old journals. Existing journals are never migrated.
 
+The later [loaded peer composition](CHAT_LOADED_PEER_COMPOSITION.md) adds
+separate explicit profiles 9–11. It does not change version 8's grammar or
+qualify a complete Chat flow; its new full paired selection still times out.
+
 The existing Chat View action, result filename, authenticated transport and
 nonce-before-native-invocation handling remain in use. Request version 2 with
 the sole fixed profile `loaded-qml-object` requires View version 4. Request

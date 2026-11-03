@@ -62,7 +62,7 @@ class IOSChatPeerReceipts:
         with factory as sender:
             need(isinstance(sender,IOSChatDraftOwner) and sender.historical
                 and sender.peer_actor==(self.sender_role=='peer')
-                and sender.version in ((5,7) if self.sender_role=='peer' else (4,6))
+                and sender.version in ((5,7,10,11) if self.sender_role=='peer' else (4,6,9))
                 and same(sender.binding,binding) and sender.run==self.receive.run
                 and str(sender.root)==self.receive.bound_record[self.sender_role+'ArtifactRoot']['path']
                 and sender.lock.path==lock.path)

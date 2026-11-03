@@ -2648,7 +2648,7 @@
       ]
     },
     "ios-chat-draft-observation": {
-      "current": 8,
+      "current": 11,
       "reads": [
         1,
         2,
@@ -2657,7 +2657,10 @@
         5,
         6,
         7,
-        8
+        8,
+        9,
+        10,
+        11
       ]
     },
     "ios-chat-draft-original": {
@@ -2667,7 +2670,7 @@
       ]
     },
     "ios-chat-draft-owner": {
-      "current": 8,
+      "current": 11,
       "reads": [
         1,
         2,
@@ -2676,7 +2679,10 @@
         5,
         6,
         7,
-        8
+        8,
+        9,
+        10,
+        11
       ]
     },
     "ios-chat-peer-binding": {
@@ -2693,10 +2699,11 @@
       ]
     },
     "ios-chat-peer-send-receive-derived": {
-      "current": 2,
+      "current": 3,
       "reads": [
         1,
-        2
+        2,
+        3
       ]
     },
     "ios-chat-qml-source-pins": {
@@ -2780,10 +2787,11 @@
       ]
     },
     "ios-chat-send-receive-derived": {
-      "current": 2,
+      "current": 3,
       "reads": [
         1,
-        2
+        2,
+        3
       ]
     },
     "ios-create-action-event": {

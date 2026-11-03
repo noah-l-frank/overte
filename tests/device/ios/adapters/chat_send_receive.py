@@ -28,8 +28,8 @@ def original_sent(draft,receive,ticket,before,after,*,sender_role='primary'):
         and isinstance(draft,IOSChatDraftOwner) and isinstance(receive,IOSChatReceiveSources))
     sender_binding=receive.primary_binding if sender_role=='primary' else receive.binding
     sender_lock=receive.primary_lock if sender_role=='primary' else receive.lock
-    need(draft.source_bound and (draft.version in (5,7) if sender_role=='peer' else draft.version in (4,6)) and identifier(ticket)==ticket)
-    if draft.version>=6:need(draft.peer_receipts.matches(receive))
+    need(draft.source_bound and (draft.version in (5,7,10,11) if sender_role=='peer' else draft.version in (4,6,9)) and identifier(ticket)==ticket)
+    if draft.version in (6,7,9,11):need(draft.peer_receipts.matches(receive))
     draft.bound();receive.bound()
     need(draft.previous is not None and receive.previous is not None
         and same(draft.decode(draft.previous),draft.state)
@@ -93,8 +93,8 @@ def original_sent(draft,receive,ticket,before,after,*,sender_role='primary'):
         need(same(lifecycle,frame['joins'][sender_role]['nativeBefore']['lifecycle'])
             and same(lifecycle,frame['joins'][sender_role]['nativeAfter']['lifecycle']))
     draft.bound();receive.bound()
-    profile=(dict(iosChatSendReceiveDerivedVersion=2 if draft.version==6 else VERSION,primaryBinding=deepcopy(draft.binding))
-        if sender_role=='primary' else dict(iosChatPeerSendReceiveDerivedVersion=2 if draft.version==7 else VERSION,peerBinding=deepcopy(draft.binding)))
+    profile=(dict(iosChatSendReceiveDerivedVersion=3 if draft.qml_bound else 2 if draft.version==6 else VERSION,primaryBinding=deepcopy(draft.binding))
+        if sender_role=='primary' else dict(iosChatPeerSendReceiveDerivedVersion=3 if draft.qml_bound else 2 if draft.version==7 else VERSION,peerBinding=deepcopy(draft.binding)))
     return dict(profile,runId=draft.run,ticket=ticket,peerBindingRecord=deepcopy(receive.bound_record),
         receiveBefore=deepcopy(before),receiveAfter=deepcopy(after),
         sendBefore=deepcopy(send['before']),sendAfter=deepcopy(send['after']),events=events)

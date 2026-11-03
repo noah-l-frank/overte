@@ -28,8 +28,9 @@ class CaptureTransport:
 
 
 class IOSChatReceiveRuntimeTests(unittest.TestCase):
+    admission_fixture_type=PeerAdmissionTests
     def setUp(self):
-        self.f=PeerAdmissionTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
+        self.f=self.admission_fixture_type();self.f.setUp();self.addCleanup(self.f.doCleanups)
         self.runtime=object.__new__(IOSChatDraftRuntime);self.runtime.adapter=self.f.runtime.adapter
         self.runtime._existing=self.f.runtime._existing
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)

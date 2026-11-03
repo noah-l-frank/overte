@@ -42,6 +42,8 @@ No historical record is substituted for a current installed-binding owner.
     for value in values: qt_image_bytes.validate(value, pid)
     need(values[0]['relativePath'] == values[1]['relativePath'])
     actual = artifact_member_image(path, digest, values[0]['relativePath'])
+    from adapters.original_file_reads import record as record_file
+    record_file(path)  # Only after the full independent IPA byte decoder succeeded.
     scope = {key: binding[key] for key in ('sourceRevision', 'artifactSha256', 'sessionId', 'generation', 'targetFingerprint')}
     parser = InstalledCodeBinding(SimpleNamespace(read=lambda: deepcopy(record)), scope, actual['bundle'],
         unavailable, unavailable, unavailable)

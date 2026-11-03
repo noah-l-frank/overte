@@ -23,6 +23,9 @@ complete source-level triples; compilation and device qualification remain
 unexecuted. Component counts below do not establish device results.
 The [Create operation handoff](adapters/CREATE_FEATURE.md) covers all 21 normal
 steps, independent actor originals, paired repeated cleanup and final archive.
+The [loaded Chat peer composition](CHAT_LOADED_PEER_COMPOSITION.md) records
+explicit internal profiles 9–11, their current host results and the remaining
+whole-flow timeout. Chat remains partial.
 
 This directory is the Fedora half of the protected iOS device-lab boundary.
 Fedora never builds or signs an IPA. It consumes only the two age-encrypted

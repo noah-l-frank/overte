@@ -39,8 +39,8 @@ class PairScriptModel(BusScriptModel):
 
 
 class PeerSendFixture:
-    def __init__(self,case,*,model_class=PairScriptModel,clock=None):
-        self.pair=IOSChatReceiveRuntimeTests();self.pair.setUp();case.addCleanup(self.pair.doCleanups)
+    def __init__(self,case,*,model_class=PairScriptModel,clock=None,pair_factory=IOSChatReceiveRuntimeTests):
+        self.pair=pair_factory();self.pair.setUp();case.addCleanup(self.pair.doCleanups)
         self.clock=HostClock() if clock is None else clock;self.models={};self.drafts={};self.opened={}
         self.drop_primary=False;self.mutate_wire=None
         self.pair.sources['primary']['binding']['processIdentity']='42';self.pair.sources['primary']['observer'].pid=42

@@ -21,7 +21,7 @@ class ChatSourceBoundOwnerTests(unittest.TestCase):
         self.f=legacy_fixture.ChatDraftOwnerTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
         self.m=self.f.model=SourceBoundMessageModel();self.run=legacy_fixture.RUN;self.binding=legacy_fixture.BINDING
     @contextmanager
-    def owner(self,*,source_bound=True,peer_actor=False,peer_receipts=None):
+    def owner(self,*,source_bound=True,peer_actor=False,peer_receipts=None,qml_bound=False,qml_artifact=None,qml_images=None):
         model=self.m;failure=None
         with self.f.lock.held():
             try:
@@ -30,7 +30,8 @@ class ChatSourceBoundOwnerTests(unittest.TestCase):
                     native=model.native_reader(),io=IOSChatIO(SimpleNamespace(capture=model.capture,native=model)),view=model.view_reader(),
                     phase=PhaseFixtureReader(model.client(),self.run,'chat',epoch_ms=model.epoch,monotonic=lambda:model.widgets.clock),
                     epoch_ms=model.epoch,monotonic=lambda:model.widgets.clock,sleep=model.sleep,
-                    source_bound=source_bound,code_roots=roots,code_sources=code,peer_actor=peer_actor,peer_receipts=peer_receipts)
+                    source_bound=source_bound,code_roots=roots,code_sources=code,peer_actor=peer_actor,peer_receipts=peer_receipts,
+                    qml_bound=qml_bound,qml_sources=model.qml_reader() if qml_bound else None,qml_artifact=qml_artifact,qml_images=qml_images)
                 model.owner=owner;yield owner
             except BaseException as error:failure=error
         if failure is not None:raise failure
