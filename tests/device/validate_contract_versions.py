@@ -14,6 +14,7 @@ REQUIRED = {
     "pico-browser-archive-ownership": 1,
     "pico-browser-host-close": 1,
     "pico-browser-archive-release": 1,
+    "pico-emote-source-transaction-wire": 1,
     "loaded-chunk-codec": 1,
     "original-source-unlink-fence": 1,
     "pico-browser-vm": 1,

@@ -790,6 +790,16 @@
           "emote-common-pending",
           "emote-common-fences"
         ]
+      },
+      "sourceTransactionWirePrerequisite": {
+        "version": 1,
+        "rootCases": 15,
+        "rootSeconds": 0.577,
+        "rootLoadedSources": 76,
+        "selector": "emote-source-transaction-wire",
+        "scope": "Opaque host transport return retained before parsing; declared transport model only. Cold factory, Native six-source producer, physical SDK envelope and whole Common remain open.",
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     },
     {

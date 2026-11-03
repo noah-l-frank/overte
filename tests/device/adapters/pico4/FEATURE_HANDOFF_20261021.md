@@ -3956,3 +3956,14 @@ assumption; its larger upper bound does not prove an observed output overrun.
 The caller must charge its codec reservation and all global resources.
 Source2 raw transport/namespace/normal close remain open. Catalogue401 contains
 one new disjoint prerequisite selector; complete areas remain3/14, devices0.
+
+## Emote opaque source wire prerequisite, 2026-11-03
+
+The [source transaction wire](EMOTE_SOURCE_TRANSACTION_WIRE1.md) preserves the
+complete opaque return, including actual timeout/nonzero stdout prefixes, in
+the existing raw archive before framing or parsing. Root15 pass0.577s with76
+loaded sources unchanged. The unchanged512-part/16MiB limits and bounded
+decoder accounting remain enforced. This uses a declared host transport model;
+the Native producer, physical SDK envelope, cold factory and whole Common are
+still open. Catalogue402 adds one disjoint prerequisite group; complete areas
+remain3/14, device qualification0.

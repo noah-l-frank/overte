@@ -1,0 +1,30 @@
+"""Opaque Source transaction Host components; Native/whole remain unqualified."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from pathlib import Path
+import sys
+import unittest
+sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
+
+CASE_NAMES=(
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_one_actual_return_is_retained_before_first_header_or_source_parser',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_actual_one_mib_incompressible_nul_return_is_preserved_and_never_retried',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_actual_sdk_timeout_partial_stdout_is_retained_before_any_parser',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_second_unknown_reply_cannot_expose_prior_literal_as_current_return',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_actual_nonzero_sdk_process_partial_stdout_remains_original_before_failure',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_same_compound_512_part_cap_refuses_before_real_transport',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_same_compound_stored_byte_cap_refuses_before_real_transport',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_same_compound_decoded_byte_cap_refuses_before_real_transport',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_first_clock_reentry_keeps_outer_claim_and_sends_zero_sdk',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_first_guard_reentry_keeps_outer_claim_and_sends_zero_sdk',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_already_issued_late_return_precedes_expiry_and_callback_substitution_fences',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_changed_clock_callback_after_actual_return_cannot_renew_original_window',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_issued_original_archive_and_limit_survive_inflight_public_config_swap',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_unicode_aggregate_decoded_cap_preserves_whole_wire_without_truncation',
+    'self_tests.test_pico_emote_source_transaction_wire.SourceTransactionWireTests.test_finite_number_expansion_and_all_pending_lexicals_remain_lossless',
+)
+
+
+def load_tests(loader,_tests,_pattern):return loader.loadTestsFromNames(CASE_NAMES)
+
+if __name__=='__main__':unittest.main()
