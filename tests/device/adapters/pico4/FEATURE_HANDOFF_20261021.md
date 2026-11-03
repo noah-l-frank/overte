@@ -3997,3 +3997,16 @@ completion (120.610s observed), without improving the integrated400ms scope.
 Those three experimental files were saved with SHA/full physical records and
 restored exactly to19203ff443; all failed originals remain. No unchanged whole
 retry, source-cap increase or feature promotion is made.
+
+## Cold ordinary Emote entry, 2026-11-04
+
+The [cold factory](EMOTE_COLD_FACTORY1.md) constructs the same Parent2/Cycle/
+Sources/Inputs/Lifetime before any debug/UI getter. Existing bootstrap creates
+the same raw archive before original ScriptIO initialization. Root9 pass18.278s
+with273 loaded sources unchanged, including the canonical private Binding
+entry with production default clocks. Normal baseline/Open/Crying-Play advances
+the actual existing owners; SDK/Qt/Rig effects remain declared models. First
+clock/guard reentry and all six premature UI input entries issue no input or
+getter. Malformed/timeout originals remain retained. Native single-transaction
+producer, whole-budget composition, later actions and complete retirement stay
+open. Catalogue406 adds one group; complete areas remain3/14, devices0.

@@ -800,6 +800,25 @@
         "scope": "Opaque host transport return retained before parsing; declared transport model only. Cold factory, Native six-source producer, physical SDK envelope and whole Common remain open.",
         "nativeCompiled": false,
         "devicesTested": false
+      },
+      "coldFactoryPrerequisite": {
+        "version": 1,
+        "rootCases": 9,
+        "rootSeconds": 18.278,
+        "rootLoadedSources": 273,
+        "selector": "emote-cold-factory",
+        "canonicalBindingConstructor": true,
+        "constructorDtoGetters": 0,
+        "originalScriptIoAfterRawBootstrap": true,
+        "normalPrefix": [
+          "baseline",
+          "open",
+          "Crying play"
+        ],
+        "scope": "Same existing Parent2/Cycle/Source graph with declared SDK/Qt/Rig producers; actual fixed host raw scripts, original retained bytes and input/effect owners.",
+        "wholeCommon": false,
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     },
     {

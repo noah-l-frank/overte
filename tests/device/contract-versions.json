@@ -6,6 +6,7 @@
     "pico-browser-archive-ownership": {"current": 1, "reads": [1]},
     "pico-browser-host-close": {"current": 1, "reads": [1]},
     "pico-browser-archive-release": {"current": 1, "reads": [1]},
+    "pico-emote-cold-runtime": {"current": 1, "reads": [1]},
     "pico-emote-source-transaction-wire": {"current": 1, "reads": [1]},
     "loaded-chunk-codec": {"current": 1, "reads": [1]},
     "original-source-unlink-fence": {"current": 1, "reads": [1]},

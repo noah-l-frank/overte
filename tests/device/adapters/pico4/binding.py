@@ -1060,6 +1060,12 @@ def create_adapter(args, base_class):
             return SerializedWorldCapture(capture,storage,owner,receipts,source_lock=lock)
 
         @_private
+        def _emote_cold_common(self, target, roles, phase, artifact_root, source_lock):
+            from adapters.pico4.emote_cold_factory import create_cold_common
+            return create_cold_common(self, target, roles, phase, artifact_root, source_lock)
+
+
+        @_private
         def _emote_stream_capture(self, primary_target, actor_target, cycle, index):
             from adapters.pico4.emote_stream_factory import capture
             return capture(self,primary_target,actor_target,cycle,index)
