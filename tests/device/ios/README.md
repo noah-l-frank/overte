@@ -427,7 +427,9 @@ host-tested; native compilation and all device qualification remain unverified.
 
 The internal [Snapshot rendered-review owner](SNAPSHOT_RENDERED_REVIEW.md) joins
 the existing combined normal capture and actual Page observations to an
-independently retained WDA screen PNG. It preserves unknown-delivery ownership
-and fixed pixel/clock checks; scene/Actor, resume, destinations and whole
-retirement remain required. Native instrumentation is uncompiled and devices
-are untested.
+independently retained WDA screen PNG. The explicit resumed Page/input/OS
+profile also joins once-only Home/activation, original process continuity and
+a new WDA image of the same retained PNG. Unknown delivery is not repeated,
+and fixed pixel/clock checks remain. Independent scene/Actor, full destination
+composition and whole retirement are still required. Native instrumentation
+is uncompiled and devices are untested.

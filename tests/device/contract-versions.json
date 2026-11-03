@@ -5710,6 +5710,78 @@
         1
       ]
     },
+    "ios-snapshot-resume-input-cursor": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-resume-inputs-packet": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-resume-os-bridge": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-resume-os-owner": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-resume-page-frame": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-resume-page-observation": {
+      "current": 3,
+      "reads": [
+        3
+      ]
+    },
+    "ios-snapshot-resume-page-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-resume-page-owner": {
+      "current": 3,
+      "reads": [
+        3
+      ]
+    },
+    "ios-snapshot-resume-page-prepared": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-resume-rendered-review": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-resume-rendered-review-owner": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-resume-review-screen-images": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
     "ios-snapshot-review-inventory": {
       "current": 1,
       "reads": [
@@ -8490,6 +8562,42 @@
       ]
     },
     "snapshot-rendered-review-join": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-resume-native-inputs-frame": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-resume-native-inputs-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-resume-source-part-body": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-resume-source-part-frame": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-resume-source-part-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-resume-source-parts": {
       "current": 1,
       "reads": [
         1

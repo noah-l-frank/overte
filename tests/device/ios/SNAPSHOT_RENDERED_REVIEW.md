@@ -63,7 +63,72 @@ absence, unchanged7918 source pins and two equal complete original censuses.
 
 QML/UIKit/WDA, native clocks and SDK boundaries are declared host producers.
 Native code is uncompiled; no vendor SDK, device, simulator or network ran.
-Original scene/camera fidelity, independent Actor agreement, background-resume
-review, complete destination/failure recovery, paired source/resource cleanup
+Original scene/camera fidelity, independent Actor agreement, complete
+destination/failure recovery, paired source/resource cleanup
 and final main/witness process/SDK retirement remain mandatory. Feature11 stays
 partial. Five of fourteen feature areas are source-complete.
+
+## Original OS resume and rendered review
+
+`IOSSnapshotResumeRuntime.rendered_resume_owner` connects the existing completed
+capture and capture-stage review to an original OS background/activation bridge,
+new resumed Page observations and another independently retained WDA PNG. It
+uses the existing installed candidate, SDK session and one held source lock.
+It creates no session or launch. This is still an internal component; it does
+not enable `feature.snapshots` or replace the existing normal operation route.
+
+The explicit Resume Page3 has its own owner/frame namespace. Its prepare
+operation requires the current `background-resume` ticket and cannot navigate,
+capture or restore the original page. A separate segmented native-input owner
+retains the complete original command/return history. The last actual command,
+positive return, root and input instance must match the current UI cursor.
+Older commands remain part of the same validated prefix; the cursor is not
+incorrectly fixed to the earlier capture command before Save/Share/Upload.
+The new profile does not widen the literal Page1/Page2 or input packet readers.
+It retains the existing `iosSnapshotPageOwnerVersion` and observation field
+names with value3. Its frame/original envelopes retain the combined Page
+version-one wire fields under the distinct resumed file namespace; the registry
+describes these separate profiles without inventing different wire keys.
+
+The OS bridge reuses `LifecycleOSContext` and its actual process/source and
+installed-code readers. Home and activation each have a durable intent before
+their once-only send. Lost returns recover by original OS status, never another
+Home, activation or launch. Background recovery constructs no native/UI source
+and reads only OS continuity and saved originals. The same process and input
+cursor must survive exactly one new native background/activation pair. A saved
+complete Page original may finish its parent CAS under the current foreground
+OS guard without another phase, UI, clock or WDA acquisition. Unknown or partial
+original delivery remains unresolved.
+
+After foreground admission, the rendered owner takes fresh Page observations
+around a new WDA image and compares it with the same original captured PNG.
+It preserves the capture review's fixed pixel/geometry/clock requirements and
+also binds the new observations to the saved OS-after original. Another native
+lifecycle transition between the OS bridge and rendered review is rejected.
+The image profile uses a distinct `snapshot-resume-review` namespace and typed
+owner; the capture-only historical reader cannot consume it. Completed proofs
+reread original bytes and inode identities, and unknown screenshot delivery
+cannot trigger another WDA request.
+
+The historical capture-review reader passed three original-only cases. Resume
+Page3 and complete input-prefix components passed six and five cases. The
+connected canonical OS composition passed twelve distinct cases across frozen
+selections, retaining780 files in28 actual temporary directories. Its first
+negative batch exposed a fixture field-name collision before any OS input;
+the corrected fixture changed only that field and preserved the failed51
+files. The six connected rendered-resume cases passed in96.563 test seconds,
+retaining372 files in12 directories. They cover wrong pixels, lost WDA return,
+saved-image/lost-parent CAS, same-byte foreign inode and an extra native
+transition. These are distinct selections, not single twelve/six-case green
+runs. Sources, real cleanup/FD/thread/process closure and complete postprocess
+original censuses were verified for each qualified selection. After integration,
+twenty existing capture-review, pixel/graphics-profile and native-source-packet
+cases passed in21.921 seconds against the public files, retaining351 originals;
+all7962 source pins and actual cleanup/census checks remained unchanged.
+
+SDK, OS, native clocks, QML/UIKit and WDA producers remain explicit host models.
+The new join closes only its original OS/rendered-resume component obligations.
+Independent scene/camera and Actor evidence, the entire eighteen-step flow,
+destination/failure composition, repeated paired cleanup and final source/
+main/witness/SDK end still require integration. Compilation and devices remain
+unverified; the complete Snapshot capability remains closed.

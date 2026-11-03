@@ -7,6 +7,7 @@ background resume, destinations, paired cleanup and whole End remain open.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import time
 from adapters.native_clock_join import digest
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_feature_state import PrivateFeatureState,context
@@ -32,6 +33,7 @@ class SnapshotCaptureReviewOwner:
             and type(capture) is IOSSnapshotCaptureOwner and capture.combined and capture.historical
             and type(images) is SnapshotReviewImages and callable(monotonic))
         self.page,self.capture,self.images,self.monotonic=page,capture,images,monotonic
+        self.historical=False
         self.lock=page.lock;self.binding=deepcopy(context(page.binding));self.run=page.run
         need(capture.lock is self.lock and images.lock is self.lock
             and same(capture.binding,self.binding) and same(images.binding,self.binding)
@@ -46,6 +48,32 @@ class SnapshotCaptureReviewOwner:
         if self.previous is not None:self.state=self.decode(self.previous)
         self.inventory()
 
+    @classmethod
+    def archive(cls,store,lock,binding,run,fixture_url,*,monotonic=time.monotonic):
+        """Reopen actual original children without SDK/source construction.
+
+        This is historical evidence only. It cannot acquire images, call a
+        native/fixture source, change the parent or delete any retained file.
+        """
+        need(cls is SnapshotCaptureReviewOwner and type(store) is PrivateFeatureState
+            and store.path.name==NAME and lock.path==store.path.with_name('script-feature-sources.lock')
+            and callable(monotonic))
+        lock.assert_held();binding=deepcopy(context(binding));identifier(run)
+        page=IOSSnapshotPageOwner.archive(PrivateFeatureState(store.path.with_name('ios-snapshot-page-owner.json')),
+            lock,binding,run,fixture_url,combined=True)
+        capture=IOSSnapshotCaptureOwner.archive(PrivateFeatureState(store.path.with_name('ios-snapshot-primary-capture-owner.json')),
+            lock,binding,run,fixture_url,combined=True)
+        def forbidden(*_args,**_kwargs):raise NativeUIError('Historical Snapshot review cannot use live transport')
+        class NoTransport:
+            call=staticmethod(forbidden)
+        images=SnapshotReviewImages(PrivateFeatureState(store.path.with_name('ios-snapshot-review-screens.json')),
+            store.path.parent,binding,run,'primary',0,NoTransport(),forbidden,lambda:lock.assert_held(),
+            source_lock=lock,monotonic=monotonic,historical=True)
+        owner=object.__new__(cls);owner.page,owner.capture,owner.images=page,capture,images
+        owner.lock,owner.binding,owner.run,owner.store,owner.monotonic=lock,binding,run,store,monotonic
+        owner.historical=True;owner.previous=store.read();need(owner.previous is not None)
+        owner.state=owner.decode(owner.previous);owner.bound();owner.inventory();return owner
+
     def envelope(self,state):
         return dict(iosSnapshotCaptureReviewOwnerVersion=1,binding=self.binding,runId=self.run,
             fixtureUrl=self.page.fixture_url,pageStore=self.page.store.path.name,
@@ -57,7 +85,7 @@ class SnapshotCaptureReviewOwner:
         return True
 
     def save(self):
-        self.bound();value=self.envelope(self.state);self.decode(value)
+        need(not self.historical);self.bound();value=self.envelope(self.state);self.decode(value)
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def decode(self,value):
@@ -119,6 +147,7 @@ class SnapshotCaptureReviewOwner:
         return frame
 
     def observation(self,key,count_key):
+        need(not self.historical)
         count=self.state[count_key];need(integer(count,1,383))
         # Saved Page originals can repair a lost parent CAS without a new GET.
         # An unfinished Page GET is handled only by its existing durable policy.
@@ -130,7 +159,7 @@ class SnapshotCaptureReviewOwner:
         self.state['phase']='before-saved' if key=='before' else 'after-saved';self.save()
 
     def screen(self):
-        self.bound();self.images._load();rows=self.images.rows;prefix=self.state['screenPrefix']
+        need(not self.historical);self.bound();self.images._load();rows=self.images.rows;prefix=self.state['screenPrefix']
         need(same(rows[:len(prefix)],prefix))
         if len(rows)==len(prefix):
             self.images.capture(self.state['ticket']);self.images._load();rows=self.images.rows
@@ -141,7 +170,7 @@ class SnapshotCaptureReviewOwner:
 
     @operation
     def acquire(self,ticket):
-        identifier(ticket);self.bound()
+        need(not self.historical);identifier(ticket);self.bound()
         if self.state['phase']=='complete':need(self.state['ticket']==ticket);return self.proof()
         need(self.page.state['ticket']==self.capture.state['ticket']==ticket
             and self.page.state['opened'] is not None and self.page.state['restored'] is None
