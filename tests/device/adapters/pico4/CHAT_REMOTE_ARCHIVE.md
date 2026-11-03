@@ -498,3 +498,72 @@ capabilities, source budgets, cadence, three-second quiet and120s limits remain
 unchanged. The initial diagnostic runner-only retention preflight failed before
 any acquisition and remains retained separately; the actual61-query run used
 the fixture's existing Parent/Actor retention owners.
+
+## Warm metadata comparison without repeated JSON admission
+
+The existing `ChatRemotePublication` still admits every genuine metadata update
+through the original strict JSON type walk and canonical digest. Its warm
+controls compare the complete current metadata against a pinned type-exact
+process-local signature. Every call still hashes every original literal via
+`ChatOriginalMemory.control`; current physical children, complete inventories,
+original bytes, native/process guards and final clocks remain independently
+checked. There is no new source, recipe, persisted DTO or historical decoder.
+
+The signature uses `marshal.dumps(..., 2)` only, after recursively sorting exact
+dictionary keys. It is never persisted or passed to `marshal.loads`. Version2
+does not encode reference memoization: holding extra inspection references,
+string interning, deepcopy and equivalent shared/unshared JSON graphs do not
+change the comparison. Dictionary order stays immaterial as in canonical JSON.
+Tuple/list, integer/boolean/float, non-string keys and subclass substitutions
+cannot masquerade as admitted original types. The original seal's identity and
+canonical checksum are also pinned; changing an exposed checksum is not a new
+admission. Failed comparison cannot advance acquisition, history or cleanup.
+
+Read-only method measurements on the retained61-query metadata (127,424
+canonical bytes and305 original child signatures) compared19 passes per round.
+Median strict type walk plus canonical digest took23.105ms; normalized version2
+comparison took10.080ms. All703 original files retained their exact bytes and
+physical signatures. An initially faster version4 prototype was rejected:
+its reference flags can depend on Python reference counts and do not preserve
+the existing value semantics. The measurements describe this pure historical
+method only, excluding original physical I/O and source acquisition. They do
+not justify another unchanged whole attempt or a complete Chat verdict.
+
+A type-signature mismatch runs the original strict type walk and compares its
+canonical digest with the same original seal. This preserves canonical JSON's
+Unicode equivalence between a non-BMP scalar and its explicit surrogate pair,
+including dictionary keys, without accepting a tuple or subclass. The fallback
+does not reseal metadata, issue a query or renew a clock. Such uncommon aliases
+retain the original validation cost; the fast signature remains an optimization
+only. A real failing Unicode counter was retained before adding this fallback.
+
+## Root review and distinct-phase investigation boundary
+
+The selected warm metadata comparison preserves the complete old canonical
+contract. A sorted exact-dictionary graph is serialized only into a local
+marshal2 comparison signature, never loaded or persisted. Reference-count
+flags from marshal3/4 are deliberately excluded. Strict JSON/canonical
+admission still runs at each legitimate owner update. Every current original
+literal is still rehashed and all physical/native/clock checks remain. Any
+signature mismatch uses the original strict canonical digest and unchanged
+seal, preserving non-BMP/surrogate-pair value and dictionary-key aliases.
+No fallback acquires, reseals or renews an observer.
+
+The existing46-case selector passes31.164s with183 loaded sources unchanged;
+the actual false-common cleanup/Stop2/extra tail/typed return/nonce/kernel
+absence/seals/catalog case passes37.685s with181 unchanged sources. Their
+1,436 and558 runtime originals remain retained, with no owned process. The
+exact method comparison over19 controls is21.439ms versus10.151ms, not a
+whole runtime speedup. No new61-query or whole run is implied by that packet.
+
+Later bounded read-only search did not locate the historical93-record/168-part
+step19 runtime within the surviving inspected directories. Its earlier
+retention/result records remain historical; the new61-record corpus cannot
+replace it. A declared new19-label CompiledBoundary method corpus only checks
+validator cost and contains explicit modeled Native/V8 packets; it neither
+reconstructs that old Primary/Actor graph nor qualifies whole progress.
+Also, every passive source sample captures a new compiled transaction UUID:
+the61 same-phase diagnostic already has61 compiled transactions, not one.
+Distinct phase authority and transaction-history length must be measured
+separately. Current follow-up diagnostics are outside this selected cache
+packet and retain their own exact source and failure boundaries.

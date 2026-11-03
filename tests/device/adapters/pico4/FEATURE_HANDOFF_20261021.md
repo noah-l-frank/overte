@@ -112,6 +112,15 @@ fit default120s separately, canonical3+legacy12 pass24.845s. The manual14-case
 141.584s aggregate is explicitly not one journey. Catalog:319 groups, with an
 exact-once partition check. Source-complete feature areas remain3/14.
 
+Chat Reader3 warm metadata checks now retain exact typed/canonical semantics
+while comparing only process-local sorted marshal2 signatures on the normal
+path. Canonical fallback preserves scalar/surrogate and key aliases without
+resealing. Reader46/31.164s and actual false-common Stop2/typed-return/kernel
+absence/seals1/37.685s preserve183/181 loaded sources and all originals.
+This is an isolated method improvement; no full Chat claim or changed format,
+capability, deadline, quiet or physical/native/source guard follows. Historical
+step19 failure remains; later distinct-phase diagnostics are separate.
+
 The selected Chat archive-v4/host-close, Avatar original preferences/Bookmarks
 and Snapshot export packets are integrated together. Eleven affected owning
 groups pass after correcting the shared original Avatar observer harness to

@@ -18,7 +18,7 @@ from adapters.chat_journey.source_chunks import digest
 from contextlib import contextmanager
 from unittest.mock import patch
 
-from adapters.chat_journey.remote_publication import ChatRemotePublication,original_record
+from adapters.chat_journey.remote_publication import ChatRemotePublication,original_record,_warm_signature
 from adapters.chat_journey.decoded_chunks import ChatDecodedPrefix
 from adapters.chat_journey.source_chunks import ChatSourceChunks
 from adapters.chat_journey import source_bundles
@@ -148,6 +148,82 @@ class ChatRemotePublicationTests(unittest.TestCase):
         self.assertIsNone(self.stores['actor'].read().get('stopCommand'))
         self.assertTrue(self.process.guard() is True);self.assertEqual(4,last['entries'][-1]['actorSequence'])
         self.assertEqual(4,len(owner.grammar.previous['frames']['publisher']));self.assertIsNone(owner.grammar.pending)
+
+    def test_warm_metadata_keeps_legitimate_refs_aliases_deepcopy_and_dictionary_order(self):
+        owner=self.owner;owner.acquire(0);seal=owner.cache_seal
+        inspection=[owner.expected,owner.scope,owner.previous,owner.admitted,owner.roots]*3
+        def reverse(value):
+            if type(value) is dict:return {key:reverse(field) for key,field in reversed(list(value.items()))}
+            if type(value) is list:return [reverse(field) for field in value]
+            return value
+        for name in ('expected','scope','previous','admitted','roots','paths'):
+            setattr(owner,name,reverse(deepcopy(getattr(owner,name))))
+        owner.metadata_control();self.assertIs(seal,owner.cache_seal)
+        self.assertTrue(inspection);self.command('publish');owner.acquire(1)
+        self.assertEqual(2,owner.row_count());self.assertFalse(owner.failed)
+        shared={'same':[1,False,None,'x']};unshared={'a':deepcopy(shared),'b':deepcopy(shared)}
+        self.assertEqual(_warm_signature({'a':shared,'b':shared}),_warm_signature(unshared))
+        text=''.join(['original','-',uuid.uuid4().hex]);interned=sys.intern(text)
+        self.assertEqual(_warm_signature([text,text]),_warm_signature([''.join(list(text)),interned]))
+
+    def test_warm_signature_preserves_exact_types_and_rejects_subclass_hooks(self):
+        class Forbidden(str):
+            def __reduce__(self):raise AssertionError('No serialization hooks may run')
+        original={'a':[1,False,None,'x']};signature=_warm_signature(original)
+        for value in ({'a':tuple(original['a'])},{'a':[True,False,None,'x']},
+                      {'a':[1.0,False,None,'x']},{'a':[1,False,None,b'x']}):
+            self.assertNotEqual(signature,_warm_signature(value))
+        for value in ({'a':[Forbidden('x')]},{1:['x']}):
+            with self.assertRaises(NativeUIError):_warm_signature(value)
+
+    def test_canonical_unicode_alias_uses_original_strict_digest_without_resealing(self):
+        from adapters.chat_journey.original_memory import plain
+        owner=self.owner;metadata=owner.cache_metadata;value=[None]
+        def modeled(*,strict):
+            result=metadata(strict=strict);result['unicodeBoundary']=value[0]
+            if strict:plain(value[0])
+            return result
+        # Pure additional metadata field only: no source query, scope change,
+        # requested effect, publication or caller-owned original is admitted.
+        pairs=(('\U0001f600','\ud83d\ude00'),({'\U0001f600':'x'},{'\ud83d\ude00':'x'}))
+        with patch.object(owner,'cache_metadata',modeled):
+            for first,second in pairs:
+                self.assertEqual(canonical(first),canonical(second))
+                self.assertNotEqual(_warm_signature(first),_warm_signature(second))
+                value[0]=first;owner.pin_cache();seal=owner.cache_seal
+                value[0]=second
+                with patch.object(owner,'cache_digest',wraps=owner.cache_digest) as strict:
+                    owner.cache_control();self.assertEqual(1,strict.call_count)
+                self.assertIs(seal,owner.cache_seal)
+
+    def test_warm_cache_seal_and_forged_canonical_checksum_cannot_adopt_mutation(self):
+        owner=self.owner;owner.acquire(0);before=deepcopy(owner.previous)
+        owner.admitted[next(iter(owner.admitted))][0]+=1
+        owner.cache_sha=owner.cache_digest() # An exposed checksum is not original admission.
+        self.command('publish')
+        with self.assertRaises(NativeUIError):owner.acquire(1)
+        self.assertTrue(owner.failed);self.assertEqual(before,owner.store.read())
+        self.assertEqual(1,owner.row_count());self.assertEqual(2,len(self.command('snapshot')['entries']))
+
+    def test_replaced_same_value_warm_seal_cannot_become_original_admission(self):
+        owner=self.owner;owner.acquire(0);owner.cache_seal=tuple(list(owner.cache_seal))
+        self.command('publish')
+        with self.assertRaises(NativeUIError):owner.acquire(1)
+        self.assertTrue(owner.failed);self.assertEqual(1,owner.row_count())
+
+    def test_signature_processing_cost_stays_in_original_freshness_without_clock_renewal(self):
+        owner=self.owner;clock=[0.0];owner.monotonic=lambda:clock[0]
+        signature=_warm_signature;delayed=[]
+        def late(value):
+            result=signature(value)
+            if owner.previous is not None and owner.previous['phase']=='ready' and not delayed:
+                delayed.append(True);clock[0]+=2
+            return result
+        with patch('adapters.chat_journey.remote_publication._warm_signature',side_effect=late):
+            with self.assertRaises(NativeUIError):owner.acquire(0)
+        self.assertEqual([True],delayed);self.assertTrue(owner.failed)
+        self.assertEqual('ready',owner.store.read()['phase']);self.assertIsNone(owner.grammar.previous)
+        self.assertTrue(owner.store.path.exists())
 
     def test_cold_storage_decodes_original_v3_parts_and_retains_v2_without_constructing_live_owner(self):
         owner=self.owner;owner.acquire(0);self.command('advance');owner.acquire(1)

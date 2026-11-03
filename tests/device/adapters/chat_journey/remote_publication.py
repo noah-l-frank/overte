@@ -6,6 +6,7 @@ from copy import deepcopy
 import base64
 import hashlib
 import math
+import marshal
 import os
 import stat
 import time
@@ -32,6 +33,24 @@ from feature_journeys.phase_fixture import PhaseFixtureReader,PhasePending,Phase
 from fixture.chat_observer_process import LinuxChatObserverProcess
 
 VERSION=3
+
+
+def _warm_signature(value):
+    """Type-exact canonical-order local signature; never persisted or loaded.
+
+    Version2 has no reference memo/flags: aliases, inspection references and
+    string interning cannot change its bytes. Dict order remains immaterial,
+    as in the existing canonical JSON contract. JSON admission is separate.
+    """
+    def ordered(item):
+        if type(item) is dict:
+            need(all(type(key) is str for key in item))
+            return {key:ordered(item[key]) for key in sorted(item)}
+        if type(item) is list:return [ordered(field) for field in item]
+        return item
+    try:return marshal.dumps(ordered(value),2)
+    except (ValueError,TypeError,RecursionError):
+        raise NativeUIError('Original Chat metadata signature is invalid') from None
 EXPECTED={'runId','fixtureUrl','binding','peerBinding','hostProcessIdentity','instance'}
 STORES={'actor','flow','cleanup',*GRAPH}
 ACTOR=EXPECTED|{'picoChatCursorActorVersion','phase','pairs','returnedPublication'}
@@ -98,7 +117,7 @@ class ChatRemotePublication:
         self.stop_intent=None;self.failed=False;self.grammar=self._grammar=ChatSourceGraphPrefix()
         self.directory_window=None
         self.decoders=self._decoders={};self.decoder_sha=digest({})
-        self.cache_sha=self.cache_digest();self.control()
+        self.pin_cache();self.control()
 
     def decoder_signature(self):
         need(type(self.decoders) is dict and self.decoders is self._decoders and set(self.decoders)<=set(GRAPH))
@@ -107,16 +126,44 @@ class ChatRemotePublication:
             need(type(cache) is ChatDecodedPrefix and cache.path==self.paths[key]);result[key]=cache.control()
         return result
 
-    def cache_digest(self):
+    def cache_metadata(self,*,strict):
+        need(type(strict) is bool)
         need(type(self.history) is ChatSourceChunks and self.history.root is self.store and self.history.scope==digest(self.scope)
             and type(self.originals) is ChatOriginalMemory and self.originals is self._originals
             and type(self.history.raw_bytes) is int and type(self.history.identities) is list
             and all(type(row) is tuple and len(row)==8 and all(type(field) is int for field in row) for row in self.history.identities))
-        for value in (self.expected,self.scope,self.previous,self.admitted,self.roots,self.root_stamp,self.paths,self.lock_paths,self.stop_intent):plain(value)
+        if strict:
+            for value in (self.expected,self.scope,self.previous,self.admitted,self.roots,self.root_stamp,self.paths,self.lock_paths,self.stop_intent):plain(value)
         originals=self.originals.control(self.scope)
-        return digest(dict(expected=self.expected,scope=self.scope,previous=self.previous,rows=originals,
+        return dict(expected=self.expected,scope=self.scope,previous=self.previous,rows=originals,
             admitted=self.admitted,roots=self.roots,stamp=self.root_stamp,paths=self.paths,locks=self.lock_paths,
-            history=dict(rawBytes=self.history.raw_bytes,identities=[list(row) for row in self.history.identities]),stop=self.stop_intent))
+            history=dict(rawBytes=self.history.raw_bytes,identities=[list(row) for row in self.history.identities]),stop=self.stop_intent)
+
+    def cache_digest(self):
+        return digest(self.cache_metadata(strict=True))
+
+    def pin_cache(self):
+        """Admit exact JSON after a genuine original owner-state transition.
+
+        The typed signature is process-local and is never stored or decoded.
+        It preserves list/tuple, bool/int and subclass distinctions that JSON
+        canonicalization alone would erase. Public source formats stay intact.
+        """
+        value=self.cache_metadata(strict=True);self.cache_sha=digest(value)
+        self.cache_seal=self._cache_seal=(self.cache_sha,_warm_signature(value))
+
+    def cache_control(self):
+        # Compare the entire current value, never its mutable object's identity.
+        # OriginalMemory still rehashes every original literal above; physical,
+        # process/native and clock proofs remain separate obligations below.
+        need(type(self.cache_seal) is tuple and self.cache_seal is self._cache_seal
+            and len(self.cache_seal)==2 and type(self.cache_sha) is str
+            and self.cache_sha==self.cache_seal[0] and type(self.cache_seal[1]) is bytes)
+        if _warm_signature(self.cache_metadata(strict=False))!=self.cache_seal[1]:
+            # Canonical JSON also aliases a Unicode scalar with its explicit
+            # surrogate-pair spelling. Preserve every old canonical/type
+            # admission on a mismatch, without resealing or renewing a clock.
+            need(self.cache_digest()==self.cache_seal[0])
 
     @property
     def rows(self):
@@ -136,7 +183,8 @@ class ChatRemotePublication:
         """Original warm JSON/path identity only; no live process observation."""
         need(digest(self.decoder_signature())==self.decoder_sha)
         need(type(self.grammar) is ChatSourceGraphPrefix and self.grammar is self._grammar);self.grammar.control()
-        need(not self.failed and self.directory_window is None and self.cache_digest()==self.cache_sha and digest(self.expected)==self.expected_sha
+        self.cache_control()
+        need(not self.failed and self.directory_window is None and digest(self.expected)==self.expected_sha
             and parent_node(self.store)==self.parent and self.process.process_identity==self.expected['hostProcessIdentity']
             and {key:str(value.path) for key,value in self.stores.items()}==self.paths
             and [str(lock.path) for lock in self.locks]==self.lock_paths
@@ -214,7 +262,7 @@ class ChatRemotePublication:
     def save(self,phase,**changes):
         self.control();value={**(self.previous or {**self.scope,'chunks':[]}),'phase':phase,**deepcopy(changes)}
         self.store.write(value,self.previous);observed,_raw,physical=state(self.store);need(same(value,observed))
-        self.previous=deepcopy(value);self.root_stamp=physical;self.cache_sha=self.cache_digest();self.control()
+        self.previous=deepcopy(value);self.root_stamp=physical;self.pin_cache();self.control()
 
     def snapshot(self):
         files={};roots={};frames={};signatures={};decoders={};total=0
@@ -320,11 +368,11 @@ class ChatRemotePublication:
                         logicalBytes=source_bundles.logical_bytes([*references,reference]))
                     chunks=self.previous['chunks']
                     for part in parts:
-                        chunks=self.history.append(part,chunks);self.cache_sha=self.cache_digest()
+                        chunks=self.history.append(part,chunks);self.pin_cache()
                         self.save('reading',chunks=chunks)
                     decoded,_raw=source_bundles.original(self.history,chunks,[*references,reference],self.row_count())
                     need(same(decoded,record))
-                    self.originals.append(record,self.scope);self.admitted=snapshot['signatures'];self.roots=snapshot['roots'];self.cache_sha=self.cache_digest()
+                    self.originals.append(record,self.scope);self.admitted=snapshot['signatures'];self.roots=snapshot['roots'];self.pin_cache()
                     self.save('ready',chunks=chunks,bundles=[*references,reference],pendingBundle=None,
                         logicalBytes=source_bundles.logical_bytes([*references,reference]));result=deepcopy(received)
                     self.control();need(self.guard() is not False)
@@ -391,4 +439,4 @@ class ChatRemotePublication:
             and command['ticket']==published['payload']['ticket']
             and command['consumedSequence']==published['sequence']
             and command['consumedPayloadSha256']==digest(published['payload']))
-        self.stop_intent=deepcopy(command);self.cache_sha=self.cache_digest();self.control()
+        self.stop_intent=deepcopy(command);self.pin_cache();self.control()
