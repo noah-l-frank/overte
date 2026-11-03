@@ -308,6 +308,8 @@ TESTS = (
     test('avatar-urls-cleanup', "interaction", PYTHON, "device/test_avatar_urls_owner.py",
         'AvatarUrlsTests.test_owned_uri_is_normally_restored_after_uncertain_input_but_foreign_uri_is_preserved',
         'AvatarUrlsTests.test_ack_without_load_stays_pending_and_cleanup_retains_uncertain_ticket'),
+    test("avatar-people-reject", "interaction", PYTHON, "device/test_avatar_people_reject.py"),
+    test("avatar-people-reject-binding", "interaction", PYTHON, "device/test_avatar_people_reject_binding.py"),
     test('avatar-favorites-owner', "interaction", PYTHON, "device/test_avatar_favorites_owner.py",
         'AvatarFavoritesTests.test_normal_save_scale_missing_choose_restore_delete_remains_owned'),
     test('avatar-favorites-fences', "interaction", PYTHON, "device/test_avatar_favorites_owner.py",

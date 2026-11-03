@@ -24,11 +24,12 @@ from adapters.script_journey.lock import ScriptSourceLock
 from feature_journeys.contract import arguments
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 
-VERSION=2
+VERSION=3
 OPERATIONS=frozenset('feature.avatar-people.'+kind for kind in ('act','observe','cleanup'))
 URL_VERBS={'avatar-url','avatar-restore'}
 FAVORITE_VERBS={'avatar-bookmark-save','avatar-scale','avatar-bookmark-choose','avatar-bookmark-delete'}
-PEOPLE_VERBS={'connection-request','connection-cancel'}
+LEGACY_PEOPLE_VERBS={'connection-request','connection-cancel'}
+PEOPLE_VERBS=LEGACY_PEOPLE_VERBS|{'peer-reject'}
 SOURCES={'preferences':preferences,'callbacks':callbacks}
 CLASSES={'preferences':preferences.NativePicoAvatarPreferences,'callbacks':callbacks.NativePicoAvatarModelConnections}
 
@@ -100,7 +101,7 @@ class PicoAvatarParent:
             exact(call,{'request','before','after','child'})
             request=arguments('feature.avatar-people.act',call['request']);ticket=request['ticket']
             need(request['runId']==self.run and request['fixtureUrl']==self.phase.fixture_url and ticket not in tickets
-                and request['verb'] in URL_VERBS|FAVORITE_VERBS|(PEOPLE_VERBS if self.version>=2 else set()) and integer(call['before'],1,len(state['frames'])))
+                and request['verb'] in URL_VERBS|FAVORITE_VERBS|(PEOPLE_VERBS if self.version>=3 else LEGACY_PEOPLE_VERBS if self.version==2 else set()) and integer(call['before'],1,len(state['frames'])))
             activation=phase_original(state['frames'][call['before']-1]['phaseAfter'],self.run)
             need(activation['ticket']==ticket and activation['stimulus']==dict(verb=request['verb'],inputs=request['inputs']))
             if call['after'] is not None:
@@ -114,7 +115,7 @@ class PicoAvatarParent:
         need(pending==([] if state['pending'] is None else [state['pending']]))
     def restore(self,record):
         exact(record,{'picoAvatarParentVersion','binding','runId','fixtureUrl','payload'})
-        need(type(record['picoAvatarParentVersion']) is int and record['picoAvatarParentVersion'] in (1,VERSION)
+        need(type(record['picoAvatarParentVersion']) is int and record['picoAvatarParentVersion'] in (1,2,VERSION)
             and same(record['binding'],self.binding) and record['runId']==self.run and record['fixtureUrl']==self.phase.fixture_url)
         self.version=record['picoAvatarParentVersion']
         states=unpack(record['payload']);need(len(states)==1);state=states[0]
@@ -225,7 +226,7 @@ class PicoAvatarParent:
         frame=self.sample();activation=phase_original(frame['phaseAfter'],self.run)
         need(frame['phaseAfter']['active'] and activation['ticket']==request['ticket']
             and same(activation['stimulus'],dict(verb=request['verb'],inputs=request['inputs'])))
-        self.version=VERSION
+        self.version=max(self.version,3 if request['verb']=='peer-reject' else 2)
         self.state['calls'].append(dict(request=deepcopy(request),before=len(self.state['frames']),after=None,child=None))
         self.state['pending']=request['ticket'];self.save();owner.reserve(request,parent_original=self.previous)
     def execute_people(self,request):

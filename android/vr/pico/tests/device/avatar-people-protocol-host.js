@@ -18,6 +18,7 @@ function command(value) {
         controls.push({ role: value.role, control: value.control });
         if (value.control === "people.entry") { client.ui.open(); }
         else if (value.control === "people.RequestConnection") { client.request(braced(value.role === "primary" ? peerSession : primarySession)); }
+        else if (value.control === "people.ConnectionDecline") { client.ui.message({ method: "connectionRespond", params: false }); }
         else if (value.control === "people.ConnectionCancel") { client.ui.message({ method: "connectionCancel" }); }
         else { assert.ok(value.control === "people.nearby" || value.control === "people.row.0"); }
         w.deliver();

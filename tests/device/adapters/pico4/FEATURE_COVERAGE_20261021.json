@@ -336,7 +336,10 @@
         "android/vr/pico/tests/device/test_avatar_remote.py",
         "libraries/avatars/src/JointInterpolationObservation.h",
         "tests/device/adapters/pico4/joint_interpolation.py",
-        "tests/device/self_tests/test_pico_avatar_source_capacity.py"
+        "tests/device/self_tests/test_pico_avatar_source_capacity.py",
+        "android/vr/pico/tests/device/test_avatar_people_reject.py",
+        "android/vr/pico/tests/device/test_avatar_people_reject_binding.py",
+        "tests/device/adapters/pico4/AVATAR_PEOPLE_REJECT_SOURCE.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [

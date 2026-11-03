@@ -3833,7 +3833,7 @@ def create_adapter(args, base_class):
                     lock=self._script_journey()._lock(target)
                     people_act=operation=='feature.avatar-people.act' and values['verb'] in PEOPLE_VERBS
                     original=self._avatar_parent_store(target,values['runId']).read()
-                    history_needs_peer=original is not None and type(original.get('picoAvatarParentVersion')) is int and original['picoAvatarParentVersion']==2
+                    history_needs_peer=original is not None and type(original.get('picoAvatarParentVersion')) is int and original['picoAvatarParentVersion'] in (2,3)
                     roles=None
                     if people_act or history_needs_peer:
                         # Resolve each actual role separately before reserving

@@ -28,7 +28,8 @@ from adapters.token_create_ui import scope, nonce
 from feature_journeys.contract import arguments
 from feature_journeys.phase_fixture import PhaseFixtureReader, validate as phase_packet
 
-VERBS = frozenset(('connection-request', 'connection-cancel'))
+LEGACY_VERBS = frozenset(('connection-request', 'connection-cancel'))
+VERBS = LEGACY_VERBS | {'peer-reject'}
 ROLES = ('primary', 'peer')
 SESSION = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 
@@ -82,6 +83,7 @@ class PicoAvatarPeople:
         self.archive = AvatarOriginalFrames(store, binding, self.run, phase.fixture_url, 'people')
         self.readers, self.clock, self.anchor, self.active_role = {}, None, None, None
         self.previous = store.read()
+        self.version = 1
         self.state = dict(calls=[], frames=[], inputs=[], pending=None)
         self.bound()
         if self.previous is not None:
@@ -133,10 +135,11 @@ class PicoAvatarPeople:
              and all(type(v) is int and v >= 0 for v in original['identity']))
         value = decode(original['raw'])
         exact(value, {'picoAvatarParentVersion', 'binding', 'runId', 'fixtureUrl', 'payload'})
-        need(type(value['picoAvatarParentVersion']) is int and value['picoAvatarParentVersion'] == 2
+        need(type(value['picoAvatarParentVersion']) is int and value['picoAvatarParentVersion'] in (2, 3)
              and same(value['binding'], self.binding) and value['runId'] == self.run
              and value['fixtureUrl'] == self.phase.fixture_url)
         rows = unpack(value['payload']); need(len(rows) == 1)
+        need(value['picoAvatarParentVersion'] == 3 or request['verb'] in LEGACY_VERBS)
         state = rows[0]; exact(state, {'prepared', 'frames', 'calls', 'pending'})
         need(state['prepared'] is True and type(state['calls']) is list and state['calls']
              and state['pending'] == request['ticket'] and same(state['calls'][-1]['request'], request)
@@ -244,7 +247,7 @@ class PicoAvatarPeople:
             exact(call, {'request', 'before', 'after', 'requestId', 'quiet', 'parent'})
             request = arguments('feature.avatar-people.act', call['request'])
             need(request['runId'] == self.run and request['fixtureUrl'] == self.phase.fixture_url
-                 and request['verb'] in VERBS and request['ticket'] not in tickets)
+                 and request['verb'] in (VERBS if self.version == 2 else LEGACY_VERBS) and request['ticket'] not in tickets)
             tickets.add(request['ticket'])
             self.parent_original(call['parent'], request)
             need(call['before'] is None or integer(call['before'], 1, len(state['frames'])))
@@ -272,14 +275,19 @@ class PicoAvatarPeople:
                     self.quiet_original(state, call)
                     counts = {role: sum(row['role'] == role and row['intent']['controlId'] == 'people.ConnectionCancel'
                                        for row in state['inputs'] if row['ticket'] == request['ticket']) for role in ROLES}
-                    need(counts == dict(primary=2, peer=1))
+                    need(counts == dict(primary=2 if request['verb'] == 'connection-cancel' else 1, peer=1))
                     cancelled = False
                     for frame in state['frames'][call['before']:call['quiet']['first'] - 1]:
                         try:
-                            self.cancelled_pair(frame, call['requestId']); cancelled = True
+                            self.terminal_pair(frame, call['requestId'], 'cancelled' if request['verb'] == 'connection-cancel' else 'declined'); cancelled = True
                         except NativeUIError:
                             pass
                     need(cancelled)
+                    if request['verb'] == 'peer-reject':
+                        need([(row['role'], row['intent']['controlId']) for row in state['inputs']
+                              if row['ticket'] == request['ticket']] == [
+                            ('peer', 'people.ConnectionDecline'), ('primary', 'people.ConnectionCancel'),
+                            ('peer', 'people.ConnectionCancel')])
                 need(all(row['command'] is not None for row in state['inputs'] if row['ticket'] == request['ticket']))
             else:
                 need(call['quiet'] is None)
@@ -300,9 +308,10 @@ class PicoAvatarPeople:
 
     def restore(self, value):
         exact(value, {'picoAvatarPeopleVersion', 'binding', 'peerBinding', 'runId', 'fixtureUrl', 'payload'})
-        need(type(value['picoAvatarPeopleVersion']) is int and value['picoAvatarPeopleVersion'] == 1
+        need(type(value['picoAvatarPeopleVersion']) is int and value['picoAvatarPeopleVersion'] in (1, 2)
              and same(value['binding'], self.binding) and same(value['peerBinding'], self.roles['peer']['binding'])
              and value['runId'] == self.run and value['fixtureUrl'] == self.phase.fixture_url)
+        self.version = value['picoAvatarPeopleVersion']
         states = unpack(value['payload']); need(len(states) == 1)
         state = states[0]; need(type(state) is dict and type(state.get('frames')) is list and len(state['frames']) <= 128)
         state['frames'] = [self.archive.frame_original(ref) for ref in state['frames']]
@@ -313,7 +322,7 @@ class PicoAvatarPeople:
         self.bound(); self.check(self.state)
         payload = deepcopy(self.state)
         payload['frames'] = [self.archive.frame_reference(value) for value in self.state['frames']]
-        value = dict(picoAvatarPeopleVersion=1, binding=self.binding, peerBinding=self.roles['peer']['binding'],
+        value = dict(picoAvatarPeopleVersion=self.version, binding=self.binding, peerBinding=self.roles['peer']['binding'],
                      runId=self.run, fixtureUrl=self.phase.fixture_url, payload=pack([payload]))
         self.store.write(value, self.previous); self.previous = deepcopy(value); self.bound()
 
@@ -332,10 +341,12 @@ class PicoAvatarPeople:
         need(request['verb'] in VERBS and request['runId'] == self.run and request['fixtureUrl'] == self.phase.fixture_url
              and self.state['pending'] is None and len(self.state['calls']) < 16
              and request['ticket'] not in {r['request']['ticket'] for r in self.state['calls']})
-        if request['verb'] == 'connection-cancel':
+        if request['verb'] in ('connection-cancel', 'peer-reject'):
             need(self.state['calls'] and self.state['calls'][-1]['request']['verb'] == 'connection-request'
                  and self.state['calls'][-1]['after'] is not None)
         original = self.parent_file(); need(same(self.parent_original(original, request), parent_original))
+        if request['verb'] == 'peer-reject':
+            self.version = 2
         self.state['calls'].append(dict(request=deepcopy(request), before=None, after=None, requestId=None, quiet=None, parent=original))
         self.state['pending'] = request['ticket']; self.phase_fence(); self.save()
 
@@ -435,39 +446,53 @@ class PicoAvatarPeople:
                 self.active_role = None
         self.unlocked()
 
-    def close_peer(self):
-        """The peer persists and executes its own exact normal Close command."""
+    def peer_input(self, identifier, phase):
+        """Persist each distinct peer command once, on its own original lock.
+
+        The existing ordered role input list is the durable ordinal. A lost
+        result cannot reuse the same (ticket, role, control) slot.
+        """
+        need((identifier, phase) in (('people.ConnectionCancel', 'cancelled'),
+             ('people.ConnectionCancel', 'declined'), ('people.ConnectionDecline', 'incoming')))
         value = self.sample(); self.unlocked(); source = self.roles['peer']
         anchor = value['hostStarted']; request = self.state['calls'][-1]['request']
         current = consent(value['roles']['peer']['widgets'])
-        need(current is not None and current['phase'] == 'cancelled')
+        need(current is not None and current['phase'] == phase)
+        request_id = self.state['calls'][-2]['requestId']
+        need(session(current['requestId']) == request_id
+             and session(current['peer']) == self.frame(value)['primary']['source']['sessionId'])
+        if identifier == 'people.ConnectionDecline':
+            self.request_pair(value, request_id)
         with source['lock'].held():
             need(source['guard']() is not False)
             store = self.role_store('peer'); old = store.read(); record = self.role_record('peer')
-            need(not any(r['ticket'] == request['ticket'] for r in record['inputs']))
+            need(not any(r['ticket'] == request['ticket'] and r['intent']['controlId'] == identifier for r in record['inputs']))
             def persist():
                 nonlocal old
                 store.write(record, old); old = deepcopy(record)
             def intent(original):
-                need(len(record['inputs']) < 128 and original['controlId'] == 'people.ConnectionCancel')
+                need(len(record['inputs']) < 128 and original['controlId'] == identifier)
                 record['inputs'].append(dict(ticket=request['ticket'], role='peer', intent=deepcopy(original), command=None))
                 persist()
             def issued(command, navigation):
                 need(record['inputs'] and record['inputs'][-1]['command'] is None)
                 PicoAvatarUrls.command_original(command, record['inputs'][-1]['intent'])
-                need(command['controlId'] == 'people.ConnectionCancel' and command['action'] == 'activate')
+                need(command['controlId'] == identifier and command['action'] == 'activate')
                 self.phase_fence(value['phaseAfter']); need(source['guard']() is not False)
                 record['inputs'][-1]['command'] = deepcopy(command); persist()
                 self.archive.verify_frames(self.state['frames']); self.phase_fence(value['phaseAfter'])
                 need(self.monotonic() - anchor < 1.5 and source['guard']() is not False)
                 self.fresh_current()
             ui = source['controls'](intent, issued); need(isinstance(ui, TokenAvatarPeopleUI))
-            ui.input('people.ConnectionCancel')
+            ui.input(identifier)
             need(record['inputs'] and record['inputs'][-1]['command'] is not None)
             original = deepcopy(record['inputs'][-1])
         with self.lock.held():
             self.bound(); self.state['inputs'].append(original); self.save()
         self.unlocked()
+
+    def close_peer(self):
+        return self.peer_input('people.ConnectionCancel', 'cancelled')
 
     def wait(self, predicate, *, quiet=False):
         self.unlocked(); started = self.monotonic(); first = None
@@ -498,13 +523,17 @@ class PicoAvatarPeople:
             need(actual == request_id)
         return actual
 
-    def cancelled_pair(self, value, request_id):
+    def terminal_pair(self, value, request_id, phase):
+        need(phase in ('cancelled', 'declined'))
         natives = self.frame(value)
         rows = [consent(value['roles'][r]['widgets']) for r in ROLES]
-        need(all(row is not None and row['phase'] == 'cancelled' and session(row['requestId']) == request_id for row in rows)
+        need(all(row is not None and row['phase'] == phase and session(row['requestId']) == request_id for row in rows)
              and session(rows[0]['peer']) == natives['peer']['source']['sessionId']
              and session(rows[1]['peer']) == natives['primary']['source']['sessionId'])
         return True
+
+    def cancelled_pair(self, value, request_id):
+        return self.terminal_pair(value, request_id, 'cancelled')
 
     def quiet_original(self, state, call):
         proof = call['quiet']; exact(proof, {'first', 'last'})
@@ -570,16 +599,19 @@ class PicoAvatarPeople:
             quiet = None
         else:
             request_id = self.state['calls'][-2]['requestId']; self.request_pair(value, request_id)
-            self.click('people.ConnectionCancel')
-            # Product Pal keeps the original cancelled prompt visible. It is
-            # closed by another normal Close, never by an adapter setter.
-            def cancelled(frame):
+            terminal = 'cancelled' if request['verb'] == 'connection-cancel' else 'declined'
+            if terminal == 'cancelled':
+                self.click('people.ConnectionCancel')
+            else:
+                self.peer_input('people.ConnectionDecline', 'incoming')
+            # Actual Pal keeps both terminal prompts until normal Close.
+            def settled(frame):
                 try:
-                    return self.cancelled_pair(frame, request_id)
+                    return self.terminal_pair(frame, request_id, terminal)
                 except NativeUIError:
                     return False
-            self.wait(cancelled); self.click('people.ConnectionCancel')
-            self.close_peer()
+            self.wait(settled); self.click('people.ConnectionCancel')
+            self.peer_input('people.ConnectionCancel', terminal)
             quiet = self.wait(lambda f: all(consent(f['roles'][r]['widgets']) is not None
                 and consent(f['roles'][r]['widgets'])['phase'] == 'idle' for r in ROLES), quiet=True)
         with self.lock.held():
