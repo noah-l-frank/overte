@@ -307,3 +307,14 @@ bilateral initial admission. That 92-file failure remains a failure. Whole
 Avatar and Config10 admission remain closed; these scheduling components do
 not increase the five completed areas. Native compilation and devices remain
 unexecuted.
+
+
+The pre-initial stage can now reopen its completed own Login/Protected/Close
+originals instead of reconstructing those completed operations. The exact
+Login decoder, baseline ticket/phase, binding and abort fence still validate;
+uncertain Close stays in normal recovery. New session admission retains its
+actual paired SDK/native acquisition. Three host cases pass with 101 original
+files, including fresh paired admission, uncertain Close and foreign Login
+refusal before SDK input. The next changed normal attempt still exceeds the
+original 25-second API while reopening its saved initial. Its 92-file failure and
+all original clocks remain preserved. No whole capability is enabled.

@@ -560,6 +560,32 @@ class IOSAvatarFeature:
                 raise AvatarFeaturePending('Waiting for original Actor login and Close before native session admission')
             peer.preparation_closed_original()
 
+    def preparation_saved(self):
+        # Reopen completed originals only. This is not a current account or
+        # installed-SDK verdict: sessions() below still acquires both fresh
+        # native sessions before admitting the original initial image.
+        with self.held():
+            self.load()
+            abort=PrivateFeatureState(self.store.path.with_name('ios-avatar-'+self.role+'-'+self.run+'-abort.json'))
+            need(abort.read() is None)
+            if self.state is None or self.state['phase']!='preparing':return False
+            event=self.state['preparationClose']
+            if self.state['protected'] is None or event is None or event['phase']!='observed':return False
+            phase=self.phase.read()
+            need(phase['verb']=='baseline' and phase['status']['instance']==self.state['phaseInstance']
+                and phase['ticket']==self.state['initialTicket'])
+            current=self.authority.read();need(current['phase'] in ('allocated','ready'))
+            from ios.adapters.avatar_runtime import IOSAvatarLoginRuntime
+            runtime=IOSAvatarLoginRuntime(self.runtime.adapter,self.authority.client,self.run,self.role,current['accounts'][self.role]['runId'])
+            owner=IOSAvatarLoginOwner(runtime,self.selector,self.authority,self.lock,
+                epoch_ms=self.epoch_ms,monotonic=self.monotonic,sleep=self.sleep)
+            original=owner.store.read();need(original is not None);saved=owner.decode(original)
+            need(saved['phase']=='logged-in' and same(saved['binding'],self.state['bindings'][self.role])
+                and len(saved['protected'])==self.state['protected'])
+            protected=saved['protected'][-1]
+            need(protected['phase']=='complete' and protected['ticket']==self.state['initialTicket'])
+            self.preparation_closed_original();return True
+
     def prepare(self,*,components=True):
         need(type(components) is bool)
         admitted=self.initial_admitted()
@@ -578,22 +604,23 @@ class IOSAvatarFeature:
                 if not components:
                     self.actual();return None
                 return self.components(self.source_parts())
-        # initialize() acquires fresh Installed/native originals from BOTH
-        # SDKs. Use the same ordered pair as every other paired acquisition;
-        # role-only locks would let concurrent workers overwrite each other's
-        # nonce files and race the Installed observation CAS.
-        with self.held(paired=True):
-            # A failed preparation has entered a separate lifecycle. Do not
-            # complete setup or renew any original input merely to clean it.
-            abort=PrivateFeatureState(self.store.path.with_name('ios-avatar-'+self.role+'-'+self.run+'-abort.json'))
-            need(abort.read() is None)
-            _actual,current=self.initialize()
-        # Login and close can wait for ordinary account/UI effects. They hold
-        # only this role, so the independent participant can still sign in.
-        with self.held():
-            self.load();current=self.phase.read()
-            if self.state['phase']=='preparing':
-                need(current['verb']=='baseline');self.login();self.close_preparation_tablet()
+        if not self.preparation_saved():
+            # initialize() acquires fresh Installed/native originals from BOTH
+            # SDKs. Use the same ordered pair as every other paired acquisition;
+            # role-only locks would let concurrent workers overwrite each other's
+            # nonce files and race the Installed observation CAS.
+            with self.held(paired=True):
+                # A failed preparation has entered a separate lifecycle. Do not
+                # complete setup or renew any original input merely to clean it.
+                abort=PrivateFeatureState(self.store.path.with_name('ios-avatar-'+self.role+'-'+self.run+'-abort.json'))
+                need(abort.read() is None)
+                _actual,current=self.initialize()
+            # Login and close can wait for ordinary account/UI effects. They hold
+            # only this role, so the independent participant can still sign in.
+            with self.held():
+                self.load();current=self.phase.read()
+                if self.state['phase']=='preparing':
+                    need(current['verb']=='baseline');self.login();self.close_preparation_tablet()
         self.wait_primary_session_admission();self.wait_actor_preparation()
         with self.held(paired=True):
             self.load();need(self.state['phase'] in ('preparing','ready'));parts=self.source_parts();self.sessions(parts)
