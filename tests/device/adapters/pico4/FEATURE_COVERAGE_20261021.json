@@ -162,7 +162,10 @@
         "android/vr/pico/tests/device/test_navigation_generation_restoration_recovery.py",
         "android/vr/pico/tests/device/test_navigation_generation_restoration_ownership.py",
         "tests/device/adapters/pico4/NAVIGATION_RESTORATION_JOIN.md",
-        "tests/device/adapters/pico4/NAVIGATION_PHONE_REUSE_20261103.json"
+        "tests/device/adapters/pico4/NAVIGATION_PHONE_REUSE_20261103.json",
+        "tests/device/adapters/pico4/probe_originals.py",
+        "tests/device/adapters/pico4/PROBE_ORIGINALS.md",
+        "android/vr/pico/tests/device/test_pico_probe_originals.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -207,7 +210,7 @@
         "Restore original location and closed owned dialogs",
         "Prove pending reply/callback retirement and a three-second quiet baseline"
       ],
-      "nextExecutableStep": "Compose independently changed A/B scenes and full Actor/whole coordinator/final resource/Host retirement around the existing fifteen normal actions and new normal G1 restoration. The private typed Origin3 handoff proves actual old-PID absence, G1 birth/Session/account, original QString selection/raw Settings hash, grounded pose, unchanged maturity/unrelated preference digest, normal Login field Return/Home/Close and3s quiet. Lost applied Return resumes without resend; QUrl/absent originals refuse before firstG0 mutation. Three disjoint groups4/92.057s,1/91.912s,4/105.826s preserve default120;198/197/197 loaded source hashes+physical identities unchanged. All22 directories/783 original files physically survive and verify; no owned process remains. Earlier deleted-G0 fixture originals remain incomplete preservation evidence. Default Origin writer2/historical1/2readers remain; only typed restoration writes3. Full native/renderer/device and changed-scene/Actor/final resource closure remain open.",
+      "nextExecutableStep": "Compose independently changed A/B scenes and full Actor/whole coordinator/final resource/Host retirement around the existing fifteen normal actions and new normal G1 restoration. The private typed Origin3 handoff proves actual old-PID absence, G1 birth/Session/account, original QString selection/raw Settings hash, grounded pose, unchanged maturity/unrelated preference digest, normal Login field Return/Home/Close and3s quiet. Lost applied Return resumes without resend; QUrl/absent originals refuse before firstG0 mutation. Three disjoint groups4/92.057s,1/91.912s,4/105.826s preserve default120;198/197/197 loaded source hashes+physical identities unchanged. All22 directories/783 original files physically survive and verify; no owned process remains. Earlier deleted-G0 fixture originals remain incomplete preservation evidence. Default Origin writer2/historical1/2readers remain; only typed restoration writes3. Full native/renderer/device and changed-scene/Actor/final resource closure remain open. The optional PicoProbeOriginals1 path now archives bounded literal exec-out wire returns before the unchanged actual SDK JSON/freshness/sequence parser;20 actual fixed-script host cases plus34 existing mock-Android cases pass42.758s with54 loaded source SHA/eight-field signatures unchanged. It is not yet composed into the same Navigation C lease and does not qualify native/device reads or full restoration. Catalog332 keeps this transport group separate.",
       "nativeCompilation": "Selected full NativeEnvironment header, original passive Settings::Manager getter and Qt thread/lock modes compile and pass host checks. Complete native application/APK, VM/OS/GPU/device boundaries remain unqualified.",
       "deviceQualification": "untested"
     },

@@ -3565,3 +3565,14 @@ complete allowed literals or zero next send/getter under original512/16MiB/
 its original host/area/120s/32-observation ownership. Changed pose/receipt is
 correlation, with per-channel effect, skin palette, visible pixels, independent
 Actor/contacts and complete retirement still open. Source-complete remains3/14.
+
+
+## Original SDK probe transport selected on 2026-11-03
+
+The optional [Pico probe original reader](PROBE_ORIGINALS.md) retains actual
+bounded wire bytes before the canonical Android SDK parses JSON. Its20 host
+cases execute the exact fixed read script against owned files;34 existing
+mock-Android regressions remain unchanged. All54 pass42.758s with54 loaded
+source hashes/eight-field signatures unchanged. No device or ADB server ran.
+The catalog contains332 disjoint groups. Navigation C/scene/whole integration
+and original namespace/host retirement remain open; source-complete stays3/14.

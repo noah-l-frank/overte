@@ -274,6 +274,7 @@ TESTS = (
     test("lifecycle-actor-back-chat", "interaction", PYTHON, "device/test_lifecycle_actor_back_chat.py"),
     test("lifecycle-actor-background", "interaction", PYTHON, "device/test_lifecycle_actor_background.py"),
     test("lifecycle-background-raw-retention", "interaction", PYTHON, "device/test_lifecycle_background_raw_binding.py"),
+    test("probe-originals", "interaction", PYTHON, "device/test_pico_probe_originals.py"),
     test("navigation-generation-restoration", "interaction", PYTHON, "device/test_navigation_generation_restoration.py", requires=("openssl",)),
     test("navigation-generation-restoration-recovery", "interaction", PYTHON, "device/test_navigation_generation_restoration_recovery.py", requires=("openssl",)),
     test("navigation-generation-restoration-ownership", "interaction", PYTHON, "device/test_navigation_generation_restoration_ownership.py", requires=("openssl",)),

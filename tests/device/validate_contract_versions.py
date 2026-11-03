@@ -259,6 +259,7 @@ REQUIRED = {
     'feature-script-resources': 1,
     "native-pending-commit-owner": 1,
     "native-pending-field-commit": 1,
+    "pico-probe-raw-read": 1,
     "native-pico-assets-read": 1,
     "pico-assets-source": 1,
     "pico-assets-read-retirement": 1,

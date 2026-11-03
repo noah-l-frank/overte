@@ -551,11 +551,14 @@ class AndroidAdapter:
         return maximum_age
 
     def read_probe_snapshot(self, target: str, package: str,
-                            after_sequence: int | None) -> dict:
+                            after_sequence: int | None, *, raw_reader=None) -> dict:
+        if raw_reader is not None and (self.kind != "pico" or not callable(raw_reader)):
+            fail("Original probe IO is unavailable for this adapter")
         attempts, interval = self.probe_retry_policy()
         diagnostic = {"requestedAfterSampleSequence": after_sequence}
         for attempt in range(attempts):
-            raw = self.adb.read_debug_app_file(
+            read_original = self.adb.read_debug_app_file if raw_reader is None else raw_reader
+            raw = read_original(
                 target, package, ANDROID_DEBUG_PROBE, attempts=1)
             try:
                 candidate = json.loads(raw)
