@@ -44,6 +44,16 @@ def original(value):
 class LifecycleBackgroundRaw3:
     """Explicit live layout; the argument is never inferred from cold files."""
     version=VERSION
+    roles=ROLES
+
+    def raw_scope(self,run,binding):return scope(run,binding)
+
+    def literal_limit(self,role):return LIMIT
+
+    def current_bill(self):return self.source_bill()
+
+    def guard_namespace(self):self.namespace.guard_lease()
+
     def __init__(self,path,run,binding,lock,identity,bill,clock):
         self.run,self.binding,self.lock=run,deepcopy(context(binding)),lock
         with lock.held():
@@ -57,7 +67,7 @@ class LifecycleBackgroundRaw3:
         self.maximum_literal=0
         self.failed=False;self.published=False;self.frozen=False
         self.archive=AudioRawArchive.__new__(AudioRawArchive)
-        try:AudioRawArchive.__init__(self.archive,path,scope(run,binding),lock,identity,self.other_bill,clock)
+        try:AudioRawArchive.__init__(self.archive,path,self.raw_scope(run,binding),lock,identity,self.other_bill,clock)
         except BaseException:
             self.failed=True
             if hasattr(self.archive,'directory'):
@@ -77,7 +87,7 @@ class LifecycleBackgroundRaw3:
     def other_bill(self):
         need(self.source_bill is self._source_bill)
         self.phase_writes()
-        current=self.source_bill();exact(current,{'parts','storedBytes','decodedBytes','files'})
+        current=self.current_bill();exact(current,{'parts','storedBytes','decodedBytes','files'})
         # A complete original-part pass and reconstructed range batch coexist
         # with the archive's own prefix/metadata and actual owner references.
         # No additional long-lived raw string or canonical DTO cache exists.
@@ -101,7 +111,7 @@ class LifecycleBackgroundRaw3:
             with self.lock.held():return self._verify(materialize=materialize)
         except BaseException:self.failed=True;raise
 
-    def _verify(self,*,materialize):
+    def verify_before_batch(self,*,materialize):
         need(not self.failed)
         self.phase_writes()
         if materialize:
@@ -109,56 +119,26 @@ class LifecycleBackgroundRaw3:
             # temporary ranges alongside expanded owner/CAS and source bytes.
             current=self.other_bill();ours=self.archive.bill()
             need(current['decodedBytes']+ours['decodedBytes']<=MAX_RAW)
-        elif self.namespace.lease is not None:self.namespace.guard_lease()
+        elif self.namespace.lease is not None:self.guard_namespace()
         else:need(not self.archive.state['parts'] and not self.references)
         need(self.archive.bill()['literalBytes']<=self.maximum_literal)
         self.archive.verify()
         self.check_hooks()
         if self.world_hook is not None:
             world,callback=self.world_hook;need(world.before_io is callback and world.lock is self.lock)
-        parts=[]
-        for index,row in enumerate(self.archive.state['parts']):
-            if row['closed']:
-                raw,physical=self.archive.closed[index].read()
-            else:
-                owner=self.archive.writer;owner.require(owner.fd)
-                raw=os.pread(owner.fd,65537,0);physical=signature(os.fstat(owner.fd));owner.require(owner.fd)
-            need(physical==row['physical'] and len(raw)==row['bytes']
-                and hashlib.sha256(raw).hexdigest()==row['sha256'])
-            parts.append(raw)
-        for index,(expected,physical) in self.archive.page_pins.items():
-            actual,raw,stamp=file_state(self.archive.page_store(index))
-            need(actual==expected and raw==canonical(expected)+b'\n' and stamp==physical)
-        by_read={};by_digest={};records={}
-        for page,value in sorted(self.archive.pages.items()):
-            for position,record in enumerate(value['receipts']):
-                if record is None:continue
-                exact(record,{'read','role','command','hostMonotonic','returnedHostMonotonic','kind','bytes','sha256','ranges'})
-                need(type(record['read']) is int and record['read']==page*32+position
-                    and record['role'] in ROLES and type(record['command']) is dict
-                    and number(record['hostMonotonic'],0,1e15)
-                    and number(record['returnedHostMonotonic'],record['hostMonotonic'],1e15)
-                    and record['kind'] in ('utf8','none','bytes') and integer(record['bytes'],0,LIMIT)
-                    and type(record['ranges']) is list)
-                json_digest(record['command']);pieces=[]
-                for row in record['ranges']:
-                    need(type(row) is list and len(row)==3);part,start,size=row
-                    need(integer(part,0,len(parts)-1) and integer(start,0,len(parts[part]))
-                        and integer(size,1,len(parts[part])-start));pieces.append(parts[part][start:start+size])
-                literal=b''.join(pieces)
-                need(len(literal)==record['bytes'] and hashlib.sha256(literal).hexdigest()==record['sha256'])
-                if record['kind']=='none':need(literal==b'')
-                if record['kind']=='utf8':literal.decode('utf-8')
-                records[record['read']]=record
-                if materialize:
-                    by_read[record['read']]=literal
-                    if record['kind']=='utf8':
-                        # Earliest original receipt is immutable. A repeated
-                        # getter still retains its own actual receipt, but can
-                        # never renew this projection's original clock.
-                        by_digest.setdefault(record['sha256'],dict(lifecycleBackgroundRangeVersion=VERSION,
-                            source=dict(audioRawRangeVersion=1,scopeSha256=self.archive.scope_sha,
-                                read=record['read'],sha256=record['sha256']),sha256=record['sha256']))
+    def _verify(self,*,materialize):
+        self.verify_before_batch(materialize=materialize)
+        from adapters.pico4.lifecycle_raw_ranges import verified_ranges
+        by_read,records=verified_ranges(self.archive,roles=ROLES,materialize=materialize)
+        by_digest={}
+        if materialize:
+            for record in records.values():
+                if record['kind']=='utf8':
+                    # Earliest immutable original; later getters never renew
+                    # the projection's original receipt clock.
+                    by_digest.setdefault(record['sha256'],dict(lifecycleBackgroundRangeVersion=VERSION,
+                        source=dict(audioRawRangeVersion=1,scopeSha256=self.archive.scope_sha,
+                            read=record['read'],sha256=record['sha256']),sha256=record['sha256']))
         for value in self.references:
             exact(value,REFERENCE);reference=value['source']
             exact(reference,{'audioRawRangeVersion','scopeSha256','read','sha256'})
@@ -239,7 +219,7 @@ class LifecycleBackgroundRaw3:
             if outer is not None:need(number(now,outer[0],outer[0]+1.5))
 
     def hook(self,reader,role):
-        need(not self.failed and not self.frozen and role in ROLES
+        need(not self.failed and not self.frozen and role in self.roles
             and role not in self.hooks and callable(reader.send) and callable(reader.original)
             and reader.before_io is None)
         send_name='send';original_send=reader.send
@@ -262,7 +242,8 @@ class LifecycleBackgroundRaw3:
             # temporary projection may coexist. This bound is reserved BEFORE
             # transport acquisition; already acquired bytes retain authority.
             current=self.archive.bill()['literalBytes']
-            token=self.archive.reserve(role,deepcopy(command),LIMIT,side_bytes=6*LIMIT)
+            limit=self.literal_limit(role)
+            token=self.archive.reserve(role,deepcopy(command),limit,side_bytes=6*limit)
             self.maximum_literal=max(self.maximum_literal,current+token['limit'])
             return token
 
@@ -300,7 +281,11 @@ class LifecycleBackgroundRaw3:
                 self.failed=True
                 raise
 
-        setattr(reader,send_name,send_original);reader.original,reader.before_io=get_original,before_io
+        if role=='pending':
+            from adapters.pending_commit_owner import NativePendingCommitOwner
+            need(type(reader) is NativePendingCommitOwner);reader.bind_before_io(before_io)
+        else:reader.before_io=before_io
+        setattr(reader,send_name,send_original);reader.original=get_original
         self.hooks[role]=(reader,send_name,original_send,send,getter,send_original,get_original,before_io)
 
     def encode(self,value):
@@ -367,10 +352,13 @@ class LifecycleBackgroundRawHistory3:
     """Passive original ranges, including receipts from failed live owners."""
     historical_only=True
     version=VERSION
+    reference_fields=REFERENCE
+    def expected_scope(self,run,binding):return scope(run,binding)
+
     def __init__(self,path,run,binding,references):
         self.archive=AudioPCRawOriginals(path)
         try:
-            need(self.archive.disk['scope']==scope(run,binding) and type(references) is list)
+            need(self.archive.disk['scope']==self.expected_scope(run,binding) and type(references) is list)
             self.references=deepcopy(references)
             self.pins={name:signature((self.archive.path.parent/name).lstat()) for name in self.archive.files}
             for value in self.references:self.resolve(value)
@@ -408,14 +396,14 @@ class LifecycleBackgroundRawHistory3:
 
     def _decode(self,value):
         if type(value) is dict:
-            if set(value)==REFERENCE:
+            if set(value)==self.reference_fields:
                 need(value in self.references);return self.resolve(value)
             return {key:self._decode(child) for key,child in value.items()}
         if type(value) is list:return [self._decode(child) for child in value]
         return deepcopy(value)
 
     def report(self):
-        self.verify();return dict(self.archive.report(),lifecycleBackgroundOriginalsVersion=VERSION)
+        self.verify();return dict(self.archive.report(),lifecycleBackgroundOriginalsVersion=self.version)
 
     def originals(self):
         """Stream every actual file, including unconfirmed tails/extra parts.
@@ -474,16 +462,25 @@ class LifecycleBackgroundHistory:
             exact(self.disk,{'lifecycleBackgroundOwnerVersion','runId','binding','originalChunks','payload'})
             need(canonical(self.disk)+b'\n'==self.raw)
             self.version=self.disk['lifecycleBackgroundOwnerVersion']
-            need(type(self.version) is int and self.version in (1,VERSION));context(self.disk['binding'])
+            need(type(self.version) is int and self.version in (1,VERSION,4));context(self.disk['binding'])
             if self.version==1:
                 self.originals=LifecycleBackgroundOriginals(path.with_name('lifecycle-background-originals.json'),
                     self.disk['runId'],self.disk['binding'])
                 need(self.originals.manifest==self.disk['originalChunks'])
-            else:
+            elif self.version==VERSION:
                 self.originals=LifecycleBackgroundRawHistory3(path.with_name('lifecycle-background-raw.json'),
                     self.disk['runId'],self.disk['binding'],self.disk['originalChunks'])
+            else:
+                from adapters.pico4.lifecycle_source_raw import LifecycleSourceRawHistory4
+                self.originals=LifecycleSourceRawHistory4(path.with_name('lifecycle-background-raw.json'),
+                    self.disk['runId'],self.disk['binding'],self.disk['originalChunks'],role='background')
+                self.originals.decoder_budget(self.disk['payload'])
             self.value=self.originals.decode(unpack(self.disk['payload']))
-            need(type(self.value) is list and len(self.value)==1);self.read()
+            need(type(self.value) is list and len(self.value)==1)
+            if self.version==4:
+                from adapters.pico4.lifecycle_namespace_bill import canonical_size
+                self._value_seal=self._original_value_seal=(self.value,canonical_size(self.value),json_digest(self.value))
+            self.read()
         except BaseException:
             from adapters.pico4.lifecycle_background_raw_state import close_or_retain
             close_or_retain(path.parent,self);raise
@@ -491,6 +488,9 @@ class LifecycleBackgroundHistory:
     def read(self):
         need(self.root.read()==(self.raw,self.physical))
         self.originals.verify()
+        if hasattr(self,'_original_value_seal'):
+            need(self.version==4 and self._value_seal is self._original_value_seal)
+            self.originals.guard_value(self.value,self._value_seal)
         return deepcopy(self.value[0])
 
     def close(self):

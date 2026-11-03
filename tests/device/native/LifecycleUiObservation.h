@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "PicoLifecycleFieldIdentity.h"
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QMap>
@@ -38,13 +39,16 @@ class LifecycleUiObservation {
 public:
     explicit LifecycleUiObservation(QMap<QString,QUrl> sources) : _sources(std::move(sources)) {}
     QVariantMap observe(QQuickItem* root, QQuickWindow* window, bool shown, bool home,
-                        const QString& run, const QVariantMap& keyboard) {
+                        const QString& run, const QVariantMap& keyboard, bool fieldBindings=false) {
         if (!QCoreApplication::instance() || QThread::currentThread()!=QCoreApplication::instance()->thread()
                 || !QCoreApplication::arguments().contains("--testScript") || !_valid
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
                 || keyboard.isEmpty() || _sequence>=9007199254740991ULL
                 || (root && (!window || root->window()!=window || root->thread()!=QThread::currentThread()))
                 || (window && window->thread()!=QThread::currentThread()) || (shown && (!root || !window))) { return {}; }
+#if !defined(ANDROID_APP_PICO_INTERFACE)
+        if (fieldBindings) { return {}; }
+#endif
         const auto epoch=QDateTime::currentMSecsSinceEpoch();
         if (epoch<=0 || epoch<_lastEpoch) { _valid=false;return {}; } _lastEpoch=epoch;
         QSet<QQuickItem*> visited; QSet<QString> active; int activeCount{0};
@@ -111,15 +115,29 @@ public:
                 if (text!="" && text!="retry-"+run && text!="reply-"+run && text!="Overte ä Ω 東京 "+run) { return {}; }
                 current=entry.id;
             }
-            rows.append(QVariantMap{{"id",entry.id},{"kind",entry.kind},{"fieldId",entry.fieldId},{"pageId",entry.pageId},
+            QVariantMap row{{"id",entry.id},{"kind",entry.kind},{"fieldId",entry.fieldId},{"pageId",entry.pageId},
                 {"contextId",entry.contextId},{"windowId",entry.windowId},{"loaderId",entry.loaderId},
                 {"firstObservedEpochMs",entry.firstObserved},{"fieldAlive",fieldAlive},{"pageAlive",pageAlive},
                 {"contextAlive",contextAlive},{"windowAlive",windowAlive},{"loaderAlive",loaderAlive},
                 {"alive",alive},{"attached",attached},{"visible",visible},
-                {"focused",focused},{"current",selected},{"text",text}});
+                {"focused",focused},{"current",selected},{"text",text}};
+            if (fieldBindings) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+                const bool originalTriple=fieldAlive && windowAlive && contextAlive;
+                if (originalTriple) {
+                    const auto identity=picoLifecycleFieldIdentity(entry.field,entry.window,entry.context);
+                    if (identity.isEmpty() || (!entry.pendingFieldToken.isEmpty() && entry.pendingFieldToken!=identity)) { return {}; }
+                    entry.pendingFieldToken=identity;
+                }
+                row.insert("fieldBinding",QVariantMap{{"lifecycleFieldBindingVersion",1},{"uiFieldId",entry.fieldId},
+                    {"pendingFieldToken",entry.pendingFieldToken},{"weakBirth",entry.pendingFieldToken},
+                    {"status",originalTriple ? "linked" : entry.pendingFieldToken.isEmpty() ? "unobserved" : "retired"}});
+#endif
+            }
+            rows.append(row);
         }
         if (!_valid) { return {}; }
-        return {{"lifecycleUiVersion",1},{"instance",_instance},{"sequence",static_cast<qulonglong>(++_sequence)},
+        return {{"lifecycleUiVersion",fieldBindings ? 2 : 1},{"instance",_instance},{"sequence",static_cast<qulonglong>(++_sequence)},
             {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",epoch},{"runId",run},
             {"source",QVariantMap{{"complete",true},{"tabletShown",shown},{"onHomeScreen",home},
                 {"current",current},{"editors",rows},{"keyboard",keyboard}}}};
@@ -127,7 +145,7 @@ public:
 private:
     struct Object { QPointer<QObject> value;QString id; };
     struct Entry : LifecycleEditorObjects {
-        QString id,kind,fieldId,pageId,contextId,windowId,loaderId;
+        QString id,kind,fieldId,pageId,contextId,windowId,loaderId,pendingFieldToken;
         qint64 firstObserved{0};
     };
     QString objectId(QObject* value) {

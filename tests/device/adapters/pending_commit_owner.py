@@ -111,12 +111,26 @@ def accept(previous,current):
 
 
 class NativePendingCommitOwner:
-    def __init__(self,send,original,clock_ms,guard,pid,*,ios=False,intent=None,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,send,original,clock_ms,guard,pid,*,ios=False,intent=None,monotonic=time.monotonic,sleep=time.sleep,before_io=None):
         need(all(callable(f) for f in (send,original,clock_ms,guard,monotonic,sleep))
-             and integer(pid,1) and type(ios) is bool and (intent is None or callable(intent)))
+             and integer(pid,1) and type(ios) is bool and (intent is None or callable(intent))
+             and (before_io is None or callable(before_io)))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
         self.ios,self.intent,self.monotonic,self.sleep=ios,intent,monotonic,sleep
         self.last=self.last_raw=self.last_request=None;self.last_received=None;self._before_send=None
+        self.before_io=self._before_io=before_io;self._io_admitted=False
+
+    def bind_before_io(self,callback):
+        need(callable(callback) and not self._io_admitted and self.before_io is self._before_io is None)
+        self.before_io=self._before_io=callback
+
+    def io_boundary(self,started,requested,stage):
+        need(self.before_io is self._before_io)
+        if self.before_io is not None:
+            need(self.guard() is not False)
+            self.before_io(started,requested,stage)
+            need(self.before_io is self._before_io)
+            now=self.monotonic();need(number(now,started,started+5) and now-started<5)
 
     def bind_before_send(self,callback):
         need(callable(callback) and (self._before_send is None or self._before_send is callback))
@@ -125,6 +139,7 @@ class NativePendingCommitOwner:
     def exchange(self,request):
         command(request,ios=self.ios)
         try:
+            need(self.before_io is self._before_io);self._io_admitted=True
             need(self.guard() is not False)
             started=self.monotonic();requested=self.clock_ms()
             need(number(started,0,1e15) and integer(requested,1));previous=started
@@ -133,10 +148,14 @@ class NativePendingCommitOwner:
                 self.intent(deepcopy(request)) # Durable owner intent precedes the one actual send.
                 need(self.guard() is not False)
                 if self._before_send is not None:self._before_send(deepcopy(request))
+            need(self.before_io is self._before_io)
+            if self.before_io is not None:self.io_boundary(started,requested,'send')
             self.send(deepcopy(request))
             for attempt in range(51):
                 now=self.monotonic();need(number(now,0,1e15) and previous<=now and now-started<5)
                 need(self.guard() is not False)
+                need(self.before_io is self._before_io)
+                if self.before_io is not None:self.io_boundary(started,requested,'get')
                 raw=self.original()
                 need(type(raw) is str and len(raw.encode())<=32768)
                 try:value=decode(raw) if raw else None

@@ -27,7 +27,7 @@ ROOTS={
     'lifecycle-primary-observation.json':('lifecyclePrimaryObservationVersion',(1,2,3)),
     'lifecycle-primary-operations.json':('lifecyclePrimaryOperationsVersion',(1,2,3)),
     'lifecycle-background-originals.json':('lifecycleBackgroundOriginalsVersion',(1,)),
-    'lifecycle-background-owner.json':('lifecycleBackgroundOwnerVersion',(1,3)),
+    'lifecycle-background-owner.json':('lifecycleBackgroundOwnerVersion',(1,3,4)),
     'lifecycle-chat-owner.json':('lifecycleChatOwnerVersion',(1,)),
     'lifecycle-editor-owner.json':('lifecycleEditorOwnerVersion',(1,)),
     'lifecycle-x-join.json':('lifecycleXJoinVersion',(1,)),
@@ -88,6 +88,8 @@ class LifecycleNamespaceBill:
         need(type(mutex_layout) is int and mutex_layout in (1,2))
         self.mutex_layout=self._mutex_layout=mutex_layout
         self.path=self._path=path;self.lock=self._lock=lock;self.expanded=self._expanded=expanded
+        self._expanded_guard=self._original_expanded_guard=None
+        self._expanded_owner=self._original_expanded_owner=None
         self.directory=OriginalDescriptor(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         self.last=None;self.maximum=None;self.lease=self._lease=None
         self.mutex_observations=self._mutex_observations=()
@@ -114,9 +116,28 @@ class LifecycleNamespaceBill:
 
     def write_extra(self):return 0 if self._write is None else self._write[4]
 
+    def bind_expanded_guard(self,owner):
+        from adapters.pico4.lifecycle_source_raw import LifecycleSourceRaw4
+        need(type(owner) is LifecycleSourceRaw4 and owner.namespace is self and owner.source_bill is self
+            and owner.lock is self.lock and owner.path.parent==self.path and self.lease is None and self._write is None
+            and self._expanded_guard is self._original_expanded_guard is None
+            and self._expanded_owner is self._original_expanded_owner is None
+            and owner.archive.state['reads']==0 and not owner.archive.state['pending']
+            and not owner.archive.state['parts'] and not owner.archive.state['pages'])
+        self._expanded_owner=self._original_expanded_owner=owner
+        self._expanded_guard=self._original_expanded_guard=owner.require_expanded
+
+    def guard_expanded(self,value,size):
+        need(self._expanded_guard is self._original_expanded_guard
+            and self._expanded_owner is self._original_expanded_owner)
+        if self._expanded_guard is None:need(self._expanded_owner is None)
+        else:self._expanded_guard(value,size)
+
     def begin_write(self,gate,permit,*,parts,stored,decoded,metadata):
         from adapters.pico4.lifecycle_write_gate import LifecycleWriteGate,WritePermit
-        need(type(gate) is LifecycleWriteGate and type(permit) is WritePermit
+        from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4,FamilyPermit4
+        need(((type(gate) is LifecycleWriteGate and type(permit) is WritePermit)
+            or (type(gate) is LifecycleFamilyGate4 and type(permit) is FamilyPermit4))
             and gate.namespace is self and permit.gate is gate and self._write is None)
         current=self();raw=gate.raw.archive.bill();pending=gate.raw.archive.state['pending']
         need(current['parts']+raw['parts']+sum(row['parts'] for row in pending)+parts<=MAX_FRAMES
@@ -375,7 +396,9 @@ class LifecycleNamespaceBill:
         state=self.expanded()
         if state is not None:
             size=canonical_size(state,MAX_RAW-3*stored-decoded-3*PART-held)
+            self.guard_expanded(state,size)
             charge(size);largest=max(largest,size)
+        else:self.guard_expanded(None,0)
         charge(3*largest);charge(3*self.metadata_bytes())
         for value in values.values():expand(value)
 

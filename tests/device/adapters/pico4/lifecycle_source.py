@@ -12,6 +12,7 @@ from adapters.native_chat_view import vr_keyboard, measured_keyboard
 from feature_journeys.fixtures import context
 
 VERSION=1
+READS=(1,2)
 FILE='lifecycle-ui-observation.json'
 COMMAND='files/overte-e2e/lifecycle-ui-command.json'
 LIVENESS=('fieldAlive','pageAlive','contextAlive','windowAlive','loaderAlive')
@@ -21,16 +22,20 @@ IDENTITIES=('id','kind','fieldId','pageId','contextId','windowId','loaderId','fi
 def nonce(value):return type(value) is str and re.fullmatch('[0-9a-f]{32}',value) is not None
 
 
-def editors(rows,run,epoch):
+def editors(rows,run,epoch,*,version=1):
+    need(type(version) is int and version in READS)
     need(type(rows) is list and len(rows)<=64)
     ids=set();current=[]
     for row in rows:
-        exact(row,set(IDENTITIES)|set(LIVENESS)|{'alive','attached','visible','focused','current','text'})
+        exact(row,set(IDENTITIES)|set(LIVENESS)|{'alive','attached','visible','focused','current','text'}|({'fieldBinding'} if version==2 else set()))
         need(row['kind'] in ('create','chat','scripts') and row['id'] not in ids
             and all(nonce(row[key]) for key in ('id','fieldId','pageId','contextId','windowId','loaderId'))
             and integer(row['firstObservedEpochMs'],1,epoch)
             and all(type(row[key]) is bool for key in (*LIVENESS,'alive','attached','visible','focused','current'))
             and type(row['text']) is str and row['text'] in ('',*(context(run)[key] for key in ('unicode','reply','retry'))))
+        if version==2:
+            from adapters.pico4.lifecycle_field_binding import validate as field_binding
+            field_binding(row['fieldBinding'],row)
         ids.add(row['id'])
         need(row['alive']==any(row[key] for key in LIVENESS[:3]))
         if not row['fieldAlive']:need(not any(row[key] for key in ('attached','visible','focused','current')))
@@ -44,7 +49,7 @@ def editors(rows,run,epoch):
 
 def validate(value,request,pid,epoch):
     exact(value,{'lifecycleUiVersion','commandId','instance','sequence','processId','capturedEpochMs','runId','source'})
-    need(type(value['lifecycleUiVersion']) is int and value['lifecycleUiVersion']==VERSION
+    need(type(value['lifecycleUiVersion']) is int and value['lifecycleUiVersion'] in READS
         and value['commandId']==request['commandId'] and nonce(value['commandId'])
         and value['runId']==request['runId'] and nonce(value['runId']) and nonce(value['instance'])
         and integer(value['sequence'],1) and integer(value['processId'],1) and value['processId']==pid)
@@ -52,7 +57,7 @@ def validate(value,request,pid,epoch):
     source=value['source'];exact(source,{'complete','tabletShown','onHomeScreen','current','editors','keyboard'})
     need(source['complete'] is True and all(type(source[key]) is bool for key in ('tabletShown','onHomeScreen'))
         and type(source['current']) is str)
-    current=editors(source['editors'],value['runId'],value['capturedEpochMs'])
+    current=editors(source['editors'],value['runId'],value['capturedEpochMs'],version=value['lifecycleUiVersion'])
     need(source['current']==current and (source['tabletShown'] or not current)
         and (not source['onHomeScreen'] or not current))
     vr_keyboard(source['keyboard'])
@@ -61,7 +66,7 @@ def validate(value,request,pid,epoch):
 
 def summary(packet):
     value=packet['source'];keyboard=value['keyboard']
-    return dict(lifecycleSourceStateVersion=1,runId=packet['runId'],instance=packet['instance'],
+    return dict(lifecycleSourceStateVersion=packet['lifecycleUiVersion'],runId=packet['runId'],instance=packet['instance'],
         sequence=packet['sequence'],capturedEpochMs=packet['capturedEpochMs'],
         editors=deepcopy(value['editors']),keyboardInstance=keyboard['instance'],keyboardSequence=keyboard['sequence'])
 
@@ -69,17 +74,18 @@ def summary(packet):
 def validate_summary(value,run):
     exact(value,{'lifecycleSourceStateVersion','runId','instance','sequence','capturedEpochMs',
         'editors','keyboardInstance','keyboardSequence'})
-    need(type(value['lifecycleSourceStateVersion']) is int and value['lifecycleSourceStateVersion']==1
+    need(type(value['lifecycleSourceStateVersion']) is int and value['lifecycleSourceStateVersion'] in READS
         and value['runId']==run and nonce(run) and nonce(value['instance']) and integer(value['sequence'],1)
         and integer(value['capturedEpochMs'],1) and nonce(value['keyboardInstance']) and integer(value['keyboardSequence'],1))
-    editors(value['editors'],run,value['capturedEpochMs']);return value
+    editors(value['editors'],run,value['capturedEpochMs'],version=value['lifecycleSourceStateVersion']);return value
 
 
 def accept(previous,current):
     validate_summary(current,current['runId'])
     if previous is not None:
         validate_summary(previous,current['runId'])
-        need(current['instance']==previous['instance'] and current['sequence']>previous['sequence']
+        need(current['lifecycleSourceStateVersion']==previous['lifecycleSourceStateVersion']
+            and current['instance']==previous['instance'] and current['sequence']>previous['sequence']
             and current['capturedEpochMs']>=previous['capturedEpochMs']
             and current['keyboardInstance']==previous['keyboardInstance']
             and current['keyboardSequence']>previous['keyboardSequence']
@@ -87,6 +93,9 @@ def accept(previous,current):
         for old,new in zip(previous['editors'],current['editors']):
             need(all(new[key]==old[key] for key in IDENTITIES)
                 and all(old[key] or not new[key] for key in LIVENESS))
+            if current['lifecycleSourceStateVersion']==2:
+                from adapters.pico4.lifecycle_field_binding import advance as advance_binding
+                advance_binding(old['fieldBinding'],new['fieldBinding'])
     return deepcopy(current)
 
 
@@ -96,8 +105,9 @@ def current_editor(packet):
 
 
 class PicoLifecycleSource:
-    def __init__(self,send,original,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep,source_lock=None,before_io=None):
+    def __init__(self,send,original,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep,source_lock=None,before_io=None,field_bindings=False):
         need(all(callable(value) for value in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
+        need(type(field_bindings) is bool);self.field_bindings=self._field_bindings=field_bindings
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
         need(before_io is None or callable(before_io));self.before_io=before_io
         from adapters.script_journey.lock import ScriptSourceLock
@@ -106,7 +116,9 @@ class PicoLifecycleSource:
         self.previous,self.last_raw,self.last_sha256=None,None,None
 
     def restore(self,previous):
-        validate_summary(previous,previous['runId']);need(self.guard() is not False)
+        validate_summary(previous,previous['runId']);need(self.guard() is not False
+            and self.field_bindings is self._field_bindings
+            and previous['lifecycleSourceStateVersion']==(2 if self._field_bindings else 1))
         if self.previous is not None:need(self.previous==previous)
         self.previous=deepcopy(previous)
 
@@ -116,8 +128,8 @@ class PicoLifecycleSource:
         return self._capture(run)  # Explicit unbound host/native boundary only.
 
     def _capture(self,run):
-        need(nonce(run) and self.guard() is not False)
-        request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='observe',runId=run)
+        need(nonce(run) and self.guard() is not False and self.field_bindings is self._field_bindings)
+        request=dict(schemaVersion=2 if self._field_bindings else 1,commandId=uuid.uuid4().hex,action='observe',runId=run)
         started=previous=self.monotonic();requested=self.clock_ms();need(number(started,0,1e15) and integer(requested,1))
         if self.before_io is not None:self.before_io(started,requested,'send')
         self.send(request) # Only one original query; never resend the nonce.
@@ -130,6 +142,7 @@ class PicoLifecycleSource:
             now=self.monotonic();need(number(now,0,1e15) and previous<=now and now-started<5);previous=now
             need(self.guard() is not False)
             if type(value) is dict and value.get('commandId')==request['commandId']:
+                need(value.get('lifecycleUiVersion')==(2 if self._field_bindings else 1))
                 epoch=self.clock_ms();validate(value,request,self.pid,epoch)
                 need(value['capturedEpochMs']>=requested)
                 current=accept(self.previous,summary(value))
@@ -145,9 +158,9 @@ class PicoLifecycleSource:
         need(False)
 
 
-def bind_source(adapter,target,native,*,source_lock=None):
+def bind_source(adapter,target,native,*,source_lock=None,field_bindings=False):
     source_lock=adapter._script_journey()._lock(target,source_lock)
     def send(request):
         native.guard();adapter.adb.write_debug_app_file(target,'org.overte.pico',COMMAND,json.dumps(request,separators=(',',':'))+'\n');native.guard()
     return PicoLifecycleSource(send,lambda:adapter.adb.read_debug_app_file(target,'org.overte.pico',
-        'files/overte-e2e/'+FILE,attempts=1),native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep,source_lock=source_lock)
+        'files/overte-e2e/'+FILE,attempts=1),native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep,source_lock=source_lock,field_bindings=field_bindings)

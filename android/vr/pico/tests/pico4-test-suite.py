@@ -294,6 +294,8 @@ TESTS = (
     test("lifecycle-background-raw-dispatch", "interaction", PYTHON, "device/test_lifecycle_background_raw_dispatch.py"),
     test("lifecycle-background-raw-factory", "interaction", PYTHON, "device/test_lifecycle_background_raw_factory.py"),
     test("lifecycle-mutex-ledger", "interaction", PYTHON, "device/test_lifecycle_mutex_ledger.py"),
+    test("lifecycle-field-binding", "interaction", PYTHON, "device/test_lifecycle_field_binding.py"),
+    test("lifecycle-source-raw", "interaction", PYTHON, "device/test_lifecycle_source_raw.py"),
     test("probe-originals", "interaction", PYTHON, "device/test_pico_probe_originals.py"),
     test("raw-literal-profile", "interaction", PYTHON, "device/test_raw_literal_profile.py"),
     test("candidate-path-ownership", "interaction", PYTHON, "device/test_candidate_path_ownership.py"),

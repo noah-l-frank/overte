@@ -42,9 +42,12 @@ class PicoLifecycleBackground:
                 self.originals=LifecycleBackgroundOriginals(self.store.path.with_name('lifecycle-background-originals.json'),run,binding)
             else:
                 from adapters.pico4.lifecycle_background_raw import LifecycleBackgroundRaw3
-                need(type(raw_layout) is LifecycleBackgroundRaw3 and raw_layout.run==run
+                from adapters.pico4.lifecycle_source_raw import LifecycleSourceRaw4
+                need(type(raw_layout) in (LifecycleBackgroundRaw3,LifecycleSourceRaw4) and raw_layout.run==run
                     and raw_layout.binding==self.binding and raw_layout.lock is self.lock
-                    and raw_layout.path==self.store.path.with_name('lifecycle-background-raw.json'))
+                    and raw_layout.path==self.store.path.with_name('lifecycle-background-raw.json')
+                    and type(raw_layout.version) is int and raw_layout.version==(3 if type(raw_layout) is LifecycleBackgroundRaw3 else 4))
+                if type(raw_layout) is LifecycleSourceRaw4:need(self.disk is None)
                 self.originals=raw_layout;self.version=raw_layout.version
             need(self.disk is not None or self.originals.disk is None);self.load()
 
@@ -74,12 +77,12 @@ class PicoLifecycleBackground:
         from adapters.pico4.lifecycle_operations import phase
         need(getattr(self,'phase_fence',None) is None)
         self.phase_fence=fence;phase(self)
-        if self.version==3:self.originals.bind_phase(fence)
+        if self.version in (3,4):self.originals.bind_phase(fence)
 
     def close_storage_host(self):
         # Host descriptor retirement alone never performs product cleanup or
         # claims native release. Failed/foreign OFDs remain unresolved.
-        need(self.version==3)
+        need(self.version in (3,4))
         from adapters.pico4.lifecycle_background_raw_state import close_or_retain
         namespace=getattr(self,'raw_namespace',None)
         return close_or_retain(self.store.path.parent,self.originals,namespace)
@@ -159,7 +162,7 @@ class PicoLifecycleBackground:
         finally:self.state=old
 
     def load(self):
-        if self.version==3:self.originals.preflight_batch()
+        if self.version in (3,4):self.originals.preflight_batch()
         self.bound();disk=self.store.read()
         if disk is None:need(self.state is None);return
         exact(disk,{'lifecycleBackgroundOwnerVersion','runId','binding','originalChunks','payload'})
@@ -168,12 +171,14 @@ class PicoLifecycleBackground:
         rows=self.originals.decode(unpack(disk['payload']));need(len(rows)==1);self.validate(rows[0]);self.disk,self.state=deepcopy(disk),deepcopy(rows[0]);self.bound()
 
     def save(self,state):
-        if self.version==3:self.originals.preflight_batch()
+        if self.version in (3,4):self.originals.preflight_batch()
         self.bound();self.validate(state)
+        if self.version==4:
+            self.originals.save_background(self,state);self.bound();return
         encoded=self.originals.encode([state])
         disk=dict(lifecycleBackgroundOwnerVersion=self.version,runId=self.run,binding=deepcopy(self.binding),originalChunks=self.originals.manifest,payload=pack(encoded))
         self.store.write(disk,self.disk);need(self.store.read()==disk)
-        if self.version==3:self.originals.namespace.owner_cas(self.store,disk)
+        if self.version in (3,4):self.originals.namespace.owner_cas(self.store,disk)
         self.disk,self.state=deepcopy(disk),deepcopy(state);self.bound()
 
     def status(self):
@@ -195,7 +200,7 @@ class PicoLifecycleBackground:
             need(isinstance(world,PicoLifecycleWorld) and isinstance(observer,source.NativeLifecycleBackground)
                 and isinstance(native,NativeFeatureObservation) and world.run==self.run and world.binding==self.binding
                 and world.lock is self.lock and observer.source_lock is self.lock and observer.pid==native.pid==self.pid)
-            if self.version==3:
+            if self.version in (3,4):
                 self.originals.bind_world(world)
                 for reader,role in ((world.source,'ui'),(world.axes,'gesture'),(world.avatar,'drive'),
                         (observer,'background'),(native,'feature')):
@@ -229,7 +234,7 @@ class PicoLifecycleBackground:
 
     def capture(self):
         world,observer,native=self.live();start=self.bound();requested=native.clock_ms()
-        if self.version==3:self.originals.begin_outer(start,requested)
+        if self.version in (3,4):self.originals.begin_outer(start,requested)
         try:
             observer.read(self.run);self.remember(observer)
             packets=world.current();need(len(world.state['attempts'])==1 and world.state['attempts'][0]['phase']=='quiet'
@@ -240,18 +245,18 @@ class PicoLifecycleBackground:
             stamps=[observer.last['capturedEpochMs'],value['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()),packets['gesture']['source']['frameEpochMs']]
             self.fresh_anchor=start,requested,min(stamps);self.fresh();return row
         finally:
-            if self.version==3:self.originals.end_outer(start,requested)
+            if self.version in (3,4):self.originals.end_outer(start,requested)
 
     def prepare(self,chat):
         with self.lock.held():
             self.load();need(self.state is None and isinstance(chat,PicoLifecycleChatDraft) and chat.run==self.run
                 and chat.binding==self.binding and chat.lock is self.lock and chat.state['phase']=='typed')
-            if self.version==3:self.originals.install_writer(chat,'chat')
+            if self.version in (3,4):self.originals.install_writer(chat,'chat')
             chat.observe()
-            if self.version==3:self.originals.preflight_batch()
+            if self.version in (3,4):self.originals.preflight_batch()
             world,observer,native=self.live();need(world is chat.joined.world)
             start=self.bound();requested=native.clock_ms()
-            if self.version==3:self.originals.begin_outer(start,requested)
+            if self.version in (3,4):self.originals.begin_outer(start,requested)
             try:
                 packets=world.current();before=proof.chat_current(packets['ui'],self.run,quiet=False)
                 need(before['id']==chat.state['originalId'] and before['focused'] and len(world.state['attempts'])==1
@@ -267,7 +272,7 @@ class PicoLifecycleBackground:
                 self.fresh_anchor=start,requested,min(observer.last['capturedEpochMs'],value['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()))
                 self.fresh()
             finally:
-                if self.version==3:self.originals.end_outer(start,requested)
+                if self.version in (3,4):self.originals.end_outer(start,requested)
 
     def phase(self,value):
         state=deepcopy(self.state);state['phase']=value;self.save(state)

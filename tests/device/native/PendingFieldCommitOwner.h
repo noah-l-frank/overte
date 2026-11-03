@@ -4,6 +4,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "PendingFieldCommitBridge.h"
 #include "NormalControlUi.h"
+#include "PicoLifecycleFieldIdentity.h"
 #include <ui/PreparedFieldCommit.h>
 #include <ui/NativeFieldInput.h>
 #include <PathUtils.h>
@@ -155,7 +156,13 @@ private:
         }
         if (result.token.isEmpty()) {
             if (_seen.size() >= 64) { return Field(); }
-            result.token = nonce(); _seen.append({result.field, result.window, result.context, result.token});
+#if defined(ANDROID_APP_PICO_INTERFACE)
+            result.token = picoLifecycleFieldIdentity(result.field,result.window,result.context);
+            if (result.token.isEmpty()) { return Field(); }
+#else
+            result.token = nonce();
+#endif
+            _seen.append({result.field, result.window, result.context, result.token});
         }
         result.status = "ready";
         return result;

@@ -3744,3 +3744,31 @@ actual partial original owners; no foreign FD is force closed. Catalog353 adds
 the exact11-case selector. Next: existing Pending flow, exact family permits and
 read-only same-QObject UI/Pending Binding from the frozen Phone helper; no
 selector/text-ID equivalence. Source-complete remains3/14.
+
+
+## Lifecycle UI2 and shared SourceRaw4 prerequisite (2026-11-03)
+
+Explicit UI2 relates the original Field/Window/Context weak identity to Pending
+without equating labels or legacy IDs. UI1 remains the live default. SourceRaw4
+shares one original raw journal and the existing 512-read/16-MiB budget across
+Background and Pending roles; only Background4 has a complete typed publication
+gate in this packet. Expanded owner reachability, original CAS/OFD ownership,
+passive cache integrity and current physical costs are checked before use.
+See [the source handoff](LIFECYCLE_SOURCE_RAW4.md) for formats and exact limits.
+
+The two catalog groups contain 9 field-binding and 35 raw/family cases. The
+current 35-case scope includes an actual 512-read journal and passive reopening;
+31 legacy raw cases and 31 UI/Pending cases remain separately qualified. Native
+source checks reuse the fixed Phone weak-identity implementation; compilation
+and device behavior are unverified. Pending3 still needs bounded binary
+transport/overflow provenance and a typed family gate before live admission.
+No root factory selects SourceRaw4 or advertises complete Lifecycle. The full
+24-action/16-step run, independent Actor, stereo and final retirement remain
+open; complete source feature count stays 3/14.
+
+After the optional shared Script-runtime hook was integrated for Assets, the
+combined current 101 cases passed in 86.178 seconds (86.430 including source
+audit), with all 271 loaded source SHA256/full eight-stat identities unchanged.
+This includes the current 512 case and four default Script-runtime regressions;
+the hook does not change default argument forwarding. All actual test roots
+remain retained. This is host logic qualification, not native/device acceptance.

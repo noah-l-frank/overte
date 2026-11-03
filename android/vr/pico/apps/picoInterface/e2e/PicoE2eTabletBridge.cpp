@@ -842,20 +842,21 @@ private:
         const auto command=document.object();const auto id=command.value("commandId").toString();
         const auto run=command.value("runId").toString();
         if (!exactKeys(command,{"schemaVersion","commandId","action","runId"})
-                || command.value("schemaVersion")!=QJsonValue(1) || command.value("action")!=QJsonValue("observe")
+                || (command.value("schemaVersion")!=QJsonValue(1) && command.value("schemaVersion")!=QJsonValue(2))
+                || command.value("action")!=QJsonValue("observe")
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
                 || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
                 || _lifecycleObservationNonces.contains(id) || _lifecycleObservationNonces.size()>=4096
                 || QThread::currentThread()!=qApp->thread() || !qApp->isHMDMode()
                 || !DependencyManager::isSet<Keyboard>() || !DependencyManager::isSet<TabletScriptingInterface>()) { return; }
         _lifecycleObservationNonces.insert(id); // Failed writes cannot retime an original nonce.
-        auto packet=lifecycleCurrent(run);
+        auto packet=lifecycleCurrent(run,command.value("schemaVersion")==QJsonValue(2));
         if (packet.isEmpty()) { return; }
         packet["commandId"]=id;
         writeJson(BRIDGE_DIRECTORY+"/lifecycle-ui-observation.json",QJsonObject::fromVariantMap(packet));
     }
 
-    QVariantMap lifecycleCurrent(const QString& run) {
+    QVariantMap lifecycleCurrent(const QString& run,bool fieldBindings=false) {
         if (!bridgeEnabled() || !overte::e2e::previewDirectory(BRIDGE_DIRECTORY) || QThread::currentThread()!=qApp->thread()
                 || !qApp->isHMDMode() || !DependencyManager::isSet<Keyboard>()
                 || !DependencyManager::isSet<TabletScriptingInterface>()) { return {}; }
@@ -865,7 +866,7 @@ private:
         const auto window=surface ? surface->getWindow() : nullptr;
         const auto keyboard=DependencyManager::get<Keyboard>()->featureChatObservation();
         return _lifecycleObservation.observe(root,window,tablet && tablet->property("tabletShown").toBool(),
-            tablet && tablet->onHomeScreen(),run,keyboard);
+            tablet && tablet->onHomeScreen(),run,keyboard,fieldBindings);
     }
 
     void lifecycleBackgroundTick() {

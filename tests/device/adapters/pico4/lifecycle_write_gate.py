@@ -64,10 +64,11 @@ class WritePermit:
 class LifecycleWriteGate:
     def __init__(self,raw,writer,role):
         from adapters.pico4.lifecycle_background_raw import LifecycleBackgroundRaw3
+        from adapters.pico4.lifecycle_source_raw import LifecycleSourceRaw4
         from adapters.pico4.lifecycle_world import PicoLifecycleWorld
         from adapters.pico4.lifecycle_chat import PicoLifecycleChatDraft
         from adapters.pico4.lifecycle_observation import PicoLifecycleObservation
-        need(type(raw) is LifecycleBackgroundRaw3 and role in NAMES
+        need(type(raw) in (LifecycleBackgroundRaw3,LifecycleSourceRaw4) and role in NAMES
             and type(writer) is {'world':PicoLifecycleWorld,'chat':PicoLifecycleChatDraft,'source':PicoLifecycleObservation}[role]
             and writer.lock is raw.lock and writer.run==raw.run and writer.binding==raw.binding
             and writer.store.path==raw.path.parent/NAMES[role] and getattr(writer,'storage_gate',None) is None)
