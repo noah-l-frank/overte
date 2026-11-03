@@ -3473,6 +3473,27 @@ A/B scenes, independent Actor, full coordinator and final resource/Host
 retirement stay open; complete source areas remain3/14.
 
 
+The [continuous private Create owner](CREATE_OPERATION_OWNER.md) now retains
+that same original Parent and direct child inside the CLI. The actual input
+context spans fixture activation and normal input under one unchanged budget;
+typed worker-pending cleanup releases its real lock, accepts the original return
+and continues without repeated Delete/Home/Tablet inputs. The43-case packet and
+two canonical cleanup counters pass against their recorded source scopes.
+Current Engine/Binding selectors pass4/0.797s with243 loaded sources unchanged.
+Rootless retained ownership blocks generic cleanup before native reads or base
+stop. Full Common observation/Actor/GPU/stereo/global retirement remain open.
+
+[Normal People rejection](AVATAR_PEOPLE_REJECT_SOURCE.md) now joins the same
+Parent and independently owned roles through Decline, both Close controls and
+three-second source quiet. Four new plus ten unchanged owner cases pass37.709s;
+the canonical Request/Reject/history3 case passes7.882s. All213 union source
+originals remain unchanged. Parent3/People2 are promoted only by actual rejection;
+legacy versions remain readable without rewriting. Actual backend/Accept/Remove
+is blocked by missing social originals and the current product GET/top-level
+response mismatch with the fixed Phone service POST/data envelope. Account and
+whole-resource restoration remain separate. The catalog now contains325
+disjoint groups. Source-complete areas remain3/14 and devices unqualified.
+
 ## Current no-build scope and measured continuation on 2026-11-03
 
 The latest active-goal instruction prohibits further builds/compiler invocations,
