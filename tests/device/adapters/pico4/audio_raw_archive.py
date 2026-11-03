@@ -63,8 +63,15 @@ class AudioRawSourceLock:
 
 class AudioRawArchive:
     """A warm original writer; no retry, truncation, namespace adoption or unlink."""
-    def __init__(self,path,scope,lock,identity,bill,clock):
+    def __init__(self,path,scope,lock,identity,bill,clock,*,literal_limit=MAX_LITERAL):
+        # Assets already admits4MiB acquired literals. Its explicit new scope
+        # may reuse these ranges; existing Audio/Navigation scopes stay1MiB.
+        maximum=scope.get('maximumLiteralBytes',MAX_LITERAL) if type(scope) is dict else MAX_LITERAL
+        need(type(literal_limit) is int and literal_limit in (MAX_LITERAL,4*MAX_LITERAL)
+            and type(maximum) is int and maximum==literal_limit)
         self.store=PrivateFeatureState(path);self.scope=deepcopy(scope);self.scope_sha=json_digest(scope)
+        self.literal_limit=self._literal_limit=literal_limit
+        self.literal_profile=self.original_literal_profile=(literal_limit,self.scope_sha)
         self.lock,self.identity,self.other_bill,self.clock=lock,identity,bill,clock
         self._lock,self._identity,self._other_bill,self._clock=lock,identity,bill,clock
         self.host=host_identity();self.path=self.store.path;self.directory=OriginalDescriptor(self.path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
@@ -80,6 +87,12 @@ class AudioRawArchive:
         self.lock.assert_held();need(not self.failed and host_identity()==self.host and self.path==self.store.path
             and self.scope_sha==json_digest(self.scope) and self.directory is self.original_directory
             and self.lock is self._lock and self.identity is self._identity and self.other_bill is self._other_bill and self.clock is self._clock)
+        profile=self.literal_profile
+        maximum=self.scope.get('maximumLiteralBytes',MAX_LITERAL) if type(self.scope) is dict else MAX_LITERAL
+        need(profile is self.original_literal_profile and type(profile) is tuple and len(profile)==2
+            and type(self.literal_limit) is type(self._literal_limit) is type(maximum) is int
+            and self.literal_limit==self._literal_limit==maximum==profile[0]
+            and profile[1]==self.scope_sha)
         self.identity();require_directory(self.directory,self.path.parent)
 
     def root_identity(self):
@@ -166,7 +179,7 @@ class AudioRawArchive:
         try:
             with self.lock.held():
                 self.verify();verified=True
-                need(not self.stopped and type(role) is str and integer(limit,1,MAX_LITERAL) and self.state['reads']<MAX_FRAMES)
+                need(not self.stopped and type(role) is str and integer(limit,1,self.literal_limit) and self.state['reads']<MAX_FRAMES)
                 need(integer(side_bytes,0,2*(11*48000*2*2+44)));json_digest(command);need(type(command) is dict and len(canonical(command))<=4096)
                 current=self.other_bill();ours=self.bill();pending=self.state['pending']
                 reserved_parts=sum(row['parts'] for row in pending);reserved_bytes=sum(row['limit']+row['sideBytes'] for row in pending)

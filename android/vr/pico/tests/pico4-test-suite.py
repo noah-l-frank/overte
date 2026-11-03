@@ -282,6 +282,7 @@ TESTS = (
     test("lifecycle-actor-background", "interaction", PYTHON, "device/test_lifecycle_actor_background.py"),
     test("lifecycle-background-raw-retention", "interaction", PYTHON, "device/test_lifecycle_background_raw_binding.py"),
     test("probe-originals", "interaction", PYTHON, "device/test_pico_probe_originals.py"),
+    test("raw-literal-profile", "interaction", PYTHON, "device/test_raw_literal_profile.py"),
     test("navigation-scene-probe", "interaction", PYTHON, "device/test_navigation_scene_probe.py", requires=("openssl",)),
     test("navigation-scene-raw", "interaction", PYTHON, "device/test_navigation_scene_raw.py", requires=("openssl",)),
     test("navigation-scene-memory-retention", "interaction", PYTHON, "device/test_navigation_scene_memory_retention.py", requires=("openssl",)),
