@@ -41,6 +41,7 @@ class PicoLifecycleWorld:
             and isinstance(source_lock,ScriptSourceLock) and ui.nonce(run) and all(callable(f) for f in (guard,monotonic,sleep)))
         self.source,self.axes,self.avatar,self.session=source,axes,avatar,session
         need(before_io is None or callable(before_io));self.before_io=before_io
+        self.storage_gate=self._original_storage_gate=None
         self.run,self.binding,self.guard=run,deepcopy(context(binding)),guard
         self.pid=source.pid;self.identity=self.binding['processIdentity'];need(axes.pid==avatar.pid==self.pid==int(self.identity.split(':')[0]))
         self.store=PrivateFeatureState(path);self.lock=source_lock
@@ -87,13 +88,23 @@ class PicoLifecycleWorld:
             and not any(row['focused'] for row in source['editors']))
 
     def save(self,state):
-        # Host-only intent callbacks run under the exact native session cursor.
-        self.lock.assert_held();need(self.store.read()==self.disk)
-        # Only a newly created owner selects v2. An admitted v1 owner keeps
-        # its exact original codec and all existing operations/limits.
-        version=VERSION if self.disk is None else self.disk['lifecycleWorldOwnerVersion']
-        disk=dict(lifecycleWorldOwnerVersion=version,runId=self.run,binding=self.binding,payload=pack([state],version))
-        self.store.write(disk,self.disk);need(self.store.read()==disk);self.disk,self.state=deepcopy(disk),deepcopy(state)
+        gate=getattr(self,'_original_storage_gate',None);permit=None
+        try:
+            if gate is not None:
+                from adapters.pico4.lifecycle_write_gate import LifecycleWriteGate
+                need(type(gate) is LifecycleWriteGate);permit=gate.before_state(self,state)
+            # Host-only intent callbacks run under the exact native session cursor.
+            self.lock.assert_held();need(self.store.read()==self.disk)
+            # Only a newly created owner selects v2. An admitted v1 owner keeps
+            # its exact original codec and all existing operations/limits.
+            version=VERSION if self.disk is None else self.disk['lifecycleWorldOwnerVersion']
+            disk=dict(lifecycleWorldOwnerVersion=version,runId=self.run,binding=self.binding,payload=pack([state],version,**({} if gate is None else dict(bounded=True))))
+            if gate is not None:gate.encoded(self,permit,disk)
+            self.store.write(disk,self.disk);need(self.store.read()==disk);self.disk,self.state=deepcopy(disk),deepcopy(state)
+            if gate is not None:gate.after(self,permit,disk)
+        except BaseException:
+            if gate is not None:gate.failed(self,permit)
+            raise
 
     def load(self):
         self.lock.assert_held();self.now();disk=self.store.read()

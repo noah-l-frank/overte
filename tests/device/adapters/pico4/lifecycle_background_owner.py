@@ -26,16 +26,26 @@ ARCHIVES=('lifecycle-chat-owner.json','lifecycle-editor-owner.json','lifecycle-x
 
 
 class PicoLifecycleBackground:
-    def __init__(self,path,run,binding,source_lock,os_status,os_input,runtime,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,path,run,binding,source_lock,os_status,os_input,runtime,*,monotonic=time.monotonic,sleep=time.sleep,raw_layout=None):
         need(ui.nonce(run) and isinstance(source_lock,ScriptSourceLock)
             and all(callable(f) for f in (os_status,os_input,runtime,monotonic,sleep)))
         self.store,self.run,self.binding=PrivateFeatureState(path),run,deepcopy(context(binding));self.pid,_start=proof.identity(binding)
         self.lock=source_lock;need(self.store.path.name=='lifecycle-background-owner.json' and self.lock.path==self.store.path.with_name('script-sources.lock'))
         self.os_status,self.os_input,self.runtime_factory=os_status,os_input,runtime
         self.monotonic,self.sleep=monotonic,sleep;self.runtime=None;self.disk=self.state=self.last_clock=self.fresh_anchor=None
+        self.version=VERSION
         with self.lock.held():
             self.disk=self.store.read()
-            self.originals=LifecycleBackgroundOriginals(self.store.path.with_name('lifecycle-background-originals.json'),run,binding)
+            if raw_layout is None:
+                raw_path=self.store.path.with_name('lifecycle-background-raw.json')
+                need(not raw_path.exists() and not list(raw_path.parent.glob(raw_path.name+'.*')))
+                self.originals=LifecycleBackgroundOriginals(self.store.path.with_name('lifecycle-background-originals.json'),run,binding)
+            else:
+                from adapters.pico4.lifecycle_background_raw import LifecycleBackgroundRaw3
+                need(type(raw_layout) is LifecycleBackgroundRaw3 and raw_layout.run==run
+                    and raw_layout.binding==self.binding and raw_layout.lock is self.lock
+                    and raw_layout.path==self.store.path.with_name('lifecycle-background-raw.json'))
+                self.originals=raw_layout;self.version=raw_layout.version
             need(self.disk is not None or self.originals.disk is None);self.load()
 
     def bound(self):
@@ -64,6 +74,15 @@ class PicoLifecycleBackground:
         from adapters.pico4.lifecycle_operations import phase
         need(getattr(self,'phase_fence',None) is None)
         self.phase_fence=fence;phase(self)
+        if self.version==3:self.originals.bind_phase(fence)
+
+    def close_storage_host(self):
+        # Host descriptor retirement alone never performs product cleanup or
+        # claims native release. Failed/foreign OFDs remain unresolved.
+        need(self.version==3)
+        from adapters.pico4.lifecycle_background_raw_state import close_or_retain
+        namespace=getattr(self,'raw_namespace',None)
+        return close_or_retain(self.store.path.parent,self.originals,namespace)
 
     def evidence(self,row):
         return dict(beforeUi=self.state['beforeUi'],beforeNative=self.state['beforeNative'],arm=self.state['inputs'][0],
@@ -140,18 +159,22 @@ class PicoLifecycleBackground:
         finally:self.state=old
 
     def load(self):
+        if self.version==3:self.originals.preflight_batch()
         self.bound();disk=self.store.read()
         if disk is None:need(self.state is None);return
         exact(disk,{'lifecycleBackgroundOwnerVersion','runId','binding','originalChunks','payload'})
-        need(type(disk['lifecycleBackgroundOwnerVersion']) is int and disk['lifecycleBackgroundOwnerVersion']==VERSION
+        need(type(disk['lifecycleBackgroundOwnerVersion']) is int and disk['lifecycleBackgroundOwnerVersion']==self.version
             and disk['runId']==self.run and disk['binding']==self.binding and disk['originalChunks']==self.originals.manifest)
         rows=self.originals.decode(unpack(disk['payload']));need(len(rows)==1);self.validate(rows[0]);self.disk,self.state=deepcopy(disk),deepcopy(rows[0]);self.bound()
 
     def save(self,state):
+        if self.version==3:self.originals.preflight_batch()
         self.bound();self.validate(state)
         encoded=self.originals.encode([state])
-        disk=dict(lifecycleBackgroundOwnerVersion=VERSION,runId=self.run,binding=deepcopy(self.binding),originalChunks=self.originals.manifest,payload=pack(encoded))
-        self.store.write(disk,self.disk);need(self.store.read()==disk);self.disk,self.state=deepcopy(disk),deepcopy(state);self.bound()
+        disk=dict(lifecycleBackgroundOwnerVersion=self.version,runId=self.run,binding=deepcopy(self.binding),originalChunks=self.originals.manifest,payload=pack(encoded))
+        self.store.write(disk,self.disk);need(self.store.read()==disk)
+        if self.version==3:self.originals.namespace.owner_cas(self.store,disk)
+        self.disk,self.state=deepcopy(disk),deepcopy(state);self.bound()
 
     def status(self):
         self.bound();value=self.os_status(deepcopy(self.binding));need(type(value.get('foreground')) is bool)
@@ -172,6 +195,11 @@ class PicoLifecycleBackground:
             need(isinstance(world,PicoLifecycleWorld) and isinstance(observer,source.NativeLifecycleBackground)
                 and isinstance(native,NativeFeatureObservation) and world.run==self.run and world.binding==self.binding
                 and world.lock is self.lock and observer.source_lock is self.lock and observer.pid==native.pid==self.pid)
+            if self.version==3:
+                self.originals.bind_world(world)
+                for reader,role in ((world.source,'ui'),(world.axes,'gesture'),(world.avatar,'drive'),
+                        (observer,'background'),(native,'feature')):
+                    self.originals.hook(reader,role)
             observer.intent=self.intent
             fence=getattr(self,'phase_fence',None)
             if fence is not None:
@@ -201,34 +229,45 @@ class PicoLifecycleBackground:
 
     def capture(self):
         world,observer,native=self.live();start=self.bound();requested=native.clock_ms()
-        observer.read(self.run);self.remember(observer)
-        packets=world.current();need(len(world.state['attempts'])==1 and world.state['attempts'][0]['phase']=='quiet'
-            and len(world.attempts(world.state,packets['gesture']))==1)
-        neutral(packets['gesture']);actual=world.anchor.measure(packets['drive']);need(not actual['heldInputs'] and actual['worldDisplacement']<=.025)
-        value=native.read(native.sequence);raw=frame(native.original());need(proof.bytes_packet(raw)==value)
-        row=dict(sourceIndex=len(self.state['sources'])-1,world=deepcopy(world.state['frames'][-1]),native=raw,hostMonotonic=self.bound())
-        stamps=[observer.last['capturedEpochMs'],value['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()),packets['gesture']['source']['frameEpochMs']]
-        self.fresh_anchor=start,requested,min(stamps);self.fresh();return row
+        if self.version==3:self.originals.begin_outer(start,requested)
+        try:
+            observer.read(self.run);self.remember(observer)
+            packets=world.current();need(len(world.state['attempts'])==1 and world.state['attempts'][0]['phase']=='quiet'
+                and len(world.attempts(world.state,packets['gesture']))==1)
+            neutral(packets['gesture']);actual=world.anchor.measure(packets['drive']);need(not actual['heldInputs'] and actual['worldDisplacement']<=.025)
+            value=native.read(native.sequence);raw=frame(native.original());need(proof.bytes_packet(raw)==value)
+            row=dict(sourceIndex=len(self.state['sources'])-1,world=deepcopy(world.state['frames'][-1]),native=raw,hostMonotonic=self.bound())
+            stamps=[observer.last['capturedEpochMs'],value['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()),packets['gesture']['source']['frameEpochMs']]
+            self.fresh_anchor=start,requested,min(stamps);self.fresh();return row
+        finally:
+            if self.version==3:self.originals.end_outer(start,requested)
 
     def prepare(self,chat):
         with self.lock.held():
             self.load();need(self.state is None and isinstance(chat,PicoLifecycleChatDraft) and chat.run==self.run
                 and chat.binding==self.binding and chat.lock is self.lock and chat.state['phase']=='typed')
-            chat.observe();world,observer,native=self.live();need(world is chat.joined.world)
+            if self.version==3:self.originals.install_writer(chat,'chat')
+            chat.observe()
+            if self.version==3:self.originals.preflight_batch()
+            world,observer,native=self.live();need(world is chat.joined.world)
             start=self.bound();requested=native.clock_ms()
-            packets=world.current();before=proof.chat_current(packets['ui'],self.run,quiet=False)
-            need(before['id']==chat.state['originalId'] and before['focused'] and len(world.state['attempts'])==1
-                and world.state['attempts'][0]['phase']=='quiet' and len(world.attempts(world.state,packets['gesture']))==1)
-            neutral(packets['gesture']);actual=world.anchor.measure(packets['drive']);need(not actual['heldInputs'] and actual['worldDisplacement']<=.025)
-            value=native.read(native.sequence);raw=frame(native.original());need(proof.bytes_packet(raw)==value)
-            observer.read(self.run);need(observer.last['available'] and observer.last['ownerRunId']=='' and observer.last['lastIntentSequence']==0)
-            archives={}
-            for name in ARCHIVES:
-                disk=PrivateFeatureState(self.store.path.with_name(name)).read();need(disk is not None);archives[name]=hashlib.sha256(canonical(disk)).hexdigest()
-            self.save(dict(phase='prepared',archives=archives,beforeUi=deepcopy(world.state['frames'][-1]['ui']),beforeNative=raw,
-                sources=[frame(observer.last_raw)],inputs=[],home=None,background=None,foreground=None,quiet=[],finalQuiet=[],final=None))
-            self.fresh_anchor=start,requested,min(observer.last['capturedEpochMs'],value['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()))
-            self.fresh()
+            if self.version==3:self.originals.begin_outer(start,requested)
+            try:
+                packets=world.current();before=proof.chat_current(packets['ui'],self.run,quiet=False)
+                need(before['id']==chat.state['originalId'] and before['focused'] and len(world.state['attempts'])==1
+                    and world.state['attempts'][0]['phase']=='quiet' and len(world.attempts(world.state,packets['gesture']))==1)
+                neutral(packets['gesture']);actual=world.anchor.measure(packets['drive']);need(not actual['heldInputs'] and actual['worldDisplacement']<=.025)
+                value=native.read(native.sequence);raw=frame(native.original());need(proof.bytes_packet(raw)==value)
+                observer.read(self.run);need(observer.last['available'] and observer.last['ownerRunId']=='' and observer.last['lastIntentSequence']==0)
+                archives={}
+                for name in ARCHIVES:
+                    disk=PrivateFeatureState(self.store.path.with_name(name)).read();need(disk is not None);archives[name]=hashlib.sha256(canonical(disk)).hexdigest()
+                self.save(dict(phase='prepared',archives=archives,beforeUi=deepcopy(world.state['frames'][-1]['ui']),beforeNative=raw,
+                    sources=[frame(observer.last_raw)],inputs=[],home=None,background=None,foreground=None,quiet=[],finalQuiet=[],final=None))
+                self.fresh_anchor=start,requested,min(observer.last['capturedEpochMs'],value['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()))
+                self.fresh()
+            finally:
+                if self.version==3:self.originals.end_outer(start,requested)
 
     def phase(self,value):
         state=deepcopy(self.state);state['phase']=value;self.save(state)

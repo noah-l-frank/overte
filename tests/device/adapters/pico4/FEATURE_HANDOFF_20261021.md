@@ -3694,3 +3694,31 @@ method remains manually selectable as independent-journey-legacy. Public
 catalog/OverteSession/operation-host coordination is still missing; no public
 capability is advertised and source-complete stays3/14. Native/product/GPU/Qt/
 OS producers remain analytical models; no native compilation or device run.
+
+## Gated original Background3 storage integrated on 2026-11-03
+
+The explicit [Background3 packet](LIFECYCLE_BACKGROUND_RAW.md) retains actual
+UI/Gesture/Drive/Background/Feature getter returns through existing Raw1 ranges
+before decoding, without cold adoption or renewed acquisition clocks. Default
+Background1 and historical1/3 inspection remain. Exact original Chat/World/
+Source3 writer gates reserve the complete encoding/copy/CAS peak before work;
+actual Source3 child creation retains its original writer OFD through readback.
+Valid World2 bytes remain identical; only its explicit bounded path checks the
+unchanged48KiB Base64 cap before allocating that buffer.
+
+Four disjoint final groups31/17/1/4 pass14.711/79.658/55.168/54.795s under their
+separate original120s limits. Every loaded source retains SHA/eight-field stats;
+exact tested-byte copies of302 source files are privately preserved. Their tested Binding
+factory is byte-identical to the integrated method. Root's later unrelated
+Browser guard is qualified separately; current actual factory early-refusal
+cases pass2/0.771s/267stable. These are separate frozen scopes, not one journey.
+
+The Entry performs seven normal actions, Background release,13+13quiet rows,
+original workerExit0/kernelabsence,173raw returns/19parts/no pending return.
+The final bill is13,013,239 decoded/copy bytes and1,719,025 stored bytes including
+metadata. Legacy capacity-only mutexledger1 retains508/512 actual transitions.
+Its next explicit boundary is the approved lossless Ledger2. All16 effects,
+24original source groups, required images/G1, full return and retirement remain
+open; source-complete stays3/14. Catalog352 adds the four bounded groups and
+separate current factory guards; the known-unqualified24-group prototype stays
+out of defaults. No native compilation, device or public-capability claim.

@@ -40,6 +40,7 @@ class PicoLifecycleChatDraft:
         need(source.pid==self.pid and source.source_lock is self.lock and route.run==self.run)
         self.store=PrivateFeatureState(path);need(self.store.path==world.store.path.with_name('lifecycle-chat-owner.json'))
         self.disk=self.state=None;self.last_clock=self.acquisition=None;route.intent=self.intent
+        self.storage_gate=self._original_storage_gate=None
         with self.lock.held():self.load()
 
     def join_hash(self):
@@ -121,9 +122,19 @@ class PicoLifecycleChatDraft:
         self.disk,self.state=deepcopy(disk),deepcopy(value[0])
 
     def save(self,state):
-        self.lock.assert_held();need(self.store.read()==self.disk);self.validate(state)
-        disk=dict(lifecycleChatOwnerVersion=VERSION,runId=self.run,binding=deepcopy(self.binding),payload=pack([state]))
-        self.store.write(disk,self.disk);need(self.store.read()==disk);self.disk,self.state=deepcopy(disk),deepcopy(state)
+        gate=getattr(self,'_original_storage_gate',None);permit=None
+        try:
+            if gate is not None:
+                from adapters.pico4.lifecycle_write_gate import LifecycleWriteGate
+                need(type(gate) is LifecycleWriteGate);permit=gate.before_state(self,state)
+            self.lock.assert_held();need(self.store.read()==self.disk);self.validate(state)
+            disk=dict(lifecycleChatOwnerVersion=VERSION,runId=self.run,binding=deepcopy(self.binding),payload=pack([state]))
+            if gate is not None:gate.encoded(self,permit,disk)
+            self.store.write(disk,self.disk);need(self.store.read()==disk);self.disk,self.state=deepcopy(disk),deepcopy(state)
+            if gate is not None:gate.after(self,permit,disk)
+        except BaseException:
+            if gate is not None:gate.failed(self,permit)
+            raise
 
     def prepare(self):
         with self.lock.held():

@@ -36,7 +36,7 @@ from feature_journeys.contract import arguments as feature_arguments
 VERSION=3
 FAMILIES={
     'chat':('lifecycle-chat-owner.json',),
-    'background':('lifecycle-background-owner.json','lifecycle-background-originals.json'),
+    'background':('lifecycle-background-owner.json','lifecycle-background-originals.json','lifecycle-background-raw.json'),
     'pending':('lifecycle-pending-owner.json','lifecycle-pending-originals.json'),
     'close':('lifecycle-close-owner.json','lifecycle-close-originals.json'),
 }
@@ -80,6 +80,7 @@ class PicoLifecycleObservation:
                 and not editor.state['inputs'] and editor.state['originalId'] is None))
     def _initialize(self,restore,editor,chat,pending,path,*,version,reader,acquisition=None):
         self.version=version
+        self.storage_gate=self._original_storage_gate=None
         self.acquisition=acquisition
         self.restore,self.editor,self.chat,self.pending=restore,editor,chat,pending
         self.background=self.close=None
@@ -109,7 +110,8 @@ class PicoLifecycleObservation:
     def family_inventory(self,role):
         roots=FAMILIES[role]
         with os.scandir(self.store.path.parent) as entries:
-            return {entry.name for entry in entries if any(entry.name==name or entry.name.startswith(name+'.frame-') for name in roots)}
+            return {entry.name for entry in entries if any(entry.name==name or entry.name.startswith(name+'.frame-')
+                or name=='lifecycle-background-raw.json' and entry.name.startswith(name+'.') for name in roots)}
 
     def absent(self,*,except_role=None):
         for role in self.missing:
@@ -137,7 +139,11 @@ class PicoLifecycleObservation:
                 elif role=='pending':need(owner.world is self.world and owner.background is self.background)
                 else:need(owner.world is self.world and owner.pending is self.pending)
                 expected={owner.store.path.name}
-                if hasattr(owner,'originals') and owner.originals.disk is not None:
+                if role=='background' and owner.version==3:
+                    from adapters.pico4.lifecycle_background_raw import LifecycleBackgroundRaw3
+                    need(type(owner.originals) is LifecycleBackgroundRaw3)
+                    expected.update(owner.originals.owned_names())
+                elif hasattr(owner,'originals') and owner.originals.disk is not None:
                     expected.add(owner.originals.root.path.name)
                     expected.update(owner.originals.history.names[:len(owner.originals.manifest)])
                 need(self.family_inventory(role)==expected)
@@ -225,22 +231,41 @@ class PicoLifecycleObservation:
         return value
 
     def save(self,value):
-        self.bound();self.store.write(value,self.disk)
-        actual,_raw,physical=file_state(self.store);need(actual==value)
-        self.disk=deepcopy(value);self.pin=json_digest(self.disk);self.stamp=tuple(physical)
+        gate=getattr(self,'_original_storage_gate',None);permit=None
+        try:
+            if gate is not None:
+                from adapters.pico4.lifecycle_write_gate import LifecycleWriteGate
+                need(type(gate) is LifecycleWriteGate);permit=gate.before_root(self,value)
+            self.bound();self.store.write(value,self.disk)
+            actual,_raw,physical=file_state(self.store);need(actual==value)
+            self.disk=deepcopy(value);self.pin=json_digest(self.disk);self.stamp=tuple(physical)
+            if gate is not None:gate.after(self,permit,value)
+        except BaseException:
+            if gate is not None:gate.failed(self,permit)
+            raise
 
     def append_original(self,value):
         references=self.disk['bundles'];index=len(references)
-        reference,parts=source_bundles.prepare(value,index,references)
-        for part in parts:
-            manifest=self.history.append(part,self.disk['chunks'])
-            need(tuple(self.history.identities[:-1])==self.chunk_identities
-                and len(self.history.identities)==len(self.chunk_identities)+1)
-            self.chunk_identities=tuple(self.history.identities);self.chunk_raw_bytes=self.history.raw_bytes
-            updated=deepcopy(self.disk);updated['chunks']=manifest
-            self.save(updated)
-        updated=deepcopy(self.disk);updated['bundles'].append(reference);self.save(updated)
-        return index
+        gate=getattr(self,'_original_storage_gate',None);permit=None
+        try:
+            if gate is not None:
+                from adapters.pico4.lifecycle_write_gate import LifecycleWriteGate
+                need(type(gate) is LifecycleWriteGate);permit=gate.before_child(self,value,references)
+            reference,parts=source_bundles.prepare(value,index,references)
+            for part in parts:
+                manifest=(self.history.append(part,self.disk['chunks']) if gate is None
+                    else gate.append_child(self,permit,part,self.disk['chunks']))
+                need(tuple(self.history.identities[:-1])==self.chunk_identities
+                    and len(self.history.identities)==len(self.chunk_identities)+1)
+                self.chunk_identities=tuple(self.history.identities);self.chunk_raw_bytes=self.history.raw_bytes
+                updated=deepcopy(self.disk);updated['chunks']=manifest
+                self.save(updated)
+            updated=deepcopy(self.disk);updated['bundles'].append(reference);self.save(updated)
+            if gate is not None:gate.after_child(self,permit,reference)
+            return index
+        except BaseException:
+            if gate is not None:gate.failed(self,permit)
+            raise
 
     def source_state(self,packets,pending):
         current=ui.current_editor(packets['ui']);identities={}

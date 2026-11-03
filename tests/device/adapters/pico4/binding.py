@@ -2473,14 +2473,18 @@ def create_adapter(args, base_class):
             return bind_source(self,target,self._native_feature_observer(target),source_lock=source_lock,intent=intent)
 
         @_private
-        def _lifecycle_background_owner(self,target,run,*,source_lock=None,world=None,phase_fence=None):
+        def _lifecycle_background_owner(self,target,run,*,source_lock=None,world=None,phase_fence=None,raw_layout=False):
             from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
             from adapters.pico4.lifecycle_world import PicoLifecycleWorld
             from adapters.pico4.graphics_binding import PicoGraphicsBinding
             from adapters.normal_feature_state import context
+            _need(type(raw_layout) is bool)
             path=self._lifecycle_world_store(target).path.with_name('lifecycle-background-owner.json')
             source_lock=self._script_journey()._lock(target,source_lock or (world.lock if world is not None else None))
             disk=PrivateFeatureState(path).read()
+            from adapters.pico4.lifecycle_background_raw_state import retained_path,close_or_retain
+            _need(not retained_path(path.parent))
+            if raw_layout:_need(disk is None)
             # Reading an old private archive is not a foreground assertion.
             # The OS facade below revalidates actual PID/start and candidate
             # before normal activation or acquiring any live Qt runtime.
@@ -2502,11 +2506,32 @@ def create_adapter(args, base_class):
                 current,native=foreground_runtime()
                 _need(actual.binding==binding==current)
                 return actual,self._lifecycle_background_source(target,source_lock=source_lock,intent=intent),native
-            return PicoLifecycleBackground(path,run,binding,source_lock,
-                lambda owned:facade._graphics_lifecycle_status(target,owned),
-                lambda operation,owned:facade._graphics_lifecycle_input(target,operation,owned),runtime,
-                monotonic=world.monotonic if world is not None else time.monotonic,
-                sleep=world.sleep if world is not None else time.sleep)
+            clock=world.monotonic if world is not None else time.monotonic
+            holder=[None];raw=None
+            if raw_layout:
+                from adapters.pico4.lifecycle_background_raw import LifecycleBackgroundRaw3
+                from adapters.pico4.lifecycle_namespace_bill import LifecycleNamespaceBill
+                _need(disk is None)
+                namespace=LifecycleNamespaceBill(path.parent,source_lock,
+                    expanded=lambda:None if holder[0] is None else holder[0].state)
+                try:
+                    raw=LifecycleBackgroundRaw3(path.with_name('lifecycle-background-raw.json'),run,binding,
+                        source_lock,source_lock.assert_held,namespace,clock)
+                except BaseException:
+                    close_or_retain(path.parent,namespace);raise
+            try:
+                result=PicoLifecycleBackground(path,run,binding,source_lock,
+                    lambda owned:facade._graphics_lifecycle_status(target,owned),
+                    lambda operation,owned:facade._graphics_lifecycle_input(target,operation,owned),runtime,
+                    monotonic=clock,
+                    sleep=world.sleep if world is not None else time.sleep,raw_layout=raw)
+            except BaseException:
+                if raw_layout:
+                    close_or_retain(path.parent,raw,namespace)
+                raise
+            holder[0]=result
+            if raw_layout:result.raw_namespace=namespace
+            return result
 
         @_private
         def _lifecycle_pending_owner(self,target,run,*,source_lock=None,world=None,background=None,phase_fence=None):

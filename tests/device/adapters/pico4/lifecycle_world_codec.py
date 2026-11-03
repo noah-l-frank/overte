@@ -29,13 +29,21 @@ def plain(value):
         else:need(kind in (str,int,float,bool,type(None)))
 
 
-def pack(frames,version):
-    need(type(version) is int and version in READS)
+def pack(frames,version,*,bounded=False):
+    need(type(version) is int and version in READS and type(bounded) is bool)
     if version==1:return legacy.pack(frames)
     try:
         plain(frames);need(type(frames) is list and len(frames)<=legacy.MAX_FRAMES)
         raw=legacy.canonical(frames);need(len(raw)<=legacy.MAX_RAW)
-        encoded=base64.b64encode(lzma.compress(raw,format=lzma.FORMAT_XZ,preset=3)).decode('ascii')
+        if bounded:
+            # Same output cap, checked before either complete Base64 copy is
+            # allocated. The full actual XZ work window remains separately
+            # admitted by the original opt-in writer gate.
+            compressed=lzma.compress(raw,format=lzma.FORMAT_XZ,preset=3)
+            need(4*((len(compressed)+2)//3)<=legacy.MAX_PACKED)
+            encoded=base64.b64encode(compressed).decode('ascii')
+        else:
+            encoded=base64.b64encode(lzma.compress(raw,format=lzma.FORMAT_XZ,preset=3)).decode('ascii')
         need(len(encoded)<=legacy.MAX_PACKED)
         return dict(encoding='xz-base64-json',bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),data=encoded)
     except NativeUIError:raise
