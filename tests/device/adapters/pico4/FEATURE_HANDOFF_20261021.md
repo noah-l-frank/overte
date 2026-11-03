@@ -3967,3 +3967,14 @@ decoder accounting remain enforced. This uses a declared host transport model;
 the Native producer, physical SDK envelope, cold factory and whole Common are
 still open. Catalogue402 adds one disjoint prerequisite group; complete areas
 remain3/14, device qualification0.
+
+## Browser actual Common continuation, 2026-11-03
+
+Actor6 pacing now includes work and yields the source lock. The coordinator
+waits passively for the original return root, then rechecks it under lock.
+Root9 affected cases pass4.112s/232stable; actual owner admission8 pass4.303s.
+The actual coordinator/Actor6 host-model diagnostic now completes all26 normal
+acts, quiet and original Common consumption, then expires the same120s budget
+during Actor return (121.260s observed). No complete feature, archive or host
+release is claimed. See [the scoped record](BROWSER_OPERATION_SCOPE.md).
+Catalogue404 contains two additional component groups; complete areas stay3/14.

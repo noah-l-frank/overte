@@ -141,3 +141,32 @@ original action budget and bound the intervening actual readonly request, with
 one CLI/candidate factory only. The whole-run diagnostic is explicit and is
 not registered as a default green unit/catalog selection. Its current RED
 condition remains visible above.
+
+## Actor6 pacing and original pending return, 2026-11-03
+
+Actor6 schedules400ms periods including publication work, with at least25ms
+for a waiting Primary lock poll. Legacy observers keep their250ms sleep. No
+500ms quiet,512 source-frame or120s whole limit is increased. Actual prior
+runs exposed both SourceLock starvation and512 retained history entries after
+all26 acts; neither failed owner is adopted.
+
+The operation owner now polls the original pending return root without taking
+the Actor source lock. A ready root is re-read under that same lock before
+any return admission. This avoids an actual Parent5s lock timeout while the
+Actor still constructs its export; it grants no authority from a pending root.
+Two real separate-process lock/deadline counters and three actual-clock pacing
+cases join four existing Actor cases: Root9 GREEN4.112s/232 loaded source
+SHA/eight-field identities stable. Existing actual owner admission8 also pass
+4.303s, with each child's loaded source records unchanged. Publication timing
+work and the narrow waiting facade are declared models, not Native facts.
+
+The explicit non-default coordinator diagnostic runs the actual Common Parent,
+production operation owner and original Actor6 entrypoint/process with existing
+candidate/native/VR/GPU model producers. With400ms pacing it completes all26
+normal acts, continuous quiet and Common consumption. The first such run then
+fails the premature pending lock at113.979s. After the wait correction it
+reaches ready original Actor return and acknowledgement but expires the
+original120s budget at121.260s observed completion. Source manifests remain
+stable; uncertainty and originals are retained. Complete Actor return/archive/
+host closure and the canonical candidate/router path remain open. Catalogue404
+adds only the two disjoint component selectors; complete areas remain3/14.

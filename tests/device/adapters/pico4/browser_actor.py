@@ -38,7 +38,7 @@ def run(journey,config,*,monotonic=time.monotonic,sleep=time.sleep,admission=Non
         now=monotonic();need(number(now,previous,started+config['durationSeconds'])
             and now-started<config['durationSeconds']);previous=now
     while True:
-        bound()
+        bound();iteration_started=previous
         if exported is None:
             try:
                 with actor.lock.held():
@@ -65,4 +65,10 @@ def run(journey,config,*,monotonic=time.monotonic,sleep=time.sleep,admission=Non
             if exported.sender.ack_store.read() is not None:
                 exported.consume_return();bound()
                 need(exported.sender.consumed and not exported.failed);return 0
-        bound();sleep(.25)
+        bound()
+        # Actor6 samples at 400ms including actual publication work, inside
+        # the unchanged 500ms quiet-window ceiling and source-frame cap.
+        # Yield at least one lock-poll interval to an actual waiting Primary.
+        # Preserve the legacy fixed sleep for earlier observer profiles.
+        delay=.25 if admission is None else max(.025,.4-(previous-iteration_started))
+        sleep(delay)

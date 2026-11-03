@@ -1097,7 +1097,7 @@
         "Revoke leases and retire callback/grant authority",
         "Observe actual source destruction and closed quiet baseline"
       ],
-      "nextExecutableStep": "Measure and resolve actual Actor6 continuous quiet sampling within the unchanged500ms gap, then finish original Common return and all retirement under the same120s whole budget. The real coordinator/Actor6 host-model run completed all26 normal acts but failed original quiet admission at103.421s; no unchanged whole retry or cap relaxation.",
+      "nextExecutableStep": "Measure and reduce actual original Actor export/return and final archive cost under the unchanged120s whole budget. Current real coordinator/Actor6 host-model run completes all26 acts, continuous quiet and original Common consumption, then expires120s during actual Actor return; no unchanged whole retry or cap relaxation. Canonical candidate/router, complete archive and host closure remain unqualified.",
       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
       "deviceQualification": "untested",
       "archiveRootByteAdmission": "Successful original CAS/readback pins exact canonical bytes/full8stat. Later controls acquire all current bytes through original OFD and exact namespace/stamp fences, reusing only prior JSON semantics. Context24GREEN0.492s/124stable; independent source6GREEN44.644s/206stable. Isolated1000-call host fixture median200 controls74.856ms\u219240.205ms, not whole speed/completion.",
@@ -1128,6 +1128,21 @@
         "candidateAndPrimaryFacade": "declared host models",
         "canonicalRouterQualified": false,
         "sourceComplete": false
+      },
+      "actorSchedulingAndReturnWait": {
+        "actorSixPeriodSeconds": 0.4,
+        "minimumLockYieldSeconds": 0.025,
+        "quietGapLimitSeconds": 0.5,
+        "legacySleepSeconds": 0.25,
+        "rootCases": 9,
+        "rootSeconds": 4.112,
+        "rootLoadedSources": 232,
+        "ownerAdmissionCases": 8,
+        "ownerAdmissionSeconds": 4.303,
+        "latestWholeSeconds": 121.26,
+        "latestWholeResult": "RED at original120s during actor.return, Common complete",
+        "canonicalCandidateRouter": false,
+        "devicesTested": false
       }
     },
     {

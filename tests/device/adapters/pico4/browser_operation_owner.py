@@ -311,9 +311,15 @@ class PicoBrowserOperationOwner:
         root = PrivateFeatureState(self.feature.store.path.with_name('pico-tablet-web-actor-return.json'))
         while True:
             self.control(); self.collect(); self.worker_owner.guard()
-            with self.feature.lock.held():
-                ready = root.read()
-                if ready is not None and ready.get('phase') == 'ready': break
+            # A pending Actor owns the source lock while constructing its
+            # original return. Waiting for a ready root is passive host IO;
+            # acquiring that lock first can expire before the Actor releases it.
+            # No return is admitted until the same root is re-read under lock.
+            ready = root.read()
+            if ready is not None and ready.get('phase') == 'ready':
+                with self.feature.lock.held():
+                    ready = root.read()
+                    if ready is not None and ready.get('phase') == 'ready': break
             time.sleep(.01)
         with self.feature.lock.held(): owner = self.feature.owner()
         expected = dict(runId=self.run, fixtureUrl=self.url, foreignFixtureUrl=self.feature.foreign_url,
