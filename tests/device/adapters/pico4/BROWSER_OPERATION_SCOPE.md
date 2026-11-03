@@ -50,7 +50,7 @@ still allows termination of only the independently proven owned CLI child.
 
 ## Exact qualification and open boundary
 
-The current integration scope has91 green host cases in36.421 seconds, with
+The integration scope at `f06bb672a5` had91 green host cases in36.421 seconds, with
 all331 loaded source SHA256/full eight-stat identities unchanged. Its48 new
 cases are partitioned into nine catalog groups: export8, original program5,
 return7, remote consumption3, Actor admission9, transport3, canonical factory
@@ -85,3 +85,13 @@ before/after.
 The source fixture entry override is private to these tests; it is not an RPC
 option or proof of the fixed production module's complete journey. Candidate
 and native state remain declared models, with zero native reads/normal inputs.
+
+The next admission continuation adds an actual foreign store-holder swap.
+The original owner rejected the foreign holder but could resume after the
+caller restored its original object; that counterexample failed before the
+fix. Every owner guard failure now makes availability permanently unknown and
+retains the exact owner in the existing unresolved collection. Restoring the
+object cannot authorize another operation or release its marker. All four
+admission cases pass in2.113 seconds with the actual child source identities
+unchanged. This is failure-path qualification; the public whole-run boundary
+above remains open.

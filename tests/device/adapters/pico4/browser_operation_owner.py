@@ -102,6 +102,14 @@ class PicoBrowserOperationOwner:
         self.state = deepcopy(value); self.state_sha = json_digest(self.state)
 
     def guard(self):
+        try:
+            self._guard()
+        except BaseException:
+            self.failed = True
+            if not any(owner is self for owner in UNRESOLVED): UNRESOLVED.append(self)
+            raise
+
+    def _guard(self):
         need(not self.failed and self.adapter is self._adapter and self.feature is self._feature
             and self.origin is self._origin and self.file is self._file and self.store is self._store
             and self.whole is self._whole and self.common is self._common

@@ -71,6 +71,19 @@ def child():
         assert refused_close and owner.path.exists()
         duplicate = os.environ.get('OVT_BROWSER_ADMISSION_FAULT') == 'duplicate'
         actor_failure = os.environ.get('OVT_BROWSER_ADMISSION_FAULT') == 'actor-parser'
+        holder_swap = os.environ.get('OVT_BROWSER_ADMISSION_FAULT') == 'holder-swap'
+        if holder_swap:
+            original = owner.store
+            foreign = PrivateFeatureState(original.path)
+            owner.store = foreign
+            try: owner.guard()
+            except NativeUIError: pass
+            else: raise AssertionError('Foreign holder was accepted')
+            owner.store = original
+            try: owner.guard()
+            except NativeUIError: pass
+            else: raise AssertionError('Restoring the holder resumed an unavailable owner')
+            assert owner.failed and owner.path.exists() and not native_reads
         if duplicate:
             try: owner.dispatch(request)
             except NativeUIError: pass
@@ -111,6 +124,7 @@ def child():
             duplicateRefused=duplicate, completeProductionJourney=False, nativeQualified=False,
             actorParserRefused=actor_failure, actorExitCode=actor_exit,
             actualPublicAdmissionAttempted=public_attempted,
+            holderSwapRefused=holder_swap,
             producerHostProcessIdentity=begin['producerHostProcessIdentity'])
         (root/'admission-result.json').write_text(json.dumps(result))
         assert owner.file.close_host() and owner.origin.close()

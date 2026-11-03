@@ -26,6 +26,9 @@ class BrowserOwnerAdmissionTests(unittest.TestCase):
     def test_real_actor_cli_refusal_blocks_public_admission_and_keeps_original_marker(self):
         self.run_admission('actor-parser')
 
+    def test_foreign_store_holder_cannot_resume_after_restoring_original_holder(self):
+        self.run_admission('holder-swap')
+
     def run_admission(self, fault):
         temporary = tempfile.TemporaryDirectory(prefix='pico-browser-owner-admission-')
         self.addCleanup(temporary.cleanup); root = Path(temporary.name); root.chmod(0o700)
@@ -45,6 +48,7 @@ class BrowserOwnerAdmissionTests(unittest.TestCase):
         self.assertEqual(fault == 'actor-parser', result['actorParserRefused'])
         self.assertEqual(2 if fault == 'actor-parser' else None, result['actorExitCode'])
         self.assertEqual(fault == 'actor-parser', result['actualPublicAdmissionAttempted'])
+        self.assertEqual(fault == 'holder-swap', result['holderSwapRefused'])
         self.assertFalse(result['completeProductionJourney'] or result['nativeQualified'])
         sources = json.loads((root/'child-source-pins.json').read_text())
         self.assertTrue(sources['currentSHA8']); self.assertEqual(sources['before'], sources['after'])
