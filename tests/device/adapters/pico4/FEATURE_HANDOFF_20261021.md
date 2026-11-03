@@ -3832,3 +3832,21 @@ selector. Its latest actual Cancel quiet gap is 814 ms against the unchanged
 500-ms bound; Upload was not reached. No full 29-action, independent Actor/Model,
 bake/stereo effect or whole-retirement proof is claimed. Complete source count
 remains 3/14. No builds, devices, services or remote writes were used.
+
+
+## Browser original operation scope (2026-11-03)
+
+The explicit existing-module/Pico-CLI route now has one warm Browser owner,
+Actor6 with original Parent/configuration/budget admission, an original
+Journey Export2/return, Consumption2 and remote retirement3. Fixture cleanup
+is one-shot; the final module artifact follows actual CLI closure. Current
+91 host cases passed in36.421 seconds with331 loaded source SHA256/full
+eight-stat identities unchanged. Nine disjoint new catalog groups contain48
+new cases;43 existing Actor/observer/stdio cases remain green.
+
+See [the operation scope](BROWSER_OPERATION_SCOPE.md) for exact APIs, evidence
+and limits. Actual module/Journey ordering uses a declared protocol-owner
+model; the short independent-process consumption proof is a separate scope.
+A positive complete canonical public production-owner run and its failure/
+retirement counterparts remain open. No complete Browser capability or native/
+Pico device acceptance is claimed. Source completion remains3/14.

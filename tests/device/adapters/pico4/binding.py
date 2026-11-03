@@ -1199,6 +1199,16 @@ def create_adapter(args, base_class):
             from adapters.pico4.create_journey import PicoCreateJourney
             return PicoCreateJourney.owned_target(self,target)
 
+        @_private
+        def _browser_operation_owner(self,target,request,parent_identity):
+            from adapters.pico4.browser_operation_owner import PicoBrowserOperationOwner
+            _need(not cleanup_only and self.pico_configuration is not None and candidate['e2e_input_layer'] is True
+                and os.environ.get('OVERTE_PICO_FEATURE_TABLET_WEB','0')=='1'
+                and bool(os.environ.get('OVERTE_PICO_FEATURE_FIXTURE_CONFIG')))
+            self._candidate()
+            return PicoBrowserOperationOwner(self,target,request,parent_identity)
+
+
         def _create_file_controls(self, target, intent, directory, run, ticket, role, before, *, before_send=None):
             from adapters.pico4.create_file_ui import CreateFileUI, PicoCreateFileIO
             ui, _observe, _binding = self._script_runtime(target)
@@ -3919,6 +3929,13 @@ def create_adapter(args, base_class):
         @_private
         def invoke(self, target, operation, values):
             _need(operation != 'app.upgrade')
+            browser_owner=None
+            if operation.startswith('feature.tablet-web.'):
+                from adapters.pico4.browser_operation_owner import PicoBrowserOperationOwner
+                browser_owner=getattr(self,'_browser_operation_active',None)
+                _need(type(browser_owner) is PicoBrowserOperationOwner and browser_owner.adapter is self
+                    and browser_owner.target==target)
+                browser_owner.public_guard(operation,values)
             if operation == 'app.install':
                 _need(type(values) is dict and set(values) == {'path'} and
                       isinstance(values['path'], str))
@@ -3929,7 +3946,11 @@ def create_adapter(args, base_class):
             # turn a foreign installation into an accepted initial describe.
             self._installation(target)
             try:
-                if operation.startswith('feature.avatar-people.'):
+                if browser_owner is not None:
+                    from feature_journeys.contract import arguments
+                    arguments(operation,values)
+                    result=browser_owner.invoke(operation,values)
+                elif operation.startswith('feature.avatar-people.'):
                     # This explicitly enabled source parent does not advertise
                     # a complete feature triple, actor, model or image verdict.
                     _need(os.environ.get('OVERTE_PICO_AVATAR_PARENT_SOURCE','0')=='1')

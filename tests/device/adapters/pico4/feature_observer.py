@@ -27,7 +27,7 @@ from adapters.pico4.script_journey import PicoScriptJourney
 from adapters.pico4.script_observer import run as publish_scripts
 from feature_journeys.witness import Client
 
-VERSION=5
+VERSION=6
 
 
 def configuration(path):
@@ -35,17 +35,19 @@ def configuration(path):
     graphics=type(value) is dict and value.get('area')=='graphics'
     chat=type(value) is dict and value.get('area')=='chat'
     browser=type(value) is dict and value.get('area')=='tablet-web'
+    browser_budget=browser and value.get('picoFeatureObserverVersion')==6
     create=type(value) is dict and value.get('area')=='create'
     CREATE_EXTRA=set()
     if create:
         from adapters.pico4.create_peer_actor import EXTRA as CREATE_EXTRA
     exact(value,{'picoFeatureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
         |({'artifactRoot'} if graphics or browser else set())|({'peerConfig'} if chat else set())
-        |({'foreignFixtureUrl','runId','originalRequestId'} if browser else set())|(CREATE_EXTRA if create else set()))
-    need(type(value['picoFeatureObserverVersion']) is int and value['picoFeatureObserverVersion'] in (1,2,3,4,5)
+        |({'foreignFixtureUrl','runId','originalRequestId'} if browser else set())|(CREATE_EXTRA if create else set())
+        |({'browserOwnerBudget','browserParentHostProcessIdentity'} if browser_budget else set()))
+    need(type(value['picoFeatureObserverVersion']) is int and value['picoFeatureObserverVersion'] in (1,2,3,4,5,6)
          and (not graphics or value['picoFeatureObserverVersion']==2)
          and (not chat or value['picoFeatureObserverVersion']==3)
-         and (browser==(value['picoFeatureObserverVersion']==4))
+         and (browser==(value['picoFeatureObserverVersion'] in (4,6)))
          and (create==(value['picoFeatureObserverVersion']==5))
          and value['area'] in ('authentication','scripts','graphics','chat','tablet-web','create') and type(value['target']) is str and 1<=len(value['target'])<=256
          and all(33<=ord(c)<127 for c in value['target'])
@@ -64,6 +66,10 @@ def configuration(path):
             need(type(value[key]) is str);fixture(value['runId'],value[key]+'/runs/'+value['runId']+'/')
         a,b=(urlsplit(value[key]) for key in ('fixtureUrl','foreignFixtureUrl'))
         need((a.scheme,a.netloc)!=(b.scheme,b.netloc))
+        if browser_budget:
+            from adapters.pico4.browser_operation_protocol import budget
+            budget(value['browserOwnerBudget'],120)
+            need(type(value['browserParentHostProcessIdentity']) is str)
     if chat:
         need(type(value['peerConfig']) is str)
         peer=Path(value['peerConfig']);need(peer.is_absolute() and peer.resolve(strict=True)==peer)
@@ -81,7 +87,7 @@ def run(journey,config,*,monotonic=time.monotonic,sleep=time.sleep,configuration
         return observe_create(journey,config,configuration_path=configuration_path,admission=admission,monotonic=monotonic,sleep=sleep)
     if config['area']=='tablet-web':
         from adapters.pico4.browser_actor import run as publish_browser
-        return publish_browser(journey,config,monotonic=monotonic,sleep=sleep)
+        return publish_browser(journey,config,monotonic=monotonic,sleep=sleep,admission=admission)
     if config['area']=='chat':
         from adapters.pico4.chat_cursor_actor import run as publish_chat
         return publish_chat(journey,config,monotonic=monotonic,sleep=sleep)
@@ -103,6 +109,7 @@ def run(journey,config,*,monotonic=time.monotonic,sleep=time.sleep,configuration
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     parser.add_argument('--config',type=Path,required=True);args=parser.parse_args(argv)
+    browser_admission=None;status=2
     try:
         need('OVERTE_E2E_FEATURE_READER_TOKEN' not in os.environ)
         config=configuration(args.config)
@@ -110,6 +117,9 @@ def main(argv=None):
         if config['area']=='create':
             from adapters.pico4.create_peer_actor import CreatePeerAdmission
             admission=CreatePeerAdmission(args.config,config)
+        if config['area']=='tablet-web' and config['picoFeatureObserverVersion']==6:
+            from adapters.pico4.browser_actor_admission import BrowserActorAdmission
+            admission=browser_admission=BrowserActorAdmission(args.config,config)
         from adapters.android import adapter
         candidate,binding=adapter.cli(['--kind','pico','--native-binding',*config['candidateArguments'],
             'describe','--target',config['target']])
@@ -122,9 +132,13 @@ def main(argv=None):
         journey=(original if config['area'] in ('chat','create') else PicoTabletWebBinding(original) if config['area']=='tablet-web' else
             PicoAuthenticationJourney(original) if config['area']=='authentication' else
             PicoGraphicsJourney(original,artifact_root=config['artifactRoot']) if config['area']=='graphics' else PicoScriptJourney(original))
-        return run(journey,config,configuration_path=args.config,admission=admission)
+        if browser_admission is not None:browser_admission.check()
+        status=run(journey,config,configuration_path=args.config,admission=admission)
     except (OSError,RuntimeError,ValueError,TypeError,KeyError,RecursionError):
-        print('OVT_PICO_FEATURE_OBSERVER_REJECTED',file=sys.stderr);return 2
+        print('OVT_PICO_FEATURE_OBSERVER_REJECTED',file=sys.stderr);status=2
+    finally:
+        if browser_admission is not None and not browser_admission.close_host():status=2
+    return status
 
 
 if __name__=='__main__':raise SystemExit(main())

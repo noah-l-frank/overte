@@ -83,9 +83,15 @@ class PicoOperationHost:
         self.failed=self.closed=False;self.process=None;self.pins=[];self.pipes=[];self.archive=None;self.count=0
         self.process_identity=None;self.command=None;self.wait_status=None;self.last=time.monotonic();self.lifetime=None;self.first_started=None
         self.acquired_response=bytearray();self.acquired_stderr=bytearray();self.pending_request=None;self.sent_bytes=0
-    def guard(self):
+    def guard(self,*,allow_expired=False):
         need(not self.failed and not self.closed and host_identity()==self.host and dict(os.environ)==self.environment and os.getcwd()==self.cwd
             and (str(self.manifest),self.target,self.environment,self.cwd,self.host,self.child_environment)==self._original_scope)
+        if getattr(self,'_browser_whole_budget',None) is not None:
+            from adapters.chat_journey.source_chunks import json_digest
+            need(json_digest(self._browser_whole_budget)==self._browser_budget_sha)
+            if not allow_expired:
+                now=time.monotonic()
+                need(self._browser_whole_budget['startedMonotonic']<=now<self._browser_whole_budget['deadlineMonotonic'])
         for pin in self.pins:pin.check()
         for pipe in self.pipes:pipe.check()
         if self.process is not None:
@@ -118,6 +124,8 @@ class PicoOperationHost:
         started=time.monotonic();deadline=started+timeout_for(operation)
         held=getattr(self,'_create_action_budget',None)
         if held is not None:deadline=min(deadline,held['deadlineMonotonic'])
+        browser=getattr(self,'_browser_whole_budget',None)
+        if browser is not None:deadline=min(deadline,browser['deadlineMonotonic'])
         fields=dict(picoOperationRequestVersion=1,requestId=uuid.uuid4().hex,operation=operation,arguments={} if arguments is None else arguments,deadlineMonotonic=deadline)
         return self._exchange(manifest,target,fields,started,deadline)
 
@@ -126,6 +134,22 @@ class PicoOperationHost:
         selected=budget if budget is not None else held if held is not None else dict(id=uuid.uuid4().hex,startedMonotonic=now,deadlineMonotonic=now+60)
         fields=dict(picoCreateOperationRequestVersion=1,requestId=uuid.uuid4().hex,runId=run,fixtureUrl=fixture_url,operation=operation,budget=selected,arguments=arguments)
         return self._exchange(self.manifest,self.target,fields,selected['startedMonotonic'],selected['deadlineMonotonic'],private=True)
+
+    def browser_component(self,run,fixture_url,operation,arguments=None,*,whole_budget):
+        from copy import deepcopy
+        from adapters.chat_journey.source_chunks import json_digest
+        from adapters.pico4.browser_operation_protocol import validate,budget
+        budget(whole_budget,120);held=getattr(self,'_browser_whole_budget',None)
+        if held is None:
+            need(operation=='begin' and getattr(self,'_create_action_budget',None) is None)
+            self._browser_whole_budget=deepcopy(whole_budget);self._browser_budget_sha=json_digest(whole_budget)
+        else:need(json_digest(whole_budget)==self._browser_budget_sha)
+        now=time.monotonic();deadline=min(now+60,whole_budget['deadlineMonotonic'])
+        action=dict(id=uuid.uuid4().hex,startedMonotonic=now,deadlineMonotonic=deadline)
+        fields=dict(picoBrowserOperationRequestVersion=1,requestId=uuid.uuid4().hex,runId=run,fixtureUrl=fixture_url,
+            operation=operation,arguments=arguments,wholeBudget=deepcopy(whole_budget),actionBudget=action)
+        validate(fields)
+        return self._exchange(self.manifest,self.target,fields,now,deadline,private='browser')
 
     @contextmanager
     def create_input_context(self,run,fixture_url,operation,arguments):
@@ -151,7 +175,10 @@ class PicoOperationHost:
         operation=fields['operation']
         try:
             self.guard();need(Path(manifest).absolute()==self.manifest and target==self.target)
-            if private:
+            if private=='browser':
+                from adapters.pico4.browser_operation_protocol import validate
+                validate(fields)
+            elif private:
                 from adapters.pico4.create_operation_protocol import validate
                 validate(fields)
             else:request(fields)
@@ -193,7 +220,7 @@ class PicoOperationHost:
             self.archive.finish(dict(picoOperationReceiptVersion=1,request=request_original,response=response_parts,stderr=error_parts,
                 responseBytes=len(acquired),responseSha256=hashlib.sha256(acquired).hexdigest(),requestId=fields['requestId']))
             reply=decode(acquired,RESPONSE_LIMIT)
-            version='picoCreateOperationReplyVersion' if private else 'picoOperationReplyVersion'
+            version='picoBrowserOperationReplyVersion' if private=='browser' else 'picoCreateOperationReplyVersion' if private else 'picoOperationReplyVersion'
             need(set(reply)=={version,'requestId','hostProcessIdentity','parentHostProcessIdentity','result'}|({'componentOnly','completeCommonObservation'} if private else set())
                 and type(reply[version]) is int and reply[version]==1 and reply['requestId']==fields['requestId']
                 and reply['hostProcessIdentity']==self.process_identity and reply['parentHostProcessIdentity']==self.host)
@@ -213,6 +240,8 @@ class PicoOperationHost:
             need(not self.failed)
             if self.process is None:self.closed=True;return
             self.guard();self.archive.guard();deadline=min(time.monotonic()+60,self.lifetime)
+            browser=getattr(self,'_browser_whole_budget',None)
+            if browser is not None:deadline=min(deadline,browser['deadlineMonotonic'])
             closing=dict(requestId=uuid.uuid4().hex,operation='host.close',startedMonotonic=time.monotonic(),deadlineMonotonic=deadline)
             self.archive.reserve(closing)
             close_raw=dto_bytes(dict(picoOperationCloseVersion=1,requestId=closing['requestId'],deadlineMonotonic=deadline),REQUEST_LIMIT)
@@ -256,7 +285,7 @@ class PicoOperationHost:
             # failed forbids normal reuse, but original program/file/pipe facts
             # still must match before a nonzero signal to our exact OS child.
             failed=self.failed;self.failed=False
-            try:self.guard()
+            try:self.guard(allow_expired=True)
             finally:self.failed=failed
             os.kill(self.process.pid,signal.SIGTERM)
             deadline=time.monotonic()+5

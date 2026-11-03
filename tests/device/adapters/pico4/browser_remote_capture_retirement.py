@@ -13,6 +13,7 @@ from adapters.pico4.browser_stereo import original_name
 from adapters.script_journey.history import same,unpack
 
 VERSION=2
+REMOTE_COMMON_VERSION=3
 
 
 class PicoBrowserRemoteCaptureRetirement(PicoBrowserCaptureRetirement):
@@ -35,11 +36,14 @@ class PicoBrowserRemoteCaptureRetirement(PicoBrowserCaptureRetirement):
         need(self.store.read() is None)
         primary_owner,_state=self.role(self.primary);remote=self.returned.graph
         common=self.primary.cleanup_consumption
-        self.scope=dict(picoBrowserRemoteCaptureRetirementVersion=1 if common is None else VERSION,runId=self.primary.run,
+        from adapters.pico4.browser_remote_consumption import PicoBrowserRemoteCleanupConsumption
+        remote_common=type(common) is PicoBrowserRemoteCleanupConsumption
+        version=REMOTE_COMMON_VERSION if remote_common else VERSION
+        self.scope=dict(picoBrowserRemoteCaptureRetirementVersion=1 if common is None else version,runId=self.primary.run,
             fixtureUrl=self.primary.fixture_url,binding=deepcopy(self.binding),ownerToken=primary_owner['ownerToken'])
         if common is not None:
             from adapters.pico4.browser_cleanup_consumption import PicoBrowserCleanupConsumption
-            need(type(common) is PicoBrowserCleanupConsumption and common.primary is self.primary
+            need(type(common) in (PicoBrowserCleanupConsumption,PicoBrowserRemoteCleanupConsumption) and common.primary is self.primary
                 and common.complete and not common.failed)
             receipt=common.receipt()
             need(same(common.scope['binding'],self.binding) and common.scope['ownerToken']==primary_owner['ownerToken'])
@@ -47,6 +51,11 @@ class PicoBrowserRemoteCaptureRetirement(PicoBrowserCaptureRetirement):
             for index in range(len(common.chunks.identities)):
                 store=common.chunks.store(index);self.add(store,store.read(),'primary')
             self.scope.update(commonCleanupSha256=digest(receipt),commonSequenceSucceeded=receipt['header']['sequenceSucceeded'])
+            if remote_common:
+                source=common.returned;source.guard()
+                self.add(source.store,source.root,'primary')
+                for index in range(len(source.history.identities)):
+                    store=source.history.store(index);self.add(store,store.read(),'primary')
         with self.returned.lock.held():
             remote.verify();need(same(remote.owner,primary_owner))
             if common is not None:
@@ -54,7 +63,9 @@ class PicoBrowserRemoteCaptureRetirement(PicoBrowserCaptureRetirement):
                     if row['event']=='publication-accepted'}
                 original={row['sequence']:row['original'] for row in remote.source_history.rows if row['event']=='sample'}
                 matched=0
-                for sample in json.loads(common.raw)['samples']:
+                samples=(common.returned.record['journey']['samples'] if remote_common
+                    and common.previous['header']['sequenceSucceeded'] else json.loads(common.raw)['samples'])
+                for sample in samples:
                     witness=sample['witness']
                     if witness is None:continue
                     payload=accepted[witness['actorSequence']];frame=original[witness['actorSequence']]

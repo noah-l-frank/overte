@@ -17,9 +17,14 @@ from feature_journeys.witness import Client
 VERSION=1
 
 
-def run(journey,config,*,monotonic=time.monotonic,sleep=time.sleep):
+def run(journey,config,*,monotonic=time.monotonic,sleep=time.sleep,admission=None):
     """One warm original Actor, terminal export, actual Parent nonce, exit."""
     need(config['area']=='tablet-web' and callable(monotonic) and callable(sleep))
+    if config.get('picoFeatureObserverVersion')==6:
+        from adapters.pico4.browser_actor_admission import BrowserActorAdmission
+        need(type(admission) is BrowserActorAdmission and admission.configuration==config)
+        admission.check();monotonic=admission.now
+    else:need(admission is None)
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken'])
     source=PhaseFixtureReader(client,config['runId'],'tablet-web',

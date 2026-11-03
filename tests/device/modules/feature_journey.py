@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import sys
 import time
+import uuid
 from feature_journeys.engine import Journey
 from feature_journeys.evidence import read_private_artifact
 from feature_journeys.scenarios import SCENARIOS
@@ -19,6 +20,7 @@ from overte_session import OverteSession
 
 
 def main():
+    whole_started=time.monotonic()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--area', choices=sorted(SCENARIOS), required=True)
     args = parser.parse_args()
@@ -34,10 +36,8 @@ def main():
     run, url = client.register(args.area,**fixture_options)
     session = OverteSession()
     identity = old_identity = None
+    browser=None
     try:
-        prepare(session, args.area)
-        identity = process_identity()
-
         def continuity(phase, verb):
             nonlocal identity, old_identity
             if phase == 'before':
@@ -54,11 +54,27 @@ def main():
             prefix, area, kind = operation.split('.')
             return session.feature_operation(area, kind, fields)
 
-        Journey(args.area, run, url, invoke=invoke, witness=client.observe, activate=client.activate,
-            read_artifact=lambda name: read_private_artifact(ARTIFACT_DIR, name), image_policy=policy,
-            continuity=continuity, monotonic=time.monotonic, epoch_ms=lambda: time.time() * 1000,
-            sleep=time.sleep, report=lambda value: write_json('feature-journey-observation.json', value),
-            navigation_source=client.navigation_status if args.area=='world-navigation' else None).execute()
+        def execute():
+            journey=Journey(args.area, run, url, invoke=invoke, witness=client.observe, activate=client.activate,
+                read_artifact=lambda name: read_private_artifact(ARTIFACT_DIR, name), image_policy=policy,
+                continuity=continuity, monotonic=time.monotonic, epoch_ms=lambda: time.time() * 1000,
+                sleep=time.sleep, report=lambda value: write_json('feature-journey-observation.json', value),
+                navigation_source=client.navigation_status if args.area=='world-navigation' else None,
+                after_cleanup_baseline=None if browser is None else browser.export.callback)
+            if browser is not None:browser.export.attach(journey)
+            journey.execute()
+
+        if args.area=='tablet-web' and session.pico_openxr and os.environ.get('OVERTE_PICO_FEATURE_TABLET_WEB')=='1':
+            from adapters.pico4.browser_session import PicoBrowserSession
+            whole=dict(id=uuid.uuid4().hex,startedMonotonic=whole_started,deadlineMonotonic=whole_started+120)
+            browser=PicoBrowserSession(session,ARTIFACT_DIR,run,url,
+                os.environ.get('OVERTE_PICO_BROWSER_RUN_CONFIG',''),whole)
+            with browser:
+                prepare(session,args.area);identity=process_identity();browser.start_actor();execute()
+                final=browser.finalize(client)
+            write_json('feature-browser-finalization.json',final)
+        else:
+            prepare(session, args.area);identity=process_identity();execute()
     except AssertionError as error:
         raise AssertionFailure(str(error)) from error
     except (ValueError, OSError, KeyError) as error:
@@ -66,7 +82,8 @@ def main():
     finally:
         already_failing = sys.exc_info()[0] is not None
         try:
-            client.close()
+            if browser is None:client.close()
+            elif not browser.fixture_close_started:browser.close_fixture(client)
         except (ValueError, OSError):
             write_json('feature-fixture-cleanup.json', {'cleanupSucceeded': False})
             if not already_failing:

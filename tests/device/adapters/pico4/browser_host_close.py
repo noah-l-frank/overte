@@ -57,6 +57,12 @@ class PicoBrowserHostClose:
         self.process=process;self.process_absence=process.require_absent()
         self.add('independent-observer/executable',process.fd_owner)
         self.add('independent-observer/entry',process.entry_owner)
+        from adapters.pico4.browser_remote_consumption import PicoBrowserRemoteCleanupConsumption
+        common=self.primary.cleanup_consumption
+        if type(common) is PicoBrowserRemoteCleanupConsumption:
+            source=common.returned;common.methods(source)
+            for label,owner in zip(('root','parent','executable','entry'),source.host_handles()):
+                self.add('common-runner/'+label,owner)
         need(self.pairs and self.windows)
         self.directory_owner=plan.catalog.parents[plan.root]
         self.scope=dict(picoBrowserHostCloseVersion=VERSION,runId=self.primary.run,hostProcessIdentity=self.host,
