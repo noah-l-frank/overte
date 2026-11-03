@@ -39,7 +39,10 @@ from self_tests import chat_diagnostic
 class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
     def setUp(self):
         self.full=self._testMethodName=='test_complete_shared_execute_then_original_remote_app_archive_and_host'
-        self.diagnostic=self.full or self._testMethodName=='test_profile_actual_warm_source_calls_with_originals_retained'
+        self.diagnostic=self.full or self._testMethodName in (
+            'test_profile_actual_warm_source_calls_with_originals_retained',
+            'test_profile_actual_distinct_phase_source_calls_with_originals_retained',
+            'test_profile_actual_late_phase_prefix_calls_with_originals_retained')
         name=('test_all_original_compiled_stages_then_parent_erase_caches_restart_ipc_and_archive' if self.diagnostic else
             'test_three_original_parent_steps_have_no_synthetic_completed_prefix_or_shared_witness_owner')
         self.warm=WarmArchiveTests(name);self.warm.setUp();self.addCleanup(self.warm.doCleanups)
@@ -261,6 +264,109 @@ class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
         self.assertEqual(2,self.p.previous['completedSteps']);self.assertEqual(61,len(self.owner.rows))
         self.assertFalse(self.journey.cleanup_hook_started);self.assertIsNone(self.stop_store.read())
         print('Actual warm source profile retained in '+str(self.host_root/'actual-warm-source-profile.json'),flush=True)
+
+    def test_profile_actual_distinct_phase_source_calls_with_originals_retained(self):
+        """Opt-in source cost only; not Common quiet/cleanup or an old replay.
+
+        Ordinary Parent inputs follow the unchanged first19 recipe entries.
+        New actual primary queries and independent Actor publications follow
+        each input. Their distribution is declared here, not borrowed from a
+        missing historical runtime or used as expected observer facts.
+        """
+        self._distinct_source_cost(bounded_prefix=False)
+
+    def test_profile_actual_late_phase_prefix_calls_with_originals_retained(self):
+        """Opt-in17-phase80-pair source prefix; profile only actual acquire80."""
+        self._distinct_source_cost(bounded_prefix=True)
+
+    def _distinct_source_cost(self,*,bounded_prefix):
+        from adapters.chat_journey.flow_inputs import recipe
+        import uuid
+        self.assertIs(type(bounded_prefix),bool)
+        plan=([5]*12+[4]*5) if bounded_prefix else ([5]*12+[4]*6+[9])
+        phase_count,query_count=(17,80) if bounded_prefix else (19,93)
+        scope=('fresh17-phase80-query-source-prefix' if bounded_prefix else 'fresh19-phase93-query-owned-python-source-diagnostic')
+        self.assertEqual((phase_count,query_count),(len(plan),sum(plan)))
+        late_timings=[]
+        phases=[];after_primary=after_actor=0
+        def query():
+            nonlocal after_primary,after_actor
+            begin=time.monotonic()
+            primary=self.primary.read(after_primary);after_primary=primary['sequence'];primary_end=time.monotonic()
+            self.command('publish');published=time.monotonic()
+            last=bounded_prefix and after_actor+1==query_count
+            profile=cProfile.Profile() if last else None
+            if profile is not None:profile.enable()
+            try:received=self.owner.acquire(after_actor)
+            finally:
+                if profile is not None:profile.disable()
+            returned=time.monotonic()
+            if profile is not None:profile.dump_stats(str(self.host_root/'late-prefix-actual-acquire80.pstats'))
+            delivery=time.monotonic()
+            # Additional actual-host diagnostics do not change any original
+            # source/model clock, owner anchor or permitted freshness budget.
+            if bounded_prefix:
+                self.assertLess(delivery-published,1.5)
+                self.assertLess(delivery-begin,5)
+            self.assertEqual(after_actor+1,received['entries'][-1]['actorSequence'])
+            after_actor=received['entries'][-1]['actorSequence']
+            if bounded_prefix and after_actor>=76:
+                timing=dict(actorSequence=after_actor,primarySeconds=primary_end-begin,
+                    actorPublishSeconds=published-primary_end,parentAcquireSeconds=returned-published,
+                    sourceDeliveryWallSeconds=delivery-published,wholePairWallSeconds=delivery-begin,
+                    profiled=profile is not None)
+                late_timings.append(timing)
+                chat_diagnostic.write(self.host_root,'late-prefix-pair-'+str(after_actor),timing)
+                self.assertLess(time.monotonic()-published,1.5)
+                self.assertLess(time.monotonic()-begin,5)
+        steps=recipe(RUN)
+        for index,count in enumerate(plan):
+            step=steps[index];ticket=uuid.uuid4().hex;begin=time.monotonic()
+            self.activate(ticket,step['verb'],step['inputs'])
+            if index:self.invoke('feature.chat.act',{})
+            self.assertEqual(index+1,self.p.previous['completedSteps'])
+            first=after_actor
+            for sample in range(count):
+                if sample:self.sleep(.25) # New modeled producer time, never an old epoch rewrite.
+                query()
+            phases.append(dict(index=index,ticket=ticket,verb=step['verb'],sourceQueries=count,
+                primarySequence=after_primary,actorSequence=after_actor,
+                returnedActorSequences=[first+1,after_actor],seconds=time.monotonic()-begin))
+            print('Distinct-phase source completedSteps='+str(index+1)+' queries='+str(after_actor)+
+                ' seconds='+str(round(time.monotonic()-self.started,3)),flush=True)
+        if not bounded_prefix:
+            # Original longer diagnostic only: no extra native query. Its pure
+            # snapshot grammar/decoder candidates remain uncommitted.
+            profile=cProfile.Profile();profile.enable();self.owner.control()
+            with self.owner.held():self.owner.snapshot()
+            self.owner.control();profile.disable()
+            profile.dump_stats(str(self.host_root/'distinct-phase-final-snapshot.pstats'))
+        counts={}
+        for kind,_command in self.native_requests:counts[kind]=counts.get(kind,0)+1
+        # End only this owned diagnostic Python host, keeping its original
+        # executable/entry OFDs until actual wait+kernel absence. No Stop2,
+        # typed feature return, app cleanup or Actor-resource verdict follows.
+        self.worker.stdin.close();self.worker.wait(timeout=5)
+        self.assertEqual(0,self.worker.returncode)
+        actor_absence=self.process.require_absent()
+        report=dict(scope=scope,
+            nativeAndWidgetProducers='explicit-model-seams',actualDeviceFreshnessQualified=False,
+            historicalWholeReconstructed=False,commonQuietQualified=False,wholeFeatureQualified=False,
+            completedSteps=self.p.previous['completedSteps'],sourceQueries=after_primary,actorPublications=after_actor,
+            phases=phases,nativeQueryCounts=counts,cleanupCalls=self.cleanup_calls,
+            primaryCompiledTransactions=len(self.primary.current.samples.script_source.frames),
+            actorCompiledTransactions=len(self.owner.roots['code']['chunks']),latePairTimings=late_timings,
+            readerPhysicalParts=len(self.owner.previous['chunks']),readerLogicalBytes=self.owner.previous['logicalBytes'],
+            diagnosticActorWaitStatus=self.worker.returncode,diagnosticActorKernelAbsence=actor_absence,
+            elapsedSeconds=time.monotonic()-self.started)
+        chat_diagnostic.write(self.host_root,'distinct-phase-source-report',report)
+        self.assertEqual((phase_count,query_count,query_count),(self.p.previous['completedSteps'],self.primary.row_count(),self.owner.row_count()))
+        self.assertEqual(phase_count,len(self.p.flow.rows))
+        self.assertEqual('select-channel' if bounded_prefix else 'network-remove-mixer',phases[-1]['verb'])
+        self.assertFalse(self.journey.cleanup_hook_started);self.assertIsNone(self.stop_store.read())
+        self.assertEqual([],self.reports);self.assertEqual(0,self.cleanup_calls)
+        self.process.final_absence(actor_absence)
+        print('Distinct-phase source originals retained in '+str(self.host_root),flush=True)
 
     def test_complete_shared_execute_then_original_remote_app_archive_and_host(self):
         started=time.monotonic()

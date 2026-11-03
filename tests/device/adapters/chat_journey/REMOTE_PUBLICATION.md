@@ -301,3 +301,34 @@ after the actual Actor exit without probing its dead process. Its original
 `sequenceSucceeded` remained false. No complete successful shared execution,
 application/profile restart, IPC finalization, archive retirement or final
 host-lifetime claim follows from this separate source-closure case.
+
+## Actual later-phase source diagnostic
+
+The private opt-in `test_profile_actual_late_phase_prefix_calls_with_originals_retained`
+in `self_tests/test_chat_remote_journey.py` executes the unchanged first17 normal
+Parent phases and80 actual primary queries/independent Actor publications.
+It passed80.912s under the original120s outer bound with192 loaded or declared
+source originals unchanged. Existing1.5s source/5s operation guards remain;
+additional actual-host delivery/pair fences include the final profiler and
+report writes. Only actual Parent acquire80 is profiled. Original executable
+and entry descriptors remain held through actual Python Actor wait0, two kernel
+absence probes and the final post-report absence fence. No product Stop2,
+Common quiet, typed feature return, app/archive cleanup or whole acceptance
+is inferred. Default two component selectors remain unchanged (3.169s).
+
+This scope ends at the actual `select-channel` phase. Primary has238 original
+compiled transactions; Actor has80. Reader uses128 physical parts and4,845,036
+logical bytes under its unchanged limits. The external diagnostic additionally
+retains560 modeled native replies (692,063 bytes); these are explicitly separate
+runner evidence and do not extend the productive512-part/16MiB source budget.
+The older19-phase93-pair diagnostic still fails at its original120s limit.
+The new17/80 prefix is a different declared scope, never its replacement.
+
+Actual acquire80 measured0.869s with profiling; the preceding unprofiled79
+measured0.443s. Its seven fresh whole-root loads and pure graph validation,
+mutable metadata/current physical controls and five durable saves overlap in
+the cumulative profile. Timing differences across independent scopes do not
+establish a speedup. No original read, source phase, deadline or retirement
+predicate is removed on that basis. Native/widgets/V8/network/GPU remain
+explicit model seams. Evidence and exact source/failed variants are retained
+in the private `pico-chat-source-diagnostic-ready-uca_7d0k` handoff.
