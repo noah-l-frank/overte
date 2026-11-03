@@ -327,6 +327,7 @@ TESTS = (
     test("create-operation-cli", "interaction", PYTHON, "device/test_create_operation_cli.py"),
     test("create-operation-engine", "interaction", PYTHON, "device/test_create_operation_engine.py"),
     test("create-operation-binding", "interaction", PYTHON, "device/test_create_operation_binding.py"),
+    test("create-operation-prefix", "interaction", PYTHON, "device/test_create_operation_prefix.py"),
     test('snapshot-close-originals', "interaction", PYTHON, "device/test_snapshot_close_originals.py"),
     test('assets-prefix', "interaction", PYTHON, "device/test_assets_prefix.py"),
     test('assets-raw-archive', "interaction", PYTHON, "device/test_assets_raw_archive.py"),

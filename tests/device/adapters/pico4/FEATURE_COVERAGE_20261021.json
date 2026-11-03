@@ -500,7 +500,8 @@
         "tests/device/self_tests/test_pico_create_operation_engine.py",
         "tests/device/adapters/pico4/CREATE_OPERATION_OWNER.md",
         "tests/device/adapters/pico4/binding.py",
-        "android/vr/pico/tests/device/test_create_operation_engine.py"
+        "android/vr/pico/tests/device/test_create_operation_engine.py",
+        "android/vr/pico/tests/device/test_create_operation_prefix.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [
@@ -545,7 +546,7 @@
         "Drain original model/texture/picker/export callbacks and files",
         "Restore rez permission, view and actual unowned scene inventory"
       ],
-      "nextExecutableStep": "The original CLI now retains the same cached PicoCreateJourney, original direct-child peer and actual input context across normal fixture activation/input, one unchanged action budget, typed peer-pending cleanup, original return/waitpid0 and same-parent continuation. Packet B43 and targeted canonical cleanup2 pass; the current disjoint Engine/Binding wrappers pass4/0.797s with243 loaded sources unchanged. Complete Common observation/Actor, remaining GUI/permission/voxel/image/GPU/stereo and global immutable archive/host retirement remain open. Retained operation journals block generic cleanup before any native query or base stop. No public feature capability is enabled. FixedPhone5e8 same-client/mono/termination predicates are not imported.",
+      "nextExecutableStep": "The original CLI now retains the same cached PicoCreateJourney, original direct-child peer and actual input context across normal fixture activation/input, one unchanged action budget, typed peer-pending cleanup, original return/waitpid0 and same-parent continuation. Packet B43 and targeted canonical cleanup2 pass; the current disjoint Engine/Binding wrappers pass4/0.797s with243 loaded sources unchanged. Complete Common observation/Actor, remaining GUI/permission/voxel/image/GPU/stereo and global immutable archive/host retirement remain open. Retained operation journals block generic cleanup before any native query or base stop. No public feature capability is enabled. FixedPhone5e8 same-client/mono/termination predicates are not imported. Same-host first12 normal actions now reach an actual independently loaded/material-bound original Model across all nine later phases; cleanup correctly refuses a retained Qt context and cannot replay. Counter1/10.780s,234 Parent/246 distinct actual Child sources unchanged. This models a retained context and does not prove an actual product defect or successful full retirement.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "nativeDialogIntegrationStatus": "Focused original Qt5 dialog pipeline passed after restoring actual GUI Window receiver affinity and original worker DirectConnection call. Full application/V8 TUs and devices unqualified; earlier unsupported moved-receiver diagnostic crash documented.",

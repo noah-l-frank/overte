@@ -141,3 +141,35 @@ needs the separate whole-feature immutable archive/transfer join before global
 cleanup can be claimed. This packet does not raise quotas, reset readers,
 retime old originals or promote these gaps. No compiler, build, device, Jenkins,
 Domain, service or remote mutation was used.
+
+## Same-host twelve-action retained-context counter
+
+The disjoint `create-operation-prefix` case executes the unchanged first12
+normal Create actions through the SAME original CLI/adapter/Parent, without
+reconstruction between calls. Actual fixture activation remains inside the
+original input context. The real direct child starts at the first Model and
+keeps its original Model scope through the following nine actual phases.
+It independently observes model loading and, after regular read-only waiting,
+material assignment. Later OBJ/import entities are not relabeled as that first
+Model. Full Create Actor and GPU facts remain false.
+
+The counter passes1/10.780s under the unchanged120s outer bound with234 loaded
+Parent sources and246 distinct actual Child sources unchanged. Both terminal
+child source receipts match the originals' SHA/eight-field physical identities.
+Twelve normal acts succeed; the existing release then correctly refuses an
+original Qt dialog context still reported alive by the declared Native model.
+All acquired stderr is retained. The operation stays component-issued/pending;
+a second cleanup call is refused before another transport write, with all
+transport bytes/eight-field identities unchanged. The worker ends failed and
+is kernel-absent. No successful worker return, zero-exit product retirement or
+cleanup verdict is claimed. This is a retained-model counter, not evidence of
+an actual product leak.
+
+Two earlier scopes remain RED: the first wrongly asserted immediate remote
+texture binding despite the original asynchronous renderer delay. The regular
+bounded wait retains all intermediate worker originals and reaches the actual
+binding. The second reached all12 actions and the genuine modeled context
+refusal; it is preserved rather than relabeled as a successful cleanup. No
+product, ownership, quiet, clock, source budget or production code is changed
+by this counter. Actual final Qt/resource retirement, all21 Common actions,
+independent full Actor/images/permissions/voxels and global cleanup remain open.
