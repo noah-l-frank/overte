@@ -289,6 +289,7 @@ TESTS = (
     test("lifecycle-background-raw-entry", "interaction", PYTHON, "device/test_lifecycle_background_raw_entry.py"),
     test("lifecycle-background-raw-dispatch", "interaction", PYTHON, "device/test_lifecycle_background_raw_dispatch.py"),
     test("lifecycle-background-raw-factory", "interaction", PYTHON, "device/test_lifecycle_background_raw_factory.py"),
+    test("lifecycle-mutex-ledger", "interaction", PYTHON, "device/test_lifecycle_mutex_ledger.py"),
     test("probe-originals", "interaction", PYTHON, "device/test_pico_probe_originals.py"),
     test("raw-literal-profile", "interaction", PYTHON, "device/test_raw_literal_profile.py"),
     test("navigation-scene-probe", "interaction", PYTHON, "device/test_navigation_scene_probe.py", requires=("openssl",)),

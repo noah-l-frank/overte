@@ -3722,3 +3722,25 @@ Its next explicit boundary is the approved lossless Ledger2. All16 effects,
 open; source-complete stays3/14. Catalog352 adds the four bounded groups and
 separate current factory guards; the known-unqualified24-group prototype stays
 out of defaults. No native compilation, device or public-capability claim.
+
+## Explicit lossless host MutexLedger2 on 2026-11-03
+
+[MutexLedger2](LIFECYCLE_MUTEX_LEDGER.md) stores each admitted host Session
+mutex's seven fixed stat fields once, all actual ctimes and their full global
+interleaving order. No observed transition is omitted. Its six-row decoded view
+and exact tuple/JSON/copy overlap are admitted before allocation. It supplies
+no Native/Actor event attribution, extra reader, file, clock or quota. Namespace
+still defaults to layout1; only the existing explicit Raw3 factory chooses2.
+Owner/Raw/Actor persisted formats stay unchanged.
+
+The final11-case wrapper passes55.493s/56.666outer/300stable; separate unchanged
+legacy31 passes14.708s/15.751outer/150stable. Exact tested-byte copies of301
+union source files remain privately preserved. The canonical case retains all
+seven actions,173Rawreturns/19parts/508actual transitions and workerExit0 plus
+kernel absence. Compact metadata14,313B +bounded reconstruction2,334B =16,647B;
+final measured decoded/copy bill12,746,261B. These are seven-action measurements,
+not a whole16 or24-group proof. Constructor/layout/holder failures retain their
+actual partial original owners; no foreign FD is force closed. Catalog353 adds
+the exact11-case selector. Next: existing Pending flow, exact family permits and
+read-only same-QObject UI/Pending Binding from the frozen Phone helper; no
+selector/text-ID equivalence. Source-complete remains3/14.

@@ -84,7 +84,9 @@ class LifecycleNamespaceBill:
     reserved, along with three full 64KiB atomic metadata files. Range-journal
     files are excluded here and are charged by AudioRawArchive itself.
     """
-    def __init__(self,path,lock,*,expanded=lambda:None):
+    def __init__(self,path,lock,*,expanded=lambda:None,mutex_layout=1):
+        need(type(mutex_layout) is int and mutex_layout in (1,2))
+        self.mutex_layout=self._mutex_layout=mutex_layout
         self.path=self._path=path;self.lock=self._lock=lock;self.expanded=self._expanded=expanded
         self.directory=OriginalDescriptor(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         self.last=None;self.maximum=None;self.lease=self._lease=None
@@ -92,6 +94,23 @@ class LifecycleNamespaceBill:
         self._mutex_seal=(self._mutex_observations,2)
         self.capacity_bill=self._capacity_bill=None;self._admitted_bill=self._original_budget=None
         self._write=None
+        self._mutex_ledger=self._original_mutex_ledger=None
+        if mutex_layout==2:
+            try:
+                from adapters.pico4.lifecycle_mutex_ledger import LifecycleMutexLedger2
+                ledger=LifecycleMutexLedger2.__new__(LifecycleMutexLedger2)
+                self._mutex_ledger=self._original_mutex_ledger=ledger
+                LifecycleMutexLedger2.__init__(ledger,self)
+                self.mutex_observations=self._mutex_observations=ledger.view
+            except BaseException:
+                from adapters.pico4.lifecycle_background_raw_state import close_or_retain
+                close_or_retain(path,self);raise
+
+    def mutex_guard(self,*,active=False):
+        need(type(self.mutex_layout) is int and self.mutex_layout==self._mutex_layout and self.mutex_layout in (1,2))
+        if self.mutex_layout==2:
+            need(self._mutex_ledger is self._original_mutex_ledger)
+            self._mutex_ledger.active() if active else self._mutex_ledger.require()
 
     def write_extra(self):return 0 if self._write is None else self._write[4]
 
@@ -160,6 +179,8 @@ class LifecycleNamespaceBill:
         self.capacity_bill=self._capacity_bill=callback
 
     def metadata_bytes(self):
+        self.mutex_guard()
+        if self.mutex_layout==2:return self._mutex_ledger.metadata_bytes()
         need(self.mutex_observations is self._mutex_observations is self._mutex_seal[0])
         return self._mutex_seal[1]
 
@@ -171,6 +192,8 @@ class LifecycleNamespaceBill:
             and before[:7]==after[:7] and before[5]==0 and before[2]&0o777==0o600
             and before[3]==os.geteuid() and before[4]==1 and after[7]>=before[7])
         if before==after:return
+        self.mutex_guard(active=True)
+        if self.mutex_layout==2:return self._mutex_ledger.observe(name,before,after)
         need(len(self.mutex_observations)<MAX_FRAMES and self._admitted_bill is self._original_budget
             and self._admitted_bill is not None and self.capacity_bill is self._capacity_bill)
         old=self.metadata_bytes();record=(name,tuple(before),tuple(after))
@@ -189,6 +212,7 @@ class LifecycleNamespaceBill:
             and not name.startswith('lifecycle-background-raw.json.'))
 
     def guard_lease(self,*,_write_token=None):
+        self.mutex_guard(active=True)
         self.lock.assert_held();require_directory(self.directory,self.path)
         need(self._write is None or _write_token is self._write[5])
         need(self.lease is not None and self.lease is self._lease)
@@ -244,6 +268,7 @@ class LifecycleNamespaceBill:
         self.lease=self._lease=(current,tuple(sorted(updated.items())))
 
     def __call__(self,*,_write_token=None):
+        self.mutex_guard(active=True)
         need(self.path is self._path and self.lock is self._lock and self.expanded is self._expanded)
         self.lock.assert_held();require_directory(self.directory,self.path)
         need(self._write is None or _write_token is self._write[5])
@@ -400,4 +425,9 @@ class LifecycleNamespaceBill:
         else:self.maximum={key:max(self.maximum[key],value) for key,value in result.items()}
         return result
 
-    def close(self):return self.directory.close()
+    def close(self):
+        sealed=True
+        try:self.mutex_guard()
+        except BaseException:sealed=False
+        closed=self.directory.close()
+        return sealed and closed and (self._mutex_layout==1 or self._original_mutex_ledger.close())

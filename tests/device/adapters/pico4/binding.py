@@ -2513,7 +2513,7 @@ def create_adapter(args, base_class):
                 from adapters.pico4.lifecycle_namespace_bill import LifecycleNamespaceBill
                 _need(disk is None)
                 namespace=LifecycleNamespaceBill(path.parent,source_lock,
-                    expanded=lambda:None if holder[0] is None else holder[0].state)
+                    expanded=lambda:None if holder[0] is None else holder[0].state,mutex_layout=2)
                 try:
                     raw=LifecycleBackgroundRaw3(path.with_name('lifecycle-background-raw.json'),run,binding,
                         source_lock,source_lock.assert_held,namespace,clock)

@@ -507,6 +507,7 @@ REQUIRED = {
     "pico-lifecycle-background-owner": 3,
     "pico-lifecycle-background-originals": 3,
     "pico-lifecycle-background-range": 3,
+    "pico-lifecycle-mutex-ledger": 2,
     "pico-lifecycle-pending-owner": 2,
     "pico-lifecycle-pending-originals": 1,
     "pico-lifecycle-close-owner": 1,

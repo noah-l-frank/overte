@@ -1990,7 +1990,11 @@
         "android/vr/pico/tests/device/test_lifecycle_background_write_gate.py",
         "android/vr/pico/tests/device/test_lifecycle_background_raw_entry.py",
         "android/vr/pico/tests/device/test_lifecycle_background_raw_dispatch.py",
-        "android/vr/pico/tests/device/test_lifecycle_background_raw_factory.py"
+        "android/vr/pico/tests/device/test_lifecycle_background_raw_factory.py",
+        "tests/device/adapters/pico4/lifecycle_mutex_ledger.py",
+        "tests/device/self_tests/test_pico_lifecycle_mutex_ledger.py",
+        "android/vr/pico/tests/device/test_lifecycle_mutex_ledger.py",
+        "tests/device/adapters/pico4/LIFECYCLE_MUTEX_LEDGER.md"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -2035,7 +2039,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Continue the SAME original Common16/PrimaryOperations/independent Actor graph beyond seven normal actions. Explicit Background3 now retains every actual getter before parsing under the same512/16MiB bill and original clocks. Typed original Chat/World/Source3 writer receipts prevent namespace adoption; bounded World2 encoding checks48KiB before Base64 without changing valid bytes or XZ budget. Four disjoint groups31/17/1/4 pass under separate original120s; current seven-action Entry proves workerExit0/kernelabsence,173raw reads and13,013,239decoded/copy bytes, not a whole16 or24-source-group proof. Legacy capacity-only mutexledger1 has508/512 actual transitions; first implement the approved additive lossless Ledger2 within the SAME byte/part bounds, then continue remaining actions and independently bind authorized Pending history. Required image3/7/G1, remaining9actions, actual Qt/SDK/GPU compilation/device behavior, typed whole return and callback/resource/IPC/host/global retirement remain open. Earlier source-scoped results stay historical; no incomplete scope becomes a source-complete capability.",
+      "nextExecutableStep": "Continue the SAME actual Common16/PrimaryOperations/independent Actor graph at normal step8. Explicit Background3 now chooses the qualified lossless warm MutexLedger2 before admission; all actual8->8stat transitions and interleaved cohort order are retained within the same512parts/16MiB bill. Actual7Entry still173raw reads/19parts/508transitions/workerExit0+absence and12,746,261final decoded/copy bytes, not whole16/24. Before ScriptsFocus admit Pending-family first writes through exact pre-encoding permits; bind actual Pending token and unchanged UI fieldId only through Pico-gated read-only same-QObject Weak-Triple identity, reusing frozenPhone5e8 helper where compatible. Preserve UI1/Pending1/2 passive/default compatibility and the same six Actor readers. Required images3/7/G1, remaining9actions, actual Qt/SDK/GPU compilation/device behavior, typed whole return and callback/resource/IPC/host/global retirement remain open.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "backgroundRawStorage3Qualification": {
@@ -2078,6 +2082,39 @@
         "completeFeatureCapability": false,
         "nativeCompiled": false,
         "deviceTested": false
+      },
+      "mutexLedger2Qualification": {
+        "actualNormalActions": 7,
+        "rawReceipts": 173,
+        "rawParts": 19,
+        "literalBytes": 1185370,
+        "actualObservedMutexTransitions": 508,
+        "compactEncodedBytes": 14313,
+        "reconstructionWindowBytes": 2334,
+        "mutexMetadataBudgetBytes": 16647,
+        "finalDecodedAndCopyBudgetBytes": 12746261,
+        "originalWorkerExitCode": 0,
+        "kernelAbsence": true,
+        "actorPublications": "only original3baseline",
+        "full24Groups": false,
+        "full16Effects": false,
+        "caseCounts": [
+          11,
+          31
+        ],
+        "groupTestSeconds": [
+          55.493,
+          14.708
+        ],
+        "groupOuterSeconds": [
+          56.666,
+          15.751
+        ],
+        "sourceUnionFiles": 301,
+        "namespaceDefault": 1,
+        "canonicalOptIn": 2,
+        "persistedOwnerRawActorFormatChanged": false,
+        "originalReadPartByteCapsUnchanged": true
       }
     }
   ]
