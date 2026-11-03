@@ -125,9 +125,10 @@ def consumed(event,envelope):
 
 
 class PicoLifecycleGesture:
-    def __init__(self,send,original,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep,source_lock=None):
+    def __init__(self,send,original,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep,source_lock=None,before_io=None):
         need(all(callable(f) for f in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
+        need(before_io is None or callable(before_io));self.before_io=before_io
         from adapters.script_journey.lock import ScriptSourceLock
         need(source_lock is None or isinstance(source_lock,ScriptSourceLock));self.source_lock=source_lock
         self.monotonic,self.sleep=monotonic,sleep;self.previous,self.last_raw,self.last_sha256=None,None,None
@@ -143,9 +144,12 @@ class PicoLifecycleGesture:
         need(nonce(run) and self.guard() is not False)
         request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action=ACTION,runId=run)
         started=previous=self.monotonic();requested=self.clock_ms();need(number(started,0,1e15) and integer(requested,1))
+        if self.before_io is not None:self.before_io(started,requested,'send')
         self.send(request)
         for attempt in range(51):
-            need(self.guard() is not False);raw=self.original();need(type(raw) is str and len(raw.encode())<=LIMIT)
+            need(self.guard() is not False)
+            if self.before_io is not None:self.before_io(started,requested,'get')
+            raw=self.original();need(type(raw) is str and len(raw.encode())<=LIMIT)
             try:value=decode(raw) if raw else None
             except json.JSONDecodeError:value=None
             now=self.monotonic();need(number(now,0,1e15) and previous<=now and now-started<5);previous=now

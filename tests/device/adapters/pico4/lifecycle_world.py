@@ -35,11 +35,12 @@ def neutral(packet):
 
 
 class PicoLifecycleWorld:
-    def __init__(self,source,axes,avatar,session,path,run,binding,guard,source_lock,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,source,axes,avatar,session,path,run,binding,guard,source_lock,*,monotonic=time.monotonic,sleep=time.sleep,before_io=None):
         need(isinstance(source,ui.PicoLifecycleSource) and isinstance(axes,gesture.PicoLifecycleGesture)
             and isinstance(avatar,drive.PicoLifecycleDrive) and isinstance(session,PicoOpenXrAdapterSession)
             and isinstance(source_lock,ScriptSourceLock) and ui.nonce(run) and all(callable(f) for f in (guard,monotonic,sleep)))
         self.source,self.axes,self.avatar,self.session=source,axes,avatar,session
+        need(before_io is None or callable(before_io));self.before_io=before_io
         self.run,self.binding,self.guard=run,deepcopy(context(binding)),guard
         self.pid=source.pid;self.identity=self.binding['processIdentity'];need(axes.pid==avatar.pid==self.pid==int(self.identity.split(':')[0]))
         self.store=PrivateFeatureState(path);self.lock=source_lock
@@ -109,6 +110,8 @@ class PicoLifecycleWorld:
     def acquire(self):
         start=self.now();requested=self.axes.clock_ms();need(integer(requested,1));rows={};packets={}
         for name,reader in (('gesture',self.axes),('drive',self.avatar),('ui',self.source)):
+            callback=getattr(self,'before_io',None)
+            if callback is not None:callback(start,requested,name)
             packets[name]=reader.capture(self.run);rows[name]=frame(reader.last_raw)
             need(rows[name]['sha256']==reader.last_sha256 and decode(rows[name]['raw'])==packets[name])
         rows['hostMonotonic']=self.now();need(rows['hostMonotonic']-start<=1.5)

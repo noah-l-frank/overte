@@ -173,10 +173,11 @@ def validate(value, request, pid, epoch, *, require_animation=False, require_rec
 
 class NativeFeatureObservation:
     def __init__(self, send, read, clock_ms, guard, pid, *, ios=False,
-                 monotonic=time.monotonic, sleep=time.sleep):
+                 monotonic=time.monotonic, sleep=time.sleep, before_io=None):
         need(all(callable(value) for value in (send, read, clock_ms, guard, monotonic, sleep))
              and integer(pid, 1) and type(ios) is bool)
         self.send, self.original, self.clock_ms, self.guard, self.pid = send, read, clock_ms, guard, pid
+        need(before_io is None or callable(before_io)); self.before_io = before_io
         self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
         self.instance, self.sequence, self.rig, self.rig_sequence = None, 0, None, 0
         self.lifecycle = None
@@ -196,6 +197,7 @@ class NativeFeatureObservation:
             started = previous = self.monotonic()
             need(number(started, 0, 1e15))
             request = ('ios-' if self.ios else '') + uuid.uuid4().hex
+            if self.before_io is not None: self.before_io(started, requested_at, 'send')
             self.send(dict(schemaVersion=1, commandId=request, action='feature-native-observe'))
             source_floor, pinned_instance, pinned_rig = after_sequence, self.instance, self.rig
             seen_lifecycle, voice_floor = self.lifecycle, self.voice_event_sequence
@@ -204,6 +206,7 @@ class NativeFeatureObservation:
             seen_account_history = self.account_history
             for _attempt in range(51):
                 need(self.guard() is not False)
+                if self.before_io is not None: self.before_io(started, requested_at, 'get')
                 raw = self.original()
                 try:
                     value = decode(raw) if raw else None
@@ -286,6 +289,7 @@ class NativeFeatureObservation:
                     # Only this closed read-only sampler may be requested
                     # again. Never replay a field/click/script input here.
                     request = ('ios-' if self.ios else '') + uuid.uuid4().hex
+                    if self.before_io is not None: self.before_io(started, requested_at, 'send')
                     self.send(dict(schemaVersion=1, commandId=request, action='feature-native-observe'))
         except Exception:
             raise NativeUIError('Native feature observation failed') from None

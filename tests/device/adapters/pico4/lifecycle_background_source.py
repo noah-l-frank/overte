@@ -104,10 +104,12 @@ def accept(previous,current):
 
 
 class NativeLifecycleBackground:
-    def __init__(self,send,original,clock_ms,guard,pid,source_lock,*,intent=None,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,send,original,clock_ms,guard,pid,source_lock,*,intent=None,monotonic=time.monotonic,sleep=time.sleep,before_io=None):
         need(all(callable(f) for f in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1)
             and isinstance(source_lock,ScriptSourceLock) and (intent is None or callable(intent)))
         self.send,self.original,self.clock_ms,self.guard,self.pid,self.source_lock=send,original,clock_ms,guard,pid,source_lock
+        self.dispatch=None
+        need(before_io is None or callable(before_io));self.before_io=before_io
         self.intent,self.monotonic,self.sleep=intent,monotonic,sleep;self.last=self.last_raw=self.last_sha256=None
     def restore(self,raw):
         """Validate original historical bytes; never return them as a fresh read."""
@@ -130,9 +132,12 @@ class NativeLifecycleBackground:
                     need(self.intent is not None);self.intent(deepcopy(request));need(self.guard() is not False)
                     fence=getattr(self,'phase_fence',None)
                     if fence is not None:fence.check()
+                if self.before_io is not None:self.before_io(started,requested,'send')
                 self.send(deepcopy(request))
                 for attempt in range(51):
-                    need(self.guard() is not False);raw=self.original();need(type(raw) is str and len(raw.encode('utf-8'))<=LIMIT)
+                    need(self.guard() is not False)
+                    if self.before_io is not None:self.before_io(started,requested,'get')
+                    raw=self.original();need(type(raw) is str and len(raw.encode('utf-8'))<=LIMIT)
                     try:value=decode(raw) if raw else None
                     except json.JSONDecodeError:value=None
                     now=self.monotonic();need(number(now,0,1e15) and previous<=now and now-started<5);previous=now
@@ -169,13 +174,16 @@ class NativeLifecycleBackground:
 
 def bind_source(adapter,target,native,*,source_lock=None,intent=None):
     source_lock=adapter._script_journey()._lock(target,source_lock)
+    def dispatch(request):
+        adapter.adb.write_debug_app_file(target,'org.overte.pico',COMMAND,json.dumps(request,separators=(',',':'))+'\n')
     def send(request):
         native.guard()
         fence=getattr(observer,'phase_fence',None)
         if request['operation']!='observe' and fence is not None:
             from adapters.pico4.lifecycle_operations import LifecycleInputFence
             if type(fence) is LifecycleInputFence:fence.check()
-        adapter.adb.write_debug_app_file(target,'org.overte.pico',COMMAND,json.dumps(request,separators=(',',':'))+'\n');native.guard()
+        observer.dispatch(request);native.guard()
     observer=NativeLifecycleBackground(send,lambda:adapter.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
         native.clock_ms,native.guard,native.pid,source_lock,intent=intent,monotonic=native.monotonic,sleep=native.sleep)
+    observer.dispatch=dispatch
     return observer

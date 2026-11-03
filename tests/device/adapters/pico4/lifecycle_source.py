@@ -96,9 +96,10 @@ def current_editor(packet):
 
 
 class PicoLifecycleSource:
-    def __init__(self,send,original,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep,source_lock=None):
+    def __init__(self,send,original,clock_ms,guard,pid,*,monotonic=time.monotonic,sleep=time.sleep,source_lock=None,before_io=None):
         need(all(callable(value) for value in (send,original,clock_ms,guard,monotonic,sleep)) and integer(pid,1))
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,original,clock_ms,guard,pid
+        need(before_io is None or callable(before_io));self.before_io=before_io
         from adapters.script_journey.lock import ScriptSourceLock
         need(source_lock is None or isinstance(source_lock,ScriptSourceLock));self.source_lock=source_lock
         self.monotonic,self.sleep=monotonic,sleep
@@ -118,9 +119,11 @@ class PicoLifecycleSource:
         need(nonce(run) and self.guard() is not False)
         request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='observe',runId=run)
         started=previous=self.monotonic();requested=self.clock_ms();need(number(started,0,1e15) and integer(requested,1))
+        if self.before_io is not None:self.before_io(started,requested,'send')
         self.send(request) # Only one original query; never resend the nonce.
         for attempt in range(51):
             need(self.guard() is not False)
+            if self.before_io is not None:self.before_io(started,requested,'get')
             raw=self.original();need(type(raw) is str and len(raw.encode('utf-8'))<=LIMIT)
             try:value=decode(raw) if raw else None
             except json.JSONDecodeError:value=None
