@@ -62,8 +62,7 @@ class ChatSourceChunks:
     def inventory(self,count):
         need(integer(count,0,MAX_FRAMES) and self.root.path==self.root_path);self.root._parent()
         expected=set(self.names[:count])
-        with os.scandir(self.root_path.parent) as entries:
-            actual={entry.name for entry in entries if entry.name.startswith(self.prefix)}
+        actual={name for name in os.listdir(self.root_path.parent) if name.startswith(self.prefix)}
         need(actual==expected)
 
     def signature(self,index):

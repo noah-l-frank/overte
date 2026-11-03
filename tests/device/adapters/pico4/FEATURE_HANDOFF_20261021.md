@@ -3408,3 +3408,22 @@ files survive actual fixture cleanup and terminal audit. Earlier G0 retention
 failures remain incomplete evidence. Exact owned processes are absent. Changed
 A/B scenes, independent Actor, full coordinator and final resource/Host
 retirement stay open; complete source areas remain3/14.
+
+
+## Current no-build scope and measured continuation on 2026-11-03
+
+The latest active-goal instruction prohibits further builds/compiler invocations,
+as well as devices, Jenkins, product behavior changes, reference/Phone/iOS edits
+and remote writes. Earlier explicitly authorized compiled checkpoints remain
+historical evidence only. New native Avatar/Assets producer changes remain
+uncompiled and cannot transfer their modeled tests into native qualification.
+
+[Browser archive profiling](BROWSER_CAPTURE_RETIREMENT.md) retains the actual
+120s failures and rejects the extra fixture-clock transport after no sufficient
+whole improvement. Its four source files and exact diff are privately preserved;
+Root restored the original two fixture bytes and removed only its own two new
+files.2,122 terminal runtime originals remain; no matching worker exists.
+The [Chat source record](CHAT_REMOTE_ARCHIVE.md) adds a current61query component
+and a modest names-only inventory improvement, with12 affected physical/native/
+clock cases passed. No source limits, cadence, quiet window or whole cap changes.
+Source-complete remains3/14 and no device qualification is claimed.

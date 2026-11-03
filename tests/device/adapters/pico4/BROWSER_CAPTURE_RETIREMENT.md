@@ -350,3 +350,54 @@ the original runtime remains
 No compiler, physical device, source/cursor reset, additional fixture input,
 renewed deadline or increased cap was used. Full Browser and public final
 capability composition remain open.
+
+
+## Bounded archive profiling and rejected clock transport, 2026-11-03
+
+The complete original120s owner still fails; no failed owner is reopened.
+A diagnostic with cProfile over the entire Parent/Actor path reached the
+original120s timeout before Common completed. Its201 actually loaded sources
+remained unchanged. The Parent profile exists, while the worker profile does
+not: timeout terminates the whole owned process group, so a Python atexit-only
+worker profile is not guaranteed. A terminal audit retains926 original files
+and finds no matching worker. Those profiled timings are not a qualification
+or an estimate of unprofiled full-runtime behavior.
+
+A separate fresh owner enabled cProfile only after archive entry, preserving
+ordinary Common execution. All28 Common phases finish72.877s; archive enters
+99.302s, and the original120s limit still expires. It records156 current-copy
+checks and313 complete physical-index checks;205 loaded source hashes/physical
+signatures stay unchanged. Full caller profiles show repeated final source,
+phase, namespace and current-copy work, not one removable blocking wait.
+Cumulative nested timings overlap and must not be summed.
+
+An explicit fixture-only live synthetic-clock transport was then tried against
+the observed transport overhead. Eight real-process/OFD counters pass0.233s,
+including original Parent assignment, copied-file substitution, producer exit,
+regression, truncation and descriptor recycling. A genuine prior stale-clock
+counter fails before the assignment hook. Existing independent open/close and
+late-CAS components pass2/7.741s. Actual product observations, native requests,
+independent phase reads and all original guards/caps remain in their old paths.
+Only synthetic clock reads use the shared Parent state; this is no target clock
+or device evidence.
+
+Its fresh unprofiled whole attempt still times out120.044s. Common completes
+78.255s and archive begins104.220s;138 current-copy checks complete. Actual RPC
+counters confirm no epoch/host clock calls, while candidate11145, browser219,
+feature358, runtime219, diagnostic219, objects272, scripts136, and the original
+probe/subject/UI/capture/storage/inventory calls remain. This shows no sufficient
+whole benefit; it does not establish a controlled causal slowdown comparison.
+The extra mutable-clock file/OFD/producer machinery is rejected. Root restored
+its two exclusive fixture files byte-for-byte and removed only its two new
+untracked helper/test files after verified private capture.
+
+The entire rejected source diff and files, actual failed owner,2,122 retained
+runtime originals with unchanged bytes/full physical stamps across two terminal
+passes, and zero matching worker are recorded at
+`~/.local/state/pico-browser-clock-rejected-20261103-dbz_etmv/`.
+The actual original runtime remains
+`/tmp/overte-pico-browser-clock-whole-20261103-k7pbjzdb`.
+No archived/current owner, clock, source, cursor or input is replayed. No compile,
+device run, cap/deadline increase or complete Browser claim follows. Continue
+from the retained caller/source evidence rather than retrying an unchanged
+whole attempt.

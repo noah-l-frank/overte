@@ -457,3 +457,44 @@ No native product, widget, actual device freshness or full25-input execution
 is qualified by these modeled producers. No compiler or device/service run
 is part of this packet. The measured current-source JSON processing and the
 remaining true Common/app/archive/host closure stay open.
+
+## Current component profile and names-only inventory
+
+The unchanged existing61-query component passed once on2026-11-03 in31.086s
+(31.471s outer), under the original120s limit. All190 actually loaded Parent
+and separate Actor source SHA-256/full physical signatures remained unchanged;
+703 original files were retained and no owned process remained. Full caller
+profiles, not only the former top25 summaries, are retained in the private
+`pico-chat-61query-current-20261103-pkc1h6hd` evidence directory. The Actor still
+issued122 root queries and61 each of Script, primary, peer, View and lifecycle;
+the captured Primary/Actor full-history verification counts remain54/143.
+
+Profiling itself is substantial: the preceding unprofiled Parent acquisition
+took0.254610s and the final profiled acquisition0.540724s. The latter also has
+one additional original history row, so their2.124x ratio does not isolate
+causal profiler overhead. Full profiles attribute0.170027s to recursive strict
+JSON validation, but a separate historical-only prototype saved only1.4ms
+across656 decoded original frames; that prototype was rejected. Neither these
+timings nor historical decoded bytes qualify current target freshness or a
+successful complete journey.
+
+The next selected change is limited to `ChatSourceChunks.inventory`: obtain
+fresh complete names with `os.listdir` instead of allocating `DirEntry` objects
+whose only consumed field was their name. Every original parent check, exact
+prefix namespace comparison, per-child current full signature, original byte
+read, native guard, intent and clock remains. No name or stat is cached. On the
+retained678-entry original directory,143 fresh inventory passes measured
+59.70ms before and48.13ms for the names-only candidate. All703 historical
+original file hashes/full signatures stayed unchanged. This modest local gain
+does not justify another full or61-query run.
+
+After the one-line source change, the12 existing affected namespace, physical,
+native/clock, uncertain-acquisition, raw-limit and legacy cases passed in0.511s.
+All43 loaded sources stayed unchanged; the run executed149 inventories,
+106 verifications and144 original child-signature checks, retaining24 private
+roots/127 entries including intentional fault artifacts. The unchanged355-frame
+scaling case was not repeated for this names-only change. Source formats,
+capabilities, source budgets, cadence, three-second quiet and120s limits remain
+unchanged. The initial diagnostic runner-only retention preflight failed before
+any acquisition and remains retained separately; the actual61-query run used
+the fixture's existing Parent/Actor retention owners.
