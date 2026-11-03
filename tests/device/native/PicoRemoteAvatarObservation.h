@@ -30,6 +30,9 @@ struct PicoRemoteAvatarRequest {
 // strongly across calls, loaded, rendered, replaced or repaired by this owner.
 class PicoRemoteAvatarObservation {
 public:
+    // Opt-in stream4 shares this native arena; it cannot reset a legacy run.
+    bool streamEligible() const { return enabled() && _valid && _run.isEmpty() && _requests.isEmpty() && _published.isEmpty() && !_bound; }
+    void refuseStreamConflict() { _valid=false; }
     static bool command(const QVariantMap& value) {
         const auto json=QJsonObject::fromVariantMap(value);
         const auto subject=value.value("subjectSessionId").toString();

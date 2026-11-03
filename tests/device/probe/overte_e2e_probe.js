@@ -171,6 +171,8 @@
     var lastAvatarRenderRequest = "";
     var remoteAvatarRequests = {};
     var remoteAvatarRequestCount = 0;
+    var remoteAvatarStreamControls = {};
+    var remoteAvatarStreamControlCount = 0;
     var lastPicoEmoteSceneRequest = "";
     var lastPicoAvatarStateRequest = "";
     var lastPicoAvatarPreferencesRequest = "";
@@ -1300,6 +1302,37 @@
                 }
             } catch (_picoAvatarStateError) { /* Actual model generations remain unavailable. */ }
             Test.saveObject(picoAvatarState, "feature-pico-avatar-state.json");
+            return;
+        }
+
+        if (command && command.schemaVersion === 1
+                && command.action === "feature-pico-remote-avatar-stream-control"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && ((command.operation === "arm"
+                    && typeof command.subjectSessionId === "string"
+                    && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(command.subjectSessionId)
+                    && command.subjectSessionId !== "00000000-0000-0000-0000-000000000000"
+                    && typeof command.ownerPolicy === "string" && command.ownerPolicy.length <= 8192
+                    && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "operation", "runId", "subjectSessionId", "ownerPolicy"]))
+                    || ((command.operation === "stop" || command.operation === "drain")
+                    && typeof command.streamId === "string" && /^[0-9a-f]{32}$/.test(command.streamId)
+                    && typeof command.armCommandId === "string" && /^[0-9a-f]{32}$/.test(command.armCommandId)
+                    && typeof command.policySha256 === "string" && /^[0-9a-f]{64}$/.test(command.policySha256)
+                    && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "operation", "runId", "streamId", "armCommandId", "policySha256"])))) {
+            if (remoteAvatarStreamControls[command.commandId] || remoteAvatarStreamControlCount >= 32) { return; }
+            remoteAvatarStreamControls[command.commandId] = true; remoteAvatarStreamControlCount += 1;
+            var remoteStreamControl = {schemaVersion: 1, picoRemoteAvatarStreamControlVersion: 4,
+                requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featurePicoRemoteAvatarStreamControl === "function") {
+                    var originalStreamControl = Test.featurePicoRemoteAvatarStreamControl(command);
+                    if (originalStreamControl && originalStreamControl.requestId === command.commandId) { remoteStreamControl = originalStreamControl; }
+                }
+            } catch (_remoteStreamError) { /* Preserve unavailable control; no fabricated sample or retry. */ }
+            // Only native GUI production writes the separate current SAMPLE
+            // file. A command acknowledgment is never relabelled as a frame.
+            Test.saveObject(remoteStreamControl, "feature-pico-remote-avatar-stream-control.json");
             return;
         }
 
@@ -2542,6 +2575,7 @@
                 || command.action === "feature-pico-avatar-model-connections-observe"
                 || command.action === "feature-avatar-render-observe"
                 || command.action === "feature-pico-remote-avatar-observe"
+                || command.action === "feature-pico-remote-avatar-stream-control"
                 || command.action === "feature-pico-emote-scene-observe" || command.action === "feature-pico-emote-scene-input"
                 || command.action === "feature-pico-world-model-draws-observe"
                 || command.action === "feature-graphics-subject-observe"

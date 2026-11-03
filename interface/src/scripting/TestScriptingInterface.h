@@ -24,6 +24,7 @@
 namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; class CreateModelResources; class AudioSettingsObservation; class AudioSettingsQueue; }
 namespace overte::e2e { class ChatPeerPosition; }
 namespace overte::e2e { class PicoRemoteAvatarObservation; struct PicoRemoteAvatarRequest; }
+namespace overte::e2e { class PicoRemoteAvatarStream; struct PicoRemoteAvatarStreamRequest; struct PicoRemoteAvatarStreamWindow; }
 namespace overte::e2e { class PicoEmoteSceneFixture; class AvatarPreferenceSnapshot; class PrivateAssetsFiles; class PicoAssetsReadJob; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
@@ -229,6 +230,9 @@ public slots:
     Q_INVOKABLE QVariantMap featurePicoAvatarPreferences(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarModelConnections(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoRemoteAvatarObservation(const QVariantMap& command);
+#if defined(Q_OS_LINUX)
+    Q_INVOKABLE QVariantMap featurePicoRemoteAvatarStreamControl(const QVariantMap& command);
+#endif
     Q_INVOKABLE QVariantMap featurePicoEmoteScene(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureGraphicsSubjectObservation(const QVariantMap& command);
@@ -328,6 +332,13 @@ private:
     QVariantMap featurePicoRemoteAvatarOriginal(const std::shared_ptr<overte::e2e::PicoRemoteAvatarRequest>& original);
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureRemoteAvatarQueue;
     std::shared_ptr<overte::e2e::PicoRemoteAvatarObservation> _featureRemoteAvatar;
+#if defined(Q_OS_LINUX)
+    QVariantMap featurePicoRemoteAvatarStreamOriginal(const std::shared_ptr<overte::e2e::PicoRemoteAvatarStreamRequest>& original);
+    QVariantMap featurePicoRemoteAvatarStreamSnapshot(const QString& run, const QString& subject,
+        const std::shared_ptr<overte::e2e::PicoRemoteAvatarStreamWindow>& original);
+    std::shared_ptr<overte::e2e::PicoRemoteAvatarStream> _featureRemoteAvatarStream;
+    bool _featureRemoteAvatarStreamAttempted{false};
+#endif
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentInputQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentConsumptionQueue;

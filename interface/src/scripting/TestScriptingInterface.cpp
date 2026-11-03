@@ -48,6 +48,9 @@
 #include <ScriptManager.h>
 #include "../../../tests/device/native/PicoEmoteSceneFixture.h"
 #include "../../../tests/device/native/PicoRemoteAvatarObservation.h"
+#if defined(Q_OS_LINUX)
+#include "../../../tests/device/native/PicoRemoteAvatarStream.h"
+#endif
 #include "../avatar/OtherAvatar.h"
 #include "Audio.h"
 #include <ui/Snapshot.h>
@@ -281,6 +284,12 @@ QVariantMap TestScriptingInterface::featurePicoRemoteAvatarOriginal(const std::s
         return acquisition->fresh() ? result : QVariantMap{};
     }
     const auto& command=acquisition->command;
+#if defined(Q_OS_LINUX)
+    if (_featureRemoteAvatarStreamAttempted) {
+        if (_featureRemoteAvatarStream) { _featureRemoteAvatarStream->refuseMixed(); }
+        return {};
+    }
+#endif
     if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
             || !qApp || thread()!=qApp->thread() || !overte::e2e::PicoRemoteAvatarObservation::command(command)
             || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
@@ -356,6 +365,140 @@ QVariantMap TestScriptingInterface::featurePicoRemoteAvatarOriginal(const std::s
     const bool bounded=QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()<=196608;
     return bounded && acquisition->fresh() ? result : QVariantMap{};
 }
+
+#if defined(Q_OS_LINUX)
+QVariantMap TestScriptingInterface::featurePicoRemoteAvatarStreamControl(const QVariantMap& command) {
+    return featurePicoRemoteAvatarStreamOriginal(std::make_shared<overte::e2e::PicoRemoteAvatarStreamRequest>(command));
+}
+
+QVariantMap TestScriptingInterface::featurePicoRemoteAvatarStreamOriginal(
+        const std::shared_ptr<overte::e2e::PicoRemoteAvatarStreamRequest>& request) {
+    const auto queue=_featureRemoteAvatarQueue;
+    if (!queue || !_featureRemoteAvatar || !request || !request->fresh()) { return {}; }
+    if (QThread::currentThread()!=thread()) {
+        const auto result=queue->read("dispatch",this,[request](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoRemoteAvatarStreamOriginal(request),{}};
+        }).values;
+        return request->fresh() ? result : QVariantMap{};
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !qApp || thread()!=qApp->thread() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto& command=request->command;
+    if (command.value("operation")==QVariant("arm")) {
+        // Even a failed explicit arm cannot be followed by legacy observation
+        // or a fresh arena. Existing default Source3 never selects this branch.
+        const bool attempted=_featureRemoteAvatarStreamAttempted;_featureRemoteAvatarStreamAttempted=true;
+        if (attempted) {
+            if (_featureRemoteAvatarStream) { _featureRemoteAvatarStream->refuseMixed(); }
+            _featureRemoteAvatar->refuseStreamConflict();return {};
+        }
+        if (!_featureRemoteAvatarStream) {
+            if (!_featureRemoteAvatar->streamEligible()) { _featureRemoteAvatar->refuseStreamConflict();return {}; }
+            _featureRemoteAvatarStream=std::make_shared<overte::e2e::PicoRemoteAvatarStream>();
+        }
+    }
+    if (!_featureRemoteAvatarStream || !overte::e2e::PicoRemoteAvatarStream::command(command) || !request->fresh()) { return {}; }
+    const auto run=command.value("runId").toString(),subject=command.value("subjectSessionId").toString();
+    const QPointer<TestScriptingInterface> original(this);
+    auto snapshot=[original,run,subject](const std::shared_ptr<overte::e2e::PicoRemoteAvatarStreamWindow>& window) {
+        return original && window && window->fresh() ? original->featurePicoRemoteAvatarStreamSnapshot(run,subject,window) : QVariantMap{};
+    };
+    auto quiet=[original,queue] {
+        return original && original->_featureRemoteAvatarQueue==queue
+            && queue->settled(overte::e2e::AudioSettingsQueue::dispatching(original.data()) ? "dispatch" : QString());
+    };
+    const auto result=_featureRemoteAvatarStream->control(request,this,QDir::cleanPath(_testResultsLocation),snapshot,quiet);
+    // Encoding and every preceding file/queue guard consume the SAME original
+    // control request. No new request or timestamp is manufactured on return.
+    const bool bounded=QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()<=16384;
+    if (!bounded || !request->fresh()) { _featureRemoteAvatarStream->refuseExpiredControl();return {}; }
+    if (command.value("operation")==QVariant("arm") && result.value("available")==QVariant(true)
+            && !_featureRemoteAvatarStream->confirmArm(request)) { return {}; }
+    return result;
+}
+
+QVariantMap TestScriptingInterface::featurePicoRemoteAvatarStreamSnapshot(const QString& run,const QString& subject,
+        const std::shared_ptr<overte::e2e::PicoRemoteAvatarStreamWindow>& window) {
+    // Deliberately separate read-only gathering preserves the exact default
+    // Source3 getter/queue sequence. Leaves are the same actual native/Rig3
+    // builders; this never calls observe with synthesized query identifiers.
+    const auto queue=_featureRemoteAvatarQueue;
+    if (!window || !window->fresh() || !queue || !_featureRemoteAvatar || !_featureRemoteAvatarStream
+            || !_featureRemoteAvatarStream->active() || !qApp || QThread::currentThread()!=qApp->thread()
+            || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !DependencyManager::isSet<AvatarManager>() || !DependencyManager::isSet<NodeList>()
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) { return {}; }
+    const auto manager=DependencyManager::get<AvatarManager>();const auto nodes=DependencyManager::get<NodeList>();
+    const auto client=[run,window](QObject* object) {
+        if (!window->fresh()) { return overte::e2e::AudioSettingsPart{}; }
+        auto original=qobject_cast<NodeList*>(object);if (!original) { return overte::e2e::AudioSettingsPart{}; }
+        const auto begun=QDateTime::currentMSecsSinceEpoch();auto& domain=original->getDomainHandler();
+        if (!window->fresh() || original->thread()!=QThread::currentThread() || domain.thread()!=QThread::currentThread()) { return overte::e2e::AudioSettingsPart{}; }
+        const QVariantMap value{{"domainId",domain.getUUID().isNull()?QVariant():QVariant(domain.getUUID().toString(QUuid::WithoutBraces))},
+            {"sessionId",original->getSessionUUID().isNull()?QVariant():QVariant(original->getSessionUUID().toString(QUuid::WithoutBraces))},
+            {"connected",domain.isConnected()},{"domainSession",domain.featureChatSession(run)}};
+        return window->fresh() ? overte::e2e::AudioSettingsPart{{{"requestedEpochMs",begun},
+            {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"identity",value}},{{"nodes",original}}} : overte::e2e::AudioSettingsPart{};
+    };
+    if (!window->fresh()) { return {}; }const auto before=queue->read("nodes",nodes.data(),client);
+    if (!window->fresh() || before.values.isEmpty() || before.objects.value("nodes")!=nodes.data()) { return {}; }
+    const auto self=manager->getMyAvatar();if (!window->fresh() || !self || self->thread()!=QThread::currentThread()) { return {}; }
+    const auto subjectId=QUuid(subject);
+    if (subjectId.isNull() || subjectId==self->getSessionUUID()
+            || subject==before.values.value("identity").toMap().value("sessionId")) { return {}; }
+    const auto original=manager->getAvatarBySessionID(subjectId);const auto avatar=std::dynamic_pointer_cast<Avatar>(original);
+    QVariant sampled;
+    if (avatar) {
+        if (!window->fresh() || avatar->thread()!=QThread::currentThread() || avatar->getSessionUUID()!=subjectId) { return {}; }
+        const auto model=avatar->getSkeletonModel();
+        if (!window->fresh() || !model || model->thread()!=QThread::currentThread()
+                || !_featureRemoteAvatar->originals(nodes.data(),manager.data(),avatar,model)) { return {}; }
+        const auto geometry=model->getGeometry();QVariant loaded;
+        if (!window->fresh()) { return {}; }
+        if (geometry && geometry->isHFMModelLoaded()) {
+            const auto url=geometry->getHFMModel().originalURL.toUtf8();
+            loaded=QVariantMap{{"instance",geometry->e2eGeometryInstance()},{"sourcePresent",!url.isEmpty()},
+                {"sourceSha256",QString::fromLatin1(QCryptographicHash::hash(url,QCryptographicHash::Sha256).toHex())}};
+        }
+        const auto remote=std::dynamic_pointer_cast<OtherAvatar>(original);if (!remote || !window->fresh()) { return {}; }
+        const auto vec=[](const glm::vec3& value) { return QVariantList{value.x,value.y,value.z}; };
+        const auto avatarLoads=avatar->e2eAvatarLoads();if (!window->fresh()) { return {}; }
+        const auto modelInstance=model->e2eModelInstance();if (!window->fresh()) { return {}; }
+        const auto rigId=model->getRig().e2eRigId();if (!window->fresh()) { return {}; }
+        const auto rig=model->getRig().e2eAnimationObservation();if (!window->fresh()) { return {}; }
+        const auto remotePose=remote->e2eRemoteJointPose();if (!window->fresh()) { return {}; }
+        const auto feet=avatar->getWorldFeetPosition();if (!window->fresh()) { return {}; }
+        const auto orientation=avatar->getWorldOrientation();if (!window->fresh()) { return {}; }
+        const auto scale=avatar->getModelScale();if (!window->fresh()) { return {}; }
+        sampled=QVariantMap{{"sessionId",avatar->getSessionUUID().toString(QUuid::WithoutBraces)},
+            {"avatarInstance",avatarLoads.value("instance")},{"modelInstance",modelInstance},
+            {"rigId",rigId},{"rig",rig},{"remoteJointPose",remotePose},{"loaded",model->isLoaded()},{"visible",model->isVisible()},
+            {"addedToScene",model->isAddedToScene()},{"avatarShouldRender",avatar->shouldRender()},{"geometry",loaded},
+            {"pose",QVariantMap{{"feetPosition",vec(feet)},{"orientation",QVariantList{orientation.x,orientation.y,orientation.z,orientation.w}},
+                {"modelScale",scale}}}};
+        if (!window->fresh() || manager->getAvatarBySessionID(subjectId)!=original || avatar->getSkeletonModel()!=model || model->getGeometry()!=geometry) { return {}; }
+    }
+    if (!window->fresh()) { return {}; }const auto context=qApp->getGPUContext();
+    const QVariant renderer=context ? QVariant(context->featureWorldRender()->instance()) : QVariant();
+    const auto& camera=qApp->getCamera();ViewFrustum frustum;camera.loadViewFrustum(frustum);
+    QVariantList projection;const auto& matrix=frustum.getProjection();
+    for(int row=0;row<4;++row) { for(int column=0;column<4;++column) { projection.append(matrix[column][row]); } }
+    const auto p=frustum.getPosition();const auto q=frustum.getOrientation();
+    const QVariantMap view{{"position",QVariantList{p.x,p.y,p.z}},{"rotation",QVariantList{q.x,q.y,q.z,q.w}},
+        {"projection",projection},{"fieldOfViewDegrees",frustum.getFieldOfView()},{"aspectRatio",frustum.getAspectRatio()},
+        {"nearClip",frustum.getNearClip()},{"farClip",frustum.getFarClip()},{"perspective",frustum.isPerspective()}};
+    if (!window->fresh()) { return {}; }const auto after=queue->read("nodes",nodes.data(),client);
+    if (!window->fresh() || after.values.isEmpty() || after.objects.value("nodes")!=nodes.data()
+            || after.values.value("identity")!=before.values.value("identity") || DependencyManager::get<NodeList>()!=nodes
+            || DependencyManager::get<AvatarManager>()!=manager || manager->getMyAvatar()!=self
+            || manager->getAvatarBySessionID(subjectId)!=original || qApp->getGPUContext()!=context
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) { return {}; }
+    if (avatar && !_featureRemoteAvatar->originals(nodes.data(),manager.data(),avatar,avatar->getSkeletonModel())) { return {}; }
+    return window->fresh() ? QVariantMap{{"picoRemoteAvatarVersion",4},{"runId",run},{"clientBefore",before.values},{"clientAfter",after.values},
+        {"selfSessionId",self->getSessionUUID().toString(QUuid::WithoutBraces)},{"subjectSessionId",subject},{"subject",sampled},
+        {"worldRenderInstance",renderer},{"cameraMode",camera.getModeString()},{"view",view}} : QVariantMap{};
+}
+#endif
 
 QVariantMap TestScriptingInterface::featurePicoAvatarModelConnections(const QVariantMap& command) {
     const auto queue=_featureAvatarModelConnectionsQueue;if(!queue) {return {};}

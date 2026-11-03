@@ -1,0 +1,33 @@
+"""Explicit Source4 fences cases; no compiled/native/device or whole-feature claim."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from pathlib import Path
+import sys
+import unittest
+sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
+
+CASE_NAMES=(
+    'self_tests.test_pico_emote_stream_cycle.StreamCoordinatorIdentityTests.test_actual_native_callback_replacement_refuses_before_sdk_or_input',
+    'self_tests.test_pico_emote_stream_cycle.StreamCoordinatorIdentityTests.test_equal_binding_config_graph_replacement_refuses_before_sdk_or_input',
+    'self_tests.test_pico_emote_stream_cycle.StreamCoordinatorIdentityTests.test_foreign_actual_parent_descriptor_is_not_closed_after_graph_replacement',
+    'self_tests.test_pico_emote_stream_cycle.StreamCoordinatorIdentityTests.test_phase_flip_cannot_skip_both_initial_arms_or_first_original_source_budget',
+    'self_tests.test_pico_emote_stream_cycle.StreamCoordinatorIdentityTests.test_target_substitution_and_equal_empty_owner_graph_cannot_be_resealed_by_guard',
+    'self_tests.test_pico_emote_stream_cycle.StreamCoordinatorIdentityTests.test_successful_policy_constructor_unknown_parent_cas_retains_exact_original_after_traceback_gc',
+    'self_tests.test_pico_emote_stream_cycle.StreamCoordinatorIdentityTests.test_successful_raw_owner_constructor_unknown_parent_cas_retains_original_directory_ofd_after_gc',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_actual_accepted_control_unknown_role_cas_keeps_raw_and_sticky_reading',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_aggregate_real_actor_files_prevent_both_native_sends_before_any_new_budget',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_equal_memory_sample_graph_replacement_refuses_before_next_native_getter',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_expired_last_original_native_control_fence_sends_zero_and_retains_intent',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_identical_first_sample_replacement_cannot_be_adopted_after_actual_arm',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_lost_original_arm_return_keeps_both_reservations_and_never_rearms_or_inputs',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_prior_actor_source3_journal_blocks_both_arms_before_normal_input',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_real_budget_loss_after_ack_getter_retains_wire_before_business_refusal',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_same_bytes_replaced_budget_refuses_next_actual_sample_getter',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_same_node_same_id_timestamp_mutation_refuses_initial_original',
+    'self_tests.test_pico_emote_stream_cycle.StreamFenceTests.test_same_sample_inode_under_replaced_native_root_refuses_original_authority',
+)
+
+
+def load_tests(loader,_tests,_pattern):return loader.loadTestsFromNames(CASE_NAMES)
+
+if __name__=='__main__':unittest.main()
