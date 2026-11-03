@@ -142,7 +142,7 @@ class LifecycleActorCompositionTests(unittest.TestCase):
         self.assertEqual([],self.editor.transport.envelopes);self.assertEqual([],self.editor.os.inputs)
         self.assertEqual({},self.native.layer)
         original=PrivateFeatureState(self.root/'lifecycle-actor-originals.json').read()
-        self.assertEqual('before-input-create-world',original['stage'])
+        self.assertEqual('before-input-create-world-back-chat-background',original['stage'])
 
 
 if __name__=='__main__':unittest.main()

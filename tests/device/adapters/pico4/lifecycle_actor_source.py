@@ -96,7 +96,7 @@ class PicoLifecycleActorSource:
         self.store=PrivateFeatureState(path);need(self.store.path.name=='lifecycle-actor-originals.json'
             and self.lock.path==self.store.path.with_name('script-sources.lock'))
         self.scope=dict(picoLifecycleActorSourceVersion=VERSION,runId=run,binding=self.binding,
-            role='actor',stage='before-input-create' if world_profile is None else 'before-input-create-world',producerHostProcessIdentity=self.host,
+            role='actor',stage='before-input-create' if world_profile is None else 'before-input-create-world-back-chat-background',producerHostProcessIdentity=self.host,
             parentHostProcessIdentity=parent_host,fixtureUrl=phases.fixture_url)
         self.scope_sha=json_digest(self.scope);self.parent=parent_node(self.store)
         self.failed=False;self.anchor=None
@@ -198,7 +198,10 @@ class PicoLifecycleActorSource:
             self.origin=drive.AvatarDisplacement(packets['drive'])
         prior={row['id'] for row in self.baseline['ui']['source']['editors']}
         new=[row for row in actual['editors'] if row['id'] not in prior]
-        need(len(new)<=1 and all(row['kind']=='create' for row in new))
+        # Generation follows the original append-only native context births,
+        # never the requested phase or a Primary owner's assigned generation.
+        need(len(new)<=(1 if self.world_profile is None else 2)
+            and [row['kind'] for row in new]==['create','chat'][:len(new)])
         ids=[row['id'] for row in new];generation=0 if current is None else ids.index(current['id'])+1
         before=self.baseline['gesture']['source']['events'];events=packets['gesture']['source']['events']
         need(events[:len(before)]==before)
@@ -223,7 +226,7 @@ class PicoLifecycleActorSource:
         # Phase rows restrict which already-owned normal inputs this bounded
         # source may observe. They never provide editor/text/generation facts.
         # Multiple independent acquisitions under the SAME phase remain valid.
-        rows=value['status']['activations'];limit=2 if self.world_profile is None else 3
+        rows=value['status']['activations'];limit=2 if self.world_profile is None else 7
         need(1<=len(rows)<=limit+1)
         expected=[dict(verb='baseline',inputs={})]
         expected.extend(dict(verb=row['verb'],inputs=expand(row['inputs'],fixture_context(self.run)))

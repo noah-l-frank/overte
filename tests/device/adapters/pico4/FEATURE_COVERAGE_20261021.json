@@ -1902,7 +1902,10 @@
         "tests/device/self_tests/test_lifecycle_actor_storage.py",
         "tests/device/adapters/pico4/lifecycle_actor_world.py",
         "tests/device/adapters/pico4/LIFECYCLE_ACTOR_WORLD_SOURCE.md",
-        "android/vr/pico/tests/device/test_lifecycle_actor_world.py"
+        "android/vr/pico/tests/device/test_lifecycle_actor_world.py",
+        "tests/device/self_tests/pico_lifecycle_background_fixture.py",
+        "android/vr/pico/tests/device/test_lifecycle_actor_back_chat.py",
+        "android/vr/pico/tests/device/test_lifecycle_actor_background.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -1947,7 +1950,7 @@
         "Observe real old context retirement and new empty editor",
         "Restore original position/focus and sustain zero deferred/held input for three seconds"
       ],
-      "nextExecutableStep": "Extend the same canonical Common16/OverteSession/PrimaryOperations graph beyond its now-qualified first3 normal actions and source/peer facts. New World3 independently reads full original Parent ownership/profile before decoding and uses ONLY authorized envelope restrictions; actual Actor Gesture/Drive/UI/Subject derive effects. World4+storage17 pass89.538s; current defaultActor31 passes92.922s under original120; currentWorld4+oldCommon3 manual aggregate7/157.139s is not one default group. Explicit staging2 reads1/2, charges nestedDecodedBytes before actual history decode; no512/16MiB/64KiB cap increases. Historical actual stage1/81 remains passively readable0.958s. Current-stage2 extended81 also passes312.959s with45 scoped SHA+physical signatures unchanged, outside default groups:81 fresh baseline/Create/type samples,486 Actor plus6Primary queries,243main/256peak parts,5040488decoded bytes, all1215stage parts+81roots retired and worker exit0/absence. This establishes capacity, not whole16 or81World-phase effects. Required image3, stockVR Unicode, laterG1/nativebirth, complete Common16, stereo/typed return and Parent-host-death/archive/callback/resource/IPC/host closure remain open.",
+      "nextExecutableStep": "Continue the SAME Common16/OverteSession/PrimaryOperations and independent actual Linux Actor beyond seven normal actions: Create/type/editor-blocked World/physical Back/Chat Open/Chat type/HOME-resume. Exact current Source2 distinct live stage before-input-create-world-back-chat-background preserves historical1/2 reads; staging2/group2/snapshot1/publication1 unchanged. Original World4 selector now proves seven actions plus its three counters107.404s; disjoint BackChat5+Background1 pass94.048s; current defaultActor31 passes61.869s, each real original120 and335 union loaded source SHA/eight-field identities stable. Actor derives generation2 from actual append-only native context births; no Primary expected facts supply effects. Actual normal Chat widgets and original SDK/native background history remain explicit boundary models. Whole retained bill439parts+20metadata/1260352stored, conservative peak452parts/476files/15855353stored-plus-decoded including transient reservations is not runtime global admission/full16 proof. Before8/9 consolidate existing tiny original frames under an explicit compatible storage3 with same512/16MiB and complete global admission, then independently read actual authorized Pending history; join distinct UI field ID and Pending token only by gated same-QObject original binding, never selector/equality inference. Required images3/7, G1, remaining9 actions, actual Qt/SDK/GPU/native compilation, whole Common16, typed return and callback/resource/IPC/host/global retirement remain open. Original first3/stage1/stage2 extended81 results remain scoped historical evidence in LIFECYCLE_ACTOR_WORLD_SOURCE.md.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     }

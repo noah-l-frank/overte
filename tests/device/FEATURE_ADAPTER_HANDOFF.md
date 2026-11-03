@@ -1,5 +1,17 @@
 # Feature adapter handoff, contract v16
 
+Current Pico Lifecycle source continuation reaches the first seven existing
+normal actions on the same canonical Parent/session/independent Actor graph.
+The original four-case World selector, separate six continuation counters and
+current31-case Actor selector pass107.404s,94.048s and61.869s respectively,
+each under its unchanged real120s bound and original source/ownership checks.
+[The exact Lifecycle record](adapters/pico4/LIFECYCLE_ACTOR_WORLD_SOURCE.md)
+separates original device-boundary models, real worker/lock/file/IPC evidence,
+retained failures and complete decoded/transient reservations. Images, later
+actions, global admission and final retirement remain open. Pico source-complete
+areas remain Scripts, Authentication and Graphics; no device is qualified.
+
+
 The [prepared native IME event](native/PREPARED_FIELD_COMMIT.md) and
 [native owner/private transport](native/PENDING_COMMIT_OWNER.md) retain original
 Qt event/context identity and verify fresh effects and actual pending inventory.

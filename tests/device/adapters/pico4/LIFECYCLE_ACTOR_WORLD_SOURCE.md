@@ -1,14 +1,19 @@
-# Lifecycle Actor World3 source join
+# Lifecycle Actor World and normal continuation sources
 
-The same canonical normal Parent graph and independent Actor now compose the
-first three existing Common16 actions: normal Create, normal type, and normal
+The original World3 packet composed the same canonical normal Parent graph
+and independent Actor through the first three existing Common16 actions:
+normal Create, normal type, and normal
 world input while that editor is focused. This proves their source/peer facet.
 Required image checkpoint3, actual native Qt/SDK/GPU execution, G1, later
 actions, whole cleanup/return and public feature maturity remain open.
 
+The current bounded continuation reaches seven normal actions, as described
+below. The original three-action evidence and storage history remain historical
+evidence; their source stage is never reopened or relabeled.
+
 ## Original ownership restricts independent facts
 
-Private source version2 retains its eight scope fields. Its new live stage is
+Private source version2 retains its eight scope fields. The original World3 live stage was
 `before-input-create-world`; the historical `before-input-create` stage is not
 reinterpreted as World ownership. The canonical factory passes a deepcopy of
 the actual existing session's SDK profile. No session, mutating World owner or
@@ -142,3 +147,98 @@ The complete current bill is appended to
 All original Lifecycle handles above are terminal. Actor31, World4, prior Common3,
 fast storage17 and the standalone extended81 remain separate test selections;
 no new600s default selector or widened native/source limit is introduced.
+
+## Same Parent and Actor through seven normal actions
+
+The current live stage is
+`before-input-create-world-back-chat-background`. Source2, staging2, immutable
+source-group2, snapshot1 and publication1 layouts remain unchanged. Historical
+Source1/2 and stage1/2 readers remain historical; they grant no live reopening.
+The initial no-World-profile source still admits only its original two actions.
+
+The same continuous graph now runs Create, type, editor-blocked World input,
+physical Back, normal Chat Open/Focus, Chat type, and ordinary HOME/resume.
+`PicoLifecycleOperations` already owns these actions and their phase fences.
+The fixture reuses the existing joined `XTransport` on the original session,
+native object and kernel source-lock inode. Its original Back neutral timestamp
+is preserved; a later status read cannot refresh it. Back leaves the original
+Create context retained. That context is neither deleted nor called retired.
+
+The canonical Chat and Background factories use the existing normal runtime
+and candidate/native/session/PID binding. They create no unrelated Script
+manager or inventory. The legacy `_chat_controls` route is unchanged. Actual
+normal token commands execute the existing Chat widget boundary; its executed
+panel, text and focus supply the declared native/UI model. The independent
+Actor derives generation 2 from actual append-only native context identities.
+It never receives a requested generation, Primary result or desired text.
+
+Background uses the existing `PicoGraphicsBinding` facade and once-only SDK
+input seam. Only executed original HOME/resume commands change the modeled
+foreground source and publish native Hidden/Active events. The same native
+Feature producer reports their original lifecycle counters. Actual UI/keyboard
+objects supply the original history, three-second quiet and observer release.
+The existing OS-first foreground gate remains: no host Qt source is acquired
+while background. Historical Background reopening calls neither a foreground
+runtime nor a native factory and performs no input or file rewrite.
+
+Native/Qt/SDK/OS clocks and effects remain explicitly declared fixture models.
+The separate Actor is an actual original Linux worker, with exit 0, waitpid and
+kernel absence checked. Neither required image checkpoint 3 nor checkpoint 7,
+G1, the remaining nine normal actions, whole cleanup or device acceptance is
+proved. The later Scripts/Pending boundary remains closed: opaque UI object
+IDs and native Pending tokens cannot be equated or joined merely by matching
+selector names.
+
+### Current measured source evidence
+
+The first continuous seven-action attempt failed after 368.618 s and 95 samples;
+it is outside the original 120 s bound and supplies no seven-action qualification.
+Its first step 7 Primary and Actor states already matched the original scenario.
+The manual test helper had omitted the existing Common Engine's required
+Background/Activation counter increments. Correct original lifecycle1/2/1
+was repeatedly compared against stale required0/1/1. The later 64 KiB Primary
+root failure was a secondary growth symptom. The failed root, including its
+one uncommitted native-response part, remains retained and inadmissible.
+
+Only the manual owning helper was corrected to mirror that existing Common
+branch before the actual input. No source predicate, Core/Engine code, wait,
+clock, quiet window or capacity limit changed. The fresh continuous run passed
+in 75.958 s (76.252 s including the source freeze) under an actual 120 s host alarm
+armed before source freeze/import/spawn. All 289 loaded source SHA-256/eight-field
+physical identities remained unchanged. It consumed 24 fresh independent
+six-source groups:144 Actor queries and 323 Primary queries across those same
+six endpoints, plus 34 original Background requests. The worker exited0 and
+its actual kernel absence was checked. The original seven-step source and
+all earlier failed/positive originals are retained privately.
+
+The successful retained target/run directory contains 439 immutable parts and
+20 metadata/other files (459 files total), 1,260,352 stored bytes and a largest
+file of 25,454 bytes. Background originals alone occupy 147 immutable parts plus
+their root. Actor storage reached an observed 86-part/88-file highwater with
+663,107 stored bytes,1,893,549 logical bytes and 842,808 reserved stored bytes;
+its final main archive has 73 parts. This explicitly distinguishes the Actor's
+local bill from the complete retained directory.
+
+The conservative complete decoded-copy bill additionally charges all decoded
+outer packs, expanded source bundles, Actor nested originals, expanded
+Background owner references and parsed raw-JSON copies: 10,290,874 decoded
+bytes and 11,551,226 stored-plus-decoded bytes. Adding the observed Actor
+reservation difference and three 64 KiB non-Actor atomic-root reserves gives
+452 parts/476 files as a conservative bill. Also charging 40,597 bytes of
+observed Actor decoded overlap and three complete largest observed expanded
+owner-state copies adds 3,872,616 decoded bytes, giving 15,855,353 bytes of
+conservative stored-plus-decoded reservation.
+This is not a runtime global namespace-lease/admission proof or a full 16-step
+budget result. Later actions require actual complete allocation accounting;
+no reader reset, namespace rotation, discarded original or cap increase is
+permitted.
+
+The existing four-case World selector remains disjoint from the separate
+five-case Back/Chat and Background factory selectors. Final current-source qualification passed all three disjoint bounded groups:
+World4 in 106.184 s (107.404 s including source freeze), BackChat5+Background1
+in 92.821 s (94.048 s whole), and the existing default Actor31 in 60.647 s
+(61.869 s whole). Their 289/291/324 loaded sources respectively retained exact
+SHA-256/eight-field physical identity. Every group used the original 120 s real
+host watchdog; none expired. The earlier six-action and first seven-action
+runs remain separately scoped historical evidence. The bill above is from
+the final World4 positive's exact retained namespace.

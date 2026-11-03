@@ -32,7 +32,10 @@ from self_tests.test_pending_commit_owner import Boundary as PendingBoundary
 from self_tests.pico_lifecycle_actor_fixture import IndependentLifecycleSources,CanonicalIndependentLifecycleSources,LifecycleProducts
 from self_tests.pico_lifecycle_actor_fixture import WORKER as ORIGINAL_WORKER
 from self_tests.test_vr_graphics_subject import framework_source
-from self_tests import test_pico_lifecycle_world as world_models
+from self_tests import test_pico_lifecycle_join as joined_models
+from self_tests.test_token_chat_ui import Widgets as ChatWidgets
+from self_tests.test_pico_lifecycle_source import editor as observed_editor
+from self_tests.pico_lifecycle_background_fixture import CanonicalLifecycleBackgroundModel
 
 
 def original_channels(adapter,target,native,channel,clock):
@@ -76,25 +79,34 @@ class CanonicalLifecycleTarget:
             targetFingerprint=hashlib.sha256((self.target+'\0'+str(self.adapter.pico_configuration)).encode()).hexdigest())
         self.model=editor_models.NativeCreate(self.root);self.model.tablet=False;self.model.page='home'
         self.controls=editor_models.Controls(self.model);self.field=editor_models.FieldBoundary()
+        self.chat=ChatWidgets()
         for controls in (self.controls,self.field):
             controls.instance=self.os.bridge_id;controls.generation=self.os.generation
         self.controls.pid=123;self.lock=ScriptSourceLock(self.root/'script-sources.lock')
+        self.chat.instance=self.os.bridge_id;self.chat.generation=self.os.generation;self.chat.pid=123
         self.path=self.root/'lifecycle-editor-owner.json'
         # One existing native/physics model and one existing session transport.
         # Route normal tablet input through its original FakeTransport path;
-        # world input uses the already tested World Transport implementation.
-        self.transport=world_models.Transport(self.native,self.root/'lifecycle-world-owner.json')
-        world_stage=self.transport.stage;status=self.transport.read_status
+        # World and physical Back use the existing joined Transport, preserving
+        # its original neutral timestamp and the same native/session objects.
+        self.transport=joined_models.XTransport(self.native,self.root/'lifecycle-world-owner.json')
+        self.transport.back_path=self.root/'lifecycle-x-back-owner.json'
+        world_stage=self.transport.stage
         def tablet(envelope,profile,*,before_publish=None):
-            if envelope['commands'][0]['operation']=='input.move':
-                return world_stage(envelope,profile,before_publish=before_publish)
+            if envelope['commands'][0]['operation'] in ('input.move','controller.button'):
+                try:return world_stage(envelope,profile,before_publish=before_publish)
+                finally:
+                    # Correlate the original Back model's actual Home effect
+                    # with the existing normal control model, even if its ACK
+                    # is lost. An ignored effect cannot manufacture Home.
+                    if envelope['commands'][0]['operation']=='controller.button' and self.native.ui.home:
+                        self.model.page='home';self.field.focused=False;self.controls.focus=None
             owner=unpack(json.loads(self.path.read_text())['payload'])[0]
             need(owner['tablet']['envelope']==envelope)
             result=editor_models.FakeTransport.stage(self.transport,envelope,profile,before_publish=before_publish)
             self.native.ui.shown=self.native.ui.home=self.model.tablet=self.os.opened=True
             return result
         self.transport.stage=tablet
-        self.transport.read_status=lambda **kw:status(**kw)|dict(updatedEpochMs=self.native.epoch())
         self.session=PicoOpenXrAdapterSession(self.transport,self.target,self.root);self.session.begin(self.os.identity)
         self.adapter.pico_input_session=lambda target:self.session if target==self.target else need(False)
         self.adapter._scripts=lambda *_args:need(False)
@@ -111,6 +123,7 @@ class CanonicalLifecycleTarget:
         pose=self.products.subject.source['avatarPose']
         self.native.drive.source.update(feetPosition=deepcopy(pose['feetPosition']),bodyPosition=deepcopy(pose['feetPosition']),
             orientation=deepcopy(pose['orientation']),modelScale=pose['modelScale'])
+        self.background=CanonicalLifecycleBackgroundModel(self)
         dispatch=self.products.dispatch
         def current(action,value):
             if action=='candidate':
@@ -136,7 +149,7 @@ class CanonicalLifecycleTarget:
         self.owner.prepare()
 
     def attach_controls(self):
-        for controls in (self.controls,self.field):
+        for controls in (self.controls,self.field,self.chat):
             capture=controls.capture
             def tokens(capture=capture):
                 value=capture()
@@ -150,9 +163,12 @@ class CanonicalLifecycleTarget:
             value=original();create=self.controls.capture();fields=self.field.capture()
             live=self.model.tablet and self.model.page=='create'
             value.update(open=self.model.tablet,ready=self.model.tablet,createControlsVersion=1,
-                lifecycleControlsVersion=1,lastCommandSequence=self.os.sequence,
+                lifecycleControlsVersion=1,chatControlsVersion=1,lastCommandSequence=self.os.sequence,
                 elapsedMs=create['scope']['elapsedMs'],controls=deepcopy(create['controls']))
             if live:value['controls'].extend(deepcopy(fields['controls']))
+            if self.model.tablet and self.model.page in ('home','chat'):
+                value['controls'].extend(deepcopy([row for row in self.chat.capture()['controls']
+                                                  if row['id'].startswith('chat.')]))
             return value
         self.os.snapshot=snapshot
         def command(target,package,path,raw):
@@ -160,10 +176,30 @@ class CanonicalLifecycleTarget:
             need(target==self.target and package=='org.overte.pico');value=json.loads(raw)
             need(value['bridgeId']==self.os.bridge_id and value['generation']==self.os.generation
                 and value['sequence']==self.os.sequence+1)
-            disk=unpack(json.loads(self.path.read_text())['payload'])[0];intent=disk['inputs'][-1]
+            chat=value['controlId'].startswith('chat.')
+            path=self.root/'lifecycle-chat-owner.json' if chat else self.path
+            disk=unpack(json.loads(path.read_text())['payload'])[0];intent=disk['inputs'][-1]
             need(intent['consumed'] is None and value['controlId']==intent['intent']['controlId'])
             self.os.inputs.append(deepcopy(value))
-            if value['controlId']==ID:
+            if chat:
+                # The actual normal token/phase admission has already occurred.
+                # Execute the existing widget boundary, then correlate only its
+                # actual panel/focus/buffer state into the native UI producer.
+                self.chat.sequence=self.os.sequence
+                before=self.chat.capture()
+                rows=[row for row in before['controls'] if row['id']==value['controlId']]
+                need(len(rows)==1 and rows[0]['token']==value['controlToken'])
+                try:self.chat.input(value['controlId'],value['action'],before,value.get('text'))
+                finally:
+                    if self.chat.panel:
+                        self.model.page='chat'
+                        if not any(row['kind']=='chat' for row in self.native.ui.rows):
+                            row=observed_editor(len(self.native.ui.rows)+1,'chat')
+                            row['firstObservedEpochMs']=self.native.epoch();self.native.ui.rows.append(row)
+                        self.native.ui.rows[-1].update(focused=self.chat.focus,text=self.chat.draft)
+                        self.native.ui.home=False;self.native.ui.raised=self.chat.focus
+                    self.os.sequence=self.controls.sequence=self.field.sequence=self.chat.sequence
+            elif value['controlId']==ID:
                 before=self.field.capture();self.field.input(value['controlId'],value['action'],value.get('text'),reference=before)
                 self.controls.sequence=self.field.sequence
                 self.native.ui.rows[0].update(focused=self.field.focused,text=self.field.text);self.native.ui.raised=self.field.focused

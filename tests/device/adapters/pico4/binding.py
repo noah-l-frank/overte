@@ -2447,15 +2447,20 @@ def create_adapter(args, base_class):
         def _lifecycle_chat_editor(self,target,run,*,source_lock=None,joined=None):
             from adapters.pico4.lifecycle_chat import PicoLifecycleChatDraft
             from adapters.pico4.lifecycle_join import PicoLifecycleXJoin
+            from adapters.token_chat_ui import TokenChatUI
+            from adapters.pico4.normal_chat import PicoChatIO
             if joined is None:joined=self._lifecycle_x_join(target,run,source_lock=source_lock)
             else:
                 _need(isinstance(joined,PicoLifecycleXJoin) and joined.world.run==run)
                 source_lock=self._script_journey()._lock(target,source_lock or joined.world.lock)
                 _need(source_lock is joined.world.lock)
-                _need(joined.world.binding==self._scripts(target).binding)
+            normal_ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            native.guard();identity=self.require_pico_session_identity(target)
+            _need(identity==binding['processIdentity'] and native.pid==int(identity.split(':')[0])
+                and joined.world.binding==binding)
             def unavailable(_value):_need(False)
             return PicoLifecycleChatDraft(joined,self._lifecycle_ui_source(target,source_lock=joined.world.lock),
-                self._chat_controls(target,unavailable,run),joined.world.store.path.with_name('lifecycle-chat-owner.json'))
+                TokenChatUI(PicoChatIO(normal_ui.io),unavailable,run),joined.world.store.path.with_name('lifecycle-chat-owner.json'))
 
         @_private
         def _lifecycle_chat_draft(self,target,run,*,source_lock=None,joined=None):
@@ -2479,7 +2484,12 @@ def create_adapter(args, base_class):
             # Reading an old private archive is not a foreground assertion.
             # The OS facade below revalidates actual PID/start and candidate
             # before normal activation or acquiring any live Qt runtime.
-            binding=context(disk['binding']) if disk is not None else self._scripts(target).binding
+            def foreground_runtime():
+                _normal,_observe,current=self._script_runtime(target);native=self._native_feature_observer(target)
+                native.guard();identity=self.require_pico_session_identity(target)
+                _need(identity==current['processIdentity'] and native.pid==int(identity.split(':')[0]))
+                return current,native
+            binding=context(disk['binding']) if disk is not None else foreground_runtime()[0]
             if world is not None:
                 _need(isinstance(world,PicoLifecycleWorld) and world.lock is source_lock and world.run==run and world.binding==binding)
             facade=PicoGraphicsBinding(self)
@@ -2489,8 +2499,8 @@ def create_adapter(args, base_class):
                 facade.phase_fence=phase_fence
             def runtime(intent):
                 actual=world or self._lifecycle_world(target,run,source_lock=source_lock)
-                _need(actual.binding==binding and self._scripts(target).binding==binding)
-                native=self._native_feature_observer(target)
+                current,native=foreground_runtime()
+                _need(actual.binding==binding==current)
                 return actual,self._lifecycle_background_source(target,source_lock=source_lock,intent=intent),native
             return PicoLifecycleBackground(path,run,binding,source_lock,
                 lambda owned:facade._graphics_lifecycle_status(target,owned),
