@@ -175,7 +175,7 @@ def physical(path,expected=None):
 
 class HistoricalPickerSnapshots:
     def __init__(self,episodes,pickers):
-        self.episodes,self.pickers=episodes,dict(pickers);self.owner=None;self.active=True;self.enabled=True;self.cache={};self.parser_policy=ClosedParserPolicy()
+        self.episodes,self.pickers=episodes,dict(pickers);self.owner=None;self.active=True;self.enabled=True;self.cache={};self.parser_policy=None
         self.headers=[episodes,episodes.selected,*self.pickers.values(),*[picker.files for picker in self.pickers.values()]]
         self.memory=canonical([(owner.store.path.as_posix(),owner.previous) for owner in self.headers])
         self.fixed=self.interpretation_context()
@@ -215,6 +215,15 @@ class HistoricalPickerSnapshots:
         return True
     def decode(self,owner,picker,value):
         need(self.active and owner is self.owner and any(picker is item for item in self.pickers.values()))
+        if self.parser_policy is None:
+            # The Page owner/state/links now exist. The raw skeletons passed to
+            # __init__ deliberately have no Page authority and cannot decode.
+            need(policy(self.pickers.values()) and not self.cache)
+            self.guard()
+            for original_picker in self.pickers.values():
+                if original_picker.previous is not None:original_picker.decode(deepcopy(original_picker.previous))
+                self.guard()
+            self.parser_policy=ClosedParserPolicy()
         if not self.enabled or not policy(self.pickers.values()) or not self.parser_policy.unchanged():
             self.enabled=False;self.cache.clear();return picker.decode(value)
         self.guard();key=(id(picker),canonical(value));entry=self.cache.get(key)
@@ -231,6 +240,11 @@ class HistoricalPickerSnapshots:
         return result
     def close(self):
         try:
+            if self.parser_policy is None:
+                # No snapshot was interpreted or reused. An empty historical
+                # scope still requires the original parser and file guards.
+                need(not self.cache and policy(self.pickers.values()))
+                self.parser_policy=ClosedParserPolicy()
             need(self.parser_policy.unchanged());self.guard()
             for entry in self.cache.values():
                 for path,pin in entry['originals'].items():physical(path,pin)

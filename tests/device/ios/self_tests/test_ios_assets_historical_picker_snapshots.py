@@ -46,8 +46,10 @@ class AssetsHistoricalPickerSnapshotTests(unittest.TestCase):
         try:return call(),len(calls)
         finally:sys.setprofile(None)
     def test_same_actual_original_graph_has_fewer_snapshot_interpretations_with_equal_membership_and_literal_default(self):
-        before=self.files();view=self.metadata();pickers={1:skeleton(self.scope,view)}
-        def literal():return OwnedAssetsPageLease.from_archive(self.f.episodes,self.f.page.store,self.f.page.lock,pickers)
+        before=self.files()
+        def literal():
+            view=self.metadata();pickers={1:skeleton(self.scope,view)}
+            return OwnedAssetsPageLease.from_archive(self.f.episodes,self.f.page.store,self.f.page.lock,pickers)
         with patch.object(self.f.boundary,'exchange',side_effect=self.forbidden):
             with collect() as literal_reads:(legacy,literal_count)=self.count_decodes(literal)
             def scoped():

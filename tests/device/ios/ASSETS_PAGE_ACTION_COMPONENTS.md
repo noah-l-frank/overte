@@ -33,3 +33,22 @@ Completed owned-prefix cleanup, generation handoff, typed Session/Scene/global
 read membership, UI/current-action evidence, native/device acceptance and terminal
 process/SDK retirement require separate qualification. Component or per-episode
 end is never whole-feature end; this packet does not change the feature count.
+
+Historical page inventory can reuse an interpretation of an identical Picker
+snapshot within one synchronous read scope. Each hit still rereads its exact
+original bytes, inode and membership; current metadata, episode authority and
+page originals remain independent checks. The scope keeps closed parser
+namespaces and codec globals, including the actual regex memo dictionaries.
+Before that policy is born, the first bound Page/Picker read performs and
+discards one ordinary typed decode per Picker. This accommodates genuine cold
+regex compilation without ignoring subsequent parser or cache changes. An
+unbound Picker skeleton cannot perform that decode. Closing clears the cache
+and detaches it from the returned historical owner.
+
+The cold-codec, subsequent regex-cache manipulation and equal-read-membership
+host cases pass with retained original files and verified process cleanup. The
+existing stopped 156-file Page/Reply/Upload/Tree prefix also decodes read-only
+within its unchanged 90-second outer bound; its original files remain unchanged.
+Earlier failed comparisons and early unbound-skeleton attempts remain failures.
+These checks establish neither live-flow performance nor a complete Assets
+adapter, installed execution, native compilation or device qualification.
