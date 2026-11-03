@@ -12,6 +12,8 @@ import os
 
 from adapters.chat_journey import source_bundles
 from adapters.chat_journey.source_chunks import ChatSourceChunks, json_digest
+from adapters.chat_journey.remote_publication import _warm_signature
+from adapters.host_process_identity import host_identity
 from adapters.native_feature_observation import decode, fresh, integer, need, number
 from adapters.normal_feature_state import PrivateFeatureState, context
 from adapters.normal_ui import NativeUIError
@@ -35,6 +37,7 @@ VERSION = 2
 STEPS = ({'verb': 'open', 'inputs': {}},
          {'verb': 'upload-picker-open', 'inputs': {'resource': 'gltf-bundle/main.gltf'}},
          {'verb': 'upload-picker-cancel', 'inputs': {}})
+UPLOAD_STEP={'verb':'upload','inputs':{'resource':'gltf-bundle/main.gltf'}}
 
 
 class PrefixFence(PhaseInputFence):
@@ -44,12 +47,13 @@ class PrefixFence(PhaseInputFence):
 
 class PicoAssetsPrefix:
     def __init__(self, path, binding, phases, source_lock, mappings, uploads,
-                 raw_ui, controls, create_controls, cancel_factory, guard, clock_ms):
+                 raw_ui, controls, create_controls, cancel_factory, guard, clock_ms,*,upload_factory=None):
         need(type(phases) is PhaseFixtureReader and phases.area == 'assets'
              and type(source_lock) is ScriptSourceLock
              and type(mappings) is PicoAssetsSource and not mappings.is_download and not mappings.is_resolve
              and type(uploads) is PicoAssetsUploads and mappings.pid == uploads.pid
-             and all(callable(value) for value in (raw_ui, controls, create_controls, cancel_factory, guard, clock_ms)))
+             and all(callable(value) for value in (raw_ui, controls, create_controls, cancel_factory, guard, clock_ms))
+             and (upload_factory is None or callable(upload_factory)))
         need(not mappings.history and mappings.pending is None and mappings.intent is None
              and not uploads.history and uploads.pending is None and uploads.intent is None)
         self.store = PrivateFeatureState(path)
@@ -61,13 +65,21 @@ class PicoAssetsPrefix:
         self.mappings, self.uploads = mappings, uploads
         self.raw_ui, self.controls, self.create_controls = raw_ui, controls, create_controls
         self.cancel_factory, self.guard, self.clock_ms = cancel_factory, guard, clock_ms
-        self.scope = dict(assetsPrefixVersion=VERSION, assetsRawOriginalLayoutVersion=1, contractVersion=CONTRACT,
+        self.version=VERSION if upload_factory is None else 3
+        self.recipe=STEPS if upload_factory is None else (*STEPS,UPLOAD_STEP)
+        self.upload_factory,self.upload_owner=upload_factory,None
+        self.wire=None;self.child_ui=None
+        self.scope = dict(assetsPrefixVersion=self.version, assetsRawOriginalLayoutVersion=1 if self.version==2 else 2, contractVersion=CONTRACT,
                           binding=deepcopy(self.binding), runId=self.run, fixtureUrl=self.url)
+        if self.version==3:self.scope.update(assetsWireOriginalLayoutVersion=1,startedMonotonic=phases.monotonic(),startedEpochMs=phases.epoch_ms(),
+            producerHostProcessIdentity=host_identity())
         self.parent, self.disk, self.stamp = parent_node(self.store), None, None
+        self.control_candidate=self.original_control_candidate=None
         self.history = ChatSourceChunks(self.store, self.scope)
         self.state = dict(**self.scope, phase='reading', chunks=[], bundles=[], pendingBundle=None, baseline=None,
                           steps=[], pendingSource=None, pendingChildSource=None, pendingInput=None, inputs=[], observations=0,
                           nestedFrames=0, nestedDecodedBytes=0, pendingRawRead=None, rawReads=[], cleanup=None)
+        if self.version==3:self.state.update(upload=None,transportReceipts=[])
         self.raw_archive = None
         self.failed, self.child, self.last_phase, self.anchor = False, None, None, None
         self.original_sources = (mappings.original, uploads.original)
@@ -88,16 +100,39 @@ class PicoAssetsPrefix:
             reader.send = lambda command, send=send:self.send_source(command, send)
             reader.original = lambda role=role, original=original: self.raw_source(role, original)
 
+    def bind_wire(self,adapter,target):
+        # Explicit opt-in; historical/default Prefix2 factories never call it.
+        from adapters.pico4.assets_wire_owner import AssetsWireOwner
+        with self.lock.held():
+            self.bound();need(self.wire is None)
+            wire=AssetsWireOwner(self,adapter,target);self.wire=wire
+            self.uploads.bind_raw_reader(lambda:wire.read('uploads'))
+            # Mapping has no inner capture closure. Uploads' existing capture
+            # stays above its new original reader and executes exactly once.
+            self.mappings.original=lambda:self.raw_source('mappings',lambda:wire.read('mappings'))
+        return self
+
     def scope_identity(self):
         need(parent_node(self.store) == self.parent
              and self.phases.run == self.run and self.phases.area == 'assets'
              and self.phases.fixture_url == self.url and self.phases.client is self.original_phase_client
              and context(self.binding) == self.scope['binding'] and json_digest(self.scope) == self.history.scope)
+        if self.version==3:need(self.scope['producerHostProcessIdentity']==host_identity())
     def identity(self):
         self.scope_identity()
         if self.disk is not None:
-            value, _raw, stamp = file_state(self.store)
-            need(same(value, self.disk) and tuple(stamp) == self.stamp)
+            if self.version==3:
+                candidate=self.control_candidate
+                need(candidate is self.original_control_candidate and type(candidate) is tuple and len(candidate)==4
+                    and self.disk_raw==candidate[0] and self.stamp==candidate[2] and self.history.scope==candidate[3]
+                    and _warm_signature(self.disk)==candidate[1])
+                # Keep BOTH complete current byte/stamp windows. JSON was
+                # strictly admitted at this same original control's own CAS.
+                first,one=raw_file(self.store);second,two=raw_file(self.store)
+                need(first==second==candidate[0] and tuple(one)==tuple(two)==candidate[2])
+            else:
+                value, _raw, stamp = file_state(self.store)
+                need(same(value, self.disk) and tuple(stamp) == self.stamp)
         else:
             need(self.store.read() is None)
         self.history.verify()
@@ -112,12 +147,22 @@ class PicoAssetsPrefix:
         self.lock.assert_held()
         self.identity()
 
+    def business(self):
+        # Archival durability uses identity(), never this business-time fence.
+        if self.version==3:
+            need(number(self.phases.monotonic(),self.scope['startedMonotonic'],self.scope['startedMonotonic']+120)
+                 and number(self.phases.epoch_ms(),self.scope['startedEpochMs'],self.scope['startedEpochMs']+120000))
+            if self.upload_owner is not None:self.upload_owner.age()
+
     def save(self):
         self.bound()
         self.store.write(deepcopy(self.state), self.disk)
         value, _raw, stamp = file_state(self.store)
         need(same(value, self.state))
         self.disk, self.stamp, self.disk_raw = deepcopy(value), tuple(stamp), _raw
+        if self.version==3:
+            json_digest(value)  # Strict JSON admission, never a warm verdict.
+            self.control_candidate=self.original_control_candidate=(_raw,_warm_signature(self.disk),tuple(stamp),self.history.scope)
 
     def archive(self, value, *, on_seal=None):
         # Fact-free archival does not query a candidate or renew source age.
@@ -171,6 +216,8 @@ class PicoAssetsPrefix:
                 size += len(canonical(files))
                 count += len(unpack(files['originals']))
                 size += files['originals']['bytes']
+        if self.upload_owner is not None:
+            extra=self.upload_owner.bill();count+=extra['frames'];size+=extra['decodedBytes'];paths+=extra['paths']
         need(count <= MAX_FRAMES and size <= MAX_RAW)
         return dict(frames=count, decodedBytes=size, storedBytes=sum(path.stat().st_size for path in paths)+raw['bytes'])
 
@@ -184,24 +231,48 @@ class PicoAssetsPrefix:
         # Preserve even a foreign/skipped/late activation before rejecting it.
         index = self.archive(result['status'])
         self.last_phase = index
-        wanted = [{'verb': 'baseline', 'inputs': {}}, *STEPS[:len(self.state['steps']) + int(next_step)]]
+        wanted = [{'verb': 'baseline', 'inputs': {}}, *self.recipe[:len(self.state['steps']) + int(next_step)]]
         need(result['status']['active'] and result['verb'] == expected
              and [row['stimulus'] for row in result['status']['activations']] == wanted)
         return result, index
 
+    def command_original(self,value):
+        if self.scope['assetsRawOriginalLayoutVersion']!=2 or value.get('assetsCommandOriginalVersion')!=1:
+            return deepcopy(value)
+        need(set(value)=={'assetsCommandOriginalVersion','bundle','bytes','sha256','commandId'}
+            and type(value['assetsCommandOriginalVersion']) is int and value['assetsCommandOriginalVersion']==1)
+        command=self.original(value['bundle']);raw=canonical(command)
+        need(len(raw)==value['bytes'] and hashlib.sha256(raw).hexdigest()==value['sha256']
+            and command.get('commandId')==value['commandId'])
+        return command
+
+    def command_reference(self,command):
+        if self.scope['assetsRawOriginalLayoutVersion']!=2 or len(canonical(command))<=4096:
+            return deepcopy(command)
+        raw=canonical(command);digest=hashlib.sha256(raw).hexdigest()
+        for name in ('pendingSource','pendingChildSource'):
+            pending=self.state[name]
+            if pending is not None:
+                ref=pending['command']
+                if ref.get('assetsCommandOriginalVersion')==1 and ref['sha256']==digest:
+                    need(same(self.command_original(ref),command));return deepcopy(ref)
+        index=self.archive(command)
+        return dict(assetsCommandOriginalVersion=1,bundle=index,bytes=len(raw),sha256=digest,commandId=command.get('commandId'))
+
     def source_intent(self, role, command):
         self.bound()
         need(self.disk['pendingSource'] is None)
-        expected = 'baseline' if not self.state['steps'] else STEPS[len(self.state['steps'])-1]['verb']
+        expected = 'baseline' if not self.state['steps'] else self.recipe[len(self.state['steps'])-1]['verb']
         self.phase(expected)
         self.query_age()
-        self.state['pendingSource'] = dict(role=role, command=deepcopy(command), raw=[])
+        self.state['pendingSource'] = dict(role=role, command=self.command_reference(command), raw=[])
         self.raw_archive.reserve(role, command)
 
     def query_age(self):
         # Reservation, original-file checks and the native clock all consume
         # the same sample window. No new authority is granted after expiry.
         self.bound()
+        self.business()
         need(not self.failed and self.guard() is not False)
         started, epoch = self.query_anchor
         native = self.clock_ms()
@@ -210,25 +281,27 @@ class PicoAssetsPrefix:
 
     def send_source(self, command, send):
         need(self.disk['pendingSource'] is not None
-             and same(command, self.disk['pendingSource']['command']))
+             and same(command, self.command_original(self.disk['pendingSource']['command'])))
         self.query_age()
-        return send(command)
+        return send(command) if self.wire is None else self.wire.dispatch(command,send)
 
     def raw_source(self, role, original):
         pending = self.disk['pendingSource']
         need(pending is not None and pending['role'] == role)
         if self.raw_archive.active is None:
-            self.raw_archive.reserve(role, pending['command'])
+            self.raw_archive.reserve(role, self.command_original(pending['command']))
         self.query_age()
         raw = original()
-        reference = self.raw_archive.retain(raw)
-        self.raw_receipt(dict(role=role,rawOriginal=compact(reference)),self.state['pendingSource']['raw'])
-        self.raw_archive.parser_capacity(raw, pending['command'])
+        if self.wire is None:
+            reference = self.raw_archive.retain(raw)
+            self.raw_receipt(dict(role=role,rawOriginal=compact(reference)),self.state['pendingSource']['raw'])
+        else:self.wire.consume(role,raw)
+        self.raw_archive.parser_capacity(raw, self.command_original(pending['command']))
         return raw
 
     def read_source(self, role, reader):
         value = reader.read(self.run)
-        need(self.disk['pendingSource']['command'] == reader.history[-1]['command'])
+        need(self.command_original(self.disk['pendingSource']['command']) == reader.history[-1]['command'])
         self.state['pendingSource'] = None
         self.save()
         self.bill()
@@ -239,7 +312,7 @@ class PicoAssetsPrefix:
         if pending is None:
             return
         reader = self.child_readers[pending['role']]
-        need(pending['raw'] and reader.history and reader.history[-1]['command'] == pending['command']
+        need(pending['raw'] and reader.history and reader.history[-1]['command'] == self.command_original(pending['command'])
              and getattr(reader, 'pending', None) is None)
         self.state['pendingChildSource'] = None
         if save:
@@ -252,20 +325,27 @@ class PicoAssetsPrefix:
                                   files=self.child.files.native)
         for role, reader in self.child_readers.items():
             send, original = reader.send, reader.original
+            if self.wire is not None:
+                if type(reader) is PicoAssetsUploads:reader.bind_raw_reader(lambda role=role:self.wire.read(role))
+                else:original=lambda role=role:self.wire.read(role)
             def issue(command, role=role, send=send):
+                if self.wire is not None:self.query_anchor=(self.phases.monotonic(),self.clock_ms())
                 self.complete_child_query(save=False)
-                self.state['pendingChildSource'] = dict(role=role, command=deepcopy(command), raw=[])
+                self.state['pendingChildSource'] = dict(role=role, command=self.command_reference(command), raw=[])
                 self.raw_archive.reserve('child-'+role, command)
-                send(command)
+                if self.wire is None:send(command)
+                else:self.wire.dispatch(command,send)
             def retain(role=role, original=original):
                 pending = self.disk['pendingChildSource']
                 need(pending is not None and pending['role'] == role)
                 if self.raw_archive.active is None:
-                    self.raw_archive.reserve('child-'+role, pending['command'])
+                    self.raw_archive.reserve('child-'+role, self.command_original(pending['command']))
                 raw = original()
-                reference = self.raw_archive.retain(raw)
-                self.raw_receipt(dict(childSource=role,rawOriginal=compact(reference)),self.state['pendingChildSource']['raw'])
-                self.raw_archive.parser_capacity(raw, pending['command'])
+                if self.wire is None:
+                    reference = self.raw_archive.retain(raw)
+                    self.raw_receipt(dict(childSource=role,rawOriginal=compact(reference)),self.state['pendingChildSource']['raw'])
+                else:self.wire.consume(role,raw)
+                self.raw_archive.parser_capacity(raw, self.command_original(pending['command']))
                 return raw
             reader.send, reader.original = issue, retain
 
@@ -309,11 +389,12 @@ class PicoAssetsPrefix:
 
     def sample(self):
         self.bound()
+        self.business()
         need(not self.failed and self.disk['pendingSource'] is None)
         started, epoch = self.phases.monotonic(), self.clock_ms()
         need(number(started, 0, 1e15) and integer(epoch, 1) and self.guard() is not False)
         self.query_anchor = (started, epoch)
-        expected = 'baseline' if not self.state['steps'] else STEPS[len(self.state['steps'])-1]['verb']
+        expected = 'baseline' if not self.state['steps'] else self.recipe[len(self.state['steps'])-1]['verb']
         before, _index = self.phase(expected)
         mapping = self.read_source('mappings', self.mappings)
         upload = self.read_source('uploads', self.uploads)
@@ -322,9 +403,11 @@ class PicoAssetsPrefix:
         ui_command = dict(source='navigation-ui', ticket=before['ticket'])
         self.raw_archive.reserve('ui', ui_command)
         self.query_age()
-        raw = self.raw_ui()
-        reference = self.raw_archive.retain(raw)
-        ui_index = self.raw_receipt(dict(role='ui',rawOriginal=compact(reference)))
+        raw = self.raw_ui() if self.wire is None else self.wire.read('ui-observation')
+        if self.wire is None:
+            reference = self.raw_archive.retain(raw)
+            ui_index = self.raw_receipt(dict(role='ui',rawOriginal=compact(reference)))
+        else:ui_index=self.wire.consume('ui',raw)
         self.raw_archive.parser_capacity(raw, ui_command)
         packet = decode(raw)
         validate_snapshot(packet, self.pid, self.clock_ms())
@@ -338,7 +421,7 @@ class PicoAssetsPrefix:
         after, _index = self.phase(expected)
         need(same(before['status']['activations'], after['status']['activations']))
         page = next((row for row in ui['controls'] if row['id'] == 'assets.page'), None)
-        result = dict(assetsPrefixObservationVersion=VERSION, runId=self.run, sequence=self.state['observations']+1,
+        result = dict(assetsPrefixObservationVersion=self.version, runId=self.run, sequence=self.state['observations']+1,
                       ticket=before['ticket'], open=page is not None, picker=TokenAssetsUI.file_picker(ui) is not None,
                       sourceUi=ui_index, retained=True, completeCommonObservation=False)
         self.state['observations'] += 1
@@ -391,11 +474,11 @@ class PicoAssetsPrefix:
         arguments('feature.assets.act', fields)
         try:
             with self.lock.held():
-                self.bound()
+                self.bound();self.business()
                 index = len(self.disk['steps'])
-                need(not self.failed and self.disk['baseline'] is not None and index < len(STEPS)
+                need(not self.failed and self.disk['baseline'] is not None and index < len(self.recipe)
                      and fields['runId'] == self.run and fields['fixtureUrl'] == self.url
-                     and {'verb': fields['verb'], 'inputs': fields['inputs']} == STEPS[index]
+                     and {'verb': fields['verb'], 'inputs': fields['inputs']} == self.recipe[index]
                      and (index == 0 or self.disk['steps'][-1]['status'] == 'returned'))
                 phase, original = self.phase(fields['verb'], next_step=True)
                 need(phase['ticket'] == fields['ticket'])
@@ -413,10 +496,21 @@ class PicoAssetsPrefix:
                     self.archive(dict(openReceipt=deepcopy(actual)))
                     self.state['pendingInput'] = None
                     result = dict(openDelivered=True, retained=True)
+                elif index==3:
+                    from adapters.pico4.assets_upload_owner import OwnedAssetsUpload
+                    need(self.version==3 and self.upload_owner is None)
+                    self.upload_owner=self.upload_factory(self)
+                    need(type(self.upload_owner) is OwnedAssetsUpload and self.upload_owner.parent is self)
+                    result=self.upload_owner.run(fields)
                 else:
                     if index == 1:
                         need(self.child is None)
-                        self.child = self.cancel_factory()
+                        if self.wire is None:self.child = self.cancel_factory()
+                        else:
+                            from adapters.pico4.assets_wire_owner import AssetsChildUiRaw
+                            self.child_ui=AssetsChildUiRaw(self)
+                            self.child=self.cancel_factory(ui_raw=self.child_ui)
+                            self.child_ui.attach(self.child)
                         need(type(self.child) is OwnedAssetsCancel and self.child.run == self.run
                              and same(self.child.binding, self.binding) and self.child.url == self.url)
                         self.retain_child_queries()
@@ -429,6 +523,8 @@ class PicoAssetsPrefix:
                 self.sample()
                 result = deepcopy(result)
             self.final_fresh()
+            if self.version==3 and index==3:
+                self.upload_owner.age();self.upload_owner.call_returned=True
             return result
         except Exception:
             self.failed = True
@@ -461,16 +557,22 @@ class PicoAssetsPrefix:
         # no source is queried and no surviving QObject/Model is called retired.
         with self.lock.held():
             self.bound()
-            return dict(assetsPrefixResponsibilityVersion=VERSION, retained=True,
+            result=dict(assetsPrefixResponsibilityVersion=self.version, retained=True,
                         completedCleanup=False, failed=self.failed, owner=str(self.store.path),
                         steps=deepcopy(self.disk['steps']), pendingInput=deepcopy(self.disk['pendingInput']),
                         pendingSource=deepcopy(self.disk['pendingSource']),
                         pendingChildSource=deepcopy(self.disk['pendingChildSource']),
                         pendingBundle=deepcopy(self.disk['pendingBundle']), childOwned=self.child is not None)
+            if self.version==3:result['upload']=deepcopy(self.disk['upload'])
+            return result
 
     def literal(self, index):
         value = self.raw_record(index)
-        return self.raw_archive.literal(expanded(value['rawOriginal'],self.store.path.name))
+        raw=self.raw_archive.literal(expanded(value['rawOriginal'],self.store.path.name))
+        if 'wireView' in value:
+            from adapters.pico4.assets_wire_owner import body_view
+            need(self.scope['assetsRawOriginalLayoutVersion']==2);raw=body_view(raw,value['wireView'])
+        return raw
 
     def raw_record(self,index):
         self.bound()

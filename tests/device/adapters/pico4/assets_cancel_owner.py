@@ -37,6 +37,7 @@ class OwnedAssetsCancel:
         self.capture,self.controls,self.guard,self.clock_ms=capture,controls,guard,clock_ms
         self.monotonic,self.sleep=monotonic,sleep;self.previous=store.read();self.clock=None;self.draft=None;self.active_ui=None
         self.validation_cache=self._sealed_validation_cache=None
+        self.budget_cache=self._budget_cache=False
         self.fence=CancelPhaseFence(phase,self);self.final_input=self.before_send
         self.mapping_intent=lambda command:self.source_intent('mappings',command)
         self.upload_intent=lambda command:self.source_intent('uploads',command)
@@ -101,6 +102,39 @@ class OwnedAssetsCancel:
             need(same(value['baselineUploads'],next(frame['frame'] for frame in frames if frame['role']=='uploads')))
             frame=value['baselineUploads'];assets_uploads.validate(decode(frame['raw']),frame['command'],self.uploads.pid,decode(frame['raw'])['capturedEpochMs'])
 
+        if self.budget_cache:
+            return (len(frames)+len(commands)+len(ui_frames)+len(value['unresolvedInputs']),
+                sum(value[key]['bytes'] for key in ('originals','inputs','uiOriginals'))
+                    +len(canonical([value['baselineMappings'],value['baselineUploads'],value['unresolvedInputs']])))
+
+    def bind_budget_cache(self):
+        need(self.budget_cache is self._budget_cache is False and self.previous is None
+            and self.validation_cache is self._sealed_validation_cache is None and self.active_ui is None)
+        self.budget_cache=self._budget_cache=True
+
+    def semantic_context(self,value):
+        result=self.validation_context(value)
+        result.pop('fileHistoryCount');result.pop('fileOriginalBytes');return result
+
+    def semantic_validated(self,value):
+        original=self.semantic_context(value);key=json_digest(original);raw=canonical(original)
+        cached=self.validation_cache
+        if cached is not None:
+            need(type(cached) is tuple and len(cached)==4 and type(cached[0]) is str and type(cached[1]) is bytes
+                and type(cached[2]) is type(cached[3]) is int)
+        if cached is None or cached[:2]!=(key,raw):
+            fixed=self.validate(value)
+            need(type(fixed) is tuple and len(fixed)==2 and all(integer(field,0,MAX_RAW) for field in fixed)
+                and json_digest(self.semantic_context(value))==key and canonical(self.semantic_context(value))==raw)
+            cached=(key,raw,*fixed);self.validation_cache=self._sealed_validation_cache=cached
+        need(type(cached) is tuple and len(cached)==4 and type(cached[0]) is str and type(cached[1]) is bytes
+            and type(cached[2]) is type(cached[3]) is int)
+        # Immutable semantic contribution only; every call uses the actual
+        # current native-history count and file-original byte extent again.
+        size=self.files.state['originals']['bytes']
+        need(integer(size,0,MAX_RAW) and cached[2]+len(self.files.native.history)<=MAX_FRAMES
+            and cached[3]+size<=MAX_RAW)
+
     def validation_context(self,value):
         # Only semantic parsing is reused. Every state() still performs its
         # original complete physical store read and exact current-root check.
@@ -109,7 +143,9 @@ class OwnedAssetsCancel:
             fileHistoryCount=len(self.files.native.history),fileOriginalBytes=self.files.state['originals']['bytes'])
 
     def validated(self,value):
-        need(self.validation_cache is self._sealed_validation_cache)
+        need(type(self.budget_cache) is bool and self.budget_cache is self._budget_cache
+            and self.validation_cache is self._sealed_validation_cache)
+        if self.budget_cache:return self.semantic_validated(value)
         context=self.validation_context(value);key=json_digest(context);raw=canonical(context)
         cached=self.validation_cache
         if cached is not None:

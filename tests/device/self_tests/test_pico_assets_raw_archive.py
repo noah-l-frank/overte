@@ -23,9 +23,9 @@ from adapters.script_journey.lock import ScriptSourceLock
 
 class RawFixtureOwner:
     """Only the actual enclosing journal/CAS/bill seam is supplied here."""
-    def __init__(self, root):
+    def __init__(self, root,*,version=2):
         self.store = PrivateFeatureState(root/'raw-fixture.json')
-        self.scope = dict(assetsPrefixVersion=2, runId='a'*32)
+        self.scope = dict(assetsPrefixVersion=version, runId='a'*32)
         self.lock = ScriptSourceLock(root/'raw-fixture.lock')
         self.disk = self.stamp = None
         self.state = dict(**self.scope, phase='reading', chunks=[], bundles=[], pendingRawRead=None,rawReads=[])

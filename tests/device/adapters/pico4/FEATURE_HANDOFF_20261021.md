@@ -3803,3 +3803,32 @@ These are component/model proofs, not a whole common Journey or deployed Actor.
 The canonical factory, cold runtime raw admission, full actions/effects and
 failure retirement still need qualification. Complete source count stays 3/14;
 whole, native/device, independent Actor and stereo acceptance remain false.
+
+
+## Assets Prefix3/Layout2 and cold child raw admission (2026-11-03)
+
+An explicit fresh backend reader selects Prefix3/Layout2. Default None retains
+Prefix2. The existing range/index journal stores original binary returns before
+framing, UTF8 or JSON; its pinned 4-MiB profile and lossless framing tail remain
+inside the same 512-frame/16-MiB Parent budget. Actual partial constructors and
+unknown CAS results retain their original descriptor owners. Stage uses the
+existing binary SDK stdin with its fixed path and 61,440-byte cap; generic SDK
+limits stay unchanged. See [the source handoff](ASSETS_UPLOAD_SOURCE.md).
+
+The cold child UI hook is installed before each initial Script UI constructor,
+including file-owner and controls construction. It retains observation and ACK
+bytes before parsing. Its optional semantic-contribution cache preserves full
+current physical reads and checks current file/count budgets on every use.
+Only six reviewed shared Binding methods are selected at integration; unrelated
+Browser work remains outside this commit. Native backend/Bake instrumentation is
+passive, E2E gated and uncompiled; the remote Raspberry Pi original transport
+still needs implementation.
+
+All current 86 component cases passed in 42.013 seconds (42.313 including the
+source audit), with 249 loaded source SHA256/full eight-stat identities unchanged.
+Eight new catalog groups contain 80 cases; the six existing raw cases remain
+in their original selector. The red four-step diagnostic is not a green default
+selector. Its latest actual Cancel quiet gap is 814 ms against the unchanged
+500-ms bound; Upload was not reached. No full 29-action, independent Actor/Model,
+bake/stereo effect or whole-retirement proof is claimed. Complete source count
+remains 3/14. No builds, devices, services or remote writes were used.

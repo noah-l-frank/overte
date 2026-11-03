@@ -25,12 +25,19 @@ META_RESERVE = 65536
 
 
 def compact(reference):
+    if reference.get('assetsRawLiteralVersion')==2:
+        from adapters.pico4.assets_raw_ranges import reference as validate
+        validate(reference,reference['scopeSha256']);return dict(assetsRawCompactVersion=2,read=reference['read'],
+            sha256=reference['sha256'],tailBundle=reference['tailBundle'])
     return dict(assetsRawCompactVersion=1, scopeSha256=reference['scopeSha256'], read=reference['read'],
         bytes=reference['bytes'], sha256=reference['sha256'],
         parts=[[part['bytes'], part['sha256'], part['physical']] for part in reference['parts']])
 
 
 def expanded(value, name):
+    if type(value) is dict and value.get('assetsRawCompactVersion')==2:
+        from adapters.pico4.assets_raw_ranges import compact_reference
+        compact_reference(value);return deepcopy(value)
     need(type(value) is dict and set(value)=={'assetsRawCompactVersion','scopeSha256','read','bytes','sha256','parts'}
          and type(value['assetsRawCompactVersion']) is int and value['assetsRawCompactVersion']==1
          and integer(value['read'],0,MAX_FRAMES-1) and type(value['parts']) is list and len(value['parts'])<=64)
@@ -61,8 +68,14 @@ def quoted_bytes(text):
 
 
 class AssetsRawArchive:
+    def __new__(cls,owner):
+        if owner.scope.get('assetsRawOriginalLayoutVersion')==2:
+            from adapters.pico4.assets_raw_ranges import AssetsRawRanges
+            return AssetsRawRanges(owner)
+        return super().__new__(cls)
+
     def __init__(self, owner):
-        need(owner.scope.get('assetsPrefixVersion') == 2 and type(owner.scope['assetsPrefixVersion']) is int)
+        need(type(owner.scope.get('assetsPrefixVersion')) is int and owner.scope['assetsPrefixVersion'] in (2,3))
         self.owner, self.scope = owner, canonical(owner.scope)
         self.scope_sha = json_digest(owner.scope)
         self.path = owner.store.path
@@ -136,9 +149,24 @@ class AssetsRawArchive:
 
     def retain(self, text):
         try:
+            need(type(text) is str)
+            return self._retain_bytes(text.encode('utf-8'))
+        except BaseException:
+            self.failed=True;raise
+
+    def retain_bytes(self, raw):
+        # Only explicit Prefix3 accepts actual backend-file/HTTP binary bytes.
+        # Prefix2 transport strings retain their original UTF-8 interpretation.
+        try:
+            need(self.owner.scope['assetsPrefixVersion']==3 and type(raw) is bytes)
+            return self._retain_bytes(raw)
+        except BaseException:
+            self.failed=True;raise
+
+    def _retain_bytes(self, raw):
+        try:
             self.verify()
-            need(not self.failed and self.active is not None and self.active['state'] == 'reserved' and type(text) is str)
-            raw = text.encode('utf-8')
+            need(not self.failed and self.active is not None and self.active['state'] == 'reserved' and type(raw) is bytes)
             need(len(raw) <= self.active['limit'])
             literal = dict(assetsRawLiteralVersion=VERSION, scopeSha256=self.scope_sha, read=self.reads,
                            bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest(), parts=[])

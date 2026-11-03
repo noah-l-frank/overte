@@ -67,8 +67,11 @@ class PicoScriptIO:
         self.navigation.io.bind_input()
 
 
-def runtime(adapter, target, scene, installed, identity, ui_path, controller):
+def runtime(adapter, target, scene, installed, identity, ui_path, controller, *, before_native=None):
+    need(before_native is None or callable(before_native))
     native = NativeNavigationIO(adapter, target, identity, controller)
+    binding_check=None if before_native is None else before_native(native)
+    need(before_native is None or callable(binding_check))
     navigation = PicoNavigation(native, ui_path, installed, identity, scene)
     io = PicoScriptIO(navigation)  # Refuse a missing actual producer before UI.
     observer = adapter._feature_observer(target)
@@ -78,6 +81,7 @@ def runtime(adapter, target, scene, installed, identity, ui_path, controller):
     binding = {key: installed[key] for key in ('sourceRevision', 'artifactSha256')}
     binding.update(processIdentity=identity, sessionId=io.bridge, generation=0,
         targetFingerprint=hashlib.sha256((target + '\0' + str(adapter.pico_configuration)).encode()).hexdigest())
+    if binding_check is not None:need(binding_check(binding) is not False)
     return TokenScriptUI(io), observe, binding
 
 

@@ -117,8 +117,26 @@ class PicoAssetsUploads(_OriginalQuery):
         super().__init__(*args,**kwargs);need(not self.ios and (intent is None or callable(intent)))
         self.intent=intent;self.pending=None;self.history=[];self.last_raw=self.last_sha256=None;self._seen_raw=None
         original=self.original
-        def capture():self._seen_raw=original();return self._seen_raw
+        self._raw_reader=self._raw_reader_fixed=original
+        self._raw_reader_bound=False;self._raw_capture_active=False
+        def capture():
+            if not self._raw_reader_bound:
+                self._seen_raw=original();return self._seen_raw
+            need(not self._raw_capture_active and self._raw_reader is self._raw_reader_fixed)
+            self._raw_capture_active=True
+            try:
+                raw=self._raw_reader()
+                need(self._raw_reader is self._raw_reader_fixed)
+                self._seen_raw=raw;return self._seen_raw
+            finally:self._raw_capture_active=False
         self.original=capture
+    def bind_raw_reader(self,callback):
+        # Only a cold original can choose its actual byte source. Historical,
+        # pending, failed-read or already rebound readers cannot change it.
+        need(callable(callback) and not self._raw_reader_bound and not self._raw_capture_active
+            and self.last is None and not self.history and self.pending is None and self._seen_raw is None
+            and self._raw_reader is self._raw_reader_fixed)
+        self._raw_reader=self._raw_reader_fixed=callback;self._raw_reader_bound=True
     def read(self,run):
         old=self.last
         try:

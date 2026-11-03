@@ -16,6 +16,10 @@
 #include <QtCore/QSharedPointer>
 #include <QtCore/QThreadPool>
 #include <QRunnable>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+#include <QPointer>
+class NodeList;
+#endif
 
 #include <ThreadedAssignment.h>
 
@@ -71,6 +75,9 @@ struct AssetMeta {
 
 class BakeAssetTask;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+#include "../../../tests/device/native/PicoAssetsBakeOriginals.h"
+#endif
 class AssetServer : public ThreadedAssignment {
     Q_OBJECT
 public:
@@ -93,6 +100,16 @@ private slots:
     void sendStatsPacket() override;
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    std::shared_ptr<overte::e2e::PicoAssetsBakeOriginals> _e2eBakeOriginals { std::make_shared<overte::e2e::PicoAssetsBakeOriginals>() };
+    QHash<const QObject*,QString> _e2eBakeInstances;
+    bool _e2eOriginalContextPending { false };
+    QPointer<NodeList> _e2eOriginalNode;
+    void e2ePublishBakeOriginals();
+    void e2eWriteBakeOriginals(const QVariantMap& context);
+    void e2eCommitBakeOriginals(const QVariantMap& before,const QVariantMap& after,const QVariantList& mappings,const QVariantList& blobs,int pending);
+    void e2eFinishBakeOriginal(const QString& hash,const QString& outcome);
+#endif
     void replayRequests();
 
     void handleGetMappingOperation(ReceivedMessage& message, NLPacketList& replyPacket);

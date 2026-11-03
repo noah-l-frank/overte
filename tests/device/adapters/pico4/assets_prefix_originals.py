@@ -11,7 +11,7 @@ from adapters.chat_journey import source_bundles
 from adapters.chat_journey.archive_file import ClosedOriginalFile,signature
 from adapters.chat_journey.source_chunks import ChatSourceChunks
 from adapters.native_fd_owner import OriginalDescriptor, require_directory
-from adapters.native_feature_observation import exact, integer, need
+from adapters.native_feature_observation import exact, integer, need,number
 from adapters.normal_feature_state import PrivateFeatureState, context
 from adapters.pico4.assets_raw_archive import PART_BYTES, MAX_LITERAL, expanded
 from adapters.script_journey.history import canonical, MAX_FRAMES, MAX_RAW
@@ -32,18 +32,32 @@ class AssetsPrefixOriginals:
         raw, _stamp = self.root.read()
         value = self.store.read()
         need(canonical(value)+b'\n' == raw and type(value.get('assetsPrefixVersion')) is int
-             and value['assetsPrefixVersion'] in (1, 2))
+             and value['assetsPrefixVersion'] in (1, 2, 3))
         self.version = value['assetsPrefixVersion']
-        scope_fields = BASE_SCOPE | ({'assetsRawOriginalLayoutVersion'} if self.version == 2 else set())
-        exact(value, scope_fields | STATE | ({'pendingRawRead','rawReads'} if self.version == 2 else set()))
+        scope_fields = BASE_SCOPE | ({'assetsRawOriginalLayoutVersion'} if self.version >= 2 else set())
+        if self.version==3:scope_fields|={'startedMonotonic','startedEpochMs','producerHostProcessIdentity'}
+        wire_format='assetsWireOriginalLayoutVersion' in value
+        if wire_format:
+            need(self.version==3 and value.get('assetsRawOriginalLayoutVersion')==2
+                and type(value['assetsWireOriginalLayoutVersion']) is int and value['assetsWireOriginalLayoutVersion']==1)
+            scope_fields|={'assetsWireOriginalLayoutVersion'}
+        exact(value, scope_fields | STATE | ({'pendingRawRead','rawReads'} if self.version >= 2 else set()) | ({'upload'} if self.version==3 else set())
+            | ({'transportReceipts'} if wire_format else set()))
         need(value['phase'] == 'reading' and value['pendingBundle'] is None
              and integer(value['nestedFrames'], 0, MAX_FRAMES) and integer(value['nestedDecodedBytes'], 0, MAX_RAW))
-        if self.version == 2:
-            need(type(value['assetsRawOriginalLayoutVersion']) is int and value['assetsRawOriginalLayoutVersion'] == 1
+        if self.version >= 2:
+            need(type(value['assetsRawOriginalLayoutVersion']) is int and value['assetsRawOriginalLayoutVersion'] in ((1,2) if self.version==3 else (1,))
                  and type(value['rawReads']) is list and len(value['rawReads'])<=MAX_FRAMES)
+        if self.version==3:
+            need(number(value['startedMonotonic'],0,1e15) and number(value['startedEpochMs'],1,1e16))
+            need(type(value['producerHostProcessIdentity']) is str and re.fullmatch(r'[1-9][0-9]*:[1-9][0-9]*:[0-9a-f-]{36}',value['producerHostProcessIdentity']))
+            from adapters.pico4.assets_upload_owner import validate_state
+            validate_state(value['upload'],value['steps'],len(value['bundles']))
         context(value['binding'])
         scope = {key:deepcopy(value[key]) for key in scope_fields}
         self.value = deepcopy(value)
+        self.history_scope=deepcopy(scope)
+        self.ranges=None
         self.history = ChatSourceChunks(self.store, scope)
         self.history.load(value['chunks'])
         self.references = deepcopy(value['bundles'])
@@ -52,7 +66,7 @@ class AssetsPrefixOriginals:
         self.pending_names=set()
         self.pending=value.get('pendingRawRead')
         self.uncertain=[]
-        if self.pending is not None:
+        if self.pending is not None and value.get('assetsRawOriginalLayoutVersion')!=2:
             pending=self.pending
             exact(pending,{'assetsRawReadVersion','scopeSha256','read','role','commandSha256','commandBytes',
                 'limit','reservedParts','state','literal'})
@@ -69,20 +83,42 @@ class AssetsPrefixOriginals:
                 for index,entry in enumerate(entries):
                     need(index<4096)
                     if entry.name.startswith(prefix):
-                        number=entry.name[len(prefix):]
-                        need(re.fullmatch('[0-9]{2}\\.bin',number) and int(number[:2])<pending['reservedParts'])
+                        leaf_number=entry.name[len(prefix):]
+                        need(re.fullmatch('[0-9]{2}\\.bin',leaf_number) and int(leaf_number[:2])<pending['reservedParts'])
                         self.pending_names.add(entry.name)
+        if value.get('assetsRawOriginalLayoutVersion')==2:
+            from adapters.pico4.assets_range_originals import AssetsRangeOriginals
+            self.ranges=AssetsRangeOriginals(self)
+            receipts=value['transportReceipts'] if wire_format else []
+            need(type(receipts) is list and len(receipts)<=6 and len(set(receipts))==len(receipts))
+            from adapters.pico4.assets_wire_owner import stage_original
+            for index in receipts:
+                need(integer(index,0,len(self.references)-1));record=self.bundle(index)
+                stage_original(record,self.history.scope);command=record['commandOriginal']
+                need(type(command) is dict)
+                if command.get('assetsCommandOriginalVersion')==1:
+                    exact(command,{'assetsCommandOriginalVersion','bundle','bytes','sha256','commandId'})
+                    actual=self.bundle(command['bundle']);raw=canonical(actual)
+                    need(len(raw)==command['bytes'] and hashlib.sha256(raw).hexdigest()==command['sha256'] and actual.get('commandId')==command['commandId'])
+                else:actual=command
+                need(actual.get('commandId')==record['commandId'] and actual.get('operation')=='stage'
+                    and hashlib.sha256(canonical(actual)).hexdigest()==record['commandSha256'])
         raw_bytes = 0
         for row in value.get('rawReads',[]):
-            if self.version == 2 and 'rawOriginal' in row:
+            if self.ranges is not None:
+                from adapters.pico4.assets_raw_ranges import compact_reference
+                compact_reference(row['rawOriginal'])
+                continue
+            if self.version >= 2 and 'rawOriginal' in row:
                 reference = self.raw_reference(expanded(row['rawOriginal'],self.store.path.name))
                 raw_bytes += reference['bytes']
                 for part in reference['parts']:
                     need(part['name'] not in self.expected_files)
                     self.expected_files.add(part['name'])
         pending_bytes=sum((self.store.path.parent/name).stat().st_size for name in self.pending_names)
-        need(source_bundles.logical_bytes(self.references)+value['nestedDecodedBytes']+raw_bytes+pending_bytes+len(canonical(value.get('rawReads',[]))) <= MAX_RAW
-             and len(value['chunks'])+len(self.expected_files|self.pending_names)+value['nestedFrames']+len(value.get('rawReads',[])) <= MAX_FRAMES)
+        ranges=dict(parts=0,bytes=0) if self.ranges is None else self.ranges.bill()
+        need(source_bundles.logical_bytes(self.references)+value['nestedDecodedBytes']+raw_bytes+pending_bytes+ranges['bytes']+len(canonical(value.get('rawReads',[]))) <= MAX_RAW
+             and len(value['chunks'])+len(self.expected_files|self.pending_names)+ranges['parts']+value['nestedFrames']+len(value.get('rawReads',[])) <= MAX_FRAMES)
         self.verify()
 
     def directory_guard(self):
@@ -93,6 +129,7 @@ class AssetsPrefixOriginals:
         raw, _stamp = self.root.read()
         need(raw == canonical(self.value)+b'\n')
         self.history.verify()
+        if self.ranges is not None:self.ranges.verify()
         if hasattr(self, 'expected_files'):
             with os.scandir(self.store.path.parent) as entries:
                 actual = set()
@@ -134,12 +171,20 @@ class AssetsPrefixOriginals:
         else:
             need(integer(index,0,len(self.value['rawReads'])-1));row=deepcopy(self.value['rawReads'][index])
         tag = 'role' if 'role' in row else 'childSource'
-        need(tag in row and row[tag] in ('mappings', 'uploads', 'files', 'ui'))
+        roles=('mappings', 'uploads', 'files', 'ui')
+        if self.version==3:roles+=('backend','download','ui-observation','ui-status')
+        need(tag in row and row[tag] in roles and ('wireView' not in row or self.value.get('assetsWireOriginalLayoutVersion')==1))
         if self.version == 1:
             exact(row, {tag, 'raw', 'sha256'})
             need(type(row['raw']) is str)
             raw = row['raw'].encode('utf-8')
             need(len(raw) <= MAX_LITERAL and hashlib.sha256(raw).hexdigest() == row['sha256'])
+        elif self.ranges is not None:
+            exact(row,{tag,'rawOriginal'}|({'wireView'} if 'wireView' in row else set()))
+            raw=self.ranges.literal(row['rawOriginal'])
+            if 'wireView' in row:
+                from adapters.pico4.assets_wire_owner import body_view
+                raw=body_view(raw,row['wireView'])
         else:
             exact(row, {tag, 'rawOriginal'})
             reference = self.raw_reference(expanded(row['rawOriginal'],self.store.path.name))
@@ -159,7 +204,8 @@ class AssetsPrefixOriginals:
 
     def close_host(self):
         return all([original.close() for original in self.files.values()]+[self.root.close(), self.directory.close()]
-            +[owner.close() for owner in self.uncertain])
+            +[owner.close() for owner in self.uncertain]
+            +([] if self.ranges is None else [self.ranges.close()]))
 
     def pending_read(self):
         """Inspect uncertain actual bytes; never qualify/adopt a failed scope.
@@ -169,6 +215,9 @@ class AssetsPrefixOriginals:
         a computed digest are not a replacement original receipt.
         """
         self.verify();need(self.pending is not None)
+        if self.ranges is not None:
+            return dict(historicalOnly=True,liveAuthority=False,owningPending=deepcopy(self.pending),
+                rangeReport=self.ranges.raw.report())
         pieces=[];rows=[]
         for name in sorted(self.pending_names):
             path=self.store.path.parent/name;owner=OriginalDescriptor(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)

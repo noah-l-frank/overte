@@ -300,15 +300,16 @@ def create_adapter(args, base_class):
             directory = self.pico_configuration[1]
             return directory / ('normal-script-state-' + key + '.json'), directory / ('normal-script-ui-' + key + '.json')
 
-        def _script_runtime(self, target):
+        def _script_runtime(self, target, *, before_native=None):
             scene = normal_scripts.configuration(os.environ)
             _need(scene is not None and self.pico_configuration is not None
                   and candidate['e2e_input_layer'] is True)
             identity = self.require_controlled_debug_identity(target)
             installed = self._installation(target)
             _state, ui = self._script_paths(target)
+            options={} if before_native is None else dict(before_native=before_native)
             return normal_scripts.runtime(self, target, scene, installed, identity, ui,
-                lambda operation: super(PicoBoundAdapter, self).invoke(target, operation, {}))
+                lambda operation: super(PicoBoundAdapter, self).invoke(target, operation, {}),**options)
 
         def _scripts(self, target):
             state, _ui = self._script_paths(target)
@@ -607,19 +608,33 @@ def create_adapter(args, base_class):
             return False
 
         @_private
-        def _assets_prefix(self,target,run,fixture_url,phase,*,source_lock):
+        def _assets_prefix(self,target,run,fixture_url,phase,*,source_lock,backend=None):
             from adapters.pico4.assets_prefix import PicoAssetsPrefix
             from feature_journeys.phase_fixture import PhaseFixtureReader
             _need(type(phase) is PhaseFixtureReader and phase.run==run and phase.area=='assets' and phase.fixture_url==fixture_url)
             lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
+            upload_factory=None
+            if backend is not None:
+                from adapters.pico4.assets_backend_originals import PicoAssetsBackendOriginals
+                from adapters.pico4.assets_upload_owner import OwnedAssetsUpload
+                _need(type(backend) is PicoAssetsBackendOriginals and not backend.history
+                    and backend.last is None and backend.pending is None)
+                backend.guard()
+                def upload_factory(parent):
+                    ticket=parent.state['steps'][-1]['ticket']
+                    return OwnedAssetsUpload(parent,
+                        self._assets_file_owner(target,run,ticket,fixture_url,stage=2),backend,
+                        self._assets_source(target,source_lock=lock,download=True))
             _ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
-            return PicoAssetsPrefix(self._assets_prefix_store(target).path,binding,phase,lock,
+            parent=PicoAssetsPrefix(self._assets_prefix_store(target).path,binding,phase,lock,
                 self._assets_source(target,source_lock=lock),self._assets_uploads(target,source_lock=lock),
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/navigation-ui-observation.json',attempts=1),
                 lambda intent,**options:self._assets_controls(target,intent,**options),
                 lambda intent,**options:self._assets_create_controls(target,intent,**options),
-                lambda:self._assets_cancel_owner(target,run,fixture_url,phase,source_lock=lock,stage=1),
-                native.guard,native.clock_ms)
+                lambda **options:self._assets_cancel_owner(target,run,fixture_url,phase,source_lock=lock,stage=1,**options),
+                native.guard,native.clock_ms,upload_factory=upload_factory)
+            if backend is not None:parent.bind_wire(self,target)
+            return parent
 
         def _assets_create_controls(self,target,intent,*,before_send=None):
             from adapters.token_create_ui import TokenCreateUI
@@ -645,17 +660,17 @@ def create_adapter(args, base_class):
                 self.pico_input_session(target),phase,lock)
 
         @_private
-        def _assets_cancel_owner(self,target,run,fixture_url,phase,*,source_lock,stage=1):
+        def _assets_cancel_owner(self,target,run,fixture_url,phase,*,source_lock,stage=1,ui_raw=None):
             from adapters.pico4.assets_cancel_owner import OwnedAssetsCancel
             lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
-            ui,_observe,binding=self._script_runtime(target);native=self._native_feature_observer(target)
+            ui,_observe,binding=self._assets_ui_runtime(target,ui_raw);native=self._native_feature_observer(target)
             store=self._assets_cancel_store(target,stage);original=store.read()
             ticket=original['openTicket'] if original is not None else phase.read()['ticket']
-            files=self._assets_file_owner(target,run,ticket,fixture_url,stage=stage)
+            files=self._assets_file_owner(target,run,ticket,fixture_url,stage=stage,**({} if ui_raw is None else dict(ui_raw=ui_raw)))
             def guard():lock.assert_held();native.guard()
             owner=OwnedAssetsCancel(store,binding,run,fixture_url,files,
                 self._assets_source(target,source_lock=lock),self._assets_uploads(target,source_lock=lock),
-                ui.io.capture,lambda intent,**options:self._assets_controls(target,intent,**options),phase,guard,native.clock_ms,
+                ui.io.capture,lambda intent,**options:self._assets_controls(target,intent,**options,**({} if ui_raw is None else dict(ui_raw=ui_raw))),phase,guard,native.clock_ms,
                 monotonic=native.monotonic)
             return owner
 
@@ -676,20 +691,29 @@ def create_adapter(args, base_class):
             return False
 
         @_private
-        def _assets_file_owner(self,target,run,ticket,fixture_url,*,stage=None):
+        def _assets_file_owner(self,target,run,ticket,fixture_url,*,stage=None,ui_raw=None):
             from adapters.pico4.assets_files import NativeAssetsFiles,FILE
             from adapters.pico4.assets_file_owner import OwnedAssetsFiles
-            _ui,_observe,binding=self._script_runtime(target)
+            _ui,_observe,binding=self._assets_ui_runtime(target,ui_raw)
             native=self._native_feature_observer(target)
             files=NativeAssetsFiles(native.send,
                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
                 native.clock_ms,native.guard,native.pid,stage=stage)
             return OwnedAssetsFiles(files,self._assets_file_store(target,stage),binding,run,ticket,fixture_url)
 
-        def _assets_controls(self,target,intent,*,before_send=None,audit=None):
+        def _assets_ui_runtime(self,target,ui_raw):
+            if ui_raw is None:return self._script_runtime(target)
+            from adapters.pico4.assets_wire_owner import AssetsChildUiRaw
+            _need(type(ui_raw) is AssetsChildUiRaw and ui_raw.parent.version==3
+                and ui_raw.wire.adapter is self and ui_raw.wire.target==target)
+            ui_raw.identity()
+            return self._script_runtime(target,before_native=ui_raw.bind_native)
+
+
+        def _assets_controls(self,target,intent,*,before_send=None,audit=None,ui_raw=None):
             from adapters.token_assets_ui import TokenAssetsUI
             from adapters.pico4.assets_ui import PicoAssetsIO
-            ui,_observe,_binding=self._script_runtime(target)
+            ui,_observe,_binding=self._assets_ui_runtime(target,ui_raw)
             self._bind_create_transport(ui,before_send)
             return TokenAssetsUI(PicoAssetsIO(ui.io),intent,monotonic=ui.monotonic,sleep=ui.sleep,audit=audit)
 

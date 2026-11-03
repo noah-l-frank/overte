@@ -267,14 +267,20 @@ class AssetsPrefixModel:
     def create_controls(self, intent, **options):
         return self.adapter._assets_create_controls(self.native.target, intent, **options)
 
-    def cancel(self):
+    def cancel(self,*,ui_raw=None):
         ticket = self.phase.read()['ticket']
         native = NativeAssetsFiles(self.send, self.original, self.epoch, self.guard, 123,
                                   monotonic=lambda:self.clock, sleep=self.sleep, stage=1)
         files = OwnedAssetsFiles(native, PrivateFeatureState(self.root/'assets-files.json'),
                                  self.binding, self.run, ticket, self.url)
+        capture,controls=self.snapshot,self.controls
+        if ui_raw is not None:
+            ui,_observe,binding=self.adapter._script_runtime(self.native.target,before_native=ui_raw.bind_native)
+            self.case.assertEqual(self.binding,binding)
+            capture=ui.io.capture
+            controls=lambda intent,**options:self.controls(intent,ui_raw=ui_raw,**options)
         self.cancel_owner = OwnedAssetsCancel(PrivateFeatureState(self.root/'assets-cancel.json'), self.binding,
-            self.run, self.url, files, self.mappings(), self.uploads(), self.snapshot, self.controls, self.phase,
+            self.run, self.url, files, self.mappings(), self.uploads(), capture, controls, self.phase,
             self.guard, self.epoch, monotonic=lambda:self.clock, sleep=self.sleep)
         return self.cancel_owner
 
