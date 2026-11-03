@@ -519,9 +519,52 @@ class IOSAvatarFeature:
                 and current['ticket']==self.state['initialTicket'])
             self.initial_original();return True
 
+    def wait_primary_session_admission(self):
+        # This is an ordering cue, never a native account/session observation.
+        # Once this Actor has completed its original own login/Close, only the
+        # Primary can bind both sessions. Do not repeatedly take its SDK lock
+        # and reconstruct native sources while that control-plane step is pending.
+        if self.role!='actor':return
+        with self.held():
+            self.load()
+            if self.state is None or self.state['phase']!='preparing' or self.state['sessions'] is not None:return
+            event=self.state['preparationClose']
+            if self.state['protected'] is None or event is None or event['phase']!='observed':return
+            current=self.authority.read()
+            need(current['phase'] in ('allocated','ready'))
+            if current['phase']=='allocated':
+                raise AvatarFeaturePending('Waiting for actual Primary session admission before Actor SDK acquisition')
+
+    def wait_actor_preparation(self):
+        # The Primary alone admits both native sessions. A peer's completed
+        # original login/Close is only an ordering prerequisite; sessions()
+        # still acquires and validates fresh originals from both actual SDKs.
+        if self.role!='primary':return
+        with self.held(paired=True):
+            self.load()
+            if self.state is None or self.state['phase']!='preparing' or self.state['sessions'] is not None:return
+            own=self.state['preparationClose']
+            if self.state['protected'] is None or own is None or own['phase']!='observed':return
+            path=self.runtime.state_path(self.selectors['actor']).with_name('ios-avatar-actor-feature.json')
+            value=PrivateFeatureState(path).read()
+            if value is None:raise AvatarFeaturePending('Waiting for original Actor preparation before native session admission')
+            peer=IOSAvatarFeature.archive(self.runtime,value,self.client,self.locks)
+            need(peer.role=='actor' and peer.run==self.run and peer.selectors==self.selectors
+                and peer.phase.fixture_url==self.phase.fixture_url and same(peer.state['bindings'],self.state['bindings'])
+                and peer.state['phaseInstance']==self.state['phaseInstance'] and peer.state['initialTicket']==self.state['initialTicket']
+                and peer.state['phase'] in ('preparing','ready'))
+            abort=PrivateFeatureState(path.with_name('ios-avatar-actor-'+self.run+'-abort.json'))
+            need(abort.read() is None)
+            event=peer.state['preparationClose']
+            if peer.state['protected'] is None or event is None or event['phase']!='observed':
+                raise AvatarFeaturePending('Waiting for original Actor login and Close before native session admission')
+            peer.preparation_closed_original()
+
     def prepare(self,*,components=True):
         need(type(components) is bool)
         admitted=self.initial_admitted()
+        if not admitted:
+            self.wait_primary_session_admission();self.wait_actor_preparation()
         if not admitted and self.initial_saved():
             self.wait_peer_initial()
             admitted=True
@@ -551,6 +594,7 @@ class IOSAvatarFeature:
             self.load();current=self.phase.read()
             if self.state['phase']=='preparing':
                 need(current['verb']=='baseline');self.login();self.close_preparation_tablet()
+        self.wait_primary_session_admission();self.wait_actor_preparation()
         with self.held(paired=True):
             self.load();need(self.state['phase'] in ('preparing','ready'));parts=self.source_parts();self.sessions(parts)
             if self.state['phase']=='preparing':

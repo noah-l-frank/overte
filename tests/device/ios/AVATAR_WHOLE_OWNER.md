@@ -287,3 +287,23 @@ cleanup are retained and verified. The preceding real-clock normal attempt
 still failed its 25-second preparation budget. The next changed normal run has
 not been started; these three cases do not establish that budget or full Avatar
 completion. All original API and image freshness limits remain unchanged.
+
+
+Preparation now also orders actual account admission in both directions. An
+Actor with its original completed login and Close waits for the Primary's
+actual session admission before reacquiring paired SDK sources. The Primary
+waits for the Actor's typed original login/Close before requesting either
+native Avatar session. These are scheduling prerequisites only: fresh actual
+SDK/session/native validation is still mandatory. Foreign role/run/binding,
+phase/ticket and abort metadata refuse; uncertain Close remains pending and
+cannot authorize another input.
+
+Four Actor ordering cases and three Primary ordering cases pass with actual
+Runtime/HTTP/file/OS-lock owners and declared native producers. Their original
+132 and 101 files, source pins, process exits, stream closes and prior original
+corpora remain verified. The changed normal run passes the earlier null-session
+point but still exceeds the unchanged 25-second API budget while waiting for
+bilateral initial admission. That 92-file failure remains a failure. Whole
+Avatar and Config10 admission remain closed; these scheduling components do
+not increase the five completed areas. Native compilation and devices remain
+unexecuted.
