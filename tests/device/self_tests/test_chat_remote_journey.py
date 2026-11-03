@@ -42,7 +42,8 @@ class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
         self.diagnostic=self.full or self._testMethodName in (
             'test_profile_actual_warm_source_calls_with_originals_retained',
             'test_profile_actual_distinct_phase_source_calls_with_originals_retained',
-            'test_profile_actual_late_phase_prefix_calls_with_originals_retained')
+            'test_profile_actual_late_phase_prefix_calls_with_originals_retained',
+            'test_profile_actual_normal_background_with_originals_retained')
         name=('test_all_original_compiled_stages_then_parent_erase_caches_restart_ipc_and_archive' if self.diagnostic else
             'test_three_original_parent_steps_have_no_synthetic_completed_prefix_or_shared_witness_owner')
         self.warm=WarmArchiveTests(name);self.warm.setUp();self.addCleanup(self.warm.doCleanups)
@@ -278,6 +279,50 @@ class RemoteJourneyTests(RemoteActorFixture,unittest.TestCase):
     def test_profile_actual_late_phase_prefix_calls_with_originals_retained(self):
         """Opt-in17-phase80-pair source prefix; profile only actual acquire80."""
         self._distinct_source_cost(bounded_prefix=True)
+
+    def test_profile_actual_normal_background_with_originals_retained(self):
+        """Opt-in normal first18 phases with one fresh original pair per phase.
+
+        The previous17/80 and19/93 selections retain their own exact plans.
+        This component profiles the actual Background action after all prior
+        ordinary inputs, without adopting any historical owner or source.
+        """
+        from adapters.chat_journey.flow_inputs import recipe
+        import uuid
+        after_primary=after_actor=0;phases=[]
+        for index,step in enumerate(recipe(RUN)[:18]):
+            ticket=uuid.uuid4().hex;started_step=time.monotonic()
+            self.activate(ticket,step['verb'],step['inputs'])
+            if index:
+                profile=cProfile.Profile() if index==17 else None
+                if profile is not None:profile.enable()
+                try:self.invoke('feature.chat.act',{})
+                finally:
+                    if profile is not None:
+                        profile.disable();profile.dump_stats(str(self.host_root/'normal-background-actual-act18.pstats'))
+            self.assertEqual(index+1,self.p.previous['completedSteps'])
+            started_pair=time.monotonic();primary=self.primary.read(after_primary);after_primary=primary['sequence']
+            self.command('publish');published=time.monotonic();received=self.owner.acquire(after_actor)
+            self.assertLess(time.monotonic()-published,1.5);self.assertLess(time.monotonic()-started_pair,5)
+            self.assertEqual(after_actor+1,received['entries'][-1]['actorSequence']);after_actor+=1
+            phases.append(dict(index=index,ticket=ticket,verb=step['verb'],elapsedSeconds=time.monotonic()-started_step,
+                primary=after_primary,actor=after_actor))
+            print('Normal Background component actualSteps='+str(index+1)+' actualPairs='+str(after_actor)+
+                ' seconds='+str(round(time.monotonic()-self.started,3)),flush=True)
+        # Finalize only this diagnostic's actual Python worker. Original app,
+        # journals, caches, inputs and native resources have no cleanup verdict.
+        self.worker.stdin.close();self.worker.wait(timeout=5);self.assertEqual(0,self.worker.returncode)
+        absent=self.process.require_absent()
+        self.assertEqual(18,len(self.p.flow.rows));self.assertEqual(18,self.owner.row_count())
+        self.assertEqual('background-resume',phases[-1]['verb'])
+        self.assertFalse(self.journey.cleanup_hook_started);self.assertIsNone(self.stop_store.read())
+        self.assertEqual(0,self.cleanup_calls);self.assertEqual([],self.reports)
+        chat_diagnostic.write(self.host_root,'normal-background-source-report',dict(
+            scope='first18-actual-normal-inputs-one-new-pair-per-phase-not-Common-whole',phases=phases,
+            primaryQueries=after_primary,actorPublications=after_actor,elapsedSeconds=time.monotonic()-self.started,
+            sourceNativeModels=True,actualActorWait=0,actualKernelAbsence=absent,wholeQualified=False,
+            sourceParts=len(self.owner.previous['chunks']),sourceLogicalBytes=self.owner.previous['logicalBytes']))
+        self.process.final_absence(absent)
 
     def _distinct_source_cost(self,*,bounded_prefix):
         from adapters.chat_journey.flow_inputs import recipe

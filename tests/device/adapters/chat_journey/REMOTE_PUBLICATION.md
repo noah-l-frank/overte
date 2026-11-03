@@ -332,3 +332,39 @@ establish a speedup. No original read, source phase, deadline or retirement
 predicate is removed on that basis. Native/widgets/V8/network/GPU remain
 explicit model seams. Evidence and exact source/failed variants are retained
 in the private `pico-chat-source-diagnostic-ready-uca_7d0k` handoff.
+
+
+## Actual normal Background continuation diagnostic
+
+The additional private opt-in method
+`test_profile_actual_normal_background_with_originals_retained` runs all first18
+original normal phases with exactly one new Primary query and independent Actor
+publication after each. The17/80 and failed19/93 plans remain unchanged and
+separate. No historical owner, requested result or completed prefix is adopted.
+Actual Background uses the existing once-only HOME/resume owner, original
+autonomous history and both original three-second quiet windows.
+
+The exact current case passes44.111s (44.672s including the before/after source
+freeze) under the original real120s outer limit. All193 loaded/declared source
+SHA-256 and eight-field identities stay unchanged. The reader stores20parts and
+620663 logical bytes. The1192 retained files include every actual Parent/Actor
+original, profiles and external diagnostic copies; this is not a global source
+allocation or retirement proof. The original worker exits0, and both kernel
+absence checks plus final post-report absence use its original executable and
+entry ownership. No Stop2, typed feature return, Common quiet, app/cache/resource
+cleanup, native execution or whole Chat verdict follows from that host exit.
+
+Only actual action18 is profiled. Its original call takes12.674s under the
+profiler;130 actual role reads and their fresh compiled transactions remain.
+The nested profile records874 durable writes/3.089s in fsync and1046 complete
+source-history verifies/2.879s. These overlapping call costs measure the actual
+Background component, not an unprofiled whole-run speedup or proof that any
+check can be omitted. Source/API/clock/quiet/capacity contracts are unchanged.
+
+The existing default two-case component selector still passes1.717s with182
+loaded source hashes/physical identities unchanged. The new diagnostic stays
+opt-in and does not extend the default catalog or any feature capability.
+Original current handle and complete manifests:
+`~/.local/state/pico-chat-normal-background-current-bf6zzl4d/`.
+The preceding standalone exact-normal-input diagnostic remains separately
+retained at `~/.local/state/pico-chat-normal-background-owning-_281m6nk/`.
