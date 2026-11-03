@@ -23,6 +23,8 @@ from adapters.pico4.lifecycle_process_file import LifecycleProcessFile
 from adapters.script_journey.history import canonical,pack,unpack,MAX_FRAMES,MAX_RAW
 
 VERSION=2
+STAGING_VERSION=2
+STAGING_READS=(1,2)
 STAGE='lifecycle-actor-in-progress.json'
 
 
@@ -70,6 +72,15 @@ def checked_file(value):
     return decoded
 
 
+def nested_bytes(root):
+    version=root['actorStagingVersion']
+    need(type(version) is int and version in STAGING_READS)
+    if version==1:
+        need('nestedDecodedBytes' not in root);return 0
+    need('nestedDecodedBytes' in root and integer(root['nestedDecodedBytes'],0,MAX_RAW))
+    return root['nestedDecodedBytes']
+
+
 def decode_snapshot(snapshot):
     """Decode copied historical originals; this grants no live ownership."""
     exact(snapshot,{'actorStagingSnapshotVersion','root','files'})
@@ -78,6 +89,7 @@ def decode_snapshot(snapshot):
     need(snapshot['root']['name']==STAGE and root['phase']=='reading' and root['state']=='collecting'
         and len(root['chunks'])==len(snapshot['files'])<=MAX_FRAMES)
     scope={key:root[key] for key in ('actorStagingVersion','sourceScopeSha256','record')}
+    nested=nested_bytes(root)
     parts=[]
     for index,original in enumerate(snapshot['files']):
         need(original['name']==STAGE+f'.frame-{index:03d}.json')
@@ -86,7 +98,8 @@ def decode_snapshot(snapshot):
             and value['scopeSha256']==digest(scope) and type(value['index']) is int and value['index']==index
             and digest(value)==root['chunks'][index])
         data=unpack(value['transcript']);need(len(data)==1);parts.append(data[0])
-    source_bundles.logical_bytes(root['bundles']);need(len(root['entries'])==len(root['bundles']))
+    need(source_bundles.logical_bytes(root['bundles'])+nested<=MAX_RAW
+        and len(root['entries'])==len(root['bundles']))
     entries=[];offset=0
     for index,(entry,reference) in enumerate(zip(root['entries'],root['bundles'])):
         exact(entry,{'key','bundle'});need(type(entry['key']) is str and integer(entry['bundle']) and entry['bundle']==index)
@@ -99,11 +112,11 @@ class ActorStagingParts:
     def __init__(self,main):
         self.main,self.lock=main,main.lock;self.store=PrivateFeatureState(main.store.path.with_name(STAGE))
         need(self.store.read() is None and not staging_names(main.store.path))
-        self.scope=dict(actorStagingVersion=1,sourceScopeSha256=main.scope_sha,record=len(main.disk['records']))
+        self.scope=dict(actorStagingVersion=STAGING_VERSION,sourceScopeSha256=main.scope_sha,record=len(main.disk['records']))
         self.physical=LifecycleProcessFile(self.store);self.history=ChatSourceChunks(self.store,self.scope)
         self.disk=None;self.owners=[];self.files=[];self.failed=False
         self.save(dict(self.scope,phase='reading',state='collecting',chunks=[],bundles=[],entries=[],transfer=None,
-            retired=[],unlink=None))
+            retired=[],unlink=None,nestedDecodedBytes=0))
 
     def identity(self):
         need(not self.failed);self.main.identity();self.physical.guard()
@@ -267,7 +280,7 @@ class LifecycleActorStorage:
         stored=3*65536+sum(self.history._path(i).stat().st_size for i in range(count))
         if self.stage is not None:
             count+=len(self.stage.remaining());raw+=self.stage.history.raw_bytes
-            logical+=source_bundles.logical_bytes(self.stage.disk['bundles'])
+            logical+=source_bundles.logical_bytes(self.stage.disk['bundles'])+nested_bytes(self.stage.disk)
             stored+=sum(len(self.stage.files[i]['raw'].encode('utf-8')) for i in self.stage.remaining())
         need(count+extra_parts<=MAX_FRAMES and raw+extra_container<=MAX_RAW
             and logical+extra_logical<=MAX_RAW and stored+extra_stored<=MAX_RAW)
@@ -319,10 +332,19 @@ class LifecycleActorStorage:
             extra_container=encoded+parts*1024,extra_stored=encoded+parts*2048)
 
     @sticky
+    def reserve_nested(self,count):
+        self.verify();need(self.stage is not None and self.stage.disk['state']=='collecting'
+            and self.stage.disk['actorStagingVersion']==STAGING_VERSION and integer(count,0,MAX_RAW))
+        self.capacity(extra_logical=count)
+        value=deepcopy(self.stage.disk);value['nestedDecodedBytes']=nested_bytes(value)+count
+        need(value['nestedDecodedBytes']<=MAX_RAW);self.stage.save(value);self.capacity()
+
+    @sticky
     def native_record(self,record):
         self.verify();snapshot,_entries=self.stage.snapshot()
         value=dict(lifecycleActorSourceGroupVersion=VERSION,staging=snapshot,record=deepcopy(record))
-        decoded_extra=source_bundles.logical_bytes(self.stage.disk['bundles'])-2+self.stage.history.raw_bytes-2
+        decoded_extra=(source_bundles.logical_bytes(self.stage.disk['bundles'])-2
+            +self.stage.history.raw_bytes-2+nested_bytes(self.stage.disk))
         index=self.archive(value,decoded_extra=decoded_extra);original,raw=self.original(index)
         need(raw==canonical(value) and original==value)
         pending=deepcopy(self.disk['pending']);pending['native']=index;self.update(pending=pending)

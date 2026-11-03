@@ -41,6 +41,7 @@ class LifecycleProducts(ProductSources):
         self.case=case;self.native=case.editor.native;self.subject=SubjectBoundary();self.move_before_subject=False;self.fail_ui=False
         self.hold_gesture_publication=False;self.publication_host_work=0.
         self.retired_after_original=0
+        self.world_history_decodes=0
         self.unavailable=None;self.unavailable_producer=UnavailableLifecycleProducer()
         # One original target physics object, read by independent native getter
         # endpoints. There is no second Actor-side pose or expected-state model.
@@ -61,6 +62,8 @@ class LifecycleProducts(ProductSources):
         if action=='candidate-retired-after-ui-original':
             need(value is None and native.alive and self.retired_after_original==0)
             self.retired_after_original+=1;native.alive=False;return None
+        if action=='world-history-decoding':
+            need(value is None);self.world_history_decodes+=1;return None
         if action=='publication-host-work':
             need(value==1.4 and self.publication_host_work==0.)
             self.publication_host_work+=value;return None
@@ -167,6 +170,11 @@ class CanonicalIndependentLifecycleSources(IndependentLifecycleSources):
         original_identity=config['binding']['processIdentity']
         self.fixture.native.identity=original_identity
         self.fixture.native.require_process_identity=lambda value:need(type(value) is str and value==original_identity)
+        # This original synthetic fixture uses NavigationAdb as its session
+        # model. Supply only the same existing SDK input policy that a real
+        # PicoOpenXrAdapterSession reads; no input/binding journal is created.
+        from openxr_input.adapter_session import PROFILE_PATH
+        self.fixture.native.profile=json.loads(PROFILE_PATH.read_text(encoding='utf-8'))
         installed=self.adapter._installation(self.target);identity=self.adapter.require_controlled_debug_identity(self.target)
         self.binding=dict(sourceRevision=installed['sourceRevision'],artifactSha256=installed['artifactSha256'],
             processIdentity=identity,sessionId=self.fixture.native.bridge_id,generation=0,
@@ -246,7 +254,14 @@ try:
   if command=={'operation':'exit'}:break
   if command not in ({'operation':'sample'},{'operation':'sample-regress-ui'},{'operation':'sample-lost-reply'},{'operation':'sample-replace-root-exit'},{'operation':'sample-late-publication'},{'operation':'sample-foreign-factory-fingerprint'}):raise ValueError('Source-only worker command')
   if command['operation']=='sample-foreign-factory-fingerprint':transport.binding=dict(transport.binding,targetFingerprint='0'*64)
-  if source is None:source=transport.source(client)
+  if source is None:
+   source=transport.source(client)
+   if config.get('traceWorldOwnership'):
+    from adapters.pico4 import lifecycle_actor_world as ownership
+    historical=ownership.restrictions
+    def decoding(*args,**kwargs):
+     transport.rpc.call('world-history-decoding');return historical(*args,**kwargs)
+    ownership.restrictions=decoding
   if config.get('candidateRetiresAfterUiOriginal'):
    original=source.readers[0].original;retired=[False]
    def received_before_retirement():

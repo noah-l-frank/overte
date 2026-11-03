@@ -43,7 +43,7 @@ class CanonicalLifecycleOperationGraph:
         holder=SimpleNamespace(native=native,process=self.process,sleep=native.sleep)
         boundary,domain=process_models.LifecycleProcessTests.domains(holder,native,123,'9'*32,'1'*32,'2'*32,19000)
         disconnected(boundary)
-        def unavailable(*_args,**_kwargs):raise NativeUIError('No restore surface is exercised by this two-action prefix')
+        def unavailable(*_args,**_kwargs):raise NativeUIError('No restore surface is exercised by this initial source prefix')
         self.restore=PicoLifecycleRestore(self.process,self.joined,observer,domain,root/'lifecycle-restore-owner.json',unavailable)
         self.restore.begin()
         self.source=adapter._lifecycle_observation_readonly_begin(target.target,target.run,restore=self.restore,editor=target.owner)
@@ -51,14 +51,15 @@ class CanonicalLifecycleOperationGraph:
         self.operations=adapter._lifecycle_primary_operations(target.target,target.run,source=self.source,phases=phases)
         self.session_module=self.load_session(case,root)
         self.session=self.session_module.OverteSession()
-        self.calls=[];self.actor_samples=[]
+        self.calls=[];self.actor_samples=[];self.actor_query_deltas=[]
         def operation(name,fields):
             self.calls.append((name,deepcopy(fields)));return self.operations.invoke(name,fields)
         active=patch.object(self.session_module,'operation',operation);active.start();case.addCleanup(active.stop)
         def invoke(name,fields):
             _prefix,area,kind=name.split('.');return self.session.feature_operation(area,kind,fields)
         def witness():
-            stage.sample();value=stage.client.observe()
+            before=len(stage.native_calls());stage.sample()
+            self.actor_query_deltas.append(deepcopy(stage.native_calls()[before:]));value=stage.client.observe()
             # Retain the complete actual journal response before Common can
             # accept or reject it. No desired/Primary fact crosses to Actor.
             with self.operations.lock.held():self.operations.archive(dict(independentJournal=deepcopy(value)))

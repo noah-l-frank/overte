@@ -2513,7 +2513,8 @@ def create_adapter(args, base_class):
                 run,binding,self._lifecycle_ui_source(target,source_lock=lock),
                 self._lifecycle_gesture_source(target,source_lock=lock),self._lifecycle_drive_source(target,source_lock=lock),
                 self._pending_owner(target,binding=binding),native,self._graphics_subject_observer(target),
-                phases,current,lock,parent_host,monotonic=native.monotonic)
+                phases,current,lock,parent_host,monotonic=native.monotonic,
+                world_profile=deepcopy(self.pico_input_session(target).profile))
 
         @_private
         def _lifecycle_primary_operations(self,target,run,*,source,phases):

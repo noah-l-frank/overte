@@ -449,7 +449,7 @@
     "pico-lifecycle-restore-owner": {"current": 1, "reads": [1]},
     "pico-lifecycle-primary-observation": {"current": 4, "reads": [1, 2, 3, 4]},
     "pico-lifecycle-primary-operations": {"current": 3, "reads": [1, 2, 3]},
-    "pico-lifecycle-actor-staging": {"current": 1, "reads": [1]},
+    "pico-lifecycle-actor-staging": {"current": 2, "reads": [1, 2]},
     "pico-lifecycle-actor-staging-snapshot": {"current": 1, "reads": [1]},
     "pico-lifecycle-actor-source-group": {"current": 2, "reads": [2]},
     "pico-lifecycle-actor-publication": {"current": 1, "reads": [1]},

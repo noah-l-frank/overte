@@ -267,6 +267,7 @@ TESTS = (
     test("lifecycle-process-finalization", "interaction", PYTHON, "device/test_lifecycle_process_finalization.py"),
     test("lifecycle-independent-actor", "interaction", PYTHON, "device/test_lifecycle_independent_actor.py"),
     test("lifecycle-actor-storage", "interaction", PYTHON, "device/test_lifecycle_actor_storage.py"),
+    test("lifecycle-actor-world", "interaction", PYTHON, "device/test_lifecycle_actor_world.py"),
     test("lifecycle-actor-operations", "interaction", PYTHON, "device/test_lifecycle_actor_operations.py"),
     test("avatar-people-native-ui", "interaction", PYTHON, "device/test_avatar_people_controls_native.py",
         "AvatarPeopleControlsNativeTests.test_original_avatar_loader_url_restore_and_actual_hit_ownership", requires=("c++", "pkg-config", "node")),

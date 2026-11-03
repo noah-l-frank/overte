@@ -7,6 +7,8 @@ arguments. Later recipe stages require their own reviewed source admission.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import base64
+import hashlib
 import math
 
 from adapters.chat_journey.source_chunks import json_digest
@@ -16,12 +18,14 @@ from adapters.native_graphics_subject import NativeGraphicsSubject
 from adapters.native_chat_view import measured_keyboard
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
-from adapters.observer_return import parent_node,host
+from adapters.observer_return import parent_node,raw_file,host
 from adapters.pending_commit_owner import NativePendingCommitOwner
 from adapters.pico4 import lifecycle_source as ui,lifecycle_gesture as gesture,lifecycle_drive as drive
 from adapters.pico4.lifecycle_back import frame
 from adapters.pico4.lifecycle_process import identity
 from adapters.pico4.lifecycle_actor_storage import LifecycleActorStorage,VERSION
+from adapters.pico4 import lifecycle_actor_world as world_ownership
+from adapters.script_journey.history import canonical
 from adapters.pico4.lifecycle_readonly import LifecycleReadOnlyAcquisition
 from adapters.pico4.lifecycle_world import PicoLifecycleWorld
 from adapters.script_journey.lock import ScriptSourceLock
@@ -66,7 +70,7 @@ class ActorReadOnlyTriple:
 
 class PicoLifecycleActorSource:
     def __init__(self,path,run,binding,source,axes,avatar,pending,native,subject,phases,guard,
-            source_lock,parent_host,*,monotonic):
+            source_lock,parent_host,*,monotonic,world_profile=None):
         need(ui.nonce(run) and type(source) is ui.PicoLifecycleSource
             and type(axes) is gesture.PicoLifecycleGesture and type(avatar) is drive.PicoLifecycleDrive
             and type(pending) is NativePendingCommitOwner and type(native) is NativeFeatureObservation
@@ -74,6 +78,10 @@ class PicoLifecycleActorSource:
             and type(source_lock) is ScriptSourceLock and callable(guard) and callable(monotonic))
         self.binding=deepcopy(context(binding));self.pid,_start=identity(binding)
         self.run,self.lock,self.phases,self.guard,self.monotonic=run,source_lock,phases,guard,monotonic
+        need(world_profile is None or type(world_profile) is dict)
+        self.world_profile=deepcopy(world_profile);self.world_profile_sha=json_digest(self.world_profile)
+        self.world_envelopes=[];self.world_envelopes_sha=json_digest(self.world_envelopes)
+        self.world_original_sequence=None
         self.readers=(source,axes,avatar,pending,native,subject)
         need(all(reader.pid==self.pid for reader in self.readers)
             and phases.run==run and phases.area=='lifecycle-input'
@@ -88,7 +96,7 @@ class PicoLifecycleActorSource:
         self.store=PrivateFeatureState(path);need(self.store.path.name=='lifecycle-actor-originals.json'
             and self.lock.path==self.store.path.with_name('script-sources.lock'))
         self.scope=dict(picoLifecycleActorSourceVersion=VERSION,runId=run,binding=self.binding,
-            role='actor',stage='before-input-create',producerHostProcessIdentity=self.host,
+            role='actor',stage='before-input-create' if world_profile is None else 'before-input-create-world',producerHostProcessIdentity=self.host,
             parentHostProcessIdentity=parent_host,fixtureUrl=phases.fixture_url)
         self.scope_sha=json_digest(self.scope);self.parent=parent_node(self.store)
         self.failed=False;self.anchor=None
@@ -115,6 +123,10 @@ class PicoLifecycleActorSource:
             and self.phases is self.original_phases and self.phases.client is self.original_client
             and self.phases.fixture_url==self.scope['fixtureUrl'] and parent_node(self.store)==self.parent
             and json_digest(self.baseline)==self.baseline_sha and json_digest(self.last_world)==self.last_world_sha
+            and json_digest(self.world_profile)==self.world_profile_sha
+            and json_digest(self.world_envelopes)==self.world_envelopes_sha
+            and (self.world_original_sequence is None if not self.world_envelopes else
+                integer(self.world_original_sequence,1,128))
             and (self.origin is None if self.baseline is None else
                 json_digest(self.origin.original)==json_digest(self.baseline['drive']))
             and self.lock.path==self.store.path.with_name('script-sources.lock')
@@ -191,9 +203,8 @@ class PicoLifecycleActorSource:
         before=self.baseline['gesture']['source']['events'];events=packets['gesture']['source']['events']
         need(events[:len(before)]==before)
         attempts=[row for row in events[len(before):] if row['kind']=='started']
-        # This first Actor source stage cannot grant later world/retained-event
-        # ownership by guessing an input envelope or a requested phase.
-        need(not attempts and not pending['commit'] and not pending['resources']['pendingRuns']
+        count=world_ownership.measured_attempts(attempts,self.world_envelopes)
+        need(not pending['commit'] and not pending['resources']['pendingRuns']
             and pending['resources']['archivedEvents']==0 and pending['lastIntentSequence']==0
             and pending['current']['status']=='none')
         measured=self.origin.measure(packets['drive']);pose=subject['source']['avatarPose']
@@ -205,19 +216,46 @@ class PicoLifecycleActorSource:
             keyboard=measured_keyboard(actual['keyboard']),focused=bool(current and current['focused']),
             heldInputs=measured['heldInputs'],worldDisplacement=measured['worldDisplacement'],
             positionDelta=dict(zip(('x','y','z'),measured['positionDelta'])),generation=generation,
-            deferredInputs=len(pending['resources']['pendingRuns']),worldAttempts=len(attempts),staleAttempts=0)
+            deferredInputs=len(pending['resources']['pendingRuns']),worldAttempts=count,staleAttempts=0)
         validate_state('lifecycle-input',facts,self.run);return facts
 
     def admitted_phase(self,value):
         # Phase rows restrict which already-owned normal inputs this bounded
         # source may observe. They never provide editor/text/generation facts.
         # Multiple independent acquisitions under the SAME phase remain valid.
-        rows=value['status']['activations'];need(1<=len(rows)<=3)
+        rows=value['status']['activations'];limit=2 if self.world_profile is None else 3
+        need(1<=len(rows)<=limit+1)
         expected=[dict(verb='baseline',inputs={})]
         expected.extend(dict(verb=row['verb'],inputs=expand(row['inputs'],fixture_context(self.run)))
-            for row in SCENARIOS['lifecycle-input']['steps'][:2])
+            for row in SCENARIOS['lifecycle-input']['steps'][:limit])
         need(all(typed_equal(row['stimulus'],stimulus) for row,stimulus in zip(rows,expected)))
         if self.baseline is None:need(len(rows)==1)
+
+    def world_restrictions(self,phase):
+        if len(phase['status']['activations'])<4:return
+        need(self.world_profile is not None)
+        authorized=sum(row['stimulus']['verb']=='world-input' for row in phase['status']['activations'])
+        if len(self.world_envelopes)==authorized:return
+        need(len(self.world_envelopes)<authorized<=2)
+        self.bound();self.storage.reserve(2*65536+len(canonical(self.world_profile))+4096)
+        store=PrivateFeatureState(self.store.path.with_name('lifecycle-world-owner.json'))
+        raw,physical=raw_file(store)
+        def original(raw,physical):
+            return dict(rawBase64=base64.b64encode(raw).decode('ascii'),sha256=hashlib.sha256(raw).hexdigest(),
+                physical=list(physical),profile=deepcopy(self.world_profile),profileSha256=self.world_profile_sha)
+        self.retain('world-owner',original(raw,physical))
+        value=decode(raw.decode('utf-8'))
+        # Persist the complete nested ownership decode charge before decoding
+        # that history or querying another independent target source.
+        self.storage.reserve_nested(world_ownership.decoded_bytes(value))
+        envelopes=world_ownership.restrictions(value,self.run,self.binding,self.pid,self.world_profile)
+        need(len(envelopes)==authorized and envelopes[:len(self.world_envelopes)]==self.world_envelopes)
+        self.storage.reserve(2*65536+len(canonical(self.world_profile))+4096)
+        again,stamp=raw_file(store)
+        if again!=raw or list(stamp)!=list(physical):
+            self.retain('world-owner-changed',original(again,stamp));need(False)
+        self.world_envelopes=deepcopy(envelopes);self.world_envelopes_sha=json_digest(self.world_envelopes)
+        self.world_original_sequence=len(self.disk['records'])+1
 
     def phase(self,key,previous=None,*,publication=False):
         # Retain each decoded endpoint response before the shared reader can
@@ -251,6 +289,7 @@ class PicoLifecycleActorSource:
                 # it does not issue a native source intent or another input.
                 self.admitted_phase(before)
                 started=self.monotonic();requested=self.readers[4].clock_ms()
+                self.world_restrictions(before)
                 world,packets,_start=self.triple.acquire();self.retain('world',dict(world=world))
                 pending_reader,native_reader,subject_reader=self.readers[3:]
                 pending,_raw=self.query('pending',pending_reader,lambda:pending_reader.read(self.run))
@@ -275,7 +314,8 @@ class PicoLifecycleActorSource:
                 self.anchor=started,requested,oldest
                 value=dict(ticket=before['ticket'],actor='owned-observer',actorSequence=len(self.disk['records'])+1,
                     capturedEpochMs=oldest,facts=projection('lifecycle-input',facts))
-                self.storage.native_record(dict(phase=deepcopy(after['status']),publication=deepcopy(value)))
+                self.storage.native_record(dict(phase=deepcopy(after['status']),publication=deepcopy(value),
+                    worldOwnershipActorSequence=self.world_original_sequence))
                 self.last_world=deepcopy(world);self.last_world_sha=json_digest(self.last_world)
                 self.pending_floor=dict(sha256=json_digest(pending),raw=pending_reader.last_raw,
                     requestSha256=json_digest(pending_reader.last_request))

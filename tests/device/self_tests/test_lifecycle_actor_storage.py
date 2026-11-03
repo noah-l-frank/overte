@@ -14,7 +14,8 @@ from adapters.chat_journey import source_bundles
 from adapters.chat_journey.source_chunks import ChatSourceChunks
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
-from adapters.pico4.lifecycle_actor_storage import LifecycleActorStorage,STAGE,decode_snapshot
+from adapters.pico4.lifecycle_actor_storage import LifecycleActorStorage,STAGE,decode_snapshot,snapshot_file
+from adapters.script_journey.history import canonical,MAX_RAW
 from adapters.pico4.lifecycle_actor_originals import ActorOriginals
 from adapters.script_journey.lock import ScriptSourceLock
 
@@ -213,6 +214,38 @@ class LifecycleActorStorageTests(unittest.TestCase):
         changed['records'][0]['native']=previous['records'][1]['native']
         self.store.write(changed,previous)
         with self.assertRaises(NativeUIError):ActorOriginals(self.store).group(0)
+
+    def test_stage2_counter_is_required_typed_and_stage1_historical_missing_means_zero(self):
+        # Explicit empty historical codec DTOs; no physical/live ownership claim.
+        value=dict(actorStagingVersion=1,sourceScopeSha256='d'*64,record=0,phase='reading',state='collecting',
+            chunks=[],bundles=[],entries=[],transfer=None,retired=[],unlink=None)
+        def encoded(value):
+            raw=canonical(value)+b'\n';stamp=[1,1,0o100600,os.geteuid(),1,len(raw),1,1]
+            return dict(actorStagingSnapshotVersion=1,root=snapshot_file(STAGE,raw,stamp),files=[])
+        self.assertEqual([],decode_snapshot(encoded(value))[1])
+        current=dict(value,actorStagingVersion=2,nestedDecodedBytes=0)
+        self.assertEqual([],decode_snapshot(encoded(current))[1])
+        for invalid in (None,True,-1,MAX_RAW):
+            bad=deepcopy(current)
+            if invalid is None:bad.pop('nestedDecodedBytes')
+            else:bad['nestedDecodedBytes']=invalid
+            with self.subTest(counter=invalid),self.assertRaises(NativeUIError):decode_snapshot(encoded(bad))
+
+    def test_nested_decode_charge_is_durable_before_copy_and_part_of_actual_budget(self):
+        with self.lock.held():
+            self.reading();self.owner.reserve_nested(4096)
+            self.assertEqual(4096,self.owner.stage.store.read()['nestedDecodedBytes'])
+            self.owner.native_record(dict(publication={}));self.owner.issue_publication({})
+            self.owner.publication_phase({});self.owner.retire_stage();self.owner.delivered({})
+        original=ActorOriginals(self.store);root,_=decode_snapshot(original.group(0)['staging'])
+        self.assertEqual(4096,root['nestedDecodedBytes']);self.assertGreater(original.root['decodedSourceBytes'],4096)
+
+    def test_failed_nested_reservation_preserves_every_raw_before_any_interpretation(self):
+        with self.lock.held():
+            self.reading();stage=self.owner.stage;before=stage.store.read()
+            with self.assertRaises(NativeUIError):self.owner.reserve_nested(MAX_RAW)
+            self.assertEqual(before,stage.store.read());self.assertTrue(self.owner.failed)
+            self.assertEqual(0,stage.store.read()['nestedDecodedBytes']);self.assertEqual(2,len(stage.files))
 
 
 if __name__=='__main__':unittest.main()

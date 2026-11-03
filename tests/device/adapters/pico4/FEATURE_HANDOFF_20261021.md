@@ -28,7 +28,8 @@ V2 Actor storage now retains81 fresh groups/486 original packets under the
 unchanged512-part/16MiB limits (243main parts,256live-part highwater). The
 standalone322.257s capacity proof is not a Common effect-time proof. Fast14
 storage checks pass3.079s; the actual default Actor30 selector passes87.892s.
-The next source boundary is step3 World-envelope/native gesture ownership.
+The selected World3 extension now qualifies the first3 normal actions through
+independent source/peer facts; required image3 and later Common16 remain open.
 The retained G1 Navigation continuation now passes fresh per-role stereo and original release through two
 disjoint groups (6/95.388s and4/110.313s);20 unchanged G0/Close/Browser cases
 pass106.066s. Actual changed-eye scenes, maturity/origin and full final closure
@@ -44,7 +45,7 @@ and19 legacy Parent cases. Its new production main/factory/CLI5 Model route
 passes8/52.761s, with11 legacy source cases40.218s and12 observer cases0.043s.
 An actual persistent Parent must own the child process; the persistent RPC/
 Jenkins launcher and complete common/GPU/stereo/archive remain open.
-The central catalog contains302 disjoint groups, including the new Create
+The central catalog contains303 disjoint groups, including the new Create
 peer source group, four Avatar/Audio/Lifecycle groups, two G1 frame groups and
 the fast Actor storage group. The standalone capacity diagnostic stays outside
 default120s groups. Browser namespace and complete physical archive checks pass21 affected cases; previous complete
@@ -3364,3 +3365,21 @@ validator refuses changed grant authority after exact raw retention. No product
 behavior, deadline, source predicate or capability is relaxed. Default-layout
 Unicode, real controller trigger/Android/DOM effects, complete Parent, Actor/
 stereo and final receiver/native/VM/archive/host closure remain open.
+
+
+## Lifecycle independent World3 source selected on 2026-11-03
+
+[Original World ownership and decoded budgets](LIFECYCLE_ACTOR_WORLD_SOURCE.md)
+now join the same normal Parent and real independent Linux Actor. The actual
+Parent history restricts authorized envelopes only; original Actor-native
+Gesture/Drive/UI/Subject packets determine consumed input and effects. Full raw
+ownership bytes, physical identity and original SDK profile are archived before
+validation, with complete nested decoded bytes charged before history decode.
+Explicit staging2 reads1/2; outer snapshot1/group2/publication1 remain unchanged.
+
+World4+storage17 pass89.538s; current defaultActor31 passes92.922s under120.
+The currentWorld4+oldCommon3 manual aggregate7 passes157.139s, across disjoint
+selectors. Historical stage1/81 remains passively readable0.958s. Current-stage2
+extended81 is still running at selection and is not claimed passed or placed
+in a default group. Required image3, whole16/G1, Parent-host-death archival,
+independent stereo, typed return and full final retirement remain incomplete.

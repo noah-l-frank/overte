@@ -3,8 +3,11 @@
 This private format removes the measured V1 storage obstacle to longer Actor
 observations. It does not admit later Lifecycle recipe effects, G1, native Qt
 or SDK behavior, stereo evidence, device execution, or public feature maturity.
-Common remains version16. The current Actor still observes only the admitted
-baseline, original normal Create, and original normal type activation prefix.
+Common remains version16. The original storage checkpoint observed baseline,
+normal Create and normal type. Its current [World3 extension](LIFECYCLE_ACTOR_WORLD_SOURCE.md)
+adds the first authorized world attempt and explicit staging version2 nested
+history accounting. The measured historical storage checkpoint below remains
+source2/staging1; it is not relabeled as that later source run.
 
 V1 used14 immutable main parts for one successful six-source observation and
 publication. The previously measured nine observations used126 parts. The
@@ -151,7 +154,7 @@ in6.395s with unchanged scoped hashes. That separate decoder proof is retained
 in `~/.local/state/overte-pico-lifecycle-v2-historical-20261103-y5tuk7xg/`;
 it does not relabel the earlier producer run as a rerun of the decoder.
 
-The fast storage wrapper contains only14 cases. The81-group extended diagnostic
+At that checkpoint the fast storage wrapper contained14 cases. The81-group extended diagnostic
 has its own standalone wrapper and is not imported by the existing Actor or
 fast-storage selectors. Their default bound remains120s.
 

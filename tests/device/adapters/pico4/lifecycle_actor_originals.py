@@ -8,7 +8,7 @@ from adapters.chat_journey.source_chunks import ChatSourceChunks
 from adapters.native_feature_observation import need,integer
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.observer_return import state
-from adapters.pico4.lifecycle_actor_storage import STAGE,VERSION,decode_snapshot,snapshot_file
+from adapters.pico4.lifecycle_actor_storage import STAGE,VERSION,STAGING_READS,decode_snapshot,snapshot_file
 
 SCOPE=('picoLifecycleActorSourceVersion','runId','binding','role','stage','producerHostProcessIdentity',
     'parentHostProcessIdentity','fixtureUrl')
@@ -45,7 +45,7 @@ class ActorOriginals:
         need(type(value['lifecycleActorSourceGroupVersion']) is int
             and value['lifecycleActorSourceGroupVersion']==VERSION)
         root,entries=decode_snapshot(value['staging'])
-        need(type(root['actorStagingVersion']) is int and root['actorStagingVersion']==1
+        need(type(root['actorStagingVersion']) is int and root['actorStagingVersion'] in STAGING_READS
             and root['sourceScopeSha256']==self.history.scope
             and type(root['record']) is int and root['record']==record)
         return dict(record=deepcopy(value['record']),entries=entries,staging=deepcopy(value['staging']))
@@ -61,7 +61,7 @@ class ActorOriginals:
         store=PrivateFeatureState(self.store.path.with_name(STAGE))
         if store.read() is None:return []
         root,raw,stamp=state(store)
-        need(type(root['actorStagingVersion']) is int and root['actorStagingVersion']==1
+        need(type(root['actorStagingVersion']) is int and root['actorStagingVersion'] in STAGING_READS
             and root['sourceScopeSha256']==self.history.scope
             and type(root['record']) is int and root['record']==pending['record'])
         history=ChatSourceChunks(store,{key:root[key] for key in ('actorStagingVersion','sourceScopeSha256','record')})

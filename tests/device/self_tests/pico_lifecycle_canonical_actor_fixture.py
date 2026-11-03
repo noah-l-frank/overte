@@ -32,6 +32,7 @@ from self_tests.test_pending_commit_owner import Boundary as PendingBoundary
 from self_tests.pico_lifecycle_actor_fixture import IndependentLifecycleSources,CanonicalIndependentLifecycleSources,LifecycleProducts
 from self_tests.pico_lifecycle_actor_fixture import WORKER as ORIGINAL_WORKER
 from self_tests.test_vr_graphics_subject import framework_source
+from self_tests import test_pico_lifecycle_world as world_models
 
 
 def original_channels(adapter,target,native,channel,clock):
@@ -79,11 +80,17 @@ class CanonicalLifecycleTarget:
             controls.instance=self.os.bridge_id;controls.generation=self.os.generation
         self.controls.pid=123;self.lock=ScriptSourceLock(self.root/'script-sources.lock')
         self.path=self.root/'lifecycle-editor-owner.json'
-        self.transport=editor_models.FakeTransport();stage=self.transport.stage;status=self.transport.read_status
+        # One existing native/physics model and one existing session transport.
+        # Route normal tablet input through its original FakeTransport path;
+        # world input uses the already tested World Transport implementation.
+        self.transport=world_models.Transport(self.native,self.root/'lifecycle-world-owner.json')
+        world_stage=self.transport.stage;status=self.transport.read_status
         def tablet(envelope,profile,*,before_publish=None):
+            if envelope['commands'][0]['operation']=='input.move':
+                return world_stage(envelope,profile,before_publish=before_publish)
             owner=unpack(json.loads(self.path.read_text())['payload'])[0]
             need(owner['tablet']['envelope']==envelope)
-            result=stage(envelope,profile,before_publish=before_publish)
+            result=editor_models.FakeTransport.stage(self.transport,envelope,profile,before_publish=before_publish)
             self.native.ui.shown=self.native.ui.home=self.model.tablet=self.os.opened=True
             return result
         self.transport.stage=tablet

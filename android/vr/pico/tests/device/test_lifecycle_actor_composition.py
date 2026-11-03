@@ -129,5 +129,20 @@ class LifecycleActorCompositionTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.editor.owner.type_create()
         self.assertEqual(before,len(self.editor.os.inputs));self.assertEqual('typing',self.editor.owner.state['phase'])
 
+    def test_readonly_canonical_factory_profile_leaves_actual_session_data_and_inputs_unchanged(self):
+        state=self.editor.session.state_path
+        def physical(path):
+            info=path.stat();return (info.st_dev,info.st_ino,info.st_mode,info.st_uid,info.st_nlink,
+                info.st_size,info.st_mtime_ns,info.st_ctime_ns)
+        before=state.read_bytes(),physical(state)
+        inventory={p.name:p.read_bytes() for p in self.root.glob('session-*')}
+        self.start();self.sample()
+        self.assertEqual(before,(state.read_bytes(),physical(state)))
+        self.assertEqual(inventory,{p.name:p.read_bytes() for p in self.root.glob('session-*')})
+        self.assertEqual([],self.editor.transport.envelopes);self.assertEqual([],self.editor.os.inputs)
+        self.assertEqual({},self.native.layer)
+        original=PrivateFeatureState(self.root/'lifecycle-actor-originals.json').read()
+        self.assertEqual('before-input-create-world',original['stage'])
+
 
 if __name__=='__main__':unittest.main()

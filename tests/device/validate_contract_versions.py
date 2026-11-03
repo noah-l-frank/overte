@@ -463,7 +463,7 @@ REQUIRED = {
     "pico-lifecycle-restore-owner": 1,
     "pico-lifecycle-primary-observation": 4,
     "pico-lifecycle-primary-operations": 3,
-    "pico-lifecycle-actor-staging": 1,
+    "pico-lifecycle-actor-staging": 2,
     "pico-lifecycle-actor-staging-snapshot": 1,
     "pico-lifecycle-actor-source-group": 2,
     "pico-lifecycle-actor-publication": 1,
