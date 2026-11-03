@@ -16,6 +16,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QDateTime>
 #endif
 
 #include <algorithm>
@@ -1038,6 +1039,10 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
 
     AvatarDataPacket::HasFlags packetStateFlags;
     quint64 now = usecTimestampNow();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto originalJointParseEpoch=QCoreApplication::instance() && QCoreApplication::arguments().contains("--testScript")
+        ? QDateTime::currentMSecsSinceEpoch() : 0;
+#endif
     if (buffer.size() < static_cast<int>(sizeof(packetStateFlags))) {
         if (shouldLogError(now)) {
             qCWarning(avatars) << "AvatarData packet too small to contain flags," << buffer.size()
@@ -1561,6 +1566,9 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
         int numBytesRead = endJointSection - startSection;
         _jointDataRate.increment(numBytesRead);
         _jointDataUpdateRate.increment();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        e2eCommitJointSection("joint-data",startSection,endJointSection,numJoints,originalJointParseEpoch,now);
+#endif
 
         if (hasGrabJoints) {
             glm::vec3 leftFarGrabPosition = glm::vec3(farGrabJoints.leftFarGrabPosition[0],
@@ -1625,6 +1633,9 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
         int numBytesRead = sourceBuffer - startSection;
         _jointDefaultPoseFlagsRate.increment(numBytesRead);
         _jointDefaultPoseFlagsUpdateRate.increment();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        e2eCommitJointSection("default-flags",startSection,sourceBuffer,numJoints,originalJointParseEpoch,now);
+#endif
     }
 
     int numBytesRead = sourceBuffer - startPosition;
@@ -1635,6 +1646,31 @@ int AvatarData::parseDataFromBuffer(const QByteArray& buffer) {
 
     return numBytesRead;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void AvatarData::e2eCommitJointSection(const QString& kind,const unsigned char* begin,const unsigned char* end,
+        int joints,qint64 parsedEpochMs,quint64 parseTimestampUs) {
+    // Called only at the actual completed joint-section assignments with the
+    // original nonrecursive _jointDataLock already held. Never acquire it here.
+    if(!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) {return;}
+    const auto committed=QDateTime::currentMSecsSinceEpoch();
+    const auto previous=std::max(_e2eJointReceiveData.value("parsedEpochMs").toLongLong(),
+        _e2eJointReceiveDefaults.value("parsedEpochMs").toLongLong());
+    const auto size=end-begin;
+    if(_e2eJointReceiveFailed || (kind!="joint-data" && kind!="default-flags") || size<=0 || size>8192
+            || joints<0 || joints>256 || parsedEpochMs<=0 || committed<parsedEpochMs || parsedEpochMs<previous
+            || _e2eJointReceiveSequence>=9007199254740991ULL) {
+        _e2eJointReceiveFailed=true;_e2eJointReceiveData.clear();_e2eJointReceiveDefaults.clear();return;
+    }
+    const QByteArray raw(reinterpret_cast<const char*>(begin),static_cast<int>(size));
+    const QVariantMap original{{"kind",kind},{"sequence",static_cast<qulonglong>(++_e2eJointReceiveSequence)},
+        {"subjectSessionId",getSessionUUID().toString(QUuid::WithoutBraces)},{"jointCount",joints},
+        {"parsedEpochMs",parsedEpochMs},{"committedEpochMs",committed},{"parseTimestampUs",static_cast<qulonglong>(parseTimestampUs)},
+        {"bytes",raw.size()},{"sha256",QString::fromLatin1(QCryptographicHash::hash(raw,QCryptographicHash::Sha256).toHex())},
+        {"base64",QString::fromLatin1(raw.toBase64())}};
+    if(kind=="joint-data") {_e2eJointReceiveData=original;}else {_e2eJointReceiveDefaults=original;}
+}
+#endif
 
 /*@jsdoc
  * <p>The avatar mixer data comprises different types of data, with the data rates of each being tracked in kbps.</p>

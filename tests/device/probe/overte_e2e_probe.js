@@ -169,6 +169,8 @@
     var lastScriptRootRequest = "";
     var lastPicoWorldModelDrawsRequest = null;
     var lastAvatarRenderRequest = "";
+    var remoteAvatarRequests = {};
+    var remoteAvatarRequestCount = 0;
     var lastPicoEmoteSceneRequest = "";
     var lastPicoAvatarStateRequest = "";
     var lastPicoAvatarPreferencesRequest = "";
@@ -1298,6 +1300,27 @@
                 }
             } catch (_picoAvatarStateError) { /* Actual model generations remain unavailable. */ }
             Test.saveObject(picoAvatarState, "feature-pico-avatar-state.json");
+            return;
+        }
+
+        if (command && command.schemaVersion === 1
+                && command.action === "feature-pico-remote-avatar-observe"
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && typeof command.subjectSessionId === "string"
+                && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(command.subjectSessionId)
+                && command.subjectSessionId !== "00000000-0000-0000-0000-000000000000"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId", "subjectSessionId"])) {
+            if (remoteAvatarRequests[command.commandId] || remoteAvatarRequestCount >= 512) { return; }
+            remoteAvatarRequests[command.commandId] = true; remoteAvatarRequestCount += 1;
+            var remoteAvatar = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featurePicoRemoteAvatarObservation === "function") {
+                    var originalRemoteAvatar = Test.featurePicoRemoteAvatarObservation(command);
+                    if (originalRemoteAvatar && originalRemoteAvatar.requestId === command.commandId) { remoteAvatar = originalRemoteAvatar; }
+                }
+            } catch (_remoteAvatarError) { /* Retain original unavailability; no local-avatar substitute. */ }
+            Test.saveObject(remoteAvatar, "feature-pico-remote-avatar.json");
             return;
         }
 
@@ -2506,6 +2529,7 @@
                 || command.action === "feature-pico-avatar-preferences-observe"
                 || command.action === "feature-pico-avatar-model-connections-observe"
                 || command.action === "feature-avatar-render-observe"
+                || command.action === "feature-pico-remote-avatar-observe"
                 || command.action === "feature-pico-emote-scene-observe" || command.action === "feature-pico-emote-scene-input"
                 || command.action === "feature-pico-world-model-draws-observe"
                 || command.action === "feature-graphics-subject-observe"

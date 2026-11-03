@@ -3785,6 +3785,8 @@ def create_adapter(args, base_class):
             if self.pico_configuration is not None:
                 from adapters.pico4.emote_native_cycle_state import native_cycle_owned
                 _need(not native_cycle_owned(self, target))
+                from adapters.pico4.avatar_remote_state import retained as remote_avatar_retained
+                _need(not remote_avatar_retained(self, target))
             # Base stop remains available, but cannot retire this private
             # owner or its original normal preference/UI journals.
             snapshot_error=False

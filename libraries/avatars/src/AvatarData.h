@@ -1598,6 +1598,14 @@ protected:
     QVector<JointData> _jointData; ///< the state of the skeleton joints
     QVector<JointData> _lastSentJointData; ///< the state of the skeleton joints last time we transmitted
     mutable QReadWriteLock _jointDataLock;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Accessed only while the existing joint-data lock is held. Section commit
+    // provenance is independent of simulation/interpolation bookkeeping.
+    void e2eCommitJointSection(const QString& kind,const unsigned char* begin,const unsigned char* end,
+        int joints,qint64 parsedEpochMs,quint64 parseTimestampUs);
+    quint64 _e2eJointReceiveSequence{0};bool _e2eJointReceiveFailed{false};
+    QVariantMap _e2eJointReceiveData,_e2eJointReceiveDefaults;
+#endif
 
     // key state
     KeyState _keyState;

@@ -3427,3 +3427,21 @@ The [Chat source record](CHAT_REMOTE_ARCHIVE.md) adds a current61query component
 and a modest names-only inventory improvement, with12 affected physical/native/
 clock cases passed. No source limits, cadence, quiet window or whole cap changes.
 Source-complete remains3/14 and no device qualification is claimed.
+
+
+## Actual remote joint producer source selected on 2026-11-03
+
+[Remote Avatar originals](AVATAR_REMOTE_ORIGINALS.md) retain completed incoming
+joint-data/default-flag section bytes, original parse/commit clocks and actual
+Rig copy/external-pose sequences. Remote2 accepts the real empty local animation
+Rig observation without substituting a modeled local evaluation. Source2 pins
+the original host, original interval and explicit Avatar/Emote area; historical
+Remote1/2 and Source1/2 grant no new current ownership.
+
+The frozen owning group passes31 cases in6.204s with226 loaded source hashes and
+physical identities unchanged. Four source extraction cases check original hook
+placement, locks and unchanged non-E2E function bodies; they do not compile or
+execute native code. New native producers remain uncompiled. Changed committed
+sections plus copied-pose differences are correlation. Per-joint interpolation
+lineage, packet-to-draw causality, full independent Actor/contacts/stereo and
+final retirement remain open. Source-complete remains3/14.

@@ -23,6 +23,7 @@
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; class CreateModelResources; class AudioSettingsObservation; class AudioSettingsQueue; }
 namespace overte::e2e { class ChatPeerPosition; }
+namespace overte::e2e { class PicoRemoteAvatarObservation; struct PicoRemoteAvatarRequest; }
 namespace overte::e2e { class PicoEmoteSceneFixture; class AvatarPreferenceSnapshot; class PrivateAssetsFiles; class PicoAssetsReadJob; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
@@ -226,6 +227,7 @@ public slots:
     Q_INVOKABLE QVariantMap featurePicoAvatarBookmarkLoads(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarPreferences(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoAvatarModelConnections(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoRemoteAvatarObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePicoEmoteScene(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureGraphicsSubjectObservation(const QVariantMap& command);
@@ -322,6 +324,9 @@ private:
     quint64 _featureWorldReceiptSequence {0};
 #if defined(ANDROID_APP_PICO_INTERFACE)
     std::shared_ptr<overte::e2e::PicoEmoteSceneFixture> _featureEmoteScene;
+    QVariantMap featurePicoRemoteAvatarOriginal(const std::shared_ptr<overte::e2e::PicoRemoteAvatarRequest>& original);
+    std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureRemoteAvatarQueue;
+    std::shared_ptr<overte::e2e::PicoRemoteAvatarObservation> _featureRemoteAvatar;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentInputQueue;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featurePicoCurrentConsumptionQueue;

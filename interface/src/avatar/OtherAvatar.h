@@ -66,6 +66,9 @@ public:
 
     void simulate(float deltaTime, bool inView) override;
     void interpolateJoints();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap e2eRemoteJointPose() const;
+#endif
     void debugJointData() const;
     friend AvatarManager;
 
@@ -101,6 +104,10 @@ protected:
     std::optional<glm::vec3> _lerpServerPosition {};
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    mutable QReadWriteLock _e2eRemoteJointPoseLock;
+    QVariantMap _e2eRemoteJointPose;
+#endif
     // When determining _hasCheckedForAvatarEntities for OtherAvatars, we can set it to true in
     // handleChangedAvatarEntityData if we have avatar entities.  But we never receive explicit
     // confirmation from the avatar mixer if we don't have any.  So instead, we wait to receive

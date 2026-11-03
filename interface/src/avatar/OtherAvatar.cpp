@@ -342,12 +342,34 @@ void OtherAvatar::interpolateJoints() {
 
 finishRigSetup:
     glm::mat4 rootTransform = glm::scale(_skeletonModel->getScale()) * glm::translate(_skeletonModel->getOffset());
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto originalCopy=_skeletonModel->getRig().e2eJointCopySequence();
+#endif
     _skeletonModel->getRig().copyJointsFromJointData(_jointData);
     _skeletonModel->getRig().computeExternalPoses(rootTransform);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if(QCoreApplication::arguments().contains("--testScript")) {
+        // The original joint lock is still held: copy provenance directly,
+        // without reacquiring it or reading simulation history as a receipt.
+        const QVariantMap received{{"jointData",_e2eJointReceiveData.isEmpty()?QVariant():QVariant(_e2eJointReceiveData)},
+            {"defaultFlags",_e2eJointReceiveDefaults.isEmpty()?QVariant():QVariant(_e2eJointReceiveDefaults)}};
+        const auto geometry=_skeletonModel->getGeometry();
+        const auto pose=_skeletonModel->getRig().e2eRemoteJointPose(getSessionUUID().toString(QUuid::WithoutBraces),
+            e2eAvatarLoads().value("instance").toString(),_skeletonModel->e2eModelInstance(),
+            geometry && geometry->isHFMModelLoaded() ? geometry->e2eGeometryInstance() : QString(),originalCopy,received);
+        QWriteLocker observed(&_e2eRemoteJointPoseLock);_e2eRemoteJointPose=pose;
+    }
+#endif
     writeLock.unlock();
     locationChanged(); // joints changed, so if there are any children, update them.
     relayJointDataToChildren();
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap OtherAvatar::e2eRemoteJointPose() const {
+    QReadLocker observed(&_e2eRemoteJointPoseLock);return _e2eRemoteJointPose;
+}
+#endif
 
 void OtherAvatar::simulate(float deltaTime, bool inView) {
     PROFILE_RANGE(simulation, "simulate");

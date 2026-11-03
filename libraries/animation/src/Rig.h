@@ -24,6 +24,7 @@
 #include <ScriptValue.h>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "AnimationObservationHistory.h"
+#include "RemoteJointPoseObservation.h"
 #include <QVariantMap>
 #endif
 
@@ -214,6 +215,9 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap e2eAnimationObservation() const;
     int e2eRigId() const { return _rigId; }
+    quint64 e2eJointCopySequence() const {return _e2eRemoteJointPose.sequence();}
+    QVariantMap e2eRemoteJointPose(const QString& subject,const QString& avatar,const QString& model,const QString& geometry,
+        quint64 before,const QVariantMap& received) const {return _e2eRemoteJointPose.snapshot(subject,avatar,model,geometry,before,received);}
 #endif
     AnimNode::ConstPointer findAnimNodeByName(const QString& name) const;
     AnimSkeleton::ConstPointer getAnimSkeleton() const { return _animSkeleton; }
@@ -501,6 +505,7 @@ protected:
     mutable QReadWriteLock _e2eAnimationLock;
     QVariantMap _e2eAnimationObservation;
     overte::e2e::AnimationObservationHistory _e2eAnimationHistory;
+    overte::e2e::RemoteJointPoseObservation _e2eRemoteJointPose;
 #endif
 };
 

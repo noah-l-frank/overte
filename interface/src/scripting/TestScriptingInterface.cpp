@@ -46,6 +46,8 @@
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include <ScriptManager.h>
 #include "../../../tests/device/native/PicoEmoteSceneFixture.h"
+#include "../../../tests/device/native/PicoRemoteAvatarObservation.h"
+#include "../avatar/OtherAvatar.h"
 #include "Audio.h"
 #include <ui/Snapshot.h>
 #include <NodeList.h>
@@ -163,6 +165,8 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureAvatarPreferencesQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
         _featureAvatarPreferences=std::make_shared<overte::e2e::AvatarPreferenceSnapshot>();
         _featureAvatarModelConnectionsQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureRemoteAvatarQueue=std::make_shared<overte::e2e::AudioSettingsQueue>();
+        _featureRemoteAvatar=std::make_shared<overte::e2e::PicoRemoteAvatarObservation>();
         overte::e2e::ensureNavigationDirectoryProvider(this);
 #endif
     }
@@ -261,6 +265,96 @@ QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVarian
 }
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featurePicoRemoteAvatarObservation(const QVariantMap& command) {
+    return featurePicoRemoteAvatarOriginal(std::make_shared<overte::e2e::PicoRemoteAvatarRequest>(command));
+}
+
+QVariantMap TestScriptingInterface::featurePicoRemoteAvatarOriginal(const std::shared_ptr<overte::e2e::PicoRemoteAvatarRequest>& acquisition) {
+    const auto queue=_featureRemoteAvatarQueue;if(!queue || !_featureRemoteAvatar) {return {};}
+    if(!acquisition || !acquisition->fresh()) {return {};}
+    if(QThread::currentThread()!=thread()) {
+        const auto result=queue->read("dispatch",this,[acquisition](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoRemoteAvatarOriginal(acquisition),{}};
+        }).values;
+        return acquisition->fresh() ? result : QVariantMap{};
+    }
+    const auto& command=acquisition->command;
+    if(_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !qApp || thread()!=qApp->thread() || !overte::e2e::PicoRemoteAvatarObservation::command(command)
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())
+            || !DependencyManager::isSet<AvatarManager>() || !DependencyManager::isSet<NodeList>()
+            || !_featureRemoteAvatar->admit(command)) {return {};}
+    const auto requested=acquisition->requested;
+    const auto manager=DependencyManager::get<AvatarManager>();const auto nodes=DependencyManager::get<NodeList>();
+    const auto run=command.value("runId").toString();
+    const auto client=[run](QObject* object) {
+        auto original=qobject_cast<NodeList*>(object);if(!original) {return overte::e2e::AudioSettingsPart{};}
+        const auto begun=QDateTime::currentMSecsSinceEpoch();auto& domain=original->getDomainHandler();
+        if(original->thread()!=QThread::currentThread() || domain.thread()!=QThread::currentThread()) {return overte::e2e::AudioSettingsPart{};}
+        const QVariantMap value{{"domainId",domain.getUUID().isNull()?QVariant():QVariant(domain.getUUID().toString(QUuid::WithoutBraces))},
+            {"sessionId",original->getSessionUUID().isNull()?QVariant():QVariant(original->getSessionUUID().toString(QUuid::WithoutBraces))},
+            {"connected",domain.isConnected()},{"domainSession",domain.featureChatSession(run)}};
+        return overte::e2e::AudioSettingsPart{{{"requestedEpochMs",begun},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"identity",value}},{{"nodes",original}}};
+    };
+    const auto before=queue->read("nodes",nodes.data(),client);
+    if(!acquisition->fresh() || before.values.isEmpty() || before.objects.value("nodes")!=nodes.data()) {return {};}
+    const auto self=manager->getMyAvatar();if(!self || self->thread()!=QThread::currentThread()) {return {};}
+    const auto subjectId=QUuid(command.value("subjectSessionId").toString());
+    if(subjectId==self->getSessionUUID() || subjectId.toString(QUuid::WithoutBraces)
+            ==before.values.value("identity").toMap().value("sessionId").toString()) {return {};}
+    const auto original=manager->getAvatarBySessionID(subjectId);
+    const auto avatar=std::dynamic_pointer_cast<Avatar>(original);
+    QVariant subject;
+    if(avatar) {
+        if(avatar->thread()!=QThread::currentThread() || avatar->getSessionUUID()!=subjectId) {return {};}
+        const auto model=avatar->getSkeletonModel();
+        if(!model || model->thread()!=QThread::currentThread()
+                || !_featureRemoteAvatar->originals(nodes.data(),manager.data(),avatar,model)) {return {};}
+        const auto geometry=model->getGeometry();QVariant loaded;
+        if(geometry && geometry->isHFMModelLoaded()) {
+            const auto url=geometry->getHFMModel().originalURL.toUtf8();
+            loaded=QVariantMap{{"instance",geometry->e2eGeometryInstance()},{"sourcePresent",!url.isEmpty()},
+                {"sourceSha256",QString::fromLatin1(QCryptographicHash::hash(url,QCryptographicHash::Sha256).toHex())}};
+        }
+        const auto vec=[](const glm::vec3& v) {return QVariantList{v.x,v.y,v.z};};
+        const auto q=avatar->getWorldOrientation();
+        const auto remote=std::dynamic_pointer_cast<OtherAvatar>(original);
+        if(!remote) {return {};}
+        subject=QVariantMap{{"sessionId",avatar->getSessionUUID().toString(QUuid::WithoutBraces)},
+            {"avatarInstance",avatar->e2eAvatarLoads().value("instance")},{"modelInstance",model->e2eModelInstance()},
+            {"rigId",model->getRig().e2eRigId()},{"rig",model->getRig().e2eAnimationObservation()},
+            {"remoteJointPose",remote->e2eRemoteJointPose()},
+            {"loaded",model->isLoaded()},{"visible",model->isVisible()},{"addedToScene",model->isAddedToScene()},
+            {"avatarShouldRender",avatar->shouldRender()},{"geometry",loaded},
+            {"pose",QVariantMap{{"feetPosition",vec(avatar->getWorldFeetPosition())},
+                {"orientation",QVariantList{q.x,q.y,q.z,q.w}},{"modelScale",avatar->getModelScale()}}}};
+        if(manager->getAvatarBySessionID(subjectId)!=original || avatar->getSkeletonModel()!=model || model->getGeometry()!=geometry) {return {};}
+    }
+    const auto context=qApp->getGPUContext();
+    const QVariant renderer=context ? QVariant(context->featureWorldRender()->instance()) : QVariant();
+    const auto& camera=qApp->getCamera();ViewFrustum frustum;camera.loadViewFrustum(frustum);
+    QVariantList projection;const auto& matrix=frustum.getProjection();
+    for(int row=0;row<4;++row) {for(int column=0;column<4;++column) {projection.append(matrix[column][row]);}}
+    const auto p=frustum.getPosition();const auto q=frustum.getOrientation();
+    const QVariantMap view{{"position",QVariantList{p.x,p.y,p.z}},{"rotation",QVariantList{q.x,q.y,q.z,q.w}},
+        {"projection",projection},{"fieldOfViewDegrees",frustum.getFieldOfView()},{"aspectRatio",frustum.getAspectRatio()},
+        {"nearClip",frustum.getNearClip()},{"farClip",frustum.getFarClip()},{"perspective",frustum.isPerspective()}};
+    const auto after=queue->read("nodes",nodes.data(),client);
+    if(!acquisition->fresh() || after.values.isEmpty() || after.objects.value("nodes")!=nodes.data()
+            || after.values.value("identity")!=before.values.value("identity")
+            || DependencyManager::get<NodeList>()!=nodes || DependencyManager::get<AvatarManager>()!=manager
+            || manager->getMyAvatar()!=self || manager->getAvatarBySessionID(subjectId)!=original || qApp->getGPUContext()!=context
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
+    if(avatar && !_featureRemoteAvatar->originals(nodes.data(),manager.data(),avatar,avatar->getSkeletonModel())) {return {};}
+    const QVariantMap source{{"picoRemoteAvatarVersion",2},{"runId",run},{"clientBefore",before.values},{"clientAfter",after.values},
+        {"selfSessionId",self->getSessionUUID().toString(QUuid::WithoutBraces)},
+        {"subjectSessionId",command.value("subjectSessionId")},{"subject",subject},{"worldRenderInstance",renderer},
+        {"cameraMode",camera.getModeString()},{"view",view}};
+    const auto result=_featureRemoteAvatar->publish(command,_featureObservationInstance,requested,source);
+    const bool bounded=QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()<=196608;
+    return bounded && acquisition->fresh() ? result : QVariantMap{};
+}
+
 QVariantMap TestScriptingInterface::featurePicoAvatarModelConnections(const QVariantMap& command) {
     const auto queue=_featureAvatarModelConnectionsQueue;if(!queue) {return {};}
     if(QThread::currentThread()!=thread()) {

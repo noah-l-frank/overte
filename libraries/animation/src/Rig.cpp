@@ -2765,6 +2765,9 @@ void Rig::copyJointsIntoJointData(QVector<JointData>& jointDataVec) const {
 void Rig::copyJointsFromJointData(const QVector<JointData>& jointDataVec) {
     DETAILED_PROFILE_RANGE(simulation_animation_detail, "copyJoints");
     DETAILED_PERFORMANCE_TIMER("copyJoints");
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto originalCopy=_e2eRemoteJointPose.begin(_rigId,jointDataVec.size(),_animSkeleton ? _animSkeleton->getNumJoints() : -1);
+#endif
 
     if (!_animSkeleton) {
         return;
@@ -2810,6 +2813,16 @@ void Rig::copyJointsFromJointData(const QVector<JointData>& jointDataVec) {
             _internalPoseSet._relativePoses[i].trans() = data.translation;
         }
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if(originalCopy) {
+        QVariantList relative;
+        for(size_t index=0;index<std::min<size_t>(256,_internalPoseSet._relativePoses.size());++index) {
+            const auto& pose=_internalPoseSet._relativePoses[index];const auto& q=pose.rot();const auto& p=pose.trans();
+            relative.append(QVariant(QVariantList{q.x,q.y,q.z,q.w,p.x,p.y,p.z}));
+        }
+        _e2eRemoteJointPose.copied(originalCopy,relative);
+    }
+#endif
 }
 
 void Rig::computeExternalPoses(const glm::mat4& modelOffsetMat) {
@@ -2820,6 +2833,17 @@ void Rig::computeExternalPoses(const glm::mat4& modelOffsetMat) {
     buildAbsoluteRigPoses(_internalPoseSet._relativePoses, _internalPoseSet._absolutePoses);
     QWriteLocker writeLock(&_externalPoseSetLock);
     _externalPoseSet = _internalPoseSet;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if(_e2eRemoteJointPose.pendingExternal()) {
+        QVariantList relative,absolute;
+        const auto sample=[](const AnimPose& pose) {
+            const auto& q=pose.rot();const auto& p=pose.trans();return QVariant(QVariantList{q.x,q.y,q.z,q.w,p.x,p.y,p.z});
+        };
+        for(size_t index=0;index<std::min<size_t>(256,_externalPoseSet._relativePoses.size());++index) {relative.append(sample(_externalPoseSet._relativePoses[index]));}
+        for(size_t index=0;index<std::min<size_t>(256,_externalPoseSet._absolutePoses.size());++index) {absolute.append(sample(_externalPoseSet._absolutePoses[index]));}
+        _e2eRemoteJointPose.external(relative,absolute);
+    }
+#endif
 }
 
 void Rig::computeAvatarBoundingCapsule(

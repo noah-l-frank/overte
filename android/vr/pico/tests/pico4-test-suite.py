@@ -283,6 +283,7 @@ TESTS = (
     test("avatar-parent-fences", "interaction", PYTHON, "device/test_avatar_parent_owner.py", "AvatarParentOwnerTests"),
     test("avatar-people-source-owner", "interaction", PYTHON, "device/test_avatar_people_owner.py", requires=("node",)),
     test("avatar-people-source-binding", "interaction", PYTHON, "device/test_avatar_people_binding.py", requires=("node",)),
+    test("avatar-remote-originals", "interaction", PYTHON, "device/test_avatar_remote.py", requires=("node",)),
     test("avatar-state-native", "interaction", PYTHON, "device/test_avatar_state_native.py", requires=("c++", "pkg-config")),
     test('avatar-urls-owner', "interaction", PYTHON, "device/test_avatar_urls_owner.py",
         'AvatarUrlsTests.test_normal_paging_url_failure_original_restore_and_retained_owner',
