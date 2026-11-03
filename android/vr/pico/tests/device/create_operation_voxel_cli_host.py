@@ -15,19 +15,18 @@ import test_create_voxel_owner as voxel
 
 
 class VoxelFixture(original.CreateJourneyTests):
-    def setUp(self):
-        def prepare():
-            primitive.initialize(self.b)
-            # The existing v5 producer already records real model/voxel births.
-            # Preserve its complete source instead of the Model-only v4 facade.
-            self.b.domain_births=self.b.creation_times
-            voxel.CreateVoxelJourneyTests._before_prepare(self)
-            from unittest.mock import patch
-            boundary=original.NativeBoundary
-            source=patch.object(original,'NativeBoundary',lambda path:boundary(path,clock_ms=self.b.epoch))
-            source.start();self.addCleanup(source.stop)
-        self._before_prepare=prepare
-        primitive.CreatePrimitiveJourneyTests.setUp(self)
+    def _before_prepare(self):
+        primitive.initialize(self.b)
+        # The existing v5 producer already records real model/voxel births.
+        # Preserve its complete source instead of the Model-only v4 facade.
+        self.b.domain_births=self.b.creation_times
+        voxel.CreateVoxelJourneyTests._before_prepare(self)
+        from unittest.mock import patch
+        boundary=original.NativeBoundary
+        source=patch.object(original,'NativeBoundary',lambda path:boundary(path,clock_ms=self.b.epoch))
+        source.start();self.addCleanup(source.stop)
+
+    def setUp(self):primitive.CreatePrimitiveJourneyTests.setUp(self)
 
 
 class VoxelAdapter(host.ModelAdapter):

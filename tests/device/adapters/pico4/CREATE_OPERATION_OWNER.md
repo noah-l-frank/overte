@@ -208,3 +208,47 @@ selector retains its original Model child, separately from the new15 component.
 Full independent Create Actor, all21 actions/permissions, native/pixel/device
 qualification and complete final retirement remain open. Catalog338 adds one
 new group; no feature is promoted.
+
+
+## Same-host complete normal action sequence (model component)
+
+`create-operation-full-prefix` executes all21 unchanged normal actions through
+one actual CLI/adapter/Parent and its original input contexts. It composes the
+existing volume and denial/retry owners. The real fixture runner performs the
+original Settings controller's HTTP writes; the adapter has read-only fixture
+access. The explicit native model independently reads the actual Settings HTTP
+endpoint, not the provider's acknowledgment. It records a new local Cube birth
+only after the normal Shape control. The original domain rows restore through
+normal runner cleanup; successful replies alone cannot prove an effect.
+
+The explicit producer clock is sampled at each actual Settings acquisition and
+published as its own private CAS original. Both existing controller/provider
+clocks read that actual clock. This fixes the first failed composition's stale
+outer-last-sample clock; it does not change any previously returned packet,
+activation time, deadline or production clock. No actual Domain starts. All
+Settings/controller/fixture servers and their process stub are owned host models.
+
+The first coherent positive passes46.778s/240 loaded sources unchanged. The
+later four-case scope has3 passes (all21, the current15 and actual file-clock
+counter) and1 error in78.523s, with241 sources unchanged: its negative expected
+RuntimeError although the real fixture's HTTP503 raises ValueError. That scope
+remains RED. After correcting only that assertion, the current negative passes
+1/16.680s/240 unchanged sources. It performs exactly one ignored Settings POST,
+never sends the sixteenth Parent input, retains both pending journals and
+refuses later transport before replay. The positive method and all producer
+implementations are byte-identical; no positive rerun is claimed after this
+assertion-only change. Three terminal host source receipts cover246 sources in
+the earlier scope, and the current negative's receipt covers246; all match their
+initial and final SHA/eight-field signatures. Five earlier and two current known
+original host/process-stub identities are kernel-absent. Namespaces survive.
+
+Normal actions and original Settings restore succeed; native dialog context
+retirement still correctly refuses. The source audit shows that
+`NativeFileBrowser.qml` schedules `root.destroy()` and the native source reports
+actual weak context lifetime separately. The existing native harness checks
+that lifetime as an observed Boolean; it does not prove context death. No QML
+product change, assumed context destruction or new compiler run is selected.
+Full Common observation, independent whole Create Actor/stereo, actual Qt/device
+qualification and global archive/resource retirement remain open. Catalog339
+selects only the two explicit current cases via `load_tests`; imported/inherited
+fixture tests do not enter this new group.

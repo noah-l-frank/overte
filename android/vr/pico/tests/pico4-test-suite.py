@@ -341,6 +341,7 @@ TESTS = (
     test("create-operation-binding", "interaction", PYTHON, "device/test_create_operation_binding.py"),
     test("create-operation-prefix", "interaction", PYTHON, "device/test_create_operation_prefix.py"),
     test("create-operation-voxel-prefix", "interaction", PYTHON, "device/test_create_operation_voxel_prefix.py"),
+    test("create-operation-full-prefix", "interaction", PYTHON, "device/test_create_operation_full_prefix.py"),
     test('snapshot-close-originals', "interaction", PYTHON, "device/test_snapshot_close_originals.py"),
     test('assets-prefix', "interaction", PYTHON, "device/test_assets_prefix.py"),
     test('assets-raw-archive', "interaction", PYTHON, "device/test_assets_raw_archive.py"),

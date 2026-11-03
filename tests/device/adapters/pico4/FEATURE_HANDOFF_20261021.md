@@ -3610,3 +3610,18 @@ it does not observe the later PolyVox world. The15action component has no Actor/
 GPU claim and still correctly refuses its retained modeled Qt context at cleanup.
 Catalog338 adds one disjoint2case group. All21actions/permission/fullActor/stereo/
 globalretirement remain open; source-complete stays3/14.
+
+
+## All21 normal Create actions in the same CLI selected on 2026-11-03
+
+The [same original Create owner](CREATE_OPERATION_OWNER.md) now composes all21
+normal actions with actual controlled Settings/fixture HTTP and existing source
+models. Original permissions restore. A positive component passes46.778s/240
+stable sources. A later current-producer group has3passes+1wrong-exception-type
+error (78.523s/241stable) and remains RED. Correcting only that negative assertion
+produces1/16.680s/240stable: one ignoredPOST, zero16thParentinput, no replay. The
+positive method/producer bytes are unchanged; no positive rerun after the test
+assertion delta is claimed. Actual host receipts246sources and seven known
+host/stub process absences verify. Context retirement still refuses. Catalog339
+adds one explicit2case group; whole Common/Actor/stereo/Qt/device/globalretirement
+remain open. Source-complete stays3/14.
