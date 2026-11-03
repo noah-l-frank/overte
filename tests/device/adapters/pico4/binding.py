@@ -1162,6 +1162,15 @@ def create_adapter(args, base_class):
                 configured_url=os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL')),run,'create')
             return PicoCreateJourney(self,target,run,source)
 
+        @_private
+        def _create_operation_owner(self,target,run,fixture_url):
+            from feature_journeys.contract import identifier
+            from adapters.pico4.create_operation_owner import PicoCreateOperationOwner
+            identifier(run)
+            _need(self.pico_configuration is not None and bool(os.environ.get('OVERTE_PICO_FEATURE_FIXTURE_CONFIG'))
+                and type(fixture_url) is str and fixture_url.endswith('/runs/'+run+'/'))
+            return PicoCreateOperationOwner(self,target,run,fixture_url)
+
         def _create_feature_owned(self, target):
             from adapters.pico4.create_journey import PicoCreateJourney
             return PicoCreateJourney.owned_target(self,target)
@@ -3881,6 +3890,8 @@ def create_adapter(args, base_class):
             # normal inputs and originals. Generic teardown cannot retire it.
             # Check before any product query, input or base application stop.
             if self.pico_configuration is not None:
+                from adapters.pico4.create_operation_owner import retained as create_operation_retained
+                _need(not create_operation_retained(self, target))
                 from adapters.pico4.emote_native_cycle_state import native_cycle_owned
                 _need(not native_cycle_owned(self, target))
                 from adapters.pico4.avatar_remote_state import retained as remote_avatar_retained

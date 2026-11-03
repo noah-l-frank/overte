@@ -116,10 +116,46 @@ class PicoOperationHost:
             sources=[dict(path=str(pin.path),sha256=pin.digest,physical=pin.stamp) for pin in self.pins]))
     def invoke(self,manifest,target,operation,arguments=None):
         started=time.monotonic();deadline=started+timeout_for(operation)
+        held=getattr(self,'_create_action_budget',None)
+        if held is not None:deadline=min(deadline,held['deadlineMonotonic'])
+        fields=dict(picoOperationRequestVersion=1,requestId=uuid.uuid4().hex,operation=operation,arguments={} if arguments is None else arguments,deadlineMonotonic=deadline)
+        return self._exchange(manifest,target,fields,started,deadline)
+
+    def create_component(self,run,fixture_url,operation,arguments=None,*,budget=None):
+        now=time.monotonic();held=getattr(self,'_create_action_budget',None)
+        selected=budget if budget is not None else held if held is not None else dict(id=uuid.uuid4().hex,startedMonotonic=now,deadlineMonotonic=now+60)
+        fields=dict(picoCreateOperationRequestVersion=1,requestId=uuid.uuid4().hex,runId=run,fixtureUrl=fixture_url,operation=operation,budget=selected,arguments=arguments)
+        return self._exchange(self.manifest,self.target,fields,selected['startedMonotonic'],selected['deadlineMonotonic'],private=True)
+
+    @contextmanager
+    def create_input_context(self,run,fixture_url,operation,arguments):
+        need(getattr(self,'_create_action_budget',None) is None)
+        started=time.monotonic();budget=dict(id=uuid.uuid4().hex,startedMonotonic=started,deadlineMonotonic=started+60)
+        self._create_action_budget=budget;entered=False;original_error=None
+        try:
+            self.create_component(run,fixture_url,'input.begin',dict(operation=operation,arguments=arguments),budget=budget);entered=True
+            yield budget
+        except BaseException as error:
+            original_error=error;raise
+        finally:
+            try:
+                if entered and not self.failed:self.create_component(run,fixture_url,'input.end',None,budget=budget)
+            except BaseException:
+                self.failed=True;self.abort()
+                if original_error is None:raise
+            finally:
+                self._create_action_budget=None
+                if self.failed:self.abort()
+
+    def _exchange(self,manifest,target,fields,started,deadline,*,private=False):
+        operation=fields['operation']
         try:
             self.guard();need(Path(manifest).absolute()==self.manifest and target==self.target)
-            fields=dict(picoOperationRequestVersion=1,requestId=uuid.uuid4().hex,operation=operation,arguments={} if arguments is None else arguments,deadlineMonotonic=deadline)
-            request(fields);raw=dto_bytes(fields,REQUEST_LIMIT)
+            if private:
+                from adapters.pico4.create_operation_protocol import validate
+                validate(fields)
+            else:request(fields)
+            raw=dto_bytes(fields,REQUEST_LIMIT)
             if self.process is None:self.first_started=started;self.start(deadline)
             self.guard();self.remaining(deadline)
             self.pending_request=raw;self.sent_bytes=0
@@ -157,11 +193,16 @@ class PicoOperationHost:
             self.archive.finish(dict(picoOperationReceiptVersion=1,request=request_original,response=response_parts,stderr=error_parts,
                 responseBytes=len(acquired),responseSha256=hashlib.sha256(acquired).hexdigest(),requestId=fields['requestId']))
             reply=decode(acquired,RESPONSE_LIMIT)
-            need(set(reply)=={'picoOperationReplyVersion','requestId','hostProcessIdentity','parentHostProcessIdentity','result'}
-                and type(reply['picoOperationReplyVersion']) is int and reply['picoOperationReplyVersion']==1 and reply['requestId']==fields['requestId']
+            version='picoCreateOperationReplyVersion' if private else 'picoOperationReplyVersion'
+            need(set(reply)=={version,'requestId','hostProcessIdentity','parentHostProcessIdentity','result'}|({'componentOnly','completeCommonObservation'} if private else set())
+                and type(reply[version]) is int and reply[version]==1 and reply['requestId']==fields['requestId']
                 and reply['hostProcessIdentity']==self.process_identity and reply['parentHostProcessIdentity']==self.host)
-            from contracts import validate_operation_result
-            value=validate_operation_result(operation,reply['result']);self.guard();self.archive.guard();self.remaining(deadline);self.count+=1;self.pending_request=None
+            if private:
+                need(reply['componentOnly'] is True and reply['completeCommonObservation'] is False);value=reply['result']
+            else:
+                from contracts import validate_operation_result
+                value=validate_operation_result(operation,reply['result'])
+            self.guard();self.archive.guard();self.remaining(deadline);self.count+=1;self.pending_request=None
             return value
         except BaseException:
             self.failed=True;UNCERTAIN.append(self)

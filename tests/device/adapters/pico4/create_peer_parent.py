@@ -196,6 +196,11 @@ class CreatePeerParent:
     def peer_cleanup_ready(self):
         value=self.peer_state()
         if value is not None:
+            if value['phase']=='issued':
+                # A fixed warm coordinator may identify only this original
+                # live-worker dependency. Returning cannot relax the guard.
+                pending=getattr(self,'_operation_pending_peer',None)
+                if pending is not None:pending(value)
             need(value['phase']=='returned');admit_return(value['payload'].encode(),value['sourceStamp'],value['scope'],historical=True)
             if value['createPeerParentVersion']==2:
                 from adapters.pico4.create_peer_actor import validate_worker

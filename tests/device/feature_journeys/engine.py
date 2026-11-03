@@ -1,6 +1,7 @@
 """Common bounded feature execution with independent observations and cleanup."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from contextlib import nullcontext
 from copy import deepcopy
 import hashlib
 import json
@@ -31,7 +32,7 @@ def matches(actual, expected):
 class Journey:
     def __init__(self, area, run, fixture_url, *, invoke, witness, activate,
                  read_artifact, image_policy, continuity, monotonic, epoch_ms, sleep, report, navigation_source=None,
-                 after_cleanup_baseline=None):
+                 after_cleanup_baseline=None,input_context=None):
         if area not in SCENARIOS:
             raise ValueError('Unknown common feature area')
         self.area, self.run, self.url = area, identifier(run), fixture_url
@@ -75,6 +76,16 @@ class Journey:
         self.after_cleanup_baseline=after_cleanup_baseline
         self.cleanup_consumption=None;self.cleanup_hook_started=False;self.cleanup_wait_consumption=None
         self._cleanup_sequence_succeeded=False
+        if input_context is not None and not callable(input_context):raise ValueError('Feature input context must be callable')
+        self.input_context=input_context
+
+    def input_scope(self,kind,fields=None):
+        # Only normal input fields cross this optional seam. Expected recipe,
+        # witness, image policy and product assertions stay in this module.
+        if self.input_context is None:return nullcontext()
+        if kind not in ('prepare','act','cleanup'):raise ValueError('Unknown feature input context')
+        request=None if kind!='act' else dict(contractVersion=VERSION,runId=self.run,**fields)
+        return self.input_context(kind,request)
 
     def now(self):
         value = number(self.monotonic())
@@ -461,8 +472,9 @@ class Journey:
         cleanup_enabled = False
         try:
             initial = secrets.token_hex(16)
-            self.activate(initial)
-            barrier = number(self.epoch_ms(), 1)
+            with self.input_scope('prepare'):
+                self.activate(initial)
+                barrier = number(self.epoch_ms(), 1)
             if measured:
                 candidate = self.observe(initial, barrier)
                 if not matches({key: candidate['state'][key] for key in expected_baseline if key not in measured},
@@ -492,11 +504,13 @@ class Journey:
                     for attempt in range(24):
                         for verb in ('cancel', 'sit'):
                             ticket = secrets.token_hex(16)
-                            self.activate(ticket, verb, {})
-                            barrier = number(self.epoch_ms(), 1)
-                            self.continuity('before', verb)
-                            self.call('act', dict(verb=verb, inputs={}, ticket=ticket, fixtureUrl=self.url))
-                            self.continuity('after', verb)
+                            fields=dict(verb=verb,inputs={},ticket=ticket,fixtureUrl=self.url)
+                            with self.input_scope('act',fields):
+                                self.activate(ticket, verb, {})
+                                barrier = number(self.epoch_ms(), 1)
+                                self.continuity('before', verb)
+                                self.call('act', fields)
+                                self.continuity('after', verb)
                             expected = expand(step['state'], context(self.run))
                             if verb == 'cancel':
                                 expected.update(animation='idle', sit='none', override=False, poseProgress=0.0,
@@ -511,21 +525,22 @@ class Journey:
                         raise AssertionError('Normal Sit did not expose all three actual variants within 24 attempts')
                     continue
                 ticket = secrets.token_hex(16)
-                self.activate(ticket, step['verb'], expand(step['inputs'], context(self.run)))
-                # Capture host-side action barrier; no assertion or checkpoint is
-                # ever sent to the adapter or independent observer process.
-                barrier = number(self.epoch_ms(), 1)
-                self.required_lifecycle = self.lifecycle.copy()
-                if step['verb'] == 'restart-app':
-                    self.required_lifecycle['launches'] += 1
-                    self.required_lifecycle['activations'] += 1
-                elif step['verb'] == 'background-resume':
-                    self.required_lifecycle['backgrounds'] += 1
-                    self.required_lifecycle['activations'] += 1
-                self.continuity('before', step['verb'])
-                self.call('act', dict(verb=step['verb'], inputs=expand(step['inputs'], context(self.run)),
-                                     ticket=ticket, fixtureUrl=self.url))
-                self.continuity('after', step['verb'])
+                fields=dict(verb=step['verb'],inputs=expand(step['inputs'],context(self.run)),ticket=ticket,fixtureUrl=self.url)
+                with self.input_scope('act',fields):
+                    self.activate(ticket, step['verb'], fields['inputs'])
+                    # Capture host-side action barrier; no assertion or checkpoint is
+                    # ever sent to the adapter or independent observer process.
+                    barrier = number(self.epoch_ms(), 1)
+                    self.required_lifecycle = self.lifecycle.copy()
+                    if step['verb'] == 'restart-app':
+                        self.required_lifecycle['launches'] += 1
+                        self.required_lifecycle['activations'] += 1
+                    elif step['verb'] == 'background-resume':
+                        self.required_lifecycle['backgrounds'] += 1
+                        self.required_lifecycle['activations'] += 1
+                    self.continuity('before', step['verb'])
+                    self.call('act',fields)
+                    self.continuity('after', step['verb'])
                 if self.area == 'create' and step['verb'] == 'model-create':
                     self.model_ticket = ticket
                 if self.area == 'create' and step['verb'] == 'apply-texture':
@@ -555,13 +570,14 @@ class Journey:
             if cleanup_enabled:
                 try:
                     ticket = secrets.token_hex(16)
-                    self.activate(ticket, 'cleanup', {})
-                    barrier = number(self.epoch_ms(), 1)
-                    self.required_lifecycle = None;self.system_ui=False;self.browser_transition=None;self.navigation_required=None
-                    self.call('cleanup')
-                    # Idempotence must be real. Two acknowledgments alone cannot
-                    # establish removal or restoration of the initial state.
-                    self.call('cleanup')
+                    with self.input_scope('cleanup'):
+                        self.activate(ticket, 'cleanup', {})
+                        barrier = number(self.epoch_ms(), 1)
+                        self.required_lifecycle = None;self.system_ui=False;self.browser_transition=None;self.navigation_required=None
+                        self.call('cleanup')
+                        # Idempotence must be real. Two acknowledgments alone cannot
+                        # establish removal or restoration of the initial state.
+                        self.call('cleanup')
                     cleanup_baseline=dict(expected_baseline)
                     if self.area=='lifecycle-input':
                         # Original event history remains immutable after its

@@ -484,7 +484,20 @@
         "tests/device/adapters/pico4/operation_host.py",
         "tests/device/adapters/pico4/operation_archive.py",
         "tests/device/adapters/pico4/CREATE_OPERATION_HOST.md",
-        "android/vr/pico/tests/device/test_create_operation_host.py"
+        "android/vr/pico/tests/device/test_create_operation_host.py",
+        "tests/device/feature_journeys/engine.py",
+        "tests/device/overte_session.py",
+        "tests/device/adapters/pico4/create_operation_owner.py",
+        "tests/device/adapters/pico4/create_operation_protocol.py",
+        "android/vr/pico/tests/device/test_create_operation_owner.py",
+        "android/vr/pico/tests/device/create_operation_peer_host.py",
+        "android/vr/pico/tests/device/create_operation_cli_host.py",
+        "android/vr/pico/tests/device/test_create_operation_cli.py",
+        "android/vr/pico/tests/device/test_create_operation_binding.py",
+        "tests/device/self_tests/test_pico_create_operation_engine.py",
+        "tests/device/adapters/pico4/CREATE_OPERATION_OWNER.md",
+        "tests/device/adapters/pico4/binding.py",
+        "android/vr/pico/tests/device/test_create_operation_engine.py"
       ],
       "declaredCheckpoints": 21,
       "inputVerbs": [

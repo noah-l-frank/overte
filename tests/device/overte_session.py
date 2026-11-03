@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 import hashlib
 import math
@@ -128,6 +129,16 @@ class OverteSession:
         from adapter_client import operation_host
         from module_support import MANIFEST, TARGET
         return operation_host(MANIFEST, TARGET, artifacts)
+
+    @contextmanager
+    def create_input_context(self,run,fixture_url,operation,arguments=None):
+        """Explicit private Create scope; no generic observer or capability."""
+        from adapter_operation_host import ACTIVE
+        owner=ACTIVE.get()
+        if owner is None:raise InfrastructureError('Original Pico operation context is required')
+        with owner.create_input_context(run,fixture_url,operation,arguments):
+            yield
+            if operation=='prepare':owner.create_component(run,fixture_url,'prepare')
 
     def feature_operation(self, area: str, kind: str, fields: dict) -> dict:
         """Use the versioned normal-feature seam without platform knowledge."""
