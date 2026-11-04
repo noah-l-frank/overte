@@ -12,6 +12,21 @@ receipt and framing together retain the existing one-MiB maximum. Extents are
 absolute offsets into that same original SDK literal; no full body slice is
 made. The existing lexical Wire1 defaults and original format remain separate.
 
+The SDK collector waits for both the actual matching receipt nonce and the
+absence of the publisher's pending marker, including dangling symlinks. Receipt
+bytes become visible before the writer finishes marker close/unlink and directory
+fsync; reading at that point can correctly fail the later directory stamp fence.
+The wait uses the same command, bounded 50 retries, 50 ms pacing and original
+five-second acquisition window. It does not republish, retry an issued SDK read
+or renew a clock. All original process, file, directory, control and final marker
+checks remain in place. Host counters use actual owned files and the fixed shell:
+no stdout while the matching receipt is visible with a marker, success after
+actual unlink/fsync, and bounded refusal for retained or dangling-link markers.
+Exact stdout is retained by the existing Raw writer before framing or assertions;
+completion and custody assertions run outside lock exception normalization.
+These are transport tests with declared packets, not native execution or a
+current Emote effect or whole-feature qualification.
+
 The Native assembler calls the original roots-before, script, inventory,
 native, roots-after and the SAME `NavigationUi` observer. Each builder retains
 its actual request ID, sequence and source time. Native pending keeps the first

@@ -77,7 +77,11 @@ tx_attempt=0
 while [ "$tx_attempt" -le 50 ]; do
     [ "$(tx_identity)" = "$tx_original_identity" ] || exit 1
     if [ -f "$tx_receipt" ] && [ ! -L "$tx_receipt" ]; then
-        if head -c 4097 "$tx_receipt" | grep -F '"commandId":"'"$tx_nonce"'"' >/dev/null; then break; fi
+        if head -c 4097 "$tx_receipt" | grep -F '"commandId":"'"$tx_nonce"'"' >/dev/null; then
+            # Visible receipt bytes precede the publisher's final marker unlink.
+            # Wait within this SAME command/timeout for actual publication end.
+            if [ ! -e "$tx_root/feature-pico-emote-capture-pending.json" ] && [ ! -L "$tx_root/feature-pico-emote-capture-pending.json" ]; then break; fi
+        fi
     fi
     tx_attempt=$((tx_attempt+1))
     [ "$tx_attempt" -le 50 ] || exit 1

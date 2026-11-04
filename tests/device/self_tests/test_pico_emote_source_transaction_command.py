@@ -7,6 +7,8 @@ existing intentionally unqualified wire model; this scope proves transport.
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
 import os
+import select
+import time
 from pathlib import Path
 import shlex
 import subprocess
@@ -16,6 +18,7 @@ from types import SimpleNamespace
 import unittest
 
 from adapters.normal_ui import NativeUIError
+from adapters.chat_journey.archive_file import signature
 from adapters.pico4 import emote_source_transaction_command as source
 from adapters.pico4.emote_source_transaction_wire import SIDE_LIMIT
 from adapters.pico4.emote_source_transaction_profile import PicoEmoteSourceProfile,SLOT
@@ -26,6 +29,7 @@ from adapters.script_journey.history import canonical
 from self_tests import test_pico_emote_source_transaction_wire as original
 
 RETAINED=[]
+READINESS=[]
 PRODUCER=r'''
 import hashlib,json,os,pathlib,sys,time
 root=pathlib.Path(sys.argv[1]);body=sys.stdin.buffer.read()
@@ -241,6 +245,98 @@ class SourceTransactionCommandTests(unittest.TestCase):
             owner.reply_parser=lambda wire,value:({}, {})
             with self.assertRaises(NativeUIError):owner.read(f.command)
             self.assertEqual(0,self.calls);self.assertIsNone(owner.reference)
+
+
+    def publication_readiness(self,mode):
+        f=self.fixture;root=self.root/'files/overte-e2e';marker=root/'feature-pico-emote-capture-pending.json'
+        identity=self.identity(os.getpid());args,stdin=source.command(f.command,identity);argv=shlex.split(args[1])
+        self.assertEqual(['exec-out'],args[:1]);self.assertEqual(['run-as','org.overte.pico','sh','-c'],argv[:4])
+        facts={}
+        def marker_snapshot():
+            return os.readlink(marker).encode() if mode=='dangling' else marker.read_bytes()
+        with f.lock.held():
+            # Same existing raw writer and unchanged guaranteed slot BEFORE SDK.
+            token=f.raw.reserve('declared-source-sdk',f.command,source.WIRE_LIMIT,side_bytes=0)
+            self.calls+=1
+            child=subprocess.Popen(['sh','-c',argv[4],*argv[5:]],cwd=self.root,
+                stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            self.children.append(child);child.stdin.write(stdin);child.stdin.close();child.stdin=None
+            # No source is published until the actual one command exists.
+            control=root/'android-control-command.json';until=time.monotonic()+1
+            while time.monotonic()<until:
+                if control.is_file() and control.read_bytes()==stdin:break
+                time.sleep(.001)
+            else:raise RuntimeError('Actual original command was not published')
+            target=None
+            if mode=='dangling':
+                target=root/'never-created-owned-marker-target'
+                marker.symlink_to(target.name)
+            else:
+                with marker.open('xb') as stream:
+                    os.chmod(marker,0o600);stream.write(f.command['commandId'].encode()+b'\n' +b'0'*64+b'\n')
+                    stream.flush();os.fsync(stream.fileno())
+            directory=os.open(root,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
+            try:
+                os.fsync(directory)
+                marker_stamp=signature(marker.lstat());marker_bytes=marker_snapshot()
+                wire,receipt=self.seeded_originals()
+                # Record actual facts only. ALL completion/custody assertions
+                # are outside SourceLock's exception-normalization context.
+                receipt_raw=receipt.read_bytes();receipt_hash=hashlib.sha256(receipt_raw).hexdigest()
+                facts['matchingReceiptVisible']=b'"commandId":"'+f.command['commandId'].encode()+b'"' in receipt_raw
+                visible,_,_=select.select([child.stdout],[],[],.15)
+                facts['stdoutReadyWhileHeld']=bool(visible);facts['childExitWhileHeld']=child.poll()
+                facts['markerStampBeforeRelease']=signature(marker.lstat());facts['markerBytesBeforeRelease']=marker_snapshot()
+                if mode=='release':
+                    os.unlink(marker.name,dir_fd=directory);os.fsync(directory)
+                returned,stderr=child.communicate(timeout=5)
+                # Exact bytes durable BEFORE physical framing/JSON/outcome checks.
+                reference=f.raw.retain(token,returned)
+                facts['reopenedLiteral']=f.raw.literal(reference)
+                facts['receiptHashAfter']=hashlib.sha256(receipt.read_bytes()).hexdigest()
+                facts['actualCommands']=self.calls;facts['actualControl']=control.read_bytes()
+                facts['exitCode']=child.returncode;facts['stdout']=returned;facts['stderr']=stderr
+                if mode=='release':
+                    facts['markerExistsAfter']=marker.exists();facts['markerSymlinkAfter']=marker.is_symlink()
+                    if child.returncode==0:
+                        proof=source.envelope(returned,f.command['commandId'],identity)
+                        facts['originalBodyEqual']=f.literal==memoryview(returned)[proof.offset:proof.offset+proof.size]
+                else:
+                    facts['markerStampAfter']=signature(marker.lstat());facts['markerBytesAfter']=marker_snapshot()
+                    facts['markerLinkAfter']=None if target is None else os.readlink(marker)
+            finally:os.close(directory)
+        # These are genuine outer test verdicts; no SourceLock/Parent.act can
+        # normalize or swallow a failed assertion as an expected runtime refusal.
+        self.assertTrue(facts['matchingReceiptVisible'])
+        self.assertFalse(facts['stdoutReadyWhileHeld']);self.assertIsNone(facts['childExitWhileHeld'])
+        self.assertEqual(marker_stamp,facts['markerStampBeforeRelease']);self.assertEqual(marker_bytes,facts['markerBytesBeforeRelease'])
+        self.assertEqual(returned,facts['reopenedLiteral']);self.assertEqual(receipt_hash,facts['receiptHashAfter'])
+        self.assertEqual(1,facts['actualCommands']);self.assertEqual(stdin,facts['actualControl'])
+        if mode=='release':
+            self.assertEqual(0,facts['exitCode']);self.assertTrue(facts['originalBodyEqual'])
+            self.assertFalse(facts['markerExistsAfter']);self.assertFalse(facts['markerSymlinkAfter'])
+        else:
+            self.assertNotEqual(0,facts['exitCode']);self.assertEqual(b'',facts['stdout'])
+            self.assertEqual(marker_stamp,facts['markerStampAfter']);self.assertEqual(marker_bytes,facts['markerBytesAfter'])
+            if target is not None:self.assertEqual(target.name,facts['markerLinkAfter'])
+        proof=dict(mode=mode,zeroStdoutWhileMatchingReceiptAndMarkerVisible=True,
+            actualCommands=facts['actualCommands'],exitCode=facts['exitCode'],stdoutBytes=len(returned),
+            exactRawRetainedBeforeParser=True,stderrHex=stderr.hex(),
+            originalMarkerFullStampPreserved=(mode!='release'),root=str(self.root),
+            nativeExecuted=False,currentSourceQualified=False,wholeQualified=False)
+        if mode=='dangling':
+            proof.update(originalSymlinkPhysical=marker_stamp,terminalSymlinkPhysical=facts['markerStampAfter'],
+                originalLinkTarget=target.name,terminalLinkTarget=facts['markerLinkAfter'],markerPath=str(marker))
+        READINESS.append(proof)
+
+    def test_visible_receipt_waits_until_actual_marker_unlink_and_directory_fsync(self):
+        self.publication_readiness('release')
+
+    def test_visible_receipt_with_retained_marker_refuses_bounded_without_republish(self):
+        self.publication_readiness('retained')
+
+    def test_visible_receipt_with_dangling_marker_symlink_refuses_without_republish(self):
+        self.publication_readiness('dangling')
 
 
 if __name__=='__main__':unittest.main()
