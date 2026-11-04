@@ -37,6 +37,7 @@ TESTS = (
     test("browser-cold-peer", "interaction", PYTHON, "device/test_browser_cold_peer.py"),
     test("browser-peer-pending", "interaction", PYTHON, "device/test_browser_peer_pending.py"),
     test("browser-host-clock", "interaction", PYTHON, "device/test_browser_host_clock.py"),
+    test("browser-probe-clock", "interaction", PYTHON, "device/test_browser_probe_clock.py"),
     test("browser-clock-dispatch", "interaction", PYTHON, "device/test_browser_clock_dispatch.py"),
     test("browser-poll-period", "interaction", PYTHON, "device/test_browser_poll_period.py"),
     test("strict-json-size", "infrastructure", PYTHON, "device/test_strict_json_size.py"),

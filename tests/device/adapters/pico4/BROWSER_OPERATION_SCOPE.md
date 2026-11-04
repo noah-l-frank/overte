@@ -328,3 +328,23 @@ actual facts, including contradictions from an ignored input. No requested
 product state filters the wait. Cold/warm/cleanup and unknown counterexamples
 pass5 focused cases4.161s/175 stable;39 focused/affected cases pass19.037s/251
 stable. Source/quiet/whole bounds and full-capability status remain unchanged.
+
+
+## Causal declared probe timestamps
+
+The Actor phase-gated diagnostic is retained RED22.791s. Actor reached the first
+Open stereo acquisition, where its original NavigationArrival refused. Parent
+then reached the original20s new-peer checkpoint bound; cleanup also refused
+the exited original Actor. Parent161/child266/actor167 source pins were stable.
+The suppressed innermost pose guard was not persisted, so its exact cause is
+not inferred from a separate counterexample.
+
+That counterexample proves a concrete defect in the reused declared navigation
+model: it captured the enclosing probe timestamp before motion/render, allowing
+a subframe timestamp to exceed its enclosing probe timestamp. The existing model now acquires
+motion and render epochs before closing the complete probe, still using three
+genuine model clock reads. Earlier fixed-clock results are unchanged; no old
+packet is retimed or original validator relaxed. Two focused cases pass0.292s/114
+stable before a test-name clarification; the exact current18-case Navigation and
+born-host Browser component scope passes5.182s/207 stable. These are adapter/model
+proofs, not Native or full-coordinator qualification.

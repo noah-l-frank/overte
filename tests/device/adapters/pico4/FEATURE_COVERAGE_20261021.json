@@ -1323,6 +1323,19 @@
         "currentWhole": "Changed real-clock diagnostic RED6.494s before normal Open: Actor began sample7 on announced phase while Primary still baseline; reading37/chunks18 retained; Primary correctly refused. Parent161/child266/actor167 sources stable. This precedes the new pre-acquisition gate; whole still open.",
         "nativeCompiled": false,
         "devicesTested": false
+      },
+      "causalProbeModelPrerequisite": {
+        "selector": "browser-probe-clock",
+        "rootCases": 2,
+        "rootSeconds": 0.292,
+        "rootLoadedSources": 114,
+        "affectedCases": 18,
+        "affectedSeconds": 5.182,
+        "affectedLoadedSources": 207,
+        "scope": "Existing declared navigation model now observes actual model motion/render subframes before closing its enclosing probe timestamp, still exactly three epoch reads. Deterministic one-ms-per-read counter reproduces old illegal future motion; current original pose reader accepts two new samples. Existing Navigation defaults and born-real-host Browser stereo component pass. No old packet is retimed and no production native source or shared validator changes.",
+        "currentWhole": "Before this fixture correction RED22.791s: Actor NavigationArrival failed on firstOpen, Parent20s peer wait expires; cleanup refuses dead actualActor. Exact suppressed inner pose guard not persisted, so no assertion that the isolated model defect is the whole failure cause. Parent161/child266/actor167 source SHA8 stable.",
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     },
     {

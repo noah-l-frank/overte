@@ -4111,3 +4111,11 @@ prior sources remain fatal; ignored input still yields contradictory actual
 facts. Five focused and39 combined cases pass. The earlier RED6.494s phase race
 is retained; full coordinator/native/device qualification remains open. See
 [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+The reused declared navigation probe now closes its timestamp after its motion
+and render sub-observations. A deterministic advancing-clock counter proves
+the old ordering defect;18 current Navigation/Browser cases pass. No original
+packet is retimed and no production validator changes. The prior RED22.791s
+Actor pose refusal remains separate whole evidence; see
+[BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

@@ -33,9 +33,12 @@ class Model(WorldModel):
     def probe(self,after):
         self.probe_sequence=max(self.probe_sequence+1,after+1)
         p=deepcopy(POSITIONS[self.position]);value=snapshot(feetPosition=p)
-        value.update(sampleEpochMs=self.epoch(),sampleSequence=self.probe_sequence,
-            nativeMotion=dict(processId=31,sampleEpochMs=self.epoch(),sampleSequence=self.probe_sequence),
-            render=dict(frameCount=self.probe_sequence,lastFrameEpochMs=self.epoch()))
+        # Build each actual model sub-observation before closing the complete
+        # probe. A real clock may cross a millisecond between these reads.
+        motion_epoch=self.epoch();render_epoch=self.epoch();captured_epoch=self.epoch()
+        value.update(sampleEpochMs=captured_epoch,sampleSequence=self.probe_sequence,
+            nativeMotion=dict(processId=31,sampleEpochMs=motion_epoch,sampleSequence=self.probe_sequence),
+            render=dict(frameCount=self.probe_sequence,lastFrameEpochMs=render_epoch))
         value['domain']['protocol']='http';value['scene']['url']=viewpoint_urls(SCENE)[self.position]
         if self.probe_edit:self.probe_edit(value)
         return value
