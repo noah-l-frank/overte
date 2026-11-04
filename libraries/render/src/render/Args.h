@@ -306,6 +306,9 @@ namespace render {
         bool _sceneTransactionsProcessed { false };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         std::shared_ptr<gpu::FeatureCompletedDrawTrace> _featureCompletedTrace;
+#if defined(Q_OS_IOS)
+        QVariantMap _featureSnapshotProvenance;
+#endif
 #endif
 
         /// Current camera mode for the primary camera.

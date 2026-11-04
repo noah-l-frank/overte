@@ -18,6 +18,8 @@
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
 #include "../../ios/web/IOSUIKitInputObservation.h"
+#include "../../tests/device/native/IOSSnapshotCaptureObservation.h"
+#include <gpu/FeatureSnapshotProvenance.h>
 #endif
 #include "ApplicationLifecycle.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
@@ -862,6 +864,10 @@ void Application::takeSnapshot(bool notify, bool includeAnimated, float aspectRa
     const auto capture = DependencyManager::get<Snapshot>()->beginCapture(requestId);
     if (!capture) { return; }
     addSnapshotOperator(std::make_tuple([notify, includeAnimated, aspectRatio, filename, capture](const QImage& snapshot) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        const auto provenance=gpu::FeatureSnapshotProvenance::original(snapshot);
+        if (!provenance.isEmpty()) {overte::e2e::IOSSnapshotCaptureObservation::instance().provenance(capture,provenance);}
+#endif
         qApp->postLambdaEvent([snapshot, notify, includeAnimated, aspectRatio, filename, capture] {
             if (!capture->current()) { return; }
             QString path = DependencyManager::get<Snapshot>()->saveSnapshot(snapshot, filename, capture->id.isEmpty() ? TestScriptingInterface::getInstance()->getTestResultsLocation() : QString());

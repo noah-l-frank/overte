@@ -235,6 +235,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureIOSChatQmlSources(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureIOSSnapshotCaptures(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSSnapshotProvenance(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotUploads(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotCausalDispatch(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureIOSSnapshotFileWork(const QVariantMap& command);

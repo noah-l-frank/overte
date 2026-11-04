@@ -55,6 +55,9 @@
 
 #include <gpu/Texture.h>
 #include <gpu/FrameIO.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <gpu/FeatureSnapshotProvenance.h>
+#endif
 #include <shaders/Shaders.h>
 #include <gpu/gl/GLShared.h>
 #include <gpu/gl/GLBackend.h>
@@ -1002,6 +1005,9 @@ void OpenGLDisplayPlugin::present(const std::shared_ptr<RefreshRateController>& 
             while (!_currentFrame->snapshotOperators.empty()) {
                 auto& snapshotOperator = _currentFrame->snapshotOperators.front();
                 if (std::get<2>(snapshotOperator)) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+                    gpu::FeatureSnapshotProvenance::Scope provenance(_currentFrame->featureSnapshotProvenance,_currentFrame->frameIndex,!isHmd());
+#endif
                     std::get<0>(snapshotOperator)(getScreenshot(std::get<1>(snapshotOperator)));
                 } else {
                     std::get<0>(snapshotOperator)(getSecondaryCameraScreenshot());
@@ -1127,6 +1133,9 @@ QImage OpenGLDisplayPlugin::getScreenshot(float aspectRatio) {
     }
     QImage screenshot(bestSize.x, bestSize.y, QImage::Format_ARGB32);
     getBackend()->downloadFramebuffer(_compositeFramebuffer, ivec4(corner, bestSize), screenshot);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    gpu::FeatureSnapshotProvenance::readback(size.x,size.y,corner.x,corner.y,bestSize.x,bestSize.y,screenshot);
+#endif
     return screenshot.mirrored(false, true);
 }
 

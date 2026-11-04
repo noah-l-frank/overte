@@ -328,6 +328,9 @@ void GraphicsEngine::render_performFrame() {
     {
         QMutexLocker viewLocker(&_renderArgsMutex);
         renderArgs = _appRenderArgs._renderArgs;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        renderArgs._featureSnapshotProvenance.clear();
+#endif
 
         // don't render if there is no context.
         if (!_appRenderArgs._renderArgs._context) {
@@ -436,6 +439,10 @@ void GraphicsEngine::render_performFrame() {
     }
 #endif
     frame->frameIndex = _renderFrameCount;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    frame->featureSnapshotProvenance=renderArgs._featureSnapshotProvenance;
+    if (!frame->featureSnapshotProvenance.isEmpty()) {frame->featureSnapshotProvenance.insert("frameIndex",frame->frameIndex);}
+#endif
     frame->framebuffer = finalFramebuffer;
     frame->framebufferRecycler = [](const gpu::FramebufferPointer& framebuffer) {
         auto frameBufferCache = DependencyManager::get<FramebufferCache>();

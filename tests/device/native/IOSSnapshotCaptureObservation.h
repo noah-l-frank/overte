@@ -101,6 +101,22 @@ public:
         }
         return result;
     }
+    void provenance(const SnapshotCapture& capture,const QVariantMap& source) {
+        if (!enabled() || !QCoreApplication::arguments().contains("--testSnapshotProvenance") || !capture || source.isEmpty()) {return;}
+        QMutexLocker guard(&_mutex);const auto id=_byPointer.value(capture.get());
+        if (id.isEmpty() || _captures.value(id).weak.lock()!=capture || _provenance.contains(id) || _provenance.size()>=64) {
+            _provenanceComplete=false;return;
+        }
+        _provenance[id]={{"captureInstance",id},{"requestId",request(capture->id)},{"frame",source}};
+    }
+    QVariantMap provenanceRead(const QString& nonce,const QString& run) {
+        if (!enabled() || !QCoreApplication::arguments().contains("--testSnapshotProvenance")) {return {};}
+        return _provenanceBracket.read("iosSnapshotProvenanceVersion","native-main-snapshot-provenance",nonce,run,[this] {
+            QMutexLocker guard(&_mutex);QVariantList rows;
+            for (const auto& row:_provenance) {rows.append(row);}
+            return QVariantMap{{"complete",_provenanceComplete},{"captures",rows}};
+        });
+    }
     QVariantMap read(const QString& nonce,const QString& run,const std::function<QVariantMap()>& activity) {
         return _bracket.read("iosSnapshotCapturesVersion","native-main-snapshot-captures",nonce,run,[&]() -> QVariantMap {
             const auto active=activity();if (active.isEmpty()) {return {};}
@@ -132,6 +148,7 @@ private:
     NativeReadBracket _bracket;QMutex _mutex;bool _complete{true};qint64 _epoch{0};
     QMap<QString,Capture> _captures;QHash<const SnapshotCaptureRequest*,QString> _byPointer;
     QMap<QString,Resource> _resources;QVariantList _events;
+    QMap<QString,QVariantMap> _provenance;bool _provenanceComplete {true};NativeReadBracket _provenanceBracket;
 };
 }
 #endif

@@ -1712,6 +1712,26 @@ QVariantMap TestScriptingInterface::featureIOSSnapshotCaptures(const QVariantMap
     return overte::e2e::IOSSnapshotCaptureObservation::instance().read(request,run,[snapshots] {return snapshots->featureCaptureActivity();});
 }
 
+QVariantMap TestScriptingInterface::featureIOSSnapshotProvenance(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSSnapshotProvenance(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-snapshot-provenance")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
+            || !DependencyManager::isSet<Snapshot>()) {return {};}
+    return overte::e2e::IOSSnapshotCaptureObservation::instance().provenanceRead(request,run);
+}
+
 QVariantMap TestScriptingInterface::featureIOSSnapshotUploads(const QVariantMap& command) {
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
     if (QThread::currentThread()!=thread()) {
@@ -3503,7 +3523,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     // Other source writers keep their original encoding.
     if (filename=="feature-ios-assets-image-reader.json") {jsonData=jsonDocument.toJson(QJsonDocument::Compact);}
     if (filename=="feature-ios-assets-image-reader-queue.json" || filename=="feature-ios-assets-image-reader-processing.json" || filename=="feature-ios-assets-image-reader-storage.json" || filename=="feature-ios-assets-image-reader-pool.json") {jsonData=jsonDocument.toJson(QJsonDocument::Compact);}
-    if (filename=="feature-ios-assets-files.json" || filename=="feature-ios-assets-replies.json" || filename=="feature-ios-keyboard.json" || filename=="feature-ios-lifecycle-inputs.json" || filename=="feature-ios-lifecycle-world.json" || filename=="feature-ios-lifecycle-pending-commands.json" || filename=="feature-ios-lifecycle-navigation-inputs.json" || filename=="feature-ios-snapshot-owned-files.json" || filename=="feature-ios-snapshot-file-remove.json" || filename=="feature-ios-snapshot-file-work.json" || filename=="feature-ios-snapshot-inputs.json" || filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json" || filename=="feature-ios-snapshot-uploads.json"
+    if (filename=="feature-ios-assets-files.json" || filename=="feature-ios-assets-replies.json" || filename=="feature-ios-keyboard.json" || filename=="feature-ios-lifecycle-inputs.json" || filename=="feature-ios-lifecycle-world.json" || filename=="feature-ios-lifecycle-pending-commands.json" || filename=="feature-ios-lifecycle-navigation-inputs.json" || filename=="feature-ios-snapshot-owned-files.json" || filename=="feature-ios-snapshot-file-remove.json" || filename=="feature-ios-snapshot-file-work.json" || filename=="feature-ios-snapshot-inputs.json" || filename=="feature-ios-snapshot-work.json" || filename=="feature-ios-snapshot-exports.json" || filename=="feature-ios-snapshot-captures.json" || filename=="feature-ios-snapshot-provenance.json" || filename=="feature-ios-snapshot-uploads.json"
             || filename=="feature-ios-snapshot-combined-work.json" || filename=="feature-ios-chat-script-sources.json" || filename=="feature-ios-chat-qml-sources.json" || filename=="feature-ios-snapshot-preflight-http.json" || filename=="feature-ios-snapshot-combined-preflight-http.json" || filename=="feature-ios-snapshot-causal-dispatch.json"
             || filename=="feature-ios-tablet-web-dom.json" || filename=="feature-ios-tablet-web-deferred.json" || filename=="feature-ios-tablet-web-defer.json" || filename=="feature-ios-tablet-app-buttons.json" || filename=="feature-ios-uikit-input.json" || filename=="feature-ios-tablet-web-closures.json" || filename=="feature-ios-web-script-emissions.json" || filename=="feature-ios-tablet-web-state.json" || filename=="feature-ios-tablet-web.json" || filename=="feature-ios-tablet-sources.json" || filename=="feature-ios-world-web.json" || filename=="feature-ios-world-web-dom.json"
             || filename=="feature-ios-world-web-work.json" || filename=="feature-ios-world-web-geometry.json" || filename=="feature-ios-world-web-surfaces.json"

@@ -68,6 +68,16 @@ transport joins reject foreign processes and stale nested clocks. The new
 normal Stop, original OS quiet and SDK absence; it preserves failed status and
 all remaining ownership. These components do not increase the completed count.
 
+The [ordinary Snapshot callback provenance](SNAPSHOT_ORDINARY_PROVENANCE.md)
+now joins the same OpenGL primary-mono frame, recorded numeric camera/projection,
+crop and ordinary callback PNG through typed original capture/file custody.
+Nine distinct host cases pass at the integrated public origins, with all eight
+module origins and actual cleanup/resource/source/input/output gates verified.
+Lower native/OpenGL/SDK boundaries remain explicit models. Capture-v1 and the
+Vulkan `VKTODO` consumer stay unchanged. Scene/Actor, destinations, full journey
+and paired End remain open; Snapshots stays partial and the completed count
+remains five of fourteen. Native compilation is unverified and devices untested.
+
 The new [capture and rendered-review component](SNAPSHOT_RENDERED_REVIEW.md)
 joins completed Capture2, original Page2 UI and a separately retained WDA PNG.
 Fourteen distinct host cases pass across its positive/recovery/pixel selections;

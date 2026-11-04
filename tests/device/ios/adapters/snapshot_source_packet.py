@@ -8,6 +8,7 @@ no completed capture, destination, current permission or cleanup is inferred.
 # SPDX-License-Identifier: Apache-2.0
 from adapters.original_packet_segments import OriginalPacketSegments
 from ios.adapters.snapshot_file_work_packet import SnapshotFileWorkPacket
+from ios.adapters.snapshot_provenance_packet import SnapshotProvenancePacket
 from ios.adapters import snapshot_work,snapshot_captures,snapshot_exports,snapshot_inputs
 
 
@@ -58,4 +59,4 @@ class SnapshotInputsPacket(SnapshotFileWorkPacket):
     _segment_subject='inputs'
 
 
-PACKETS={'work':SnapshotWorkPacket,'captures':SnapshotCapturesPacket,'exports':SnapshotExportsPacket,'inputs':SnapshotInputsPacket}
+PACKETS={'provenance':SnapshotProvenancePacket,'work':SnapshotWorkPacket,'captures':SnapshotCapturesPacket,'exports':SnapshotExportsPacket,'inputs':SnapshotInputsPacket}

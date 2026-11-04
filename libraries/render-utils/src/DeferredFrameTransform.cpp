@@ -12,6 +12,12 @@
 #include "DeferredFrameTransform.h"
 
 #include "gpu/Context.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <gpu/FeatureSnapshotProvenance.h>
+#include <QDateTime>
+#include <QCoreApplication>
+#include <QUuid>
+#endif
 #include "render/Engine.h"
 
 DeferredFrameTransform::DeferredFrameTransform() {
@@ -62,6 +68,32 @@ void GenerateDeferredFrameTransform::run(const render::RenderContextPointer& ren
         batch.setViewTransform(viewMat);
         // This is the main view / projection transform that will be reused later on
         batch.saveViewProjectionTransform(_transformSlot);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (gpu::FeatureSnapshotProvenance::enabled() && args->_takingSnapshot && args->_mirrorDepth==0
+                && args->_renderMode==RenderArgs::DEFAULT_RENDER_MODE && args->_renderMethod==RenderArgs::FORWARD
+                && !args->isStereo()) {
+            // These are the SAME actual matrix locals just handed to the
+            // ordinary batch's main saved projection/view transform slot.
+            const auto& view=args->getViewFrustum();const auto& position=view.getPosition();const auto& rotation=view.getOrientation();
+            const auto viewMatrix=viewMat.getMatrix();QVariantList projection,worldFromCamera;
+            for (int row=0;row<4;++row) {for (int column=0;column<4;++column) {
+                projection.append(projMat[column][row]);worldFromCamera.append(viewMatrix[column][row]);
+            }}
+            args->_featureSnapshotProvenance={{"snapshotFrameProvenanceVersion",1},
+                {"frameInstance",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},
+                {"processId",QCoreApplication::applicationPid()},{"pipeline","forward-primary-mono"},
+                {"recordedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+                {"transformSlot",static_cast<qulonglong>(_transformSlot)},
+                {"viewport",QVariantList{args->_viewport.x,args->_viewport.y,args->_viewport.z,args->_viewport.w}},
+                {"worldFromCamera",worldFromCamera},{"camera",QVariantMap{
+                    {"position",QVariantList{position.x,position.y,position.z}},
+                    {"rotation",QVariantList{rotation.x,rotation.y,rotation.z,rotation.w}},
+                    {"projection",projection},{"fieldOfViewDegrees",view.getFieldOfView()},
+                    {"aspectRatio",view.getAspectRatio()},{"nearClip",view.getNearClip()},
+                    {"farClip",view.getFarClip()},{"perspective",view.isPerspective()}}}};
+        }
+#endif
+
         // Copy it to the deferred transform for the lighting pass
         batch.copySavedViewProjectionTransformToBuffer(_transformSlot, frameTransform->getFrameTransformBuffer()._buffer,
                                                        sizeof(DeferredFrameTransform::DeferredFrameInfo));

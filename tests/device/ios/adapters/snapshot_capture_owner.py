@@ -340,6 +340,18 @@ class IOSSnapshotCaptureOwner:
             self.history('manifest',baseline['manifest']),self.history('artifact',self.state['artifact']),self.root_original(self.state['roots']),_combined=self.combined)
 
     @operation
+    def provenance(self):
+        """Explicit optional read, after ordinary still-PNG capture only.
+
+        Default capture/review/cleanup paths never invoke this observation.
+        Unknown delivery remains issued; observed() retains the one nonce.
+        """
+        need(not self.historical and self.state['phase']=='copied')
+        self.bound();self.active()
+        child=self.observed('ordinary-frame-provenance','provenance')
+        return child.join_capture(self)
+
+    @operation
     def capture(self,ticket):
         self.bound()
         if self.state['phase'] in ('new','preparing'):self.prepare(ticket)

@@ -39,6 +39,9 @@ namespace gpu {
         uint64_t worldObservationGeneration { 0 };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         std::shared_ptr<FeatureCompletedFrames::Ticket> featureCompletedTicket;
+#if defined(Q_OS_IOS)
+        QVariantMap featureSnapshotProvenance;
+#endif
 #endif
         // TODO: view doesn't seem to be used anywhere?
         /// The view matrix used for rendering the frame, only applicable for HMDs.
