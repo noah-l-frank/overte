@@ -1,8 +1,11 @@
 # Complete original browser capture retirement
 
-The latest whole Browser diagnostic remains incomplete under the unchanged
-120-second limit. The source/host components below do not grant a complete
-feature capability or device qualification. The current continuation branch is
+The retained Common/coordinator/Actor6 host-model graph now passes complete
+capture/archive retirement and host release in114.480s under the unchanged120s
+limit. The [exact current host proof](BROWSER_OPERATION_SCOPE.md#complete-retained-coordinator-host-proof)
+retains all original process/source/file identities. Positive canonical
+factory/router/CLI composition, full feature capability and device qualification
+remain open. The current continuation branch is
 `test/android-pico/consolidated-adapters-20261027`.
 
 The current [direct historical-admission guard](BROWSER_OPERATION_SCOPE.md#direct-complete-historical-admission-within-released-storage)

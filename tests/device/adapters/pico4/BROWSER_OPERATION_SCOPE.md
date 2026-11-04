@@ -2,6 +2,10 @@
 
 This is a partial source integration for feature7/14. Complete source feature
 count remains3/14. The full public production-owner journey is not qualified.
+The retained Common/coordinator/Actor6 host-model graph now passes its complete
+original retirement and host release in114.480s under120s; see the
+[current exact host proof](#complete-retained-coordinator-host-proof).
+Canonical factory/router/CLI composition and device acceptance remain open.
 No native compiler, device, lab service or Domain was used.
 
 ## Existing route
@@ -1045,3 +1049,41 @@ contract versions,20 Pico coverage cases/440 groups, feature inventory and
 whitespace checks pass. These component results and the private method saving
 still do not establish a changed whole pass, complete Browser capability or
 device acceptance; source-complete areas remain3/14.
+
+
+## Complete retained coordinator host proof
+
+The one changed whole at `5ecc7e8f1b` passes **114.480s** externally and
+**113.696s** in its actual coordinator, under the unchanged120s limit. It
+completes all26 normal actions, all28 actual Common phases, original Common
+consumption, actual independent Actor6 return, complete capture quiet, original
+archive/directory retirement and host closure. The exact recorded finalize
+response has `sequenceCompleted=true`, `hostReleased=true` and
+`deviceAcceptance=false`.
+
+All7 consecutive final-capture host gaps are467.485--474.015ms. All83 original
+native clocks advance466--475ms per gap, and the original window spans more
+than3s. Every full original byte/OFD/eight-stat/parent/namespace pass remains;
+source1.5s, checkpoint20s, hard archive250ms/16-use and whole120s limits stay
+unchanged. This is one actual bounded host execution, not a whole performance
+guarantee or evidence from a resumed failed owner.
+
+Before any later edit, all2329 initial repository Python SHA/eight-stat pins
+and actual Parent193/Child282/Actor179 before/after manifests match. Every one
+of2030 retained files has two matching complete terminal SHA/eight-stat
+inventories; no recorded worker remains. The full original finalize response is
+also independently retained. Current originals remain at
+`/tmp/pico-index-ofd-single-stat-whole-20261104-01-jml8djz9/`; exact audit,
+process/source manifests, final response, method costs and terminal inventory
+remain under
+`~/.local/state/overte-pico-resume-integration-20261102-24qkewqw/browser-ofd-single-stat-4ixgsw8e/whole-01-terminal/`.
+All preceding failed scopes and their original evidence remain retained.
+
+The actual Common engine, production operation coordinator, separate Actor6
+process, original return/consumption and final owners are exercised. Candidate,
+Native/SDK/Qt/VR/GPU producers and the Primary facade factory remain declared
+host models. The result explicitly records `canonicalCandidateRouter=false`.
+Positive actual canonical factory/router/module/CLI composition remains the
+next execution boundary; complete Browser capability remains unavailable.
+Source-complete areas stay Scripts, Authentication and Graphics (3/14).
+Native compilation and all devices remain unverified.
