@@ -8,5 +8,6 @@ import unittest
 ROOT=Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(ROOT/'tests/device'))
 if __name__=='__main__':
-    suite=unittest.defaultTestLoader.loadTestsFromName('self_tests.test_pico_browser_capture_retirement')
+    suite=unittest.defaultTestLoader.loadTestsFromNames([
+        'self_tests.test_pico_browser_capture_retirement','self_tests.test_json_original_value'])
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

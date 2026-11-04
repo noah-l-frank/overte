@@ -1460,6 +1460,39 @@
         "scope": "Fixture only: exact BrowserHostClock receipt getter reads actual epoch directly rather than waiting for a new millisecond per inventory. Native C++ getter uses QDateTime and strict independent command IDs/sequences; multiple observations may share a millisecond. Eighty actual modeled inventory calls retain unique IDs/strict sequences/current original epochs without advancing tick. Legacy virtual clocks still tick, other model producers unchanged, no stored original retiming/native/validator/timeout changes.",
         "wholeQualified": false,
         "nativeCompiled": false,
+        "devicesTested": false,
+        "currentWhole": "RED96.516s/96.553outer after all26acts/all28Commonphases/actualActorreturn. Original500ms hostgap825.852ms and83nativegaps825..826ms. Parent191/child274/Actor177 and2326repoPython SHA8stable before edits;1068filesretained. No finalhostrelease/fullqualification."
+      },
+      "historicalExpectedValuePrerequisite": {
+        "selector": "tablet-web-capture-retirement",
+        "rootCases": 10,
+        "rootSeconds": 0.027,
+        "rootLoadedSources": 34,
+        "affectedCases": 37,
+        "affectedSeconds": 69.335,
+        "affectedLoadedSources": 251,
+        "scope": "Pico capture explicitly opts into closed-file byte windows and typed original-value metadata. Defaults retain canonical bytes and original prechecks. Original directory guards run before AND after every full file-byte/OFD/eight-stat read; redundant external precheck before pure DTO validation removed only in opt-in. Complete current type/shape/key-order/scalar identities match actual original, original root preserved, mismatch sticky/no reseal or evict. Oversized/uncached entries keep original fresh hash path. Canonical payload storage is replaced largest-first only within actual released byte credit and original construction workspace. No cached native/current-source verdict, cap/clock/persisted-source format changes.",
+        "passiveActualFileWindowComparison": {
+          "rows": 913,
+          "originalFiles": 954,
+          "originalMedianMilliseconds": 110.456,
+          "currentMedianMilliseconds": 74.42,
+          "sourceOrNativeCalls": 0,
+          "allOriginalsSha8Unchanged": true,
+          "actualLocalOwnersClosed": true,
+          "scope": "Separate new standalone catalog ownership over retained corpus, never adoption of original warm owner or whole timing prediction."
+        },
+        "metadataComparison": {
+          "sealedRows": 520,
+          "originalCanonicalBytes": 5631468,
+          "remainingCanonicalBytes": 431878,
+          "residentMetadataBytes": 1295749,
+          "releasedBytes": 3903841,
+          "constructionHighwater": 5690867,
+          "originalStoredAndConstructionEnvelope": 5713096
+        },
+        "wholeQualified": false,
+        "nativeCompiled": false,
         "devicesTested": false
       }
     },

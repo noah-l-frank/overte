@@ -593,3 +593,60 @@ Seventeen affected cases pass59.749s/232 stable sources, including the unchanged
 full common Browser journey under its declared virtual producers and actual
 Node probe dispatch. No compiler or device runs. No changed whole coordinator
 or final ownership release is inferred from these separate component results.
+
+
+The namespace/real-epoch changed coordinator completes all26 acts, all28 Common
+phases and actual Actor return, then remains RED96.516s/96.553s outer at the
+original500ms retirement cadence. The measured host gap is825.852ms and83
+native gaps are825--826ms, versus1001.907ms in the prior diagnostic. All
+Parent191/child274/Actor177 source SHA/eight stats and2326 repository Python
+files are unchanged at terminal before edits;1068 files remain retained.
+This is not a final host release or a complete feature qualification.
+
+## Original expected JSON within its existing storage credit
+
+Pico capture retirement now explicitly selects closed-file windows and freezes
+its complete admitted catalog after the actual original byte checks. Every file
+still receives its actual full read, original OFD alias proof, complete eight
+stat fields, known close and original directory checks before AND after that
+read. The optional catalog skips only a redundant directory check before pure
+in-memory expected-value validation, and reuses the original immutable parent
+Path instead of repeatedly constructing it. Other catalog callers keep defaults.
+
+Large redundant canonical expected copies are replaced by a compact immutable
+shape and references to existing original scalars. Every use freshly checks the
+whole current type/shape/key ORDER and exact scalar/key object identities,
+including the original expected root. A mismatch is sticky before another file
+read; it cannot reseal or evict an original. Small, deep or oversized candidates
+keep their original fresh canonical/hash path. All actual source/PNG bytes,
+physical inventories, native observations and time/quiet/capacity limits remain.
+No current product verdict or original file stamp is cached.
+
+The metadata constructor replaces largest originals first. Its resident charge
+cannot exceed the canonical bytes actually dropped; old entry tuples/locals
+release those bytes before credit is recorded. Its full shape/ref/DFS and tuple
+copy peak fits the existing retained canonical storage plus that encoder's
+original temporary workspace. The actual original payload owner remains held.
+There is no new quota, decoder/other-role loan or discarded unknown ownership.
+Ten focused cases pass0.027s/34 stable sources;37 existing capture, original
+archive/file and actual independent return/consumption cases pass69.335s/251
+stable sources. The catalog selector includes the new focused module;440 groups.
+
+An initial memory assertion measured the preceding full-file pread workspace
+as part of metadata construction and failed. The corrected observation leaves
+that original verification intact and resets the passive allocation measurement
+only after its real return; the actual metadata constructor then satisfies the
+old canonical workspace bound and releases retained storage. No runtime bound
+was increased to make the test pass.
+
+Separate passive diagnostics over913 retained DTOs replace520 canonical copies:
+5631468 original bytes become431878 canonical bytes plus1295749 conservatively
+charged metadata, releasing3903841 bytes. Construction highwater5690867 stays
+within the original5713096 stored-plus-construction envelope. A NEW standalone
+read-only catalog over the same954 original files measures74.420ms per complete
+file pass versus110.456ms previously. Every file still opens, fully reads and
+closes with actual kernel ownership; all original SHA/eight stats stay unchanged.
+That standalone owner is never adopted as an old warm source owner, and no
+Native/SDK/input/retirement/archive operation runs. These method results predict
+neither a whole speedup nor a successful500ms final capture cadence. The latest
+whole above predates this runtime change; full qualification remains open.

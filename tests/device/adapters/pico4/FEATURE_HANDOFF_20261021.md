@@ -65,6 +65,15 @@ pass59.749s/232 stable sources. This is a model correction, not native timing or
 whole coordinator qualification. See the
 [receipt epoch scope](BROWSER_OPERATION_SCOPE.md#actual-receipt-epochs-in-the-explicit-host-model).
 
+The changed real coordinator remains RED96.516s after all26 acts/28 phases and
+actual Actor return; the original retirement gap is now825.852ms, still above
+500ms. All three process source manifests and2326 repository Python files are
+unchanged and1068 files retained. Pico capture now reuses only typed historical
+expected-value metadata within released canonical-storage credit, keeping full
+actual byte/OFD/eight-stat/directory windows. Ten focused cases and37 affected
+cases pass; complete Browser qualification remains open. See the
+[original JSON scope](BROWSER_OPERATION_SCOPE.md#original-expected-json-within-its-existing-storage-credit).
+
 The 2026-11-02 continuation adds the private
 [World consumption readout](WORLD_CURRENT_CONSUMPTION_READOUT.md), with17
 no-build owning cases and original pre-send/outer-exit time fences. Its native

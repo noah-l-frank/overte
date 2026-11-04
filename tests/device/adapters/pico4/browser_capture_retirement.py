@@ -38,7 +38,7 @@ class PicoBrowserCaptureRetirement:
     def initialize(self,primary,actor,filename):
         self.primary,self.actor=primary,actor
         self.store=PrivateFeatureState(primary.store.path.with_name(filename))
-        self.catalog=ChatArchiveCatalog(hold_files=False)
+        self.catalog=ChatArchiveCatalog(hold_files=False,closed_file_windows=True)
         self.previous=None;self.started=self.failed=self.completed=False
         self.proofs=[];self.frames=();self.reader=self.chunks=None;self.initialize_pngs()
         self.scope=self.admitted=self._sealed_admitted=self.completed_root=self.stamp=None
@@ -220,7 +220,7 @@ class PicoBrowserCaptureRetirement:
                 and type(owner) is ClosedOriginalFile and not owner.failed and owner.active is None
                 and owner.path==path and row['raw'] is raw and owner.raw is raw
                 and row['stamp']==owner.stamp==list(stamp)==signature(path.lstat())
-                and json_digest(row['expected'])==expected_sha)
+                and self.catalog.expected_digest(row)==expected_sha)
         self.verify_png_stamps()
         self.inventory()
         if self.chunks is not None:
@@ -308,6 +308,7 @@ class PicoBrowserCaptureRetirement:
             (label,row['store'].path,row['owner'],row['raw'],tuple(row['stamp']),json_digest(row['expected']))
             for label,row in self.catalog.rows.items())
         self.freeze_inventory()
+        self.catalog.freeze_expected_values()
         with self.primary.lock.held():
             self.originals();self.chunks=ChatSourceChunks(self.store,self.scope);self.chunks.inventory(0)
             self.write('admitting',[])

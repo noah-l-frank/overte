@@ -14,6 +14,7 @@ import time
 
 from adapters.native_fd_owner import OriginalDescriptor,require_directory
 from adapters.chat_journey.archive_file import ClosedOriginalFile
+from adapters.chat_journey.expected_values import CatalogExpectedValues
 from adapters.native_feature_observation import need
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
@@ -63,13 +64,15 @@ def original_json(raw,expected):
 
 class ChatArchiveCatalog:
     """Explicit already-consumed originals only; no directory discovery/adoption."""
-    def __init__(self,*,hold_files=True):
-        need(type(hold_files) is bool)
+    def __init__(self,*,hold_files=True,closed_file_windows=False):
+        need(type(hold_files) is bool and type(closed_file_windows) is bool)
+        self.closed_file_windows=closed_file_windows
         self.rows={};self.parents={};self.failed=False;self.hold_files=hold_files;self.uncertain=[]
         self._json_originals=self._sealed_json_originals=();self._json_positions={}
+        self.value_cache=self._original_value_cache=None
 
     def add(self,label,store,expected):
-        need(not self.failed and isinstance(store,PrivateFeatureState) and expected is not None
+        need(self.value_cache is None and not self.failed and isinstance(store,PrivateFeatureState) and expected is not None
             and type(label) is str and label.startswith(('primary/','peer/')) and label.count('/')==1
             and label.rsplit('/',1)[-1] not in ('','.','..') and '\\' not in label)
         if label in self.rows:
@@ -88,7 +91,10 @@ class ChatArchiveCatalog:
                 need(len(raw)==info.st_size and same(store.read(),expected_original) and stamp(store.path.lstat())==stamp(os.fstat(owner.fd))==stamp(info))
                 original_stamp=stamp(info)
             else:
-                owner=ClosedOriginalFile(store.path,0o600,lambda:self.verify_parent(store.path.parent))
+                if self.closed_file_windows:
+                    parent=next(path for path in self.parents if path==store.path.parent)
+                    owner=ClosedOriginalFile(store.path,0o600,lambda parent=parent:self.verify_parent(parent))
+                else:owner=ClosedOriginalFile(store.path,0o600,lambda:self.verify_parent(store.path.parent))
                 def validate(raw):
                     need(owner.path==store.path);original_json(raw,expected_original);need(owner.path==store.path)
                 raw,original_stamp=owner.read(validate)
@@ -112,8 +118,9 @@ class ChatArchiveCatalog:
         require_directory(self.parents[path],path)
 
     def verify(self,row):
-        self.verify_parent(row['store'].path.parent)
         owner=row['owner']
+        if not self.closed_file_windows or type(owner) is not ClosedOriginalFile:
+            self.verify_parent(row['store'].path.parent)
         if type(owner) is ClosedOriginalFile:
             need(self._json_originals is self._sealed_json_originals and type(self._json_originals) is tuple)
             position=self._json_positions[row['label']]
@@ -121,7 +128,7 @@ class ChatArchiveCatalog:
             label,original_row,original_raw,expected_bytes=self._json_originals[position]
             need(label==row['label'] and self.rows.get(label) is row is original_row
                 and type(original_raw) is bytes and row['raw'] is original_raw and owner.raw is original_raw
-                and type(expected_bytes) is bytes and canonical(row['expected'])==expected_bytes
+                and (canonical(row['expected'])==expected_bytes if type(expected_bytes) is bytes else self.expected_digest(row)==expected_bytes[2])
                 and owner.path==row['store'].path)
             def validate(raw):
                 need(owner.path==row['store'].path and raw==original_raw)
@@ -138,6 +145,29 @@ class ChatArchiveCatalog:
 
     def close_host(self):
         return all([row['owner'].close() for row in self.rows.values()]+[owner.close() for owner in self.parents.values()]+[owner.close() for owner in self.uncertain])
+
+
+    def freeze_expected_values(self):
+        need(not self.failed and not self.hold_files and self.rows and self.value_cache is None)
+        self.verify_all()
+        self.value_cache=self._original_value_cache=CatalogExpectedValues(self)
+        try:return self.value_cache.freeze()
+        except BaseException:self.failed=True;raise
+
+    def expected_digest(self,row):
+        try:
+            need(not self.failed and self._json_originals is self._sealed_json_originals
+                and self.value_cache is self._original_value_cache
+                and (self.value_cache is None or type(self.value_cache) is CatalogExpectedValues and self.value_cache.catalog is self))
+            position=self._json_positions[row['label']]
+            need(type(position) is int and 0<=position<len(self._json_originals))
+            label,original,raw,stored=self._json_originals[position]
+            need(label==row['label'] and self.rows.get(label) is row is original and row['raw'] is raw)
+            if self.value_cache is None:
+                from adapters.chat_journey.source_chunks import json_digest
+                return json_digest(row['expected'])
+            return self.value_cache.verify(position,row['expected'])
+        except BaseException:self.failed=True;raise
 
 
 class ChatEvidenceArchive:
