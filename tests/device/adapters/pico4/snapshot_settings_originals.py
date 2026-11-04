@@ -11,6 +11,7 @@ from adapters.script_journey.lock import ScriptSourceLock
 from adapters.pico4.snapshot_originals import nonce
 
 VERSION=1
+READS=(1,2)
 FILE='feature-pico-snapshot-settings-originals.json'
 ACTION='feature-pico-snapshot-settings-originals'
 LIMIT=65536
@@ -19,12 +20,38 @@ KEYS=sorted(('alsoTakeAnimatedSnapshot','snapshotFormat','previousSnapshotHref',
     'previousAnimatedSnapPath','previousAnimatedSnapStoryID','previousAnimatedSnapBlastingDisabled','previousAnimatedSnapHifiSharingDisabled'))
 
 
+def typed_original(value,*,present=True,handle=False):
+    exact(value,{'present','typeId','typeName','base64','sha256'})
+    need(type(value['present']) is bool and value['present'] is present and integer(value['typeId'],0,65535)
+        and (value['typeName'] is None or type(value['typeName']) is str and 0<len(value['typeName'])<=256)
+        and ((value['typeId']==0)==(value['typeName'] is None)))
+    if handle:need(value['typeId']==38 and value['typeName']=='float')
+    else:
+        names={0:None,1:'bool',2:'int',3:'uint',4:'qlonglong',5:'qulonglong',6:'double',10:'QString',38:'float'}
+        need(value['typeId'] in names and value['typeName']==names[value['typeId']])
+    encoded=value['base64'];need(type(encoded) is str and 0<len(encoded)<=43692)
+    try:raw=base64.b64decode(encoded,validate=True)
+    except Exception:need(False)
+    need(0<len(raw)<=32768 and base64.b64encode(raw).decode()==encoded
+        and type(value['sha256']) is str and hashlib.sha256(raw).hexdigest()==value['sha256'])
+    if not present:need(value['typeId']==0)
+    return value
+
+
+def settings_equal(before,after):
+    need(before['snapshotSettingsOriginalsVersion']==after['snapshotSettingsOriginalsVersion'])
+    from feature_journeys.contract import typed_equal
+    keys=('entries','formatCache','typedSha256') if before['snapshotSettingsOriginalsVersion']==1 else ('entries','formatCache','durationEntry','durationCache','typedSha256')
+    return all(typed_equal(before['source'][key],after['source'][key]) for key in keys)
+
+
 def validate(value,run,request,pid,epoch):
     exact(value,{'snapshotSettingsOriginalsVersion','commandId','runId','pid','sequence','capturedEpochMs','source'})
-    need(type(value['snapshotSettingsOriginalsVersion']) is int and value['snapshotSettingsOriginalsVersion']==VERSION
+    need(type(value['snapshotSettingsOriginalsVersion']) is int and value['snapshotSettingsOriginalsVersion'] in READS
         and nonce(run) and value['runId']==run and nonce(request) and value['commandId']==request and integer(value['pid'],1) and value['pid']==pid
         and integer(value['sequence'],1) and integer(value['capturedEpochMs'],1) and number(epoch,1,1e15) and -250<=epoch-value['capturedEpochMs']<=1500)
-    source=value['source'];exact(source,{'snapshotInstance','managerInstance','entriesEpochMs','entries','formatCache','typedSerializedBase64','typedSha256'})
+    source=value['source'];extra={'durationEntry','durationCache'} if value['snapshotSettingsOriginalsVersion']==2 else set()
+    exact(source,{'snapshotInstance','managerInstance','entriesEpochMs','entries','formatCache','typedSerializedBase64','typedSha256'}|extra)
     need(nonce(source['snapshotInstance']) and nonce(source['managerInstance']) and integer(source['entriesEpochMs'],1,value['capturedEpochMs'])
         and value['capturedEpochMs']-source['entriesEpochMs']<=1500);exact(source['entries'],set(KEYS))
     for entry in source['entries'].values():
@@ -34,6 +61,12 @@ def validate(value,run,request,pid,epoch):
     cache=source['formatCache'];exact(cache,{'initialized','set','value','defaultValue'})
     need(type(cache['initialized']) is bool and type(cache['set']) is bool
         and all(type(cache[key]) is str and len(cache[key])<=4096 and '\0' not in cache[key] for key in ('value','defaultValue')))
+    if extra:
+        entry=source['durationEntry'];exact(entry,{'present','original'});need(type(entry['present']) is bool)
+        typed_original(entry['original'],present=entry['present'])
+        duration=source['durationCache'];exact(duration,{'initialized','set','value','defaultValue'})
+        need(type(duration['initialized']) is bool and type(duration['set']) is bool)
+        typed_original(duration['value'],handle=True);typed_original(duration['defaultValue'],handle=True)
     encoded=source['typedSerializedBase64'];need(type(encoded) is str and 0<len(encoded)<=43692)
     try:raw=base64.b64decode(encoded,validate=True)
     except Exception:need(False)
@@ -46,7 +79,8 @@ def accept(previous,current):
     validate(current,current['runId'],current['commandId'],current['pid'],current['capturedEpochMs'])
     if previous is not None:
         validate(previous,previous['runId'],previous['commandId'],previous['pid'],previous['capturedEpochMs'])
-        need(current['runId']==previous['runId'] and current['pid']==previous['pid'] and current['commandId']!=previous['commandId']
+        need(current['snapshotSettingsOriginalsVersion']==previous['snapshotSettingsOriginalsVersion']
+            and current['runId']==previous['runId'] and current['pid']==previous['pid'] and current['commandId']!=previous['commandId']
             and current['sequence']>previous['sequence'] and current['capturedEpochMs']>=previous['capturedEpochMs']
             and all(current['source'][key]==previous['source'][key] for key in ('snapshotInstance','managerInstance'))
             and current['source']['entriesEpochMs']>=previous['source']['entriesEpochMs'])
@@ -54,12 +88,14 @@ def accept(previous,current):
 
 
 class PicoSnapshotSettingsOriginals:
+    settings_scope=1
     def __init__(self,send,read,clock_ms,guard,pid,source_lock,*,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(source_lock,ScriptSourceLock) and integer(pid,1) and all(callable(value) for value in (send,read,clock_ms,guard,monotonic,sleep)))
         self.send,self.read,self.clock_ms,self.guard,self.pid,self.lock=send,read,clock_ms,guard,pid,source_lock
         self.monotonic,self.sleep=monotonic,sleep;self.previous=self.last_raw=self.last_sha256=self.anchor=None
 
     def restore(self,value):
+        need(value.get('snapshotSettingsOriginalsVersion')==1)
         validate(value,value['runId'],value['commandId'],self.pid,value['capturedEpochMs']);need(self.previous is None or self.previous==value);self.previous=deepcopy(value)
 
     def capture(self,run):
@@ -72,6 +108,7 @@ class PicoSnapshotSettingsOriginals:
                 if raw:
                     value=decode(raw)
                     if value.get('commandId')==command:
+                        need(value.get('snapshotSettingsOriginalsVersion')==1)
                         epoch=self.clock_ms();validate(value,run,command,self.pid,epoch);need(value['capturedEpochMs']>=requested)
                         current=accept(self.previous,value);need(self.guard() is not False);epoch=self.clock_ms();finished=self.monotonic()
                         oldest=min(value['capturedEpochMs'],value['source']['entriesEpochMs'])

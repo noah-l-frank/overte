@@ -437,6 +437,33 @@ QVariantMap Setting::Manager::featureSnapshotSettingsEntries() const {
     return {{"snapshotSettingsEntriesVersion",1},{"instance",_featureSnapshotContextInstance},{"capturedEpochMs",captured},{"entries",entries}};
 }
 
+QVariantMap Setting::Manager::featureSnapshotCaptureSettingsEntries() const {
+    if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const QStringList keys{"alsoTakeAnimatedSnapshot","snapshotFormat","previousSnapshotHref","previousSnapshotDomainID",
+        "previousStillSnapPath","previousStillSnapStoryID","previousStillSnapBlastingDisabled","previousStillSnapHifiSharingDisabled","previousStillSnapUrl",
+        "previousAnimatedSnapPath","previousAnimatedSnapStoryID","previousAnimatedSnapBlastingDisabled","previousAnimatedSnapHifiSharingDisabled"};
+    QVariantMap entries;QVariant duration;bool durationPresent=false,valid=true;
+    const bool acquired=withTryReadLock([&] {
+        for(const auto& key:keys) {
+            const bool present=_settings.contains(key);const auto value=_settings.value(key);
+            if(present && value.isValid() && value.userType()!=QMetaType::Bool && value.userType()!=QMetaType::QString) {valid=false;return;}
+            if(value.userType()==QMetaType::QString && (value.toString().size()>4096 || value.toString().contains(QChar::Null))) {valid=false;return;}
+            entries.insert(key,QVariantMap{{"present",present},{"value",present?value:QVariant{}}});
+        }
+        durationPresent=_settings.contains("snapshotAnimatedDuration");duration=_settings.value("snapshotAnimatedDuration");
+        switch(duration.userType()) {
+        case QMetaType::UnknownType:case QMetaType::Bool:case QMetaType::Int:case QMetaType::UInt:
+        case QMetaType::LongLong:case QMetaType::ULongLong:case QMetaType::Float:case QMetaType::Double:break;
+        case QMetaType::QString:if(duration.toString().size()>4096 || duration.toString().contains(QChar::Null)) {valid=false;}break;
+        default:valid=false;
+        }
+    },25);
+    const auto captured=QDateTime::currentMSecsSinceEpoch();if(!acquired || !valid || captured<=0) {return {};}
+    const auto raw=overte::e2e::avatarPreferenceRaw(durationPresent,durationPresent?duration:QVariant{});if(raw.isEmpty()) {return {};}
+    return {{"snapshotSettingsEntriesVersion",2},{"instance",_featureSnapshotContextInstance},{"capturedEpochMs",captured},
+        {"entries",entries},{"durationEntry",QVariantMap{{"present",durationPresent},{"original",raw}}}};
+}
+
 QVariantMap Setting::Manager::featureSnapshotCaptureContext() const {
     if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
     QVariantMap entries;bool valid=true;

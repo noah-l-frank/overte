@@ -9,6 +9,7 @@ from copy import deepcopy
 from adapters.native_feature_observation import decode,exact,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.pico4.snapshot_settings_baseline import PicoSnapshotSettingsBaseline
+from adapters.pico4.snapshot_settings_originals import settings_equal
 from adapters.pico4.snapshot_upload_owner import sha
 from adapters.script_journey.history import pack,unpack,canonical
 from feature_journeys.contract import typed_equal,json_document
@@ -33,6 +34,7 @@ class PicoSnapshotSettingsClose:
             need(parent.base.encoding_version==3 and parent.base.disk['settingsBaselineOriginalSha256']==self.identity)
             self.controller=deepcopy(parent.state['controller']['envelope']);self.generation=parent.state['closedGeneration']
             self.load()
+            if self.baseline.settings_scope==2:self.baseline.bind_closed_checkpoint(self)
 
     def bound(self):
         self.lock.assert_held();self.parent.bound();self.baseline.bound()
@@ -133,14 +135,18 @@ class PicoSnapshotSettingsClose:
         need(number(final_epoch,epoch,1e15) and number(now,completed,1e15) and -250<=final_epoch-oldest
             and max(final_epoch-oldest,anchor['nativeEpochMs']-oldest+(now-anchor['hostMonotonic'])*1000,
                     fence_age+(now-fence_completed)*1000)<=1500)
+        if self.baseline.settings_scope==2:self.baseline.final_actual_fence(anchor)
         return result
 
     def report(self):
         self.bound();need(self.state is not None and self.state['stage']=='observed');self.validate(self.state)
-        before=self.baseline.packet(self.baseline.state['original'])['source'];after=self.baseline.packet(self.state['settings'])['source']
+        before_packet=self.baseline.packet(self.baseline.state['original']);after_packet=self.baseline.packet(self.state['settings'])
+        before=before_packet['source'];after=after_packet['source']
         return dict(qualification='PICO_SNAPSHOT_CLOSED_RAW_SETTINGS_OBSERVATION_ONLY',originalPreinputBaseline=True,
-            originalClosedBookends=True,typedSettingsMatchOriginal=before['typedSha256']==after['typedSha256']
-                and typed_equal(before['entries'],after['entries']) and typed_equal(before['formatCache'],after['formatCache']),
+            originalClosedBookends=True,typedSettingsMatchOriginal=settings_equal(before_packet,after_packet),
             entryProjectionDifferences=[key for key in sorted(before['entries']) if not typed_equal(before['entries'][key],after['entries'][key])],
             formatCacheProjectionChanged=not typed_equal(before['formatCache'],after['formatCache']),
+            **({} if 'durationCache' not in before else dict(settingsScopeVersion=2,
+                durationEntryChanged=not typed_equal(before['durationEntry'],after['durationEntry']),
+                durationCacheChanged=not typed_equal(before['durationCache'],after['durationCache']))),
             settingsRestored=False,continuousQuiet=False,fullSnapshotRecipe=False,deviceAcceptance=False,journalRetained=True)

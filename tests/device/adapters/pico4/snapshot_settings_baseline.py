@@ -7,7 +7,7 @@ from adapters.chat_journey.source_chunks import ChatSourceChunks
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.pico4.snapshot_cancel_owner import PicoSnapshotCancelOwner,original
 from adapters.pico4.snapshot_cancel_originals import SnapshotCancelOriginals
-from adapters.pico4.snapshot_settings_originals import PicoSnapshotSettingsOriginals,validate,accept,LIMIT
+from adapters.pico4.snapshot_settings_originals import PicoSnapshotSettingsOriginals,validate,accept,settings_equal,LIMIT
 from adapters.pico4.snapshot_upload_owner import sha
 from adapters.script_journey.history import pack,unpack,canonical
 from feature_journeys.contract import typed_equal,json_document
@@ -18,8 +18,9 @@ VERSION=1
 
 
 class SnapshotSettingsBaselineOriginals(SnapshotCancelOriginals):
+    settings_scope=1
     def __init__(self,path,run,binding):
-        self.root=PrivateFeatureState(path);self.scope=dict(snapshotSettingsBaselineOriginalsVersion=1,runId=run,binding=deepcopy(context(binding)),role='snapshot-preinput-settings')
+        self.root=PrivateFeatureState(path);self.scope=dict(snapshotSettingsBaselineOriginalsVersion=self.settings_scope,runId=run,binding=deepcopy(context(binding)),role='snapshot-preinput-settings')
         self.history=ChatSourceChunks(self.root,self.scope);self.disk=self.root.read();self.values=[];self.indices={}
         if self.disk is not None:
             exact(self.disk,set(self.scope)|{'phase','chunks'});need(self.disk['phase']=='reading' and all(typed_equal(self.disk[key],value) for key,value in self.scope.items()))
@@ -34,14 +35,16 @@ class SnapshotSettingsBaselineOriginals(SnapshotCancelOriginals):
 
 
 class PicoSnapshotSettingsBaseline:
+    settings_scope=1
+    originals_type=SnapshotSettingsBaselineOriginals
     def __init__(self,parent,reader,path,*,may_capture):
         need(isinstance(parent,PicoSnapshotCancelOwner) and isinstance(reader,PicoSnapshotSettingsOriginals)
-            and reader.lock is parent.lock and reader.pid==parent.native.pid and callable(may_capture))
+            and reader.settings_scope==self.settings_scope and reader.lock is parent.lock and reader.pid==parent.native.pid and callable(may_capture))
         self.parent,self.reader,self.run,self.binding,self.lock,self.source=parent,reader,parent.run,deepcopy(parent.binding),parent.lock,parent.source
         self.store=PrivateFeatureState(path);need(self.store.path==self.lock.path.with_name('snapshot-settings-baseline.json'))
         self.may_capture=may_capture;self.disk=self.state=self.state_sha=None;self.anchor=None
         with self.lock.held():
-            self.originals=SnapshotSettingsBaselineOriginals(self.lock.path.with_name('snapshot-settings-baseline-originals.json'),self.run,self.binding)
+            self.originals=self.originals_type(self.lock.path.with_name('snapshot-settings-baseline-originals.json'),self.run,self.binding)
             self.load()
             if self.disk is None:
                 need(parent.state is None and parent.snapshot.state is None and parent.snapshot.ui.state is None
@@ -59,7 +62,9 @@ class PicoSnapshotSettingsBaseline:
 
     def packet(self,reference):
         saved=self.originals.get('settings',reference);exact(saved,{'raw','sha256','anchor'});value=original({key:saved[key] for key in ('raw','sha256')},LIMIT)
-        validate(value,self.run,value['commandId'],self.reader.pid,value['capturedEpochMs']);anchor=saved['anchor'];exact(anchor,{'hostMonotonic','nativeEpochMs'})
+        validate(value,self.run,value['commandId'],self.reader.pid,value['capturedEpochMs']);need(value['snapshotSettingsOriginalsVersion']==self.settings_scope)
+        anchor=saved['anchor'];exact(anchor,{'hostMonotonic','nativeEpochMs'}|({'actualHostMonotonic'} if self.settings_scope==2 else set()))
+        if self.settings_scope==2:self.original_anchor(value,anchor,saved['sha256'])
         need(number(anchor['hostMonotonic'],0,1e15) and integer(anchor['nativeEpochMs'],1) and value['capturedEpochMs']>=anchor['nativeEpochMs']);return value
 
     def validate(self,state):
@@ -72,8 +77,7 @@ class PicoSnapshotSettingsBaseline:
         if state['original'] is None:need(state['stage']=='capture-issued' and state['admission'] is None and state['envelope'] is None and not state['observations']);return
         before=self.packet(state['original'])
         if state['admission'] is not None:
-            current=self.packet(state['admission']);accept(before,current);need(typed_equal(current['source']['entries'],before['source']['entries'])
-                and typed_equal(current['source']['formatCache'],before['source']['formatCache']) and current['source']['typedSha256']==before['source']['typedSha256'])
+            current=self.packet(state['admission']);accept(before,current);need(settings_equal(before,current))
         if state['envelope'] is not None:
             validate_envelope(state['envelope'],self.parent.session.profile);origin=self.parent.state['sessionOrigin']
             need(state['admission'] is not None and state['envelope']['sessionNonce']==origin['sessionNonce'] and state['envelope']['sequence']==origin['nextSequence']
@@ -88,13 +92,13 @@ class PicoSnapshotSettingsBaseline:
         self.bound();disk=self.store.read()
         if disk is None:need(self.state is None and self.originals.disk is None);return
         exact(disk,{'snapshotSettingsBaselineVersion','runId','binding','fixtureUrl','payload'})
-        need(type(disk['snapshotSettingsBaselineVersion']) is int and disk['snapshotSettingsBaselineVersion']==VERSION and disk['runId']==self.run
+        need(type(disk['snapshotSettingsBaselineVersion']) is int and disk['snapshotSettingsBaselineVersion']==self.settings_scope and disk['runId']==self.run
             and typed_equal(disk['binding'],self.binding) and disk['fixtureUrl']==self.source.fixture_url)
         values=unpack(disk['payload']);need(len(values)==1);state=values[0];self.validate(state);self.disk,self.state=deepcopy(disk),state;self.state_sha=sha(state);self.bound()
 
     def save(self,state):
         self.bound();self.validate(state)
-        disk=dict(snapshotSettingsBaselineVersion=VERSION,runId=self.run,binding=self.binding,fixtureUrl=self.source.fixture_url,payload=pack([state]))
+        disk=dict(snapshotSettingsBaselineVersion=self.settings_scope,runId=self.run,binding=self.binding,fixtureUrl=self.source.fixture_url,payload=pack([state]))
         self.store.write(disk,self.disk);need(typed_equal(self.store.read(),disk));self.disk,self.state=deepcopy(disk),state;self.state_sha=sha(state);self.bound()
 
     def identity(self):
@@ -121,8 +125,7 @@ class PicoSnapshotSettingsBaseline:
             and not self.parent.state['deliveries'] and self.parent.current)
         # SDK/queue work stays outside the Session lock. The parent's final
         # exact phase/clock fence follows this last source acquisition and CAS.
-        value=self.reader.capture(self.run);before=self.packet(self.state['original']);need(value['source']['typedSha256']==before['source']['typedSha256']
-            and typed_equal(value['source']['entries'],before['source']['entries']) and typed_equal(value['source']['formatCache'],before['source']['formatCache']))
+        value=self.reader.capture(self.run);before=self.packet(self.state['original']);need(settings_equal(before,value))
         state=deepcopy(self.state);state.update(stage='admitted',admission=self.originals.put('settings',self.reader.original()));self.save(state)
 
     def input_intent(self,envelope):
@@ -142,6 +145,6 @@ class PicoSnapshotSettingsBaseline:
     def report(self):
         match=None
         if self.state is not None and self.state['observations']:
-            current=self.packet(self.state['observations'][-1]);before=self.packet(self.state['original']);match=current['source']['typedSha256']==before['source']['typedSha256'] and typed_equal(current['source']['entries'],before['source']['entries']) and typed_equal(current['source']['formatCache'],before['source']['formatCache'])
+            current=self.packet(self.state['observations'][-1]);before=self.packet(self.state['original']);match=settings_equal(before,current)
         return dict(qualification='PICO_SNAPSHOT_PREINPUT_SETTINGS_ORIGINAL_ONLY',baselineCaptured=self.state is not None and self.state['original'] is not None,
             originalInputBound=self.state is not None and self.state['envelope'] is not None,currentSettingsMatchOriginal=match,settingsRestored=False,journalRetained=True,fullSnapshotRecipe=False,deviceAcceptance=False)

@@ -2042,10 +2042,11 @@
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
                 && command.action === "feature-pico-snapshot-settings-originals"
-                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+                && (objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])
+                    || (command.settingsScope === 2 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId", "settingsScope"])))) {
             if (command.commandId === lastSnapshotSettingsRequest) { return; }
             lastSnapshotSettingsRequest = command.commandId;
-            var snapshotOriginals = {snapshotSettingsOriginalsVersion: 1, commandId: command.commandId, available: false};
+            var snapshotOriginals = {snapshotSettingsOriginalsVersion: command.settingsScope === 2 ? 2 : 1, commandId: command.commandId, available: false};
             try {
                 if (typeof Test.featureSnapshotSettingsOriginals === "function") {
                     var actualSnapshot = Test.featureSnapshotSettingsOriginals(command);

@@ -59,6 +59,7 @@
 #include <SettingManager.h>
 #include "../../../tests/device/native/PicoSnapshotCaptureFiles.h"
 #include "../../../tests/device/native/SnapshotSettingsOriginals.h"
+#include "../../../tests/device/native/SnapshotCaptureSettingsOriginals.h"
 #endif
 #endif
 
@@ -197,7 +198,7 @@ QVariantMap Snapshot::featureSnapshotSettingsOriginals(const QVariantMap& comman
 #if defined(ANDROID_APP_PICO_INTERFACE)
     if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")
             || QThread::currentThread()!=thread() || thread()!=QCoreApplication::instance()->thread()
-            || !nativeReviewEnabled() || !overte::e2e::snapshotSettingsCommand(command)
+            || !nativeReviewEnabled() || (!overte::e2e::snapshotSettingsCommand(command) && !overte::e2e::snapshotCaptureSettingsCommand(command))
             || _featureSettingsQueries.size()>=4096 || _featureSettingsQueries.contains(command.value("commandId").toString())
             || (!_featureSettingsRun.isEmpty() && _featureSettingsRun!=command.value("runId").toString())
             || _featureSettingsSequence>=9007199254740991ULL) { return {}; }
@@ -206,6 +207,12 @@ QVariantMap Snapshot::featureSnapshotSettingsOriginals(const QVariantMap& comman
     const auto manager=DependencyManager::get<Setting::Manager>();if (!manager) { return {}; }
     // Read both existing sources without maybeInit/isSet/get. No settings
     // writer, cache initialization, replacement values or dependency creation.
+    if(overte::e2e::snapshotCaptureSettingsCommand(command)) {
+        const auto format=_snapshotFormat.featureSnapshotFormatState();
+        const auto duration=SnapshotAnimated::snapshotAnimatedDuration.featureSnapshotDurationState();
+        const auto entries=manager->featureSnapshotCaptureSettingsEntries();
+        return overte::e2e::snapshotCaptureSettingsOriginals(command,_featureSettingsInstance,entries,format,duration,++_featureSettingsSequence);
+    }
     const auto cache=_snapshotFormat.featureSnapshotFormatState();const auto entries=manager->featureSnapshotSettingsEntries();
     return overte::e2e::snapshotSettingsOriginals(command,_featureSettingsInstance,entries,cache,++_featureSettingsSequence);
 #else

@@ -1555,7 +1555,10 @@ QVariantMap TestScriptingInterface::featureSnapshotSettingsOriginals(const QVari
     if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
             || !QCoreApplication::arguments().contains("--testScript") || !qApp || !qApp->isHMDMode()
             || !overte::e2e::previewDirectory(_testResultsLocation) || !DependencyManager::isSet<Snapshot>()
-            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","action","commandId","runId"}
+            || (QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","action","commandId","runId"}
+                && !(QSet<QString>(keys.begin(),keys.end())==QSet<QString>{"schemaVersion","action","commandId","runId","settingsScope"}
+                    && (command.value("settingsScope").userType()==QMetaType::Int || command.value("settingsScope").userType()==QMetaType::Double)
+                    && command.value("settingsScope").toDouble()==2))
             || command.value("action").userType()!=QMetaType::QString || command.value("action").toString()!="feature-pico-snapshot-settings-originals"
             || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString())) {return {};}
     const auto original=DependencyManager::get<Snapshot>();if(!original) {return {};}

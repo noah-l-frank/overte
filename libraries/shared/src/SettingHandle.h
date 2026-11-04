@@ -267,6 +267,16 @@ namespace Setting {
         }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        QVariantMap featureSnapshotDurationState() const {
+            static_assert(std::is_same<T,float>::value,"Only the original Snapshot duration handle is observed");
+            if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+            // The bounded serializer is reused; Avatar key/barrier authority is not.
+            // Typed bytes retain negative zero and nonfinite values without JSON numeric conversion.
+            const auto value=overte::e2e::avatarPreferenceRaw(true,QVariant::fromValue(_value));
+            const auto fallback=overte::e2e::avatarPreferenceRaw(true,QVariant::fromValue(_defaultValue));
+            if(value.isEmpty() || fallback.isEmpty()) {return {};}
+            return {{"initialized",featureSnapshotCacheInitialized()},{"set",_isSet},{"value",value},{"defaultValue",fallback}};
+        }
         QVariantMap featureSnapshotFormatState() const {
             static_assert(std::is_same<T,QString>::value,"Only the original Snapshot string handle is observed");
             if (!QCoreApplication::instance() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }

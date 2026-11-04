@@ -151,7 +151,7 @@ class SnapshotSettingsNormalCloseTests(upload_prefix.SnapshotUploadFlowTests):
         temporary._finalizer.detach();temporary.cleanup=lambda:None
         root=self.h.lock.path.parent
         print('Retained new Snapshot settings/normal-Close originals:',root,flush=True)
-        started=time.monotonic();progress_path=root/'snapshot-settings-normal-close-progress.jsonl'
+        started=time.monotonic();progress_path=getattr(self,'diagnostic_root',root)/'snapshot-settings-normal-close-progress.jsonl'
         descriptor=os.open(progress_path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
         with os.fdopen(descriptor,'w') as record:record.write('')
         def progress(label,owner=None):

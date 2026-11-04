@@ -84,6 +84,12 @@ Save profiles have 15/12/15 applicable checkpoints from an 18-row closed invento
 No profile may omit common capture/Save/share/upload/resume/cleanup or pass an
 unsupported backend. These remain host-tested logic; full adapters are missing.
 
+Pico's explicit [capture-settings Scope2](adapters/pico4/SNAPSHOT_SETTINGS_SCOPE2.md)
+retains the additional duration raw key/cache and binary query originals before
+interpretation. Its 23 focused host checks pass; the continuous Scope2 flow
+still refuses its final closed settings observation. Exact settings restoration,
+native compilation and whole Snapshot acceptance remain unavailable.
+
 The aggregate `feature-journeys` suite includes the union of the existing modules
 above, one mandatory capability gate per area, and all fourteen extensions.
 Individual `feature-<area>` suites include only their own foundation and extension.

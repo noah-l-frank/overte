@@ -110,6 +110,12 @@ Emote retirement remain open. No new complete feature is advertised.
 
 ## Historical component checkpoints
 
+The explicit [Snapshot settings Scope2 prerequisite](SNAPSHOT_SETTINGS_SCOPE2.md)
+adds passive duration/raw-cache originals to the existing warm normal owners.
+Its 23 focused host checks pass. The continuous run reaches normal Close but
+refuses the final settings observation; restoration and whole Snapshot remain
+open. Complete source areas remain 3/14, with no native/device qualification.
+
 The entries below describe the earlier reference branch and do not override
 the current continuation status or qualify any device.
 

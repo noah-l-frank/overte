@@ -1683,7 +1683,20 @@
         "android/vr/pico/tests/device/test_snapshot_source_acquisition.py",
         "tests/device/adapters/pico4/snapshot_close_originals.py",
         "tests/device/adapters/pico4/SNAPSHOT_CLOSE_STORAGE.md",
-        "android/vr/pico/tests/device/test_snapshot_close_originals.py"
+        "android/vr/pico/tests/device/test_snapshot_close_originals.py",
+        "tests/device/adapters/pico4/snapshot_settings_namespace.py",
+        "tests/device/adapters/pico4/snapshot_settings_query_originals.py",
+        "tests/device/adapters/pico4/snapshot_settings_scope2_reader.py",
+        "tests/device/adapters/pico4/snapshot_settings_scope2_baseline.py",
+        "tests/device/adapters/pico4/snapshot_settings_transport.py",
+        "tests/device/native/SnapshotCaptureSettingsOriginals.h",
+        "tests/device/self_tests/pico_snapshot_settings_scope2_fixture.py",
+        "tests/device/self_tests/test_pico_snapshot_settings_probe.py",
+        "tests/device/self_tests/test_pico_snapshot_settings_transport.py",
+        "android/vr/pico/tests/device/test_snapshot_settings_scope2.py",
+        "android/vr/pico/tests/device/test_snapshot_settings_transport.py",
+        "android/vr/pico/tests/device/test_snapshot_settings_probe.py",
+        "tests/device/adapters/pico4/SNAPSHOT_SETTINGS_SCOPE2.md"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1733,7 +1746,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Current continuous component is source-qualified at95.441s with unchanged Close owner and lossless original storage2; retain earlier failed whole attempts honestly. Implement original raw typed Settings/cache restoration, real OS chooser/receiver, independent upload/Actor/stereo, true Common16 and final global resource/host retirement. Existing normal Mode/Format/Close restores checked selections only and cannot clear arbitrary raw Settings or an originally uninitialized native cache; do not copy Phone initialized-baseline restoration as proof of Pico restoration. Further actual source audit: normal SnapshotAnimated::captureFrames GUI-posted callback calls snapshotAnimatedDuration.get(); current SettingsOriginals1 fixed13+formatCache omits this separate float Handle/raw key and cannot prove full post-GIF settings restoration. Explicit new pre-input scope must preserve actual raw presence/type and duration cache/default/initialized/set plus original Manager/registration and writer responsibility before any getter initialization; keep old1 history scoped and never retrospectively adopt/normalize it. See SNAPSHOT_SETTINGS_CLOSE.md. Phone lease2 additional previousAnimatedSnapUrl is a different key, not this duration scope.",
+      "nextExecutableStep": "Explicit Source2 now captures fixed13 raw keys plus actual typed duration raw/cache before normal input, with durable binary return, fresh complete namespace windows and original real-age bounds. Its23 focused host cases pass; current continuous Source2 reaches same-session Close then refuses query3 after raw durability at82.325s, before acceptance. Diagnose that actual guard/age without renewed clocks or lost originals. Implement distinct native-owned original settings/cache/registration restoration, then real OS chooser/receiver, independent upload/Actor/stereo, true common-v16 whole journey and final global retirement. Preserve Source1 historical/default scope and its earlier successful continuous component. See SNAPSHOT_SETTINGS_SCOPE2.md; Phone initialized-baseline restoration is not a Pico restoration proof.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "normalCloseComposition": "Current continuous pre-input lease/Cancel/Still/Save/offline+successful TLS Upload/Resume/return PNG/normal Mode+Format/Close/raw settings/3s quiet component passes1/99.130s under original120s,233 loaded sources stable. Original same Session/nonce/cursor retained. Strict passive Close source acquisition now avoids the open-only Upload effect predicate, which remains mandatory for ordinary Upload. Raw Settings/cache restoration, OS chooser/receiver, independent Actor/challenge pixels, whole Common16 and global retirement remain unqualified.",
@@ -1755,6 +1768,26 @@
         "rootLoadedSources": 35,
         "selector": "snapshot-constructor-originals",
         "scope": "Actual known/unknown original FD pairs through constructor response loss; no endpoint or restoration qualification."
+      },
+      "captureSettingsScope2Prerequisite": {
+        "version": 2,
+        "rootCases": 23,
+        "rootSeconds": 13.479,
+        "rootLoadedSources": [
+          250,
+          71
+        ],
+        "selectors": [
+          "snapshot-settings-scope2",
+          "snapshot-settings-scope2-fences",
+          "snapshot-settings-transport",
+          "snapshot-settings-probe"
+        ],
+        "scope": "Explicit warm original Parent, passive fixed13 raw keys plus typed animated duration/cache, durable binary return before parsing, actual known file-owner mutex, conservative namespace bill and real Host-age fences. Native/Qt/SDK producers are declared models; fixed-shell branches execute on task-owned GNU host files without ADB. Legacy file guards are fresh read windows, not continuous historical OFD ownership. Source1 remains scoped and live versions cannot adopt each other.",
+        "normalClose": "Current changed Source2 continuous component reaches same-session Close, then refuses its raw-settings checkpoint at82.325s; 266 loaded source files unchanged, original120s not expired. This is retained failure evidence, not Closed or whole-feature qualification.",
+        "settingsRestored": false,
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     },
     {

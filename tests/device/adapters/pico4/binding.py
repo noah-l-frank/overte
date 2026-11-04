@@ -1064,7 +1064,6 @@ def create_adapter(args, base_class):
             from adapters.pico4.emote_cold_factory import create_cold_common
             return create_cold_common(self, target, roles, phase, artifact_root, source_lock)
 
-
         @_private
         def _emote_stream_capture(self, primary_target, actor_target, cycle, index):
             from adapters.pico4.emote_stream_factory import capture
@@ -2002,6 +2001,42 @@ def create_adapter(args, base_class):
             return PicoSnapshotCancel(io,native.clock_ms,native.pid,lock,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
+        def _snapshot_settings_scope2_baseline(self,target,run,phase_source,*,parent,source_lock=None):
+            from adapters.pico4.snapshot_cancel_owner import PicoSnapshotCancelOwner
+            from adapters.pico4.snapshot_settings_query_originals import SnapshotSettingsQueryOriginals
+            from adapters.pico4.snapshot_settings_scope2_reader import PicoSnapshotSettingsScope2Reader
+            from adapters.pico4.snapshot_settings_scope2_baseline import PicoSnapshotSettingsScope2Baseline
+            from adapters.pico4.snapshot_settings_transport import SnapshotSettingsBinaryRead
+            _need(type(parent) is PicoSnapshotCancelOwner and parent.run==run and parent.source is phase_source
+                and (source_lock is None or source_lock is parent.lock))
+            lock=self._script_journey()._lock(target,parent.lock)
+            with lock.held():
+                attached=getattr(parent,'settings_baseline',None)
+                if attached is not None:
+                    _need(type(attached) is PicoSnapshotSettingsScope2Baseline and attached.parent is parent
+                        and attached.lock is lock and attached.run==run)
+                    attached.bound();attached.reader.identity();return attached
+                _need(parent.state is None and parent.snapshot.state is None and parent.snapshot.ui.state is None
+                    and getattr(parent,'_snapshot_scope2_raw',None) is None)
+                # Existing candidate/native admission is a prerequisite, not a
+                # raw-qualified Snapshot endpoint read. No ordinary input here.
+                native=self._native_feature_observer(target)
+                raw=object.__new__(SnapshotSettingsQueryOriginals)
+                parent._snapshot_scope2_raw=raw
+                try:
+                    SnapshotSettingsQueryOriginals.__init__(raw,parent,target)
+                    def send(command):
+                        native.guard();raw.fresh()
+                        self.write_control_command(target,parent.binding['processIdentity'],'Snapshot Source2 originals',command)
+                    transport=SnapshotSettingsBinaryRead(self,target,parent.binding['processIdentity'],raw)
+                    reader=PicoSnapshotSettingsScope2Reader(send,transport,native.clock_ms,native.guard,native.pid,lock,raw,
+                        monotonic=parent.native.monotonic,sleep=parent.native.sleep)
+                    return PicoSnapshotSettingsScope2Baseline(parent,reader,lock.path.with_name('snapshot-settings-baseline.json'),
+                        may_capture=raw.may_capture)
+                except BaseException:
+                    raw.poison();raise
+
+        @_private
         def _snapshot_settings_baseline(self,target,run,phase_source,*,parent=None,source_lock=None):
             from adapters.pico4.snapshot_settings_baseline import PicoSnapshotSettingsBaseline
             from adapters.pico4.snapshot_cancel_owner import PicoSnapshotCancelOwner
@@ -2040,12 +2075,14 @@ def create_adapter(args, base_class):
                 'snapshot-save-owner.json','snapshot-save-originals.json','snapshot-upload-fail-owner.json','snapshot-upload-owner.json',
                 'snapshot-upload-fail-originals.json','snapshot-upload-originals.json','snapshot-background-owner.json','snapshot-background-originals.json',
                 'snapshot-close-owner.json','snapshot-close-originals.json','snapshot-close-statuses.json',
-                'snapshot-settings-baseline.json','snapshot-settings-baseline-originals.json','snapshot-settings-close.json')
+                'snapshot-settings-baseline.json','snapshot-settings-baseline-originals.json','snapshot-settings-close.json',
+                'snapshot-settings-query-originals.json')
             paths=[store.path]+[store.path.with_name(name) for name in names]
             paths.extend(store.path.with_name('snapshot-return-image-'+role+suffix) for role in ('primary','actor') for suffix in ('.json','-originals.json'))
             prefixes=('snapshot-cancel-originals.json.frame-','snapshot-save-originals.json.frame-','snapshot-upload-fail-originals.json.frame-',
                 'snapshot-upload-originals.json.frame-','snapshot-background-originals.json.frame-','snapshot-close-originals.json.frame-','snapshot-close-statuses.json.frame-','snapshot-settings-baseline-originals.json.frame-',
-                'snapshot-return-image-primary-originals.json.frame-','snapshot-return-image-actor-originals.json.frame-')
+                'snapshot-return-image-primary-originals.json.frame-','snapshot-return-image-actor-originals.json.frame-',
+                'snapshot-settings-query-originals.json.frame-','snapshot-settings-query-originals.json.pending-')
             return any(path.exists() or path.is_symlink() for path in paths) or any(path.name.startswith(prefixes) for path in store.path.parent.iterdir())
 
         @_private
@@ -4082,6 +4119,8 @@ def create_adapter(args, base_class):
                 from adapters.pico4.avatar_remote_state import retained as remote_avatar_retained
                 _need(not remote_avatar_retained(self, target))
                 _need(not self._assets_prefix_owned(target))
+                from adapters.pico4.snapshot_settings_query_originals import retained as snapshot_settings_retained
+                _need(not snapshot_settings_retained(self,target))
             # Base stop remains available, but cannot retire this private
             # owner or its original normal preference/UI journals.
             snapshot_error=False
