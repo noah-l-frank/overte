@@ -2231,7 +2231,28 @@
         "android/vr/pico/tests/device/test_lifecycle_pending_read.py",
         "android/vr/pico/tests/device/test_lifecycle_pending_body.py",
         "android/vr/pico/tests/device/test_lifecycle_pending_return.py",
-        "android/vr/pico/tests/device/test_lifecycle_pending_delivery.py"
+        "android/vr/pico/tests/device/test_lifecycle_pending_delivery.py",
+        "android/vr/pico/tests/device/test_lifecycle_background_state5.py",
+        "android/vr/pico/tests/device/test_lifecycle_capacity_pass.py",
+        "android/vr/pico/tests/device/test_lifecycle_packed_costs.py",
+        "android/vr/pico/tests/device/test_lifecycle_ui2_normal_source.py",
+        "tests/device/adapters/pico4/LIFECYCLE_PENDING3_STORAGE.md",
+        "tests/device/adapters/pico4/LIFECYCLE_SOURCE_RAW4.md",
+        "tests/device/adapters/pico4/lifecycle_background_state5.py",
+        "tests/device/adapters/pico4/lifecycle_capacity_pass.py",
+        "tests/device/adapters/pico4/lifecycle_family_gate.py",
+        "tests/device/self_tests/pico_lifecycle_host_model.py",
+        "tests/device/self_tests/pico_lifecycle_pending3_diagnostic.py",
+        "tests/device/self_tests/pico_lifecycle_ui2_fixture.py",
+        "tests/device/self_tests/test_native_feature_observation.py",
+        "tests/device/self_tests/test_pending_commit_owner.py",
+        "tests/device/self_tests/test_pico_lifecycle_background_state5.py",
+        "tests/device/self_tests/test_pico_lifecycle_capacity_pass.py",
+        "tests/device/self_tests/test_pico_lifecycle_chat.py",
+        "tests/device/self_tests/test_pico_lifecycle_editor.py",
+        "tests/device/self_tests/test_pico_lifecycle_packed_costs.py",
+        "tests/device/self_tests/test_pico_lifecycle_ui2_normal_sources.py",
+        "tests/device/self_tests/test_token_lifecycle_ui.py"
       ],
       "declaredCheckpoints": 16,
       "inputVerbs": [
@@ -2370,6 +2391,27 @@
         },
         "pendingOwner3Implemented": false,
         "sourceActor8Implemented": false,
+        "nativeCompiled": false,
+        "devicesTested": false
+      },
+      "sharedStorageGraphPrerequisite": {
+        "backgroundVersion": 5,
+        "pendingOwnerVersion": 3,
+        "sourceRawVersion": 4,
+        "rootCases": 28,
+        "rootSeconds": 21.717,
+        "rootLoadedSources": 168,
+        "selectors": [
+          "lifecycle-background-state5",
+          "lifecycle-capacity-pass",
+          "lifecycle-packed-costs",
+          "lifecycle-ui2-normal-source"
+        ],
+        "scope": "Explicit original-bank Background5 projected graph lifetime and numerical capacity summaries; same original plain validators, global quotas, complete current bytes/OFD8/namespace/clock/source predicates. Existing normal Create/World/Back/Chat source constructors consume UI2. Pending3 source path exists, but preceding full normal Background still refuses its original1500ms fence before Pending preparation.",
+        "currentWhole": "RED16.895s/168stable; exact subsequent origin diagnostic17.570s confirms Background.fresh1500ms, namespace decoded2892364B/raw348738B/51reads5parts, original120 not expired. No Pending3 normal preparation, eighth action or Source8 qualification.",
+        "capacityMethod": "Twelve alternating complete original-file passes:26.061->6.584ms median; same decoded bill1302537B/currentbytes/OFD8/noSourcequery, not a whole-flow speedup.",
+        "standalonePending3PassiveReader": false,
+        "knownRedDiagnostics": "Explicit non-test-prefixed pico_lifecycle_pending3_diagnostic.py only; ordinary discovery selects28 green unique cases.",
         "nativeCompiled": false,
         "devicesTested": false
       }

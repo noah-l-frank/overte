@@ -26,7 +26,8 @@ def probe_source():
 
 
 class Boundary:
-    def __init__(self):
+    def __init__(self,*,pid=123,epoch_ms=None):
+        self.pid,self.epoch_ms=pid,epoch_ms
         self.clock, self.sequence = 0.0, 0
         self.commands, self.sample, self.mutate = [], None, None
         self.ignored, self.guard_okay, self.guards = False, True, 0
@@ -36,16 +37,17 @@ class Boundary:
         if self.ignored:
             return
         self.sequence += 1
+        epoch=20000 if self.epoch_ms is None else self.epoch_ms()
         self.sample = dict(schemaVersion=1, requestId=command['commandId'], instance='a' * 32,
-            sequence=self.sequence, capturedEpochMs=20000, requestedEpochMs=20000, processId=123,
-            animationFence=dict(rigId=2, sequence=self.sequence + 9, requestedEpochMs=20000),
+            sequence=self.sequence, capturedEpochMs=epoch, requestedEpochMs=epoch, processId=self.pid,
+            animationFence=dict(rigId=2, sequence=self.sequence + 9, requestedEpochMs=epoch),
             lifecycle=dict(backgrounds=0, activations=1, launches=1),
-            animation=dict(rigId=2, capturedEpochMs=20000, evaluationSequence=self.sequence + 10,
+            animation=dict(rigId=2, capturedEpochMs=epoch, evaluationSequence=self.sequence + 10,
                 animationsEnabled=True, graphLoaded=True, overrideActive=True,
                 joints=[[0.0, 0.0, 0.0, 1.0, 0.1, 0.2, 0.3]],
                 clip=dict(url='file:///actual/bundled/Sit2.fbx', requestedUrl='file:///actual/bundled/Sit2.fbx', frame=25.5, firstFrame=0.0,
                     lastFrame=120.0, framesPerSecond=60.0, loop=False, loadedFrames=121,
-                    evaluatedEpochMs=20000, evaluationSequence=self.sequence + 100)),
+                    evaluatedEpochMs=epoch, evaluationSequence=self.sequence + 100)),
             graphics=dict(requestedResolutionScale=0.65, applicationResolutionScale=0.65,
                 shadowsSetting=False, mirrorsSetting=False, hazeSetting=False,
                 localLightingSetting=False, proceduralMaterialsSetting=False,
@@ -65,8 +67,8 @@ class Boundary:
         self.clock += seconds
 
     def reader(self, **kwargs):
-        return NativeFeatureObservation(self.send, self.original, lambda: 20000,
-            self.guard, 123, monotonic=lambda: self.clock, sleep=self.sleep, **kwargs)
+        return NativeFeatureObservation(self.send, self.original, lambda: 20000 if self.epoch_ms is None else self.epoch_ms(),
+            self.guard, self.pid, monotonic=lambda: self.clock, sleep=self.sleep, **kwargs)
 
 
 class NativeFeatureObservationTests(unittest.TestCase):

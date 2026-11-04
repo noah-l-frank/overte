@@ -100,12 +100,67 @@ class PicoLifecycleObservation:
         self.owners=tuple(owner for owner in (restore,editor,chat,pending) if owner is not None)
         self.missing=set(FAMILIES) if version>=2 else set()
         self.attached={}
+        self.return_pins=self._original_return_pins=None;self._return_slot=None
         self.history=ChatSourceChunks(self.store,self.scope);self.parent=parent_node(self.store)
         self.chunk_identities=();self.chunk_raw_bytes=2
         self.disk=self.stamp=None;self.pin=None;self.failed=False;self.anchor=None;self.last_clock=None
         # Historical records are deliberately not adopted as a live cursor.
         with self.lock.held():
             need(self.store.read() is None);self.history.inventory(0);self.bound()
+
+    def raw4_family(self):
+        from adapters.pico4.lifecycle_source_raw import LifecycleSourceRaw4
+        if self.background is None or self.background.version not in (4,5):
+            need(self.pending is None or self.pending.version!=3);return None
+        need(type(self.background) is PicoLifecycleBackground and type(self.background.originals) is LifecycleSourceRaw4)
+        raw=self.background.originals;raw.profile_guard()
+        need(raw.run==self.run and raw.binding==self.binding and raw.lock is self.lock
+            and raw.path==self.store.path.with_name('lifecycle-background-raw.json'))
+        owner=self.background
+        if self.pending is not None and self.pending.version==3:
+            need(type(self.pending) is PicoLifecyclePending and self.pending.originals is raw
+                and self.pending.background is self.background and raw.pending_read_version==1)
+            owner=self.pending
+        return raw,owner
+
+    def return_data_guard(self):
+        from adapters.pico4.lifecycle_pending_return import LifecyclePendingReturnPins
+        selected=self.raw4_family();need(selected is not None and self._return_slot is not None)
+        raw,owner=selected;old_raw,old_owner,gate,pins=self._return_slot
+        need(raw is old_raw and owner is old_owner and type(pins) is LifecyclePendingReturnPins
+            and self.return_pins is self._original_return_pins is pins and pins.writer is owner
+            and pins.gate is gate is owner.storage_gate is owner._original_storage_gate
+            and pins.raw is raw and gate.writer is owner and gate.raw is raw)
+        if owner is self.pending:owner.return_pins_guard();need(owner.return_pins is pins)
+        return pins
+
+    def retire_return_data(self):
+        self.lock.assert_held()
+        if self.return_pins is None:
+            need(self._original_return_pins is None and self._return_slot is None);return
+        pins=self.return_data_guard();need(pins.close_host())
+        owner=self._return_slot[1]
+        if owner is self.pending:owner.return_pins=owner._original_return_pins=None
+        self.return_pins=self._original_return_pins=None;self._return_slot=None
+
+    def stage_return_data(self):
+        self.lock.assert_held();selected=self.raw4_family()
+        if selected is None:return
+        self.retire_return_data();raw,owner=selected
+        if owner is self.pending:owner.close_return_pins()
+        from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4
+        from adapters.pico4.lifecycle_pending_return import LifecyclePendingReturnPins
+        gate=owner.storage_gate
+        need(type(gate) is LifecycleFamilyGate4 and gate is owner._original_storage_gate
+            and gate.writer is owner and gate.raw is raw and gate.pending is None)
+        pins=LifecyclePendingReturnPins.__new__(LifecyclePendingReturnPins)
+        self.return_pins=self._original_return_pins=pins;self._return_slot=(raw,owner,gate,pins)
+        if owner is self.pending:owner.return_pins=owner._original_return_pins=pins
+        LifecyclePendingReturnPins.__init__(pins,gate)
+
+    def verify_return_data(self):
+        if self.raw4_family() is None:return
+        self.return_data_guard().verify_data()
 
     def family_inventory(self,role):
         roots=FAMILIES[role]
@@ -139,7 +194,17 @@ class PicoLifecycleObservation:
                 elif role=='pending':need(owner.world is self.world and owner.background is self.background)
                 else:need(owner.world is self.world and owner.pending is self.pending)
                 expected={owner.store.path.name}
-                if role=='background' and owner.version==3:
+                if role=='background' and owner.version in (4,5):
+                    selected=self.raw4_family();need(selected is not None and selected[0] is owner.originals)
+                    if self.lock._owner is not None:expected.update(owner.originals.owned_names())
+                    else:
+                        self.verify_return_data();expected.update(self.return_pins.raw_names)
+                elif role=='pending' and owner.version==3:
+                    selected=self.raw4_family();need(selected is not None and selected[0] is owner.originals
+                        and owner.originals is self.background.originals)
+                    # Its same original bank is already owned by background;
+                    # no synthetic Pending originals root or child names.
+                elif role=='background' and owner.version==3:
                     from adapters.pico4.lifecycle_background_raw import LifecycleBackgroundRaw3
                     need(type(owner.originals) is LifecycleBackgroundRaw3)
                     expected.update(owner.originals.owned_names())

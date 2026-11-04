@@ -39,7 +39,12 @@ def current_return(method):
         previous=owner.deadline
         owner.deadline=started+20 if previous is None else previous
         try:
-            result=method(owner,*args,**kwargs)
+            if owner.version==3:
+                with owner.lock.held():
+                    owner.close_return_pins()
+                    result=method(owner,*args,**kwargs)
+                    owner.stage_return_pins()
+            else:result=method(owner,*args,**kwargs)
             owner.released_fresh()
             return result
         finally:owner.deadline=previous
@@ -47,7 +52,7 @@ def current_return(method):
 
 
 class PicoLifecyclePending:
-    def __init__(self,background,world,route,pending,path):
+    def __init__(self,background,world,route,pending,path,*,raw_layout=None):
         need(type(background) is PicoLifecycleBackground and type(world) is PicoLifecycleWorld
             and type(route) is TokenScriptUI and type(pending) is NativePendingCommitOwner
             and background.lock is world.lock and background.run==world.run and background.binding==world.binding
@@ -56,6 +61,18 @@ class PicoLifecyclePending:
         self.run,self.binding,self.pid,self.lock=world.run,deepcopy(world.binding),world.pid,world.lock
         self.store=PrivateFeatureState(path);need(self.store.path==world.store.path.with_name('lifecycle-pending-owner.json'))
         self.disk=self.state=self.last_clock=self.anchor=self.deadline=None
+        self.layout=self._layout=2 if raw_layout is None else 3
+        self.storage_gate=self._original_storage_gate=None;self.return_pins=self._original_return_pins=None
+        if raw_layout is not None:
+            from adapters.pico4.lifecycle_source_raw import LifecycleSourceRaw4
+            need(type(raw_layout) is LifecycleSourceRaw4 and raw_layout.pending_read_version==1
+                and background.version in (4,5) and background.originals is raw_layout
+                and raw_layout.run==self.run and raw_layout.binding==self.binding and raw_layout.lock is self.lock
+                and world.source.field_bindings is world.source._field_bindings is True
+                and raw_layout.pending_transport is not None
+                and type(raw_layout.pending_transport.owner_binding) is tuple
+                and raw_layout.pending_transport.owner_binding[0] is pending)
+            with self.lock.held():need(self.store.read() is None)
         self.pending.intent=self.pending_intent
         self.pending_callback=self.pending_before_send;self.pending.bind_before_send(self.pending_callback)
         # This is the existing final normal QML publication boundary, after the
@@ -64,8 +81,13 @@ class PicoLifecyclePending:
         self.route.io.navigation.io.bind_before_send(self.normal_callback)
         with self.lock.held():
             self.disk=self.store.read()
-            self.originals=LifecyclePendingOriginals(self.store.path.with_name('lifecycle-pending-originals.json'),self.run,self.binding)
-            need(self.store.read() is not None or self.originals.disk is None);self.load()
+            if raw_layout is None:
+                self.originals=LifecyclePendingOriginals(self.store.path.with_name('lifecycle-pending-originals.json'),self.run,self.binding)
+                need(self.store.read() is not None or self.originals.disk is None)
+            else:
+                self.originals=raw_layout
+                need(self.disk is None and self.originals.view('pending').confirmed==())
+            self.load()
 
     def bound(self,*,host_only=False):
         self.lock.assert_held();now=self.world.monotonic()
@@ -76,6 +98,7 @@ class PicoLifecyclePending:
         return now
 
     def original_state(self):
+        if self.layout==3:return self.original_state_raw()
         # Pure physical/metadata verification, also valid after actual lock
         # release. It cannot create a reader, refresh a source or acquire input.
         for binding in (self.binding,self.world.binding,self.background.binding):context(binding)
@@ -91,6 +114,47 @@ class PicoLifecyclePending:
         if self.state is not None:
             need(hashlib.sha256(canonical(self.background.store.read())).hexdigest()==self.state['backgroundSha256'])
 
+    def original_state_raw(self):
+        need(self.layout is self._layout and self.layout==3 and self.originals is self.background.originals
+            and self.originals.pending_read_version==1 and self.lock is self.originals.lock
+            and self.binding==self.world.binding==self.background.binding==self.originals.binding
+            and self.run==self.world.run==self.background.run==self.originals.run
+            and self.pid==self.world.pid==self.pending.pid)
+        if self.storage_gate is not None:
+            from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4
+            need(type(self.storage_gate) is LifecycleFamilyGate4 and self.storage_gate is self._original_storage_gate
+                and self.storage_gate.writer is self and self.storage_gate.raw is self.originals
+                and self.storage_gate.view is self.originals.view('pending') and self.storage_gate.role=='pending')
+        else:need(self._original_storage_gate is None and self.disk is None)
+        if self.lock._owner is None:
+            self.return_pins_guard();self.return_pins.verify_data()
+        else:
+            self.originals.verify()
+            need(self.store.read()==self.disk and (self.disk is None and self.state is None or self.disk is not None
+                and self.disk['originalChunks']==self.originals.view('pending').manifest))
+        if self.state is not None:
+            need(hashlib.sha256(canonical(self.background.store.read())).hexdigest()==self.state['backgroundSha256'])
+
+    def stage_return_pins(self):
+        from adapters.pico4.lifecycle_pending_return import LifecyclePendingReturnPins
+        self.lock.assert_held();need(self.layout==3 and self.return_pins is None and self.storage_gate is not None)
+        pins=LifecyclePendingReturnPins.__new__(LifecyclePendingReturnPins)
+        self.return_pins=self._original_return_pins=pins
+        LifecyclePendingReturnPins.__init__(pins,self.storage_gate)
+
+    def return_pins_guard(self):
+        from adapters.pico4.lifecycle_pending_return import LifecyclePendingReturnPins
+        need(type(self.return_pins) is LifecyclePendingReturnPins
+            and self.return_pins is self._original_return_pins and self.return_pins.writer is self
+            and self.return_pins.gate is self.storage_gate is self._original_storage_gate
+            and self.return_pins.raw is self.originals and self.return_pins.role=='pending')
+
+    def close_return_pins(self):
+        need(self.return_pins is self._original_return_pins)
+        if self.return_pins is not None:
+            self.return_pins_guard();need(self.return_pins.close_host())
+            self.return_pins=self._original_return_pins=None
+
     def bind_phase_fence(self,fence):
         from adapters.pico4.lifecycle_operations import phase as input_phase
         need(getattr(self,'phase_fence',None) is None)
@@ -100,7 +164,7 @@ class PicoLifecyclePending:
         need(self.pending._before_send is self.pending_callback)
 
     @property
-    def version(self):return VERSION if self.disk is None else self.disk['lifecyclePendingOwnerVersion']
+    def version(self):return self.layout if self.disk is None else self.disk['lifecyclePendingOwnerVersion']
 
     def reply_packet(self,row,request):
         exact(row,{'request','original','exchangeTiming'});need(row['request']==request)
@@ -149,6 +213,8 @@ class PicoLifecyclePending:
         # source lock or replay any source/input while checking original age.
         self.original_state()
         need(self.anchor is not None and self.world.guard() is not False and self.pending.guard() is not False)
+        if self.layout==3:
+            self.return_pins_guard();self.return_pins.verify_data()
         start,requested,oldest=self.anchor;epochs=(self.world.axes.clock_ms(),self.pending.clock_ms())
         completed=self.world.monotonic()
         need(number(completed,0,1e15) and completed>=self.last_clock
@@ -168,7 +234,7 @@ class PicoLifecyclePending:
         need(number(row['hostMonotonic'],0,1e15));return self.world.originals(row['world']),self.pending_packet(row['pending'])
 
     def validate(self,state,*,version=None):
-        version=self.version if version is None else version;need(type(version) is int and version in (1,2))
+        version=self.version if version is None else version;need(type(version) is int and version in (1,2,3))
         exact(state,{'phase','backgroundSha256','frames','normal','mutations','backs','scriptId','replacementId','eventId','holdHost','quiet','cleanup'}|({'replies'} if version>=2 else set()))
         need(state['phase'] in PHASES and type(state['backgroundSha256']) is str and re.fullmatch('[0-9a-f]{64}',state['backgroundSha256'])
             and type(state['frames']) is list and 1<=len(state['frames'])<=96
@@ -179,6 +245,11 @@ class PicoLifecyclePending:
         prior_ui=prior_pending=None;commands=set()
         for row in state['frames']:
             packets,pending=self.packet(row)
+            if version==3:
+                current=ui.current_editor(packets['ui'])
+                if current is not None and current['kind']=='scripts':
+                    from adapters.pico4.lifecycle_field_binding import pending_match
+                    pending_match(current,pending)
             prior_ui=ui.accept(prior_ui,ui.summary(packets['ui']));pending_accept(prior_pending,pending);prior_pending=pending
             need(pending['commandId'] not in commands);commands.add(pending['commandId'])
         first,_pending=self.packet(state['frames'][0]);current=ui.current_editor(first['ui'])
@@ -275,11 +346,16 @@ class PicoLifecyclePending:
     def load(self):
         self.bound();disk=self.store.read()
         if disk is None:need(self.state is None);return
-        exact(disk,{'lifecyclePendingOwnerVersion','runId','binding','originalChunks','originalStamp','payload'})
+        exact(disk,{'lifecyclePendingOwnerVersion','runId','binding','originalChunks','payload'}
+            | (set() if self.layout==3 else {'originalStamp'}))
         context(disk['binding'])
-        need(type(disk['lifecyclePendingOwnerVersion']) is int and disk['lifecyclePendingOwnerVersion'] in (1,2)
-            and disk['runId']==self.run and disk['binding']==self.binding and disk['originalChunks']==self.originals.manifest)
-        values=self.originals.decode(unpack(disk['payload']));need(len(values)==1);self.validate(values[0],version=disk['lifecyclePendingOwnerVersion'])
+        need(type(disk['lifecyclePendingOwnerVersion']) is int and disk['lifecyclePendingOwnerVersion'] in ((3,) if self.layout==3 else (1,2))
+            and disk['runId']==self.run and disk['binding']==self.binding
+            and disk['originalChunks']==(self.originals.view('pending').manifest if self.layout==3 else self.originals.manifest))
+        if self.layout==3:self.originals.preflight_batch()
+        encoded=unpack(disk['payload'])
+        values=self.originals.decode(encoded,role='pending') if self.layout==3 else self.originals.decode(encoded)
+        need(len(values)==1);self.validate(values[0],version=disk['lifecyclePendingOwnerVersion'])
         self.disk,self.state=deepcopy(disk),deepcopy(values[0]);last=self.packet(self.state['frames'][-1])[1]
         if self.state['cleanup'] is not None:last=self.pending_packet(self.state['cleanup']['frames'][-1])
         if self.pending.last is None:self.pending.last=deepcopy(last)
@@ -290,6 +366,11 @@ class PicoLifecyclePending:
         if archive_reply:self.original_state()
         else:self.bound(host_only=host_only)
         version=self.version;self.validate(state,version=version)
+        if version==3:
+            self.originals.save_pending(self,state)
+            if archive_reply:self.original_state()
+            else:self.bound(host_only=host_only)
+            return
         encoded=self.originals.encode([state]);disk=dict(lifecyclePendingOwnerVersion=version,runId=self.run,
             binding=deepcopy(self.binding),originalChunks=self.originals.manifest,originalStamp=list(self.originals.root_stamp),payload=pack(encoded))
         self.store.write(disk,self.disk);need(self.store.read()==disk)
@@ -298,12 +379,17 @@ class PicoLifecyclePending:
         else:self.bound(host_only=host_only)
 
     def capture(self):
-        start=self.bound();requested=self.pending.clock_ms();packets=self.world.current()
-        self.pending.read(self.run,self.state['eventId'] if self.state is not None and self.state['eventId'] else '')
-        row=dict(world=deepcopy(self.world.state['frames'][-1]),pending=dict(request=deepcopy(self.pending.last_request),
-            original=frame(self.pending.last_raw)),hostMonotonic=self.bound())
-        self.anchor=start,requested,min(self.pending.last['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()))
-        self.packet(row);self.fresh();return row
+        start=self.bound();requested=self.pending.clock_ms()
+        if self.layout==3:self.originals.begin_outer(start,requested)
+        try:
+            packets=self.world.current()
+            self.pending.read(self.run,self.state['eventId'] if self.state is not None and self.state['eventId'] else '')
+            row=dict(world=deepcopy(self.world.state['frames'][-1]),pending=dict(request=deepcopy(self.pending.last_request),
+                original=frame(self.pending.last_raw)),hostMonotonic=self.bound())
+            self.anchor=start,requested,min(self.pending.last['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()))
+            self.packet(row);self.fresh();return row
+        finally:
+            if self.layout==3:self.originals.end_outer(start,requested)
 
     @current_return
     def prepare(self):

@@ -96,6 +96,8 @@ class LifecycleNamespaceBill:
         self._mutex_seal=(self._mutex_observations,2)
         self.capacity_bill=self._capacity_bill=None;self._admitted_bill=self._original_budget=None
         self._write=None
+        self._capacity_pass=self._original_capacity_pass=None
+        self._family_root=self._original_family_root=None
         self._mutex_ledger=self._original_mutex_ledger=None
         if mutex_layout==2:
             try:
@@ -132,6 +134,65 @@ class LifecycleNamespaceBill:
             and self._expanded_owner is self._original_expanded_owner)
         if self._expanded_guard is None:need(self._expanded_owner is None)
         else:self._expanded_guard(value,size)
+
+    def bind_family_root(self,gate):
+        from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4
+        from adapters.pico4.lifecycle_pending import PicoLifecyclePending
+        need(type(gate) is LifecycleFamilyGate4 and gate.namespace is self and gate.role=='pending'
+            and type(gate.writer) is PicoLifecyclePending and gate.writer.version==3 and gate.writer.layout==3
+            and gate.raw is self._expanded_owner and gate.raw.pending_read_version==1
+            and gate.raw.write_gates.get('pending') is gate and gate.writer.storage_gate is gate
+            and gate.writer._original_storage_gate is gate and gate.writer.originals is gate.raw)
+        if self._family_root is not None:
+            need(self._family_root is self._original_family_root is gate);return
+        need(self._family_root is self._original_family_root is None and gate.writer.disk is None
+            and not gate.writer.store.path.exists() and self._write is None)
+        self._family_root=self._original_family_root=gate
+
+    def family_root_spec(self):
+        need(self._family_root is self._original_family_root)
+        if self._family_root is None:return None
+        from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4
+        from adapters.pico4.lifecycle_pending import PicoLifecyclePending
+        gate=self._family_root
+        need(type(gate) is LifecycleFamilyGate4 and gate.namespace is self and gate.role=='pending'
+            and type(gate.writer) is PicoLifecyclePending and gate.writer.version==3 and gate.writer.layout==3
+            and gate.raw is self._expanded_owner and gate.raw.pending_read_version==1
+            and gate.raw.write_gates.get('pending') is gate and gate.writer.storage_gate is gate
+            and gate.writer._original_storage_gate is gate and gate.writer.originals is gate.raw
+            and gate.writer.store.path==self.path/'lifecycle-pending-owner.json')
+        return 'lifecycle-pending-owner.json',('lifecyclePendingOwnerVersion',(3,))
+
+    def background5_root_spec(self):
+        raw=self._expanded_owner
+        if raw is None or raw.background_state5 is None:return None
+        from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
+        from adapters.pico4.lifecycle_background_state5 import LifecycleBackgroundState5
+        from adapters.pico4.lifecycle_source_raw import LifecycleSourceRaw4
+        helper=raw.background_state5
+        need(type(raw) is LifecycleSourceRaw4 and raw is self._original_expanded_owner
+            and raw.background_state5 is raw._background_state5 is helper
+            and type(helper) is LifecycleBackgroundState5 and helper.bank is raw
+            and type(helper.owner) is PicoLifecycleBackground and helper.owner.version==5
+            and helper.owner.originals is raw and helper.owner.state5 is helper.owner._state5 is helper
+            and helper.owner.store.path==self.path/'lifecycle-background-owner.json')
+        return 'lifecycle-background-owner.json',('lifecycleBackgroundOwnerVersion',(5,))
+
+    def bind_capacity_pass(self,raw):
+        from adapters.pico4.lifecycle_source_raw import LifecycleSourceRaw4
+        from adapters.pico4.lifecycle_capacity_pass import LifecycleCapacityPass
+        need(type(raw) is LifecycleSourceRaw4 and raw.namespace is self and raw.capacity_batches is True
+            and raw._capacity_pass is raw._original_capacity_pass is None
+            and self._capacity_pass is self._original_capacity_pass is None
+            and self.lease is None and self._write is None and raw.archive.state['reads']==0)
+        helper=LifecycleCapacityPass.__new__(LifecycleCapacityPass)
+        self._capacity_pass=self._original_capacity_pass=helper
+        raw._capacity_pass=raw._original_capacity_pass=helper
+        try:LifecycleCapacityPass.__init__(helper,raw)
+        except BaseException:
+            raw.failed=True
+            from adapters.pico4.lifecycle_background_raw_state import close_or_retain
+            close_or_retain(self.path,helper,raw);raise
 
     def begin_write(self,gate,permit,*,parts,stored,decoded,metadata):
         from adapters.pico4.lifecycle_write_gate import LifecycleWriteGate,WritePermit
@@ -290,12 +351,19 @@ class LifecycleNamespaceBill:
 
     def __call__(self,*,_write_token=None):
         self.mutex_guard(active=True)
-        need(self.path is self._path and self.lock is self._lock and self.expanded is self._expanded)
+        need(self.path is self._path and self.lock is self._lock and self.expanded is self._expanded
+            and self._capacity_pass is self._original_capacity_pass)
+        capacity_pass=self._capacity_pass
+        if capacity_pass is not None:
+            capacity_pass.identity();capacity_pass.root_decoder_guard()
         self.lock.assert_held();require_directory(self.directory,self.path)
         need(self._write is None or _write_token is self._write[5])
         if self.lease is not None:self.guard_lease(_write_token=_write_token)
         names=sorted(os.listdir(self.path));need(len(names)<=4096)
-        values={};stored=parts=decoded=0;physical={};largest=0;prepaid=set()
+        family=self.family_root_spec();roots=ROOTS if family is None else ROOTS|{family[0]:family[1]}
+        background5=self.background5_root_spec()
+        if background5 is not None:roots=roots|{background5[0]:background5[1]}
+        values={};stored=parts=decoded=0;physical={};largest=0;prepaid=set();literal_traces=[]
         held=0 if self.capacity_bill is None else self.capacity_bill()
         if self._write is not None:
             held-=self.write_extra();held+=self._write[0].finish_bytes(self._write[1])
@@ -307,13 +375,19 @@ class LifecycleNamespaceBill:
                 continue
             is_session=re.fullmatch(r'session-[0-9a-f]{32}\.(json|lock)',name) is not None
             is_chunk=re.fullmatch(r'(.+\.json)\.frame-([0-9]{3})\.json',name)
-            need(name in ROOTS or name in METADATA or name in LOCKS or name==WORKER or is_session or is_chunk)
+            need(name in roots or name in METADATA or name in LOCKS or name==WORKER or is_session or is_chunk)
             if is_chunk:need(is_chunk[1] in ROOTS)
             info=(self.path/name).lstat()
             need(stat.S_ISREG(info.st_mode) and stat.S_IMODE(info.st_mode)==0o600
                 and info.st_nlink==1 and info.st_uid==os.geteuid() and 0<=info.st_size<=PART)
             if name in LOCKS or name.endswith('.lock'):need(info.st_size==0)
             physical[name]=signature(info);stored+=info.st_size
+        pass_metadata=0
+        if capacity_pass is not None:
+            capacity_pass.begin(physical);pass_metadata=capacity_pass.metadata_bytes()
+            held=0 if self.capacity_bill is None else self.capacity_bill()
+            if self._write is not None:
+                held-=self.write_extra();held+=self._write[0].finish_bytes(self._write[1])
         need(3*stored+3*PART+held<=MAX_RAW)
         if self.lease is not None:
             need(self.lease is self._lease)
@@ -323,7 +397,9 @@ class LifecycleNamespaceBill:
                     self.observe_mutex(name,old[name],tuple(stamp))
 
         def preflight(size):
-            need(integer(size,0,MAX_RAW) and 3*stored+decoded+size+3*PART+held<=MAX_RAW)
+            extra=0 if capacity_pass is None else max(0,capacity_pass.metadata_bytes()-pass_metadata)
+            need(integer(size,0,MAX_RAW) and 3*stored+decoded+size+3*PART+held+extra<=MAX_RAW)
+            for trace in literal_traces:trace[1]=max(trace[1],decoded-trace[0]+size)
 
         def charge(size):
             nonlocal decoded
@@ -348,10 +424,29 @@ class LifecycleNamespaceBill:
             elif type(value) is str and value.startswith(('{','[')):
                 # Preflight the parser/canonical-output overlap before parsing.
                 # JSON cannot expand its original UTF8 by more than sixfold.
-                size=len(value.encode('utf-8'));preflight(6*size)
-                try:parsed=json.loads(value)
-                except (ValueError,TypeError):return
-                charge(len(canonical(parsed)));expand(parsed)
+                if capacity_pass is None:
+                    size=len(value.encode('utf-8'));preflight(6*size)
+                    try:parsed=json.loads(value)
+                    except (ValueError,TypeError):return
+                    charge(len(canonical(parsed)));expand(parsed)
+                else:
+                    # Immutable cost math only. Every actual occurrence still
+                    # receives its FULL decoded and original work-peak bill.
+                    # No parsed DTO/raw string/current source verdict survives.
+                    size=len(value) if value.isascii() else sum(1 if ord(c)<128 else 2 if ord(c)<2048 else 3 if ord(c)<65536 else 4 for c in value)
+                    preflight(6*size);key,cached=capacity_pass.literal_lookup(value,size)
+                    if cached is not None:
+                        cost,peak=cached;preflight(peak);charge(cost);return
+                    ticket=capacity_pass.literal_begin(key)
+                    trace=[decoded,6*size];literal_traces.append(trace)
+                    preflight(6*size)
+                    try:
+                        try:parsed=json.loads(value)
+                        except (ValueError,TypeError):parsed=None
+                        if parsed is not None:charge(len(canonical(parsed)));expand(parsed)
+                        cost=decoded-trace[0];peak=trace[1]
+                    finally:literal_traces.pop()
+                    if ticket is not None:capacity_pass.literal_finish(ticket,cost,peak)
 
         for name in names:
             if name=='lifecycle-background-raw.json' or name.startswith('lifecycle-background-raw.json.'):
@@ -360,18 +455,25 @@ class LifecycleNamespaceBill:
             path=self.path/name;before=physical[name];need(signature(path.lstat())==before)
             info=path.lstat()
             if name in LOCKS or name.endswith('.lock'):
+                if capacity_pass is not None:capacity_pass.record(name,b'',before)
                 continue
-            owner=OriginalDescriptor(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
+            if capacity_pass is None:owner=OriginalDescriptor(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
+            else:
+                owner=OriginalDescriptor.__new__(OriginalDescriptor);capacity_pass.opened(owner)
+                OriginalDescriptor.__init__(owner,path,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
             try:
                 owner.require(owner.fd);raw=os.pread(owner.fd,PART+1,0);owner.require(owner.fd)
                 need(signature(os.fstat(owner.fd))==before==signature(path.lstat()) and len(raw)==info.st_size)
-            finally:need(owner.close())
+            finally:
+                if capacity_pass is None:need(owner.close())
+                else:capacity_pass.close_pair(owner)
+            if capacity_pass is not None:capacity_pass.record(name,raw,before)
             if name!=WORKER:preflight(5*len(raw))
             value=None if name==WORKER else strict(raw)
             if name==WORKER:continue
             values[name]=value
-            if name in ROOTS:
-                key,versions=ROOTS[name]
+            if name in roots:
+                key,versions=roots[name]
                 need(type(value.get(key)) is int and value[key] in versions)
             if is_chunk:parts+=1
             if 'payload' in value:largest=max(largest,value['payload']['bytes'])
@@ -388,7 +490,7 @@ class LifecycleNamespaceBill:
                 for child in value:declare(child)
         for name,value in values.items():
             declare(value)
-            if name in ROOTS:
+            if name in roots:
                 if 'bundles' in value:
                     logical_bytes(value['bundles'])
                     for reference in value['bundles']:charge(reference['bytes'])
@@ -397,10 +499,27 @@ class LifecycleNamespaceBill:
         if state is not None:
             size=canonical_size(state,MAX_RAW-3*stored-decoded-3*PART-held)
             self.guard_expanded(state,size)
+            if capacity_pass is not None:
+                preflight(2*size);capacity_pass.expanded(state,size)
             charge(size);largest=max(largest,size)
-        else:self.guard_expanded(None,0)
+        else:
+            self.guard_expanded(None,0)
+            if capacity_pass is not None:preflight(8);capacity_pass.expanded(None,4)
         charge(3*largest);charge(3*self.metadata_bytes())
-        for value in values.values():expand(value)
+        for name,value in values.items():
+            if capacity_pass is None:expand(value);continue
+            root_key,cached=capacity_pass.root_lookup(name)
+            if cached is not None:
+                cost,peak=cached;preflight(peak);charge(cost);continue
+            ticket=capacity_pass.root_begin(root_key)
+            trace=[decoded,0];literal_traces.append(trace)
+            # Metadata for an in-progress summary is charged before the FIRST
+            # codec/body expansion. Saturation retains the original full path.
+            preflight(0)
+            try:
+                expand(value);cost=decoded-trace[0];peak=max(cost,trace[1])
+            finally:literal_traces.pop()
+            if ticket is not None:capacity_pass.root_finish(ticket,cost,peak)
 
         for name,value in values.items():
             if name not in ROOTS:continue
@@ -444,6 +563,7 @@ class LifecycleNamespaceBill:
         require_directory(self.directory,self.path);self.last=deepcopy(result)
         self._admitted_bill=self._original_budget=tuple(sorted({**result,'mutexBytes':self.metadata_bytes()}.items()))
         self.lease=self._lease=(tuple(sorted(physical)),tuple((name,tuple(stamp)) for name,stamp in sorted(physical.items())))
+        if capacity_pass is not None:capacity_pass.finish(result,physical,self.metadata_bytes())
         if self.maximum is None:self.maximum=deepcopy(result)
         else:self.maximum={key:max(self.maximum[key],value) for key,value in result.items()}
         return result

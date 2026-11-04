@@ -25,11 +25,19 @@ class LifecycleBackgroundOwnerTests(unittest.TestCase):
     def initialize_from_chat(self,fixture):
         self.fixture,self.chat=fixture,fixture.owner
         self.native,self.world,self.lock,self.root=self.fixture.native,self.fixture.joined.world,self.fixture.lock,self.fixture.root
+        self.model_context=getattr(fixture,'model_context',None)
         self.foreground=True;self.inputs=[];self.lost=None;self.ignore=None;self.backgrounds=0;self.activations=1;self.runtime_calls=[]
-        self.history=Native();self.history.host=self.native.clock;self.history.epoch=self.native.epoch()
+        self.history=Native() if self.model_context is None else self.model_context.background();self.history.host=self.native.clock;self.history.epoch=self.native.epoch()
+        if self.model_context is not None:self.addCleanup(self.history.close_host)
         base_frame=self.history.frame
         def original_frame(cause):
-            base_frame(cause);self.native.ui.send(dict(commandId='1'*32,runId=RUN));packet=self.native.ui.value
+            if self.model_context is None:
+                base_frame(cause);self.native.ui.send(dict(commandId='1'*32,runId=RUN));packet=self.native.ui.value
+            else:
+                # Native LifecycleBackgroundHistory::append acquires the UI
+                # source BEFORE sampling its enclosing frame clock.
+                self.native.ui.send(dict(commandId='1'*32,runId=RUN));packet=self.native.ui.value
+                self.history.epoch=self.native.epoch();self.history.host=self.native.clock;base_frame(cause)
             row=next(item for item in packet['source']['editors'] if item['id']==self.chat.state['originalId'])
             keyboard=packet['source']['keyboard'];result=self.history.frames[-1]
             result.update(uiInstance=packet['instance'],uiSequence=packet['sequence'],uiCapturedEpochMs=packet['capturedEpochMs'],
@@ -39,28 +47,37 @@ class LifecycleBackgroundOwnerTests(unittest.TestCase):
         self.history.frame=original_frame
         base_send=self.history.send
         def send(request):
-            self.history.host=self.native.clock;self.history.epoch=self.native.epoch();base_send(request)
+            if self.model_context is None:
+                self.history.host=self.native.clock;self.history.epoch=self.native.epoch();base_send(request)
+            else:base_send(request)  # HostBackground owns its complete GUI/clock boundary.
         self.send=send
         outer=self
         class Pending:
             def read(self):return dict(inputs=deepcopy(outer.owner.state['inputs']))
-        self.history.pending=Pending();self.feature=Feature()
+        self.history.pending=Pending();self.feature=Feature() if self.model_context is None else self.model_context.feature()
         def feature(value):
             epoch=self.native.epoch();value.update(capturedEpochMs=epoch,requestedEpochMs=epoch)
             value['animationFence']['requestedEpochMs']=epoch
             value['lifecycle'].update(backgrounds=self.backgrounds,activations=self.activations)
         self.feature.mutate=feature
+        if self.model_context is not None:
+            os_input=self.os_input
+            def gui_input(operation,binding):
+                with self.model_context.gui_lock:return os_input(operation,binding)
+            self.os_input=gui_input
         self.world.guard=lambda:self.foreground
         for reader in (self.world.source,self.world.axes,self.world.avatar):reader.guard=lambda:self.foreground
         self.owner=self.make()
 
     def sleep(self,seconds):
-        self.native.sleep(seconds);self.history.host=self.native.clock;self.history.epoch=self.native.epoch()
-        if self.history.active:self.history.frame('timer')
+        self.native.sleep(seconds)
+        if self.model_context is None:
+            self.history.host=self.native.clock;self.history.epoch=self.native.epoch()
+            if self.history.active:self.history.frame('timer')
 
     def runtime(self,intent):
         self.assertTrue(self.foreground,'Foreground runtime acquired during actual background');self.runtime_calls.append(self.foreground)
-        observer=NativeLifecycleBackground(self.send,lambda:self.history.raw,self.native.epoch,lambda:self.foreground,123,self.lock,
+        observer=NativeLifecycleBackground(self.send,lambda:self.history.raw,self.native.epoch,lambda:self.foreground,self.world.pid,self.lock,
             intent=intent,monotonic=lambda:self.native.clock,sleep=self.sleep)
         native=self.feature.reader();native.clock_ms=self.native.epoch;native.guard=lambda:self.foreground
         native.monotonic=lambda:self.native.clock;native.sleep=self.sleep

@@ -36,7 +36,10 @@ class LifecyclePendingTests(unittest.TestCase):
     def initialize_from_background(self,fixture):
         self.fixture,self.background=fixture,fixture.owner
         self.world,self.native,self.root,self.lock=self.fixture.world,self.fixture.native,self.fixture.root,self.fixture.lock
-        self.path=self.root/'lifecycle-pending-owner.json';self.boundary=PendingBoundary();self.boundary.epoch=self.native.epoch
+        self.model_context=getattr(fixture,'model_context',None)
+        self.path=self.root/'lifecycle-pending-owner.json'
+        self.boundary=PendingBoundary() if self.model_context is None else self.model_context.pending()
+        self.boundary.epoch=self.native.epoch
         self.model=NativeBoundary();self.model.opened=True;self.model.sequence=0
         self.lost=None;self.ignore_x=False;self.x_inputs=[];self.normal_inputs=[]
         self.send=self.boundary.send
@@ -95,15 +98,18 @@ class LifecyclePendingTests(unittest.TestCase):
                 outer.model.activate(identifier);outer.model.sequence+=1
                 if outer.model.page=='scripts':
                     count=3+sum(row['kind']=='scripts' for row in outer.native.ui.rows)
-                    row=editor(count,'scripts');row.update(focused=False,text='');outer.native.ui.rows.append(row)
+                    row=editor(count,'scripts') if outer.model_context is None else outer.model_context.row(count,'scripts');row.update(focused=False,text='');outer.native.ui.rows.append(row)
                     outer.native.ui.home=False;outer.native.ui.raised=False
-                    outer.boundary.token=uuid.uuid5(uuid.NAMESPACE_URL,row['fieldId']).hex
+                    outer.boundary.token=uuid.uuid5(uuid.NAMESPACE_URL,row['fieldId']).hex if outer.model_context is None else outer.native.ui.token(row)
                     outer.boundary.focused=False;outer.boundary.text=''
                 if outer.lost=='normal':raise NativeUIError('Explicit uncertain normal Scripts answer')
         route=TokenScriptUI(Normal(),monotonic=lambda:self.native.clock,sleep=self.native.sleep)
-        pending=NativePendingCommitOwner(self.boundary.send,self.pending_original,self.native.epoch,lambda:self.native.alive,123,
-            monotonic=lambda:self.native.clock,sleep=self.native.sleep)
-        return PicoLifecyclePending(self.background,self.world,route,pending,self.path)
+        if self.model_context is None:
+            pending=NativePendingCommitOwner(self.boundary.send,self.pending_original,self.native.epoch,lambda:self.native.alive,self.world.pid,
+                monotonic=lambda:self.native.clock,sleep=self.native.sleep)
+            return PicoLifecyclePending(self.background,self.world,route,pending,self.path)
+        pending=self.model_context.pending_reader(self,self.background.originals)
+        return PicoLifecyclePending(self.background,self.world,route,pending,self.path,raw_layout=self.background.originals)
 
     def through_hold(self):
         self.owner.back();self.owner.open_scripts();self.owner.mutate('focus');self.owner.mutate('type');return self.owner.mutate('hold')

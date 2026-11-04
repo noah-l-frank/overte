@@ -151,3 +151,7 @@ suites. The four selected catalog groups pass in 135.003 s in total; their
 individual deadlines remain 120 s. Generic unittest discovery sees exactly
 17 pending and 3 factory cases, without re-exporting fixture TestCase classes.
 These results do not qualify the native producers or complete Lifecycle.
+
+## Shared storage and explicit Background5 continuation
+
+The [Pending3/Background5 storage packet](LIFECYCLE_PENDING3_STORAGE.md) records the new private same-bank source paths, actual graph retirement and numerical capacity counters. The current born-host continuation remains RED at the unchanged 1500 ms source-age fence before Pending preparation. Earlier evidence retains its own source epoch; no complete action or capability is promoted.

@@ -462,7 +462,7 @@ class LifecycleBackgroundHistory:
             exact(self.disk,{'lifecycleBackgroundOwnerVersion','runId','binding','originalChunks','payload'})
             need(canonical(self.disk)+b'\n'==self.raw)
             self.version=self.disk['lifecycleBackgroundOwnerVersion']
-            need(type(self.version) is int and self.version in (1,VERSION,4));context(self.disk['binding'])
+            need(type(self.version) is int and self.version in (1,VERSION,4,5));context(self.disk['binding'])
             if self.version==1:
                 self.originals=LifecycleBackgroundOriginals(path.with_name('lifecycle-background-originals.json'),
                     self.disk['runId'],self.disk['binding'])
@@ -472,12 +472,12 @@ class LifecycleBackgroundHistory:
                     self.disk['runId'],self.disk['binding'],self.disk['originalChunks'])
             else:
                 from adapters.pico4.lifecycle_source_raw import LifecycleSourceRawHistory4
-                self.originals=LifecycleSourceRawHistory4(path.with_name('lifecycle-background-raw.json'),
+                self.originals=LifecycleSourceRawHistory4.open_profile(path.with_name('lifecycle-background-raw.json'),
                     self.disk['runId'],self.disk['binding'],self.disk['originalChunks'],role='background')
                 self.originals.decoder_budget(self.disk['payload'])
             self.value=self.originals.decode(unpack(self.disk['payload']))
             need(type(self.value) is list and len(self.value)==1)
-            if self.version==4:
+            if self.version in (4,5):
                 from adapters.pico4.lifecycle_namespace_bill import canonical_size
                 self._value_seal=self._original_value_seal=(self.value,canonical_size(self.value),json_digest(self.value))
             self.read()
@@ -489,7 +489,7 @@ class LifecycleBackgroundHistory:
         need(self.root.read()==(self.raw,self.physical))
         self.originals.verify()
         if hasattr(self,'_original_value_seal'):
-            need(self.version==4 and self._value_seal is self._original_value_seal)
+            need(self.version in (4,5) and self._value_seal is self._original_value_seal)
             self.originals.guard_value(self.value,self._value_seal)
         return deepcopy(self.value[0])
 

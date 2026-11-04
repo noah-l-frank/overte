@@ -88,3 +88,7 @@ Base cleanup also refuses an orphan original manifest or any original chunk
 without a parent owner journal. Those paths retain responsibility independently;
 process stop cannot silently retire unknown original storage. Two actual Pico
 factory/teardown counterexamples cover both cases without issuing new input.
+
+## Shared storage and explicit Background5 continuation
+
+The [Pending3/Background5 storage packet](LIFECYCLE_PENDING3_STORAGE.md) records the new private same-bank source paths, actual graph retirement and numerical capacity counters. The current born-host continuation remains RED at the unchanged 1500 ms source-age fence before Pending preparation. Earlier evidence retains its own source epoch; no complete action or capability is promoted.

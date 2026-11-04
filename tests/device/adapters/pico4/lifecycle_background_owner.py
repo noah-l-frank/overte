@@ -26,13 +26,16 @@ ARCHIVES=('lifecycle-chat-owner.json','lifecycle-editor-owner.json','lifecycle-x
 
 
 class PicoLifecycleBackground:
-    def __init__(self,path,run,binding,source_lock,os_status,os_input,runtime,*,monotonic=time.monotonic,sleep=time.sleep,raw_layout=None):
+    def __init__(self,path,run,binding,source_lock,os_status,os_input,runtime,*,monotonic=time.monotonic,sleep=time.sleep,raw_layout=None,state_layout=None):
         need(ui.nonce(run) and isinstance(source_lock,ScriptSourceLock)
             and all(callable(f) for f in (os_status,os_input,runtime,monotonic,sleep)))
         self.store,self.run,self.binding=PrivateFeatureState(path),run,deepcopy(context(binding));self.pid,_start=proof.identity(binding)
         self.lock=source_lock;need(self.store.path.name=='lifecycle-background-owner.json' and self.lock.path==self.store.path.with_name('script-sources.lock'))
         self.os_status,self.os_input,self.runtime_factory=os_status,os_input,runtime
         self.monotonic,self.sleep=monotonic,sleep;self.runtime=None;self.disk=self.state=self.last_clock=self.fresh_anchor=None
+        need(state_layout is None or type(state_layout) is int and state_layout==5)
+        self.state5=self._state5=None;self._plain5=False
+        self._state_choice=self._original_state_choice=(state_layout,)
         self.version=VERSION
         with self.lock.held():
             self.disk=self.store.read()
@@ -49,6 +52,20 @@ class PicoLifecycleBackground:
                     and type(raw_layout.version) is int and raw_layout.version==(3 if type(raw_layout) is LifecycleBackgroundRaw3 else 4))
                 if type(raw_layout) is LifecycleSourceRaw4:need(self.disk is None)
                 self.originals=raw_layout;self.version=raw_layout.version
+                if state_layout is not None:
+                    need(type(raw_layout) is LifecycleSourceRaw4 and self.disk is None
+                        and raw_layout.archive.state['reads']==0)
+                    self.version=5
+                    from adapters.pico4.lifecycle_background_state5 import LifecycleBackgroundState5
+                    helper=LifecycleBackgroundState5.__new__(LifecycleBackgroundState5)
+                    self.state5=self._state5=helper
+                    raw_layout.bind_background_state5(self,helper)
+                    try:LifecycleBackgroundState5.__init__(helper,self,raw_layout)
+                    except BaseException:
+                        raw_layout.failed=True
+                        from adapters.pico4.lifecycle_background_raw_state import close_or_retain
+                        close_or_retain(path.parent,helper,raw_layout);raise
+            need(state_layout is None or self.version==5)
             need(self.disk is not None or self.originals.disk is None);self.load()
 
     def bound(self):
@@ -66,6 +83,10 @@ class PicoLifecycleBackground:
         return now
 
     def packet(self,row):
+        if self.version==5 and not self._plain5:return self.state5.call(row,'packet')
+        return self._packet_plain(row)
+
+    def _packet_plain(self,row):
         exact(row,{'sourceIndex','world','native','hostMonotonic'});need(integer(row['sourceIndex'],0,len(self.state['sources'])-1)
             and number(row['hostMonotonic'],0,1e15))
         world=row['world'];exact(world,{'ui','gesture','drive','hostMonotonic'});need(number(world['hostMonotonic'],0,1e15))
@@ -77,22 +98,27 @@ class PicoLifecycleBackground:
         from adapters.pico4.lifecycle_operations import phase
         need(getattr(self,'phase_fence',None) is None)
         self.phase_fence=fence;phase(self)
-        if self.version in (3,4):self.originals.bind_phase(fence)
+        if self.version in (3,4,5):self.originals.bind_phase(fence)
 
     def close_storage_host(self):
         # Host descriptor retirement alone never performs product cleanup or
         # claims native release. Failed/foreign OFDs remain unresolved.
-        need(self.version in (3,4))
+        need(self.version in (3,4,5))
         from adapters.pico4.lifecycle_background_raw_state import close_or_retain
         namespace=getattr(self,'raw_namespace',None)
         return close_or_retain(self.store.path.parent,self.originals,namespace)
 
     def evidence(self,row):
+        need(self.version!=5 or self._plain5)
         return dict(beforeUi=self.state['beforeUi'],beforeNative=self.state['beforeNative'],arm=self.state['inputs'][0],
             home=self.state['sources'][self.state['home']],background=self.state['background'],foreground=self.state['foreground'],
             returned=self.state['sources'][row['sourceIndex']],afterUi=row['world']['ui'],afterNative=row['native'])
 
     def validate(self,state):
+        if self.version==5 and not self._plain5:return self.state5.call(state,'validate')
+        return self._validate_plain(state)
+
+    def _validate_plain(self,state):
         exact(state,{'phase','archives','beforeUi','beforeNative','sources','inputs','home','background','foreground','quiet','finalQuiet','final'})
         need(state['phase'] in PHASES and set(state['archives'])==set(ARCHIVES)
             and all(type(value) is str and len(value)==64 and all(c in '0123456789abcdef' for c in value) for value in state['archives'].values())
@@ -162,23 +188,27 @@ class PicoLifecycleBackground:
         finally:self.state=old
 
     def load(self):
-        if self.version in (3,4):self.originals.preflight_batch()
+        if self.version in (3,4,5):self.originals.preflight_batch()
         self.bound();disk=self.store.read()
         if disk is None:need(self.state is None);return
         exact(disk,{'lifecycleBackgroundOwnerVersion','runId','binding','originalChunks','payload'})
         need(type(disk['lifecycleBackgroundOwnerVersion']) is int and disk['lifecycleBackgroundOwnerVersion']==self.version
             and disk['runId']==self.run and disk['binding']==self.binding and disk['originalChunks']==self.originals.manifest)
-        rows=self.originals.decode(unpack(disk['payload']));need(len(rows)==1);self.validate(rows[0]);self.disk,self.state=deepcopy(disk),deepcopy(rows[0]);self.bound()
+        rows=(unpack(disk['payload']) if self.version==5 else self.originals.decode(unpack(disk['payload'])));need(len(rows)==1);self.validate(rows[0]);self.disk,self.state=deepcopy(disk),deepcopy(rows[0]);self.bound()
 
     def save(self,state):
-        if self.version in (3,4):self.originals.preflight_batch()
+        if self.version==5:return self.state5.save(state)
+        return self._save_plain(state)
+
+    def _save_plain(self,state):
+        if self.version in (3,4,5):self.originals.preflight_batch()
         self.bound();self.validate(state)
-        if self.version==4:
+        if self.version in (4,5):
             self.originals.save_background(self,state);self.bound();return
         encoded=self.originals.encode([state])
         disk=dict(lifecycleBackgroundOwnerVersion=self.version,runId=self.run,binding=deepcopy(self.binding),originalChunks=self.originals.manifest,payload=pack(encoded))
         self.store.write(disk,self.disk);need(self.store.read()==disk)
-        if self.version in (3,4):self.originals.namespace.owner_cas(self.store,disk)
+        if self.version in (3,4,5):self.originals.namespace.owner_cas(self.store,disk)
         self.disk,self.state=deepcopy(disk),deepcopy(state);self.bound()
 
     def status(self):
@@ -200,7 +230,7 @@ class PicoLifecycleBackground:
             need(isinstance(world,PicoLifecycleWorld) and isinstance(observer,source.NativeLifecycleBackground)
                 and isinstance(native,NativeFeatureObservation) and world.run==self.run and world.binding==self.binding
                 and world.lock is self.lock and observer.source_lock is self.lock and observer.pid==native.pid==self.pid)
-            if self.version in (3,4):
+            if self.version in (3,4,5):
                 self.originals.bind_world(world)
                 for reader,role in ((world.source,'ui'),(world.axes,'gesture'),(world.avatar,'drive'),
                         (observer,'background'),(native,'feature')):
@@ -211,6 +241,7 @@ class PicoLifecycleBackground:
                 need(getattr(observer,'phase_fence',None) is None or observer.phase_fence is fence)
                 observer.phase_fence=fence
             if self.state is not None:
+                need(self.version!=5) # No new runtime/cold reader adopts a layout5 state.
                 observer.restore(self.state['sources'][-1]['raw'])
                 baseline=proof.feature_original((self.state['quiet'][-1]['native'] if self.state['quiet'] else self.state['beforeNative']),self.pid)
                 native.instance,native.sequence,native.lifecycle=baseline['instance'],baseline['sequence'],deepcopy(baseline['lifecycle'])
@@ -234,7 +265,7 @@ class PicoLifecycleBackground:
 
     def capture(self):
         world,observer,native=self.live();start=self.bound();requested=native.clock_ms()
-        if self.version in (3,4):self.originals.begin_outer(start,requested)
+        if self.version in (3,4,5):self.originals.begin_outer(start,requested)
         try:
             observer.read(self.run);self.remember(observer)
             packets=world.current();need(len(world.state['attempts'])==1 and world.state['attempts'][0]['phase']=='quiet'
@@ -245,18 +276,18 @@ class PicoLifecycleBackground:
             stamps=[observer.last['capturedEpochMs'],value['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()),packets['gesture']['source']['frameEpochMs']]
             self.fresh_anchor=start,requested,min(stamps);self.fresh();return row
         finally:
-            if self.version in (3,4):self.originals.end_outer(start,requested)
+            if self.version in (3,4,5):self.originals.end_outer(start,requested)
 
     def prepare(self,chat):
         with self.lock.held():
             self.load();need(self.state is None and isinstance(chat,PicoLifecycleChatDraft) and chat.run==self.run
                 and chat.binding==self.binding and chat.lock is self.lock and chat.state['phase']=='typed')
-            if self.version in (3,4):self.originals.install_writer(chat,'chat')
+            if self.version in (3,4,5):self.originals.install_writer(chat,'chat')
             chat.observe()
-            if self.version in (3,4):self.originals.preflight_batch()
+            if self.version in (3,4,5):self.originals.preflight_batch()
             world,observer,native=self.live();need(world is chat.joined.world)
             start=self.bound();requested=native.clock_ms()
-            if self.version in (3,4):self.originals.begin_outer(start,requested)
+            if self.version in (3,4,5):self.originals.begin_outer(start,requested)
             try:
                 packets=world.current();before=proof.chat_current(packets['ui'],self.run,quiet=False)
                 need(before['id']==chat.state['originalId'] and before['focused'] and len(world.state['attempts'])==1
@@ -272,10 +303,22 @@ class PicoLifecycleBackground:
                 self.fresh_anchor=start,requested,min(observer.last['capturedEpochMs'],value['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()))
                 self.fresh()
             finally:
-                if self.version in (3,4):self.originals.end_outer(start,requested)
+                if self.version in (3,4,5):self.originals.end_outer(start,requested)
 
     def phase(self,value):
         state=deepcopy(self.state);state['phase']=value;self.save(state)
+
+    def poll_delay(self,capture_start):
+        if self.version not in (4,5):
+            self.sleep(.25);return
+        # This is only polling cadence. The SAME already captured original
+        # source/quiet/deadline clocks remain authoritative, with all actual
+        # archival/CAS work included before deciding any remaining delay.
+        now=self.monotonic()
+        need(number(capture_start,0,1e15) and number(now,capture_start,1e15)
+            and (self.last_clock is None or now>=self.last_clock) and self.fresh_anchor[0]==capture_start)
+        remaining=.25-(now-capture_start)
+        if remaining>0:self.sleep(remaining)
 
     def run_owned(self):
         try:
@@ -291,7 +334,7 @@ class PicoLifecycleBackground:
                 if self.state['phase']=='armed':
                     need(self.status()['foreground']);_world,observer,native=self.live();started=self.bound();requested=native.clock_ms()
                     observer.read(self.run);self.remember(observer)
-                    last=observer.last;before=proof.original(self.state['beforeUi'],ui.validate,self.pid,self.run);original=ui.current_editor(before)
+                    last=observer.last;before=self.before_ui();original=ui.current_editor(before)
                     need(last['available'] and last['active'] and last['originalId']==original['id'])
                     current=last['frames'][-1];proof.same_editor(original,current['editor'])
                     need(current['applicationState']=='active' and current['editor']['current'] and current['editor']['text']==original['text'])
@@ -324,31 +367,44 @@ class PicoLifecycleBackground:
                     # host monotonic values cannot bridge a new acquisition.
                     rows=[];window=None
                     for index in range(25):
-                        row=self.capture();packets=self.packet(row)
+                        row=self.capture();capture_start=self.fresh_anchor[0] if self.version in (4,5) else None
+                        packets=self.packet(row)
                         if window is None:window=drive.AvatarReleaseWindow(drive.AvatarDisplacement(packets['drive']))
                         rows.append(row);complete=window.observe(packets['drive'],row['hostMonotonic'])
                         state=deepcopy(self.state);state.update(phase='quiet' if complete else 'returned',quiet=deepcopy(rows));self.save(state);self.fresh()
                         if complete:break
-                        need(index<24);self.sleep(.25)
+                        need(index<24);self.poll_delay(capture_start)
                 if self.state['phase']=='quiet':
                     _world,observer,_native=self.live();self.phase('release-issued')
                     observer.release_owned(self.run,self.state['inputs'][0]);self.remember(observer)
                 if self.state['phase'] in ('release-issued','released'):
                     self.phase('release-issued');rows=[];window=None
                     for index in range(25):
-                        row=self.capture();packets=self.packet(row)
+                        row=self.capture();capture_start=self.fresh_anchor[0] if self.version in (4,5) else None
+                        packets=self.packet(row)
                         if window is None:window=drive.AvatarReleaseWindow(drive.AvatarDisplacement(packets['drive']))
                         rows.append(row);complete=window.observe(packets['drive'],row['hostMonotonic'])
                         state=deepcopy(self.state);state.update(phase='released' if complete else 'release-issued',finalQuiet=deepcopy(rows),final=row)
                         self.save(state);self.fresh()
                         if complete:break
-                        need(index<24);self.sleep(.25)
+                        need(index<24);self.poll_delay(capture_start)
                 need(self.state['phase']=='released')
                 result=self.report()
                 self.fresh();return result
         except Exception:raise NativeUIError('Lifecycle background unresolved; original intents/history retained, none repeated') from None
 
+    def before_ui(self):
+        if self.version==5 and not self._plain5:return self.state5.call(self.state['beforeUi'],'ui')
+        return self._before_ui_plain(self.state['beforeUi'])
+
+    def _before_ui_plain(self,value):
+        return proof.original(value,ui.validate,self.pid,self.run)
+
     def report(self):
+        if self.version==5 and not self._plain5:return self.state5.call(self.state,'report')
+        return self._report_plain()
+
+    def _report_plain(self):
         result=proof.validate_return(self.evidence(self.state['quiet'][-1]),self.run,self.binding)
         first,last=self.state['finalQuiet'][0],self.state['finalQuiet'][-1]
         a,b=self.packet(first)['drive'],self.packet(last)['drive']

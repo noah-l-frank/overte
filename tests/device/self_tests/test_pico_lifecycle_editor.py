@@ -30,13 +30,16 @@ from feature_journeys.fixtures import context
 
 
 class LifecycleEditorTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self,*,model_context=None):
         self.temp=tempfile.TemporaryDirectory(prefix='lifecycle-editor-');self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name);self.root.chmod(0o700);self.path=self.root/'lifecycle-editor-owner.json'
-        self.native=Native();self.binding=BINDING|dict(sessionId='3'*32)
+        self.model_context=model_context
+        self.native=Native() if model_context is None else model_context.native()
+        self.binding=BINDING|dict(sessionId='3'*32)
+        if model_context is not None:self.binding['processIdentity']=model_context.process_identity
         self.model=NativeCreate(self.root);self.model.tablet=False;self.model.page='home'
-        self.controls=Controls(self.model);self.controls.instance='3'*32;self.controls.generation='2'*32;self.controls.pid=123
-        self.field=FieldBoundary();self.lock=ScriptSourceLock(self.root/'script-sources.lock')
+        self.controls=Controls(self.model);self.controls.instance='3'*32;self.controls.generation='2'*32;self.controls.pid=123 if model_context is None else model_context.pid
+        self.field=FieldBoundary() if model_context is None else model_context.field();self.lock=ScriptSourceLock(self.root/'script-sources.lock')
         self.transport=FakeTransport();original_stage=self.transport.stage;self.lost_tablet=False;self.ignore_tablet=False
         def stage(envelope,profile,*,before_publish=None):
             disk=unpack(json.loads(self.path.read_text())['payload'])[0]

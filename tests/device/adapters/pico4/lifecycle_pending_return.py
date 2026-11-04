@@ -6,6 +6,7 @@ not qualify Pending3, another owner, product effects or a new current verdict.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from dataclasses import dataclass
+import errno
 import hashlib
 import os
 import stat
@@ -36,19 +37,22 @@ class DataPin:
 class LifecyclePendingReturnPins:
     """Same actual writer/gate only; never a filename-based authority grant."""
     def __init__(self,gate):
-        self.gate=gate;self.entries=[];self.partial=[];self.failed=False;self.prepared=False;self.closed=False
+        self.gate=gate;self.entries=[];self.partial=self._original_partial=[];self._partial_seal=self._original_partial_seal=();self._close_receipt=self._original_close_receipt=None;self.failed=False;self.prepared=False;self.closed=False
         self._entries=self._original_entries=None;self._fixed=self._original_fixed=None
         self.reserve_bytes=0;self._reserve_seal=None;self.namespace_pin=None
         try:
             from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4
             from adapters.pico4.lifecycle_source_raw import LifecycleSourceRaw4
             from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
+            from adapters.pico4.lifecycle_pending import PicoLifecyclePending
             need(type(gate) is LifecycleFamilyGate4 and type(gate.raw) is LifecycleSourceRaw4)
             self.raw,self.writer,self.role=gate.raw,gate.writer,gate.view.role
             self.lock=self.raw.lock;self.lock.assert_held();gate.identity()
             # Pending3 is a subsequent exact role; no fake Pending instance or
             # loose ducktype is accepted to qualify this first executable core.
-            need(self.role=='background' and type(self.writer) is PicoLifecycleBackground and self.writer.version==4
+            need((self.role=='background' and type(self.writer) is PicoLifecycleBackground and self.writer.version in (4,5)
+                or self.role=='pending' and type(self.writer) is PicoLifecyclePending and self.writer.version==3
+                    and self.writer.layout==3 and self.raw.pending_read_version==1)
                 and self.writer.originals is self.raw and self.writer.storage_gate is gate
                 and self.writer._original_storage_gate is gate and gate.pending is None
                 and self.raw.active_family is None and self.raw.pending_view is None
@@ -66,8 +70,11 @@ class LifecyclePendingReturnPins:
             # read buffers. This core creates no file or part of its own.
             self.reserve_bytes=3*count*512+PART+2*max(disk_size,state_size)+3*payload['bytes']+3*state_size
             self._reserve_seal=self._original_reserve_seal=(self.reserve_bytes,)
+            self.raw.bind_return_pins(self)
             current=self.raw.other_bill();ours=self.archive.bill()
-            need(current['decodedBytes']+ours['decodedBytes']+self.reserve_bytes<=MAX_RAW)
+            # The exact bank slot already charges the COMPLETE prospective
+            # pin/decoder/canonical work reserve before allocating any of it.
+            need(current['decodedBytes']+ours['decodedBytes']<=MAX_RAW)
             self.namespace_pin=self.raw.namespace.lease
             need(self.namespace_pin is self.raw.namespace._lease and self.namespace_pin is not None)
             self._owner_seal=(self.writer.disk,disk_size,json_digest(self.writer.disk),
@@ -95,6 +102,8 @@ class LifecyclePendingReturnPins:
 
     def _fail(self):
         self.failed=True
+        raw=getattr(self,'raw',None)
+        if raw is not None:raw.failed=True
         if not any(owner is self for owner in UNRESOLVED):UNRESOLVED.append(self)
 
     def metadata_bytes(self):
@@ -113,12 +122,16 @@ class LifecyclePendingReturnPins:
     def _owner_guard(self):
         need(self._fixed is self._original_fixed and self._fixed is not None)
         from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
+        from adapters.pico4.lifecycle_pending import PicoLifecyclePending
         gate,raw,writer,role,archive,directory,lock,host,name,receipt,binding_sha=self._fixed
         need(self.gate is gate and self.raw is raw and self.writer is writer and self.role==role
+            and raw.return_slot is raw._original_return_slot is self
             and self.archive is archive and self.directory is directory and self.lock is lock and self.host==host
             and self.root_name==name and self.root_receipt is receipt
             and gate.writer is writer and gate.raw is raw and gate.view is raw.view(role)
-            and role=='background' and type(writer) is PicoLifecycleBackground and writer.version==4
+            and (role=='background' and type(writer) is PicoLifecycleBackground and writer.version in (4,5)
+                or role=='pending' and type(writer) is PicoLifecyclePending and writer.version==3
+                    and writer.layout==3 and raw.pending_read_version==1)
             and writer.storage_gate is writer._original_storage_gate is gate and writer.originals is raw
             and writer.store.path==archive.path.with_name(name) and gate.receipts[-1] is receipt
             and not raw.failed and not archive.failed and not gate.poisoned
@@ -131,7 +144,12 @@ class LifecyclePendingReturnPins:
     def _open(self,name,physical,sha256):
         self._parent();need(type(name) is str and '/' not in name and len(physical)==8
             and physical[5]<=PART and tuple(signature((self.archive.path.parent/name).lstat()))==physical)
+        need(self.partial is self._original_partial and type(self.partial) is list
+            and self._partial_seal is self._original_partial_seal and type(self._partial_seal) is tuple
+            and len(self.partial)==len(self._partial_seal)
+            and all(type(saved) is OriginalDescriptor and current is saved for current,saved in zip(self.partial,self._partial_seal)))
         descriptor=OriginalDescriptor.__new__(OriginalDescriptor);self.partial.append(descriptor)
+        self._partial_seal=self._original_partial_seal=(*self._partial_seal,descriptor)
         OriginalDescriptor.__init__(descriptor,'/proc/self/fd/'+str(self.directory.fd)+'/'+name,
             os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
         pin=DataPin(name,physical,sha256,descriptor);self.entries.append(pin)
@@ -152,7 +170,8 @@ class LifecyclePendingReturnPins:
     def verify_data(self):
         try:
             need(self.prepared and not self.failed and not self.closed and self._entries is self._original_entries
-                and self._entries==tuple(self.entries))
+                and type(self.entries) is list and len(self.entries)==len(self._entries)
+                and all(type(saved) is DataPin and current is saved for current,saved in zip(self.entries,self._entries)))
             self._parent();self._owner_guard()
             # Namespace data cannot grow behind the last actual global bill.
             # Zero-byte mutex ctime is capacity metadata, not Product authority.
@@ -171,10 +190,54 @@ class LifecyclePendingReturnPins:
         except BaseException:self._fail();raise
 
     def close_host(self):
-        result=True
-        for owner in self.partial:
-            try:result=owner.close() is True and result
+        try:return self._close_host()
+        except BaseException:self._fail();raise
+
+    def _close_host(self):
+        if self.closed:
+            if self.failed:return False
+            need(self._close_receipt is self._original_close_receipt and type(self._close_receipt) is tuple
+                and self._close_receipt and not self.partial and not self._partial_seal and self.namespace_pin is None)
+            for owner,descriptor,anchor,node in self._close_receipt:
+                need(type(owner) is OriginalDescriptor and owner.closed is True and owner.lost is False
+                    and type(owner.fd) is type(owner.anchor) is int and owner.fd==owner.anchor==-1
+                    and type(owner.node) is type(node) is tuple and len(owner.node)==len(node)==2
+                    and all(type(current) is type(saved) is int and current==saved for current,saved in zip(owner.node,node)))
+            return True
+        need(self._partial_seal is self._original_partial_seal and type(self._partial_seal) is tuple
+            and all(type(owner) is OriginalDescriptor for owner in self._partial_seal))
+        result=(self.partial is self._original_partial and type(self.partial) is list
+            and len(self.partial)==len(self._partial_seal)
+            and all(current is saved for current,saved in zip(self.partial,self._partial_seal)))
+        if not result:self._fail()
+        terminals=[];self._closing_pairs=terminals
+        # Every successful terminal record observes real absence immediately
+        # after closing the ORIGINAL kernel pair. A bool/receipt cannot replace
+        # actual alias validation or certify a live/recycled foreign slot.
+        for owner in self._partial_seal:
+            try:
+                need(type(owner.node) is tuple and len(owner.node)==2 and all(type(value) is int for value in owner.node))
+                owner.require(owner.fd);descriptor,anchor,node=owner.fd,owner.anchor,owner.node
+                terminals.append((owner,descriptor,anchor,node))
+                need(owner.close() is True and owner.closed is True and owner.lost is False
+                    and type(owner.fd) is type(owner.anchor) is int and owner.fd==owner.anchor==-1)
+                for number in (descriptor,anchor):
+                    try:os.fstat(number)
+                    except OSError as error:need(error.errno==errno.EBADF)
+                    else:need(False)
             except BaseException:result=False
-        if result:self.closed=True
+        if result:
+            self.closed=True
+            if not self.failed:
+                try:
+                    self.raw.release_return_pins(self)
+                    self.partial=self._original_partial=[];self.entries=[]
+                    self._partial_seal=self._original_partial_seal=()
+                    self._close_receipt=self._original_close_receipt=tuple(terminals)
+                    self._closing_pairs=None
+                    self._entries=self._original_entries=()
+                    self.namespace_pin=self._owner_seal=None;self.raw_names=()
+                    self.reserve_bytes=0;self._reserve_seal=self._original_reserve_seal=(0,)
+                except BaseException:self._fail();raise
         else:self._fail()
         return result and not self.failed

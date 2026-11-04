@@ -19,8 +19,8 @@ from feature_journeys.fixtures import context
 
 
 class Native:
-    def __init__(self):
-        self.epoch=20000;self.host=0.;self.sequence=self.intent=self.signals=0;self.instance='b'*32
+    def __init__(self,*,pid=123):
+        self.pid=pid;self.epoch=20000;self.host=0.;self.sequence=self.intent=self.signals=0;self.instance='b'*32
         self.owner='';self.original='';self.arm_id=self.release_id='';self.armed_epoch=0
         self.active=self.released=self.expired=False;self.available=True;self.frames=[];self.raw='';self.commands=[]
         self.pending=None;self.lost=None;self.qt='active';self.focus=True;self.text=context(RUN)['reply'];self.mutate=None
@@ -47,7 +47,7 @@ class Native:
         elif self.active:self.frame('query')
         self.sequence+=1
         packet=dict(lifecycleBackgroundVersion=1,commandId=request['commandId'],runId=RUN,instance=self.instance,sequence=self.sequence,
-            processId=123,capturedEpochMs=self.epoch,lastIntentSequence=self.intent,performed=performed,available=self.available,
+            processId=self.pid,capturedEpochMs=self.epoch,lastIntentSequence=self.intent,performed=performed,available=self.available,
             active=self.active,timerActive=self.active,released=self.released,expired=self.expired,ownerRunId=self.owner,originalId=self.original,
             armedEpochMs=self.armed_epoch,armCommandId=self.arm_id,releaseCommandId=self.release_id,frames=deepcopy(self.frames))
         if self.mutate:self.mutate(packet)

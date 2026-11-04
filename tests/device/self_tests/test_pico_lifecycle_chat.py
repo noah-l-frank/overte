@@ -20,25 +20,32 @@ from self_tests.test_token_chat_ui import Widgets
 
 
 class LifecycleChatTests(unittest.TestCase):
-    def setUp(self):
-        self.fixture=original_editor.LifecycleEditorTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
+    def setUp(self,*,model_context=None):
+        self.fixture=original_editor.LifecycleEditorTests()
+        self.fixture.setUp() if model_context is None else self.fixture.setUp(model_context=model_context)
+        self.addCleanup(self.fixture.doCleanups)
         self.root,self.native,self.lock=self.fixture.root,self.fixture.native,self.fixture.lock
         self.joined=self.fixture.joined();run_create_world_back(self.fixture.owner,self.joined)
         self.initialize_from_editor(self.fixture,self.joined);self.owner.prepare()
     def initialize_from_editor(self,fixture,joined):
         self.fixture,self.joined=fixture,joined
         self.root,self.native,self.lock=fixture.root,fixture.native,fixture.lock
-        self.path=self.root/'lifecycle-chat-owner.json';self.widgets=Widgets()
+        self.model_context=getattr(fixture,'model_context',None)
+        self.path=self.root/'lifecycle-chat-owner.json'
+        self.widgets=Widgets() if self.model_context is None else self.model_context.chat()
         self.widgets.instance=self.fixture.binding['sessionId'];self.widgets.generation='2'*32;self.widgets.sequence=self.fixture.field.sequence
         original=self.widgets.input
         def native_input(identifier,action,reference,value=None):
             state=unpack(json.loads(self.path.read_text())['payload'])[0];saved=state['inputs'][-1]
             self.assertEqual(identifier,saved['intent']['controlId']);self.assertIsNone(saved['consumed'])
-            self.assertEqual(reference,saved['reference'])
+            if self.model_context is None:self.assertEqual(reference,saved['reference'])
+            else:
+                from adapters.token_chat_ui import same_reference
+                same_reference(reference,saved['reference'],identifier)
             try:return original(identifier,action,reference,value)
             finally:
                 if self.widgets.panel:
-                    if not any(row['kind']=='chat' for row in self.native.ui.rows):self.native.ui.rows.append(editor(2,'chat'))
+                    if not any(row['kind']=='chat' for row in self.native.ui.rows):self.native.ui.rows.append(editor(2,'chat') if self.model_context is None else self.model_context.row(2,'chat'))
                     self.native.ui.rows[-1].update(focused=self.widgets.focus,text=self.widgets.draft)
                     self.native.ui.home=False;self.native.ui.raised=self.widgets.focus
         self.widgets.input=native_input;self.owner=self.make()

@@ -165,6 +165,7 @@ class PicoLifecycleOperations:
         need(operation in ('feature.lifecycle-input.act','feature.lifecycle-input.observe','feature.lifecycle-input.cleanup'))
         try:
             with self.lock.held():
+                self.source.retire_return_data()
                 self.bound(saved=True)
                 if operation.endswith('.cleanup'):observed=self.cleanup()
                 elif operation.endswith('.observe') and self.state['cleanup'] is not None:
@@ -191,14 +192,25 @@ class PicoLifecycleOperations:
                     # All physical parent writes precede Source3's final clock
                     # and real lock-exit check; no old packet becomes current.
                 else:observed=self.act(fields)
+                # This is the LAST held point after all phase/archive writes.
+                # A component's inner return may have been nested and is not
+                # proof of this actual outer kernel boundary.
+                if self.state['cleanup'] is None:self.source.stage_return_data()
+            if self.state['cleanup'] is None:self.source.verify_return_data()
             self.final_identity()
             if operation.endswith('.observe'):
-                if self.state['cleanup'] is None:self.source.fresh(after_guard=self.final_identity)
+                if self.state['cleanup'] is None:
+                    after_guard=self.final_identity
+                    if self.source.raw4_family() is not None:
+                        def after_guard():
+                            self.final_identity();self.source.verify_return_data()
+                    self.source.fresh(after_guard=after_guard)
                 else:self.cleanup_source.fresh(after_guard=self.final_identity)
             else:
                 if self.state['cleanup'] is None:self.source.bound()
                 else:self.runtime.final()
                 self.final_identity()
+                if self.state['cleanup'] is None:self.source.verify_return_data()
                 packet,started,epoch=self.delivery
                 completed=self.phases.monotonic();final=self.phases.epoch_ms()
                 need(0<=completed-started<=1.5 and 0<=final-epoch<=1500)

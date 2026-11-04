@@ -23,8 +23,8 @@ SOURCE='qrc:/qml/hifi/dialogs/TabletRunningScripts.qml'
 
 
 class Boundary:
-    def __init__(self,fault=''):
-        self.fault=fault;self.clock=0.;self.sequence=0;self.intent=0;self.commands=[];self.intents=[]
+    def __init__(self,fault='',*,pid=123):
+        self.pid=pid;self.fault=fault;self.clock=0.;self.sequence=0;self.intent=0;self.commands=[];self.intents=[]
         self.request=None;self.last_id=None;self.cached=None;self.issued={}
         self.focused=False;self.text='';self.token='d'*32;self.record=None;self.alive=True;self.edit=None
     def send(self,request):self.request=deepcopy(request);self.commands.append(deepcopy(request))
@@ -66,13 +66,13 @@ class Boundary:
             if self.record:
                 commit=dict(captureCommandId=self.record['captureCommandId'],fieldToken=self.record['fieldToken'],
                     observation=dict(pendingFieldCommitVersion=1,requestId=request['commandId'],instance='f'*32,eventId='1'*32,
-                        sequence=self.sequence,processId=123,createdEpochMs=self.record['created'],capturedEpochMs=self.epoch(),
+                        sequence=self.sequence,processId=self.pid,createdEpochMs=self.record['created'],capturedEpochMs=self.epoch(),
                         elapsedMs=self.epoch()-self.record['created'],pending=self.record['pending'],
                         source=dict(componentUrl=SOURCE,fieldName='scriptFilter',initialTextSha256=digest('retry-'+RUN),
                             inputSha256=digest('Overte ä Ω 東京 '+RUN),inputCodeUnits=len(('Overte ä Ω 東京 '+RUN).encode('utf-16-le'))//2),
                         events=deepcopy(self.record['events'])))
             self.cached=dict(pendingCommitOwnerVersion=1,commandId=request['commandId'],operation=operation,runId=RUN,
-                instance='b'*32,sequence=self.sequence,processId=123,canonicalComponentUrl=SOURCE,capturedEpochMs=self.epoch(),
+                instance='b'*32,sequence=self.sequence,processId=self.pid,canonicalComponentUrl=SOURCE,capturedEpochMs=self.epoch(),
                 lastIntentSequence=self.intent,performed=performed,current=dict(status='ready',token=self.token,
                     componentUrl=SOURCE,text=self.text,focused=self.focused,frame=[0,10,200,40]),commit=commit,
                 resources=dict(pendingRuns=[RUN] if self.record and self.record['pending'] else [],archivedEvents=int(self.record is not None)))
@@ -82,7 +82,7 @@ class Boundary:
         return json.dumps(value)
     def sleep(self,seconds):self.clock+=seconds
     def owner(self,*,readonly=False,ios=False):
-        return NativePendingCommitOwner(self.send,self.original,self.epoch,lambda:self.alive,123,ios=ios,
+        return NativePendingCommitOwner(self.send,self.original,self.epoch,lambda:self.alive,self.pid,ios=ios,
             intent=None if readonly else self.intents.append,monotonic=lambda:self.clock,sleep=self.sleep)
     def replace_context(self):self.token='e'*32;self.text='';self.focused=False
 

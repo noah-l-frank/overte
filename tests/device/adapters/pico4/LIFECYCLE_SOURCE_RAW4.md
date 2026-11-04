@@ -148,3 +148,7 @@ does not guarantee retention of an oversized transport return. A bounded
 Pending3 read with explicit overflow/truncation and partial/timeout provenance
 must be qualified before live Pending3/Source8 integration. Silently treating
 an arbitrary prefix as a complete NativeWire1 response is not permitted.
+
+## Shared storage and explicit Background5 continuation
+
+The [Pending3/Background5 storage packet](LIFECYCLE_PENDING3_STORAGE.md) records the new private same-bank source paths, actual graph retirement and numerical capacity counters. The current born-host continuation remains RED at the unchanged 1500 ms source-age fence before Pending preparation. Earlier evidence retains its own source epoch; no complete action or capability is promoted.

@@ -73,7 +73,8 @@ class LifecycleSourceView4:
         self.confirmed=self._confirmed=();self._seal=self._original_seal=(self.confirmed,2)
         self.pending=self._pending=None;self.held=self._held=[];self._held_seal=()
 
-    def guard(self):
+    def guard(self,*,archival=False):
+        need(type(archival) is bool)
         need(self.bank is self._bank and self.role==self._role
             and type(self.role) is str and self._seal is self._original_seal
             and self.confirmed is self._confirmed is self._seal[0]
@@ -81,7 +82,7 @@ class LifecycleSourceView4:
             and len(self.held)==len(self._held_seal)
             and all(row is saved[0] and row.value is saved[1] for row,saved in zip(self.held,self._held_seal))
             and (self.pending is None or self.pending in self.held and self.bank.pending_view is self.pending)
-            and not self.bank.failed)
+            and (archival or not self.bank.failed))
         for row in self.confirmed:
             if type(row) is tuple and len(row)==9:
                 from adapters.pico4.lifecycle_pending_read import body_dto
@@ -92,7 +93,7 @@ class LifecycleSourceView4:
                     and row[1]==self.bank.archive.scope_sha)
 
     def metadata_bytes(self):
-        self.guard()
+        self.guard(archival=True)
         # Retained projections are charged before copying/canonicalization.
         total=3*self._seal[1]
         for row in self.held:
@@ -180,10 +181,18 @@ class LifecycleSourceView4:
                                 need(body_original(by_read[identity[2]],ref,record=records[identity[2]],
                                     scope_sha=bank.archive.scope_sha,run=bank.run)==item['raw'])
                             else:
-                                need(item['sha256'] in by_digest);ref=by_digest[item['sha256']];identity=key(ref)
+                                if self.role=='background' and bank.background_state5 is not None:
+                                    ref=bank.background_state5.selected_reference(item,value,records);identity=key(ref)
+                                else:
+                                    need(item['sha256'] in by_digest);ref=by_digest[item['sha256']];identity=key(ref)
                                 need(by_read[identity[2]]==item['raw'].encode('utf-8'))
                             if identity not in refs:refs.append(identity)
                             return ref
+                        if set(item)==REFERENCE:
+                            need(self.role=='background' and bank.background_state5 is bank._background_state5
+                                and bank.background_state5 is not None and bank.background_state5.owner.version==5)
+                            need(key(item) in self.confirmed)
+                            return deepcopy(item)
                         need('lifecyclePendingBodyVersion' not in item)
                         context=None
                         if self.role=='pending' and bank.pending_read_version==1 and 'request' in item and 'original' in item:
@@ -210,15 +219,20 @@ class LifecycleSourceRaw4(LifecycleBackgroundRaw3):
         self.profile_guard();return scope(run,binding,pending_read_version=self.pending_read_version)
 
     def profile_guard(self):
+        need(self._capacity_choice is self._original_capacity_choice and type(self.capacity_batches) is bool
+            and self.capacity_batches is self._capacity_choice[0] and self._capacity_pass is self._original_capacity_pass)
         need(self._profile is self._original_profile and type(self.pending_read_version) is int
             and self.pending_read_version==self._profile[0] and self.roles is self._profile[1]
             and self.roles is (SOURCE_ROLES4_PENDING if self.pending_read_version==1 else SOURCE_ROLES4))
 
-    def __init__(self,path,run,binding,lock,identity,bill,clock,*,pending_read_version=0):
-        need(type(pending_read_version) is int and pending_read_version in (0,1))
+    def __init__(self,path,run,binding,lock,identity,bill,clock,*,pending_read_version=0,capacity_batches=False):
+        need(type(pending_read_version) is int and pending_read_version in (0,1) and type(capacity_batches) is bool)
+        self.capacity_batches=capacity_batches;self._capacity_choice=self._original_capacity_choice=(capacity_batches,)
+        self._capacity_pass=self._original_capacity_pass=None
         self.pending_read_version=pending_read_version
         self.roles=SOURCE_ROLES4_PENDING if pending_read_version else SOURCE_ROLES4
         self._profile=self._original_profile=(pending_read_version,self.roles)
+        self.background_state5=self._background_state5=None
         self.pending_transport=self._pending_transport=None
         from adapters.pico4.lifecycle_namespace_bill import LifecycleNamespaceBill
         need(type(bill) is LifecycleNamespaceBill and bill.lock is lock and path.parent==bill.path
@@ -226,10 +240,38 @@ class LifecycleSourceRaw4(LifecycleBackgroundRaw3):
             and self.roles is (SOURCE_ROLES4_PENDING if pending_read_version else SOURCE_ROLES4))
         self.views=self._views=();self.pending_view=self._pending_view=None;self.active_family=None
         self.families=self._families=()
+        self.family_attempt=self._original_family_attempt=None
+        self.family_value=self._original_family_value=None
+        self.return_slot=self._original_return_slot=None
         super().__init__(path,run,binding,lock,identity,bill,clock)
         self._write_gates=self.write_gates
         self.views=self._views=(LifecycleSourceView4(self,'background'),LifecycleSourceView4(self,'pending'))
         self.namespace.bind_expanded_guard(self)
+        if capacity_batches:self.namespace.bind_capacity_pass(self)
+
+    def bind_background_state5(self,writer,helper):
+        from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
+        from adapters.pico4.lifecycle_background_state5 import LifecycleBackgroundState5
+        self.lock.assert_held()
+        need(self.background_state5 is self._background_state5 is None
+            and type(writer) is PicoLifecycleBackground and writer.version==5 and writer.originals is self
+            and writer.state5 is writer._state5 is helper and type(helper) is LifecycleBackgroundState5
+            and self.archive.state['reads']==0 and writer.disk is None)
+        self.background_state5=self._background_state5=helper
+
+    def state5_bytes(self):
+        need(self.background_state5 is self._background_state5)
+        if self.background_state5 is None:return 0
+        from adapters.pico4.lifecycle_background_state5 import LifecycleBackgroundState5
+        need(type(self.background_state5) is LifecycleBackgroundState5 and self.background_state5.bank is self)
+        return self.background_state5.metadata_bytes()
+
+    def capacity_pass_bytes(self):
+        need(self._capacity_pass is self._original_capacity_pass)
+        if self._capacity_pass is None:return 0
+        from adapters.pico4.lifecycle_capacity_pass import LifecycleCapacityPass
+        need(type(self._capacity_pass) is LifecycleCapacityPass and self._capacity_pass.raw is self)
+        return self._capacity_pass.metadata_bytes()
 
     def literal_limit(self,role):
         return 32768 if role=='pending' else PENDING_WIRE_LIMIT if role=='pending-wire' else LIMIT
@@ -266,6 +308,10 @@ class LifecycleSourceRaw4(LifecycleBackgroundRaw3):
 
     def current_bill(self):
         if self.active_family is not None:return self.active_family.read_bill()
+        if self.capacity_batches:
+            from adapters.pico4.lifecycle_capacity_pass import LifecycleCapacityPass
+            need(type(self._capacity_pass) is LifecycleCapacityPass and self._capacity_pass is self._original_capacity_pass)
+            return self._capacity_pass.current()
         return super().current_bill()
 
     def guard_namespace(self):
@@ -281,10 +327,53 @@ class LifecycleSourceRaw4(LifecycleBackgroundRaw3):
         need(type(gate) is LifecycleFamilyGate4 and gate.writer is writer)
         return gate.save(value)
 
-    def check_hooks(self):
-        self.profile_guard();need(self.pending_transport is self._pending_transport)
+    def save_pending(self,writer,value):
+        from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4
+        from adapters.pico4.lifecycle_pending import PicoLifecyclePending
+        need(self.pending_read_version==1 and type(writer) is PicoLifecyclePending and writer.version==3
+            and writer.originals is self and writer.pending is self.pending_transport.owner_binding[0]
+            and not self.failed and self.family_attempt is self._original_family_attempt
+            and self.family_value is self._original_family_value is None)
+        # Retain the actual acquired state BEFORE budget/codec construction;
+        # a refusal cannot discard its reference graph while unwinding locals.
+        held=(writer,value);self.family_value=self._original_family_value=held
+        try:
+            gate=self.write_gates.get('pending')
+            if gate is None:
+                from adapters.pico4.lifecycle_family_gate import CODEC_RESERVE
+                need(self.family_attempt is None)
+                current=self.other_bill();ours=self.archive.bill()
+                need(current['decodedBytes']+ours['decodedBytes']+CODEC_RESERVE<=MAX_RAW)
+                gate=LifecycleFamilyGate4.__new__(LifecycleFamilyGate4)
+                # Strong ownership and a fixed bill PRECEDE every constructor/OFD
+                # operation. A failed original attempt can never be retried.
+                self.family_attempt=self._original_family_attempt=(gate,CODEC_RESERVE)
+                try:LifecycleFamilyGate4.__init__(gate,self,writer,role='pending')
+                except BaseException:
+                    self.failed=True
+                    from adapters.pico4.lifecycle_background_raw_state import close_or_retain,UNRESOLVED
+                    close_or_retain(self.path.parent,gate)
+                    if not any(owner is self for _directory,owner in UNRESOLVED):UNRESOLVED.append((self.path.parent,self))
+                    raise
+                self.write_gates['pending']=gate
+                self.families=self._families=(*self.families,('pending',gate))
+            need(type(gate) is LifecycleFamilyGate4 and gate.writer is writer and gate.role=='pending'
+                and self.family_attempt[0] is gate)
+            gate.save(value)
+            need(self.family_value is self._original_family_value is held)
+            self.family_value=self._original_family_value=None
+        except BaseException:
+            self.failed=True
+            from adapters.pico4.lifecycle_background_raw_state import UNRESOLVED
+            if not any(owner is self for _directory,owner in UNRESOLVED):UNRESOLVED.append((self.path.parent,self))
+            raise
+
+    def check_hooks(self,*,archival=False):
+        need(type(archival) is bool)
+        self.profile_guard();need(self.pending_transport is self._pending_transport
+            and self.family_attempt is self._original_family_attempt)
         if self.pending_transport is not None:
-            need(self.pending_read_version==1 and not self.pending_transport.failed and self.pending_transport.bank is self
+            need(self.pending_read_version==1 and (archival or not self.pending_transport.failed) and self.pending_transport.bank is self
                 and self.pending_transport.archive is self.archive)
         need(self.write_gates is self._write_gates and self.families is self._families)
         for role,gate in self.families:need(self.write_gates.get(role) is gate and gate.raw is self)
@@ -292,7 +381,7 @@ class LifecycleSourceRaw4(LifecycleBackgroundRaw3):
 
     def expanded_owner_states(self):
         from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4
-        self.check_hooks();result=[]
+        self.check_hooks(archival=True);result=[]
         for role,gate in self.families:
             need(type(gate) is LifecycleFamilyGate4 and gate.raw is self and gate.writer.originals is self)
             if gate.writer.state is None:need(gate.writer.disk is None)
@@ -340,13 +429,61 @@ class LifecycleSourceRaw4(LifecycleBackgroundRaw3):
             if record is not None and record['role']=='pending-wire')
         return size,size+count*maximum,wire_records*maximum
 
+    def bind_return_pins(self,holder):
+        from adapters.pico4.lifecycle_pending_return import LifecyclePendingReturnPins
+        self.lock.assert_held()
+        need(self.return_slot is self._original_return_slot is None
+            and type(holder) is LifecyclePendingReturnPins and holder.raw is self
+            and holder.gate.raw is self and holder.writer is holder.gate.writer
+            and not holder.prepared and not holder.failed and not holder.closed)
+        # Its sealed prospective cost exists BEFORE the first current bill or
+        # extra OFD. There is exactly ONE slot for Background and Pending.
+        holder.metadata_bytes();self.return_slot=self._original_return_slot=holder
+
+    def release_return_pins(self,holder):
+        from adapters.pico4.lifecycle_pending_return import LifecyclePendingReturnPins
+        need(type(holder) is LifecyclePendingReturnPins and holder.raw is self
+            and self.return_slot is self._original_return_slot is holder
+            and holder.closed is True and holder.failed is False)
+        self.return_slot=self._original_return_slot=None
+
+    def return_pin_bytes(self):
+        from adapters.pico4.lifecycle_pending_return import LifecyclePendingReturnPins
+        need(self.return_slot is self._original_return_slot)
+        holder=self.return_slot
+        if holder is None:return 0
+        need(type(holder) is LifecyclePendingReturnPins and holder.raw is self)
+        return holder.metadata_bytes()
+
+    def family_value_bytes(self):
+        need(self.family_value is self._original_family_value)
+        if self.family_value is None:return 0
+        held=self.family_value
+        from adapters.pico4.lifecycle_pending import PicoLifecyclePending
+        need(type(held) is tuple and len(held)==2 and type(held[0]) is PicoLifecyclePending
+            and held[0].originals is self)
+        return 64+canonical_size(held[1])
+
+    def family_attempt_bytes(self):
+        from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4,CODEC_RESERVE
+        need(self.family_attempt is self._original_family_attempt)
+        if self.family_attempt is None:return 0
+        attempt=self.family_attempt
+        need(type(attempt) is tuple and len(attempt)==2 and type(attempt[0]) is LifecycleFamilyGate4
+            and type(attempt[1]) is int and attempt[1]==CODEC_RESERVE)
+        # A successfully installed gate is already charged by the SAME bank's
+        # existing gate metadata. Partial constructors use this fixed reserve.
+        installed=self.write_gates.get('pending')
+        if installed is not None:need(installed is attempt[0]);return 0
+        return attempt[1]
+
     def transport_bytes(self):
         return 0 if self.pending_transport is None else self.pending_transport.metadata_bytes()
 
-    def metadata_capacity(self):return super().metadata_capacity()+self.view_bytes()+self.transport_bytes()
+    def metadata_capacity(self):return super().metadata_capacity()+self.view_bytes()+self.transport_bytes()+self.return_pin_bytes()+self.family_attempt_bytes()+self.family_value_bytes()+self.capacity_pass_bytes()+self.state5_bytes()
 
     def other_bill(self):
-        result=super().other_bill();result['decodedBytes']+=self.view_bytes()+self.transport_bytes()
+        result=super().other_bill();result['decodedBytes']+=self.view_bytes()+self.transport_bytes()+self.return_pin_bytes()+self.family_attempt_bytes()+self.family_value_bytes()+self.capacity_pass_bytes()+self.state5_bytes()
         need(result['decodedBytes']<=MAX_RAW);return result
 
     def _verify(self,*,materialize):
@@ -419,8 +556,34 @@ class LifecycleSourceRaw4(LifecycleBackgroundRaw3):
             return decode(value)
 
     def close_host(self):
+        known=True
+        try:
+            need(self.background_state5 is self._background_state5)
+            if self.background_state5 is not None:
+                from adapters.pico4.lifecycle_background_state5 import LifecycleBackgroundState5
+                need(type(self.background_state5) is LifecycleBackgroundState5)
+                known=self.background_state5.close_host() is True
+            from adapters.pico4.lifecycle_pending_return import LifecyclePendingReturnPins
+            need(self.return_slot is self._original_return_slot)
+            if self.return_slot is not None:
+                holder=self.return_slot
+                need(type(holder) is LifecyclePendingReturnPins and holder.raw is self)
+                known=holder.close_host() is True
+            need(self.family_attempt is self._original_family_attempt)
+            if self.family_attempt is not None:
+                from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4
+                gate=self.family_attempt[0]
+                need(type(gate) is LifecycleFamilyGate4)
+                if self.write_gates.get('pending') is not gate:
+                    known=gate.close_host() is True and known
+        except BaseException:
+            self.failed=True;known=False
+        if self._capacity_pass is not None:
+            try:known=self._capacity_pass.close_host() is True and known
+            except BaseException:self.failed=True;known=False
         closed=super().close_host()
-        if self.pending_view is not None or any(view._held_seal for view in self._views):
+        if (not known or self.family_value is not None or self.pending_view is not None
+                or any(view._held_seal for view in self._views)):
             from adapters.pico4.lifecycle_background_raw_state import UNRESOLVED
             if not any(owner is self for _directory,owner in UNRESOLVED):UNRESOLVED.append((self.path.parent,self))
             return False
@@ -431,6 +594,52 @@ class LifecycleSourceRawHistory4(LifecycleBackgroundRawHistory3):
     """Passive ranges, never a live view or an acknowledged owner-CAS proof."""
     version=VERSION
     reference_fields=REFERENCE
+
+    @classmethod
+    def open_profile(cls,path,run,binding,references,*,role):
+        # Historical dispatch ONLY: inspect/pin actual original bytes before
+        # choosing a reader; never discover a live writer or change a bank.
+        from adapters.chat_journey.archive_file import ClosedOriginalFile
+        from adapters.native_fd_owner import OriginalDescriptor,require_directory
+        from adapters.pico4.lifecycle_namespace_bill import strict
+        from adapters.pico4.lifecycle_background_raw_state import close_or_retain
+        need(cls is LifecycleSourceRawHistory4 and type(role) is str and role in VIEW_ROLES)
+        directory=OriginalDescriptor.__new__(OriginalDescriptor);source=None;history=None
+        try:
+            OriginalDescriptor.__init__(directory,path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+            stored=0;names={}
+            for index,child in enumerate(path.parent.iterdir()):
+                need(index<4096)
+                if child.name!=path.name and not child.name.startswith(path.name+'.'):continue
+                info=child.lstat()
+                need(stat.S_ISREG(info.st_mode) and stat.S_IMODE(info.st_mode) in (0o400,0o600)
+                    and info.st_uid==os.geteuid() and info.st_nlink==1 and 0<=info.st_size<=65536)
+                from adapters.chat_journey.archive_file import signature
+                names[child.name]=tuple(signature(info));stored+=info.st_size
+            need(path.name in names and len(names)<=530
+                and 3*stored+4*LIMIT+5*65536+3*canonical_size(references)<=MAX_RAW)
+            source=ClosedOriginalFile(path,0o600,lambda:require_directory(directory,path.parent))
+            raw,physical=source.read();need(tuple(physical)==names[path.name])
+            value=strict(raw);exact(value,{'audioRawJournalVersion','scope','state'})
+            need(type(value['audioRawJournalVersion']) is int and value['audioRawJournalVersion']==1
+                and type(value['scope']) is dict)
+            selected=value['scope'].get('pendingNativeReadVersion',0)
+            need(type(selected) is int and selected in (0,1)
+                and ('pendingNativeReadVersion' not in value['scope'] or selected==1)
+                and value['scope']==scope(run,binding,pending_read_version=selected))
+            history=cls.__new__(cls)
+            cls.__init__(history,path,run,binding,references,role=role,pending_read_version=selected)
+            need(history.archive.root.read()==(raw,physical) and history.archive.disk==value)
+            require_directory(directory,path.parent)
+            need(set(names)=={child.name for child in path.parent.iterdir()
+                if child.name==path.name or child.name.startswith(path.name+'.')})
+            for name,pin in names.items():need(tuple(signature((path.parent/name).lstat()))==pin)
+            # Exact verified handoff to the new historical reader's original
+            # root/prefix guards; the selecting windows may close only known.
+            need(source.close() and directory.close())
+            return history
+        except BaseException:
+            close_or_retain(path.parent,*[owner for owner in (history,source,directory) if owner is not None]);raise
 
     def expected_scope(self,run,binding):
         return scope(run,binding,pending_read_version=self._pending_profile[0])

@@ -204,7 +204,7 @@ class PicoLifecyclePendingRead:
         if bank is not None:bank.bind_pending_transport(self)
 
     def poison(self):
-        self.failed=True
+        self.failed=True;self.last=None
         if self.bank is not None:self.bank.failed=True
         if not any(owner is self for owner in UNRESOLVED):UNRESOLVED.append(self)
 
@@ -328,7 +328,7 @@ class PicoLifecyclePendingRead:
         self.host_bindings();self.archive.lock.assert_held()
         if self.bank is not None:
             self.bank.profile_guard();need(self.bank.pending_transport is self.bank._pending_transport is self
-                and self.bank.archive is self.archive)
+                and self.bank.archive is self.archive and not self.bank.failed and not self.bank.frozen)
         self.adapter.require_same_process(self.target,self.binding['processIdentity'],'Lifecycle Pending source read')
 
     def guard(self):
