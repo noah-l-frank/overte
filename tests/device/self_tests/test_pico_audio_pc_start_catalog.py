@@ -33,6 +33,6 @@ class AudioPCStartCatalogTests(unittest.TestCase):
             classes=[node for node in tree.body if isinstance(node,ast.ClassDef) and node.name==kind];self.assertEqual(1,len(classes))
             expected.update('self_tests.'+module+'.'+kind+'.'+node.name for node in classes[0].body
                 if isinstance(node,ast.FunctionDef) and node.name.startswith('test_'))
-        self.assertEqual(73,len(expected));self.assertEqual(expected,set(names))
+        self.assertEqual(74,len(expected));self.assertEqual(expected,set(names))
 
 if __name__=='__main__':unittest.main()

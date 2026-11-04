@@ -261,6 +261,32 @@ class PicoAudioCleanupOwner1:
             self.poison(error)
             raise
 
+    def observe_idempotent_cleanup(self,call):
+        """Reobserve the same replacement; never deliver Stop or Launch again."""
+        try:
+            self.guard()
+            need(type(self.state) is dict and self.state['phase']=='new-bound' and self.io.query is None
+                 and arguments('feature.audio.cleanup',call)==self.state['cleanupCall'])
+            self.phase();binding=self.state['newBinding']
+            self.io.guard_identity(binding['processIdentity'])
+            rows=[row for row in self.io.source_sets if row[0]=='new' and row[1]=='primary'
+                  and row[2]==binding['processIdentity'] and row[3]==binding['sessionId']]
+            need(rows)
+            native=rows[0][4]
+            began=self.io.begin_query('new','primary')
+            observed=self.inputs.observe(binding,native)
+            need(observed['instance']==self.state['newProof']['native']['native']['instance'])
+            self.io.end_query();self.io.guard_identity(binding['processIdentity']);self.phase()
+            with self.lock.held():
+                self.old_roots();value=deepcopy(self.state)
+                value['restart']=reference(self.input_store);self.save(value)
+            need(self.now()-began[0]<=1.5)
+            fresh(observed['capturedEpochMs'],native.clock_ms())
+            return deepcopy(binding)
+        except BaseException as error:
+            self.poison(error)
+            raise
+
     def quiet_projection(self,sampler,encoded):
         # Only immutable compact bytes leave this exact bounded parse frame.
         need(any(sampler is item for item in self.budget.new_samplers)

@@ -107,6 +107,18 @@ class AudioCleanupTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.budget.create_common_cleanup()
         self.assertEqual(0,self.budget.common_credit);self.assertIsNone(self.budget.common_owner)
         self.assertEqual(reads,self.fixture.actor.raws.state['reads']);self.assertEqual([],self.sdk.commands)
+    def test_unprepared_idempotent_cleanup_refuses_before_any_sdk_or_raw_query(self):
+        self.sampler();owner=PicoAudioCleanupOwner1(self.fixture.owner,self.budget,self.fixture.f.source,
+            action_started=time.monotonic(),monotonic=time.monotonic);self.addCleanup(owner.close_host)
+        reads=self.fixture.actor.raws.state['reads'];commands=len(self.sdk.commands)
+        with self.assertRaises(NativeUIError):
+            owner.observe_idempotent_cleanup(dict(contractVersion=16,runId=self.fixture.f.run))
+        first=owner.failure;gc.collect()
+        self.assertTrue(owner.failed);self.assertTrue(self.budget.failed)
+        self.assertIs(first,owner.failure);self.assertIsNotNone(first[1])
+        self.assertEqual(reads,self.fixture.actor.raws.state['reads'])
+        self.assertEqual(commands,len(self.sdk.commands));self.assertIsNone(self.io.query)
+        self.assertIsNone(owner.state)
     def test_three_original_literals_precede_successful_closed_handback(self):
         sampler,seal=self.sampler();raw=sampler.sample();value=json.loads(raw)
         self.assertEqual(1,value['sequence']);self.assertEqual('old',value['epoch'])

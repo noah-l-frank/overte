@@ -45,6 +45,15 @@ reader graphs and their charges remain owned. G1 Settings/lifetime/page state
 must match the measured initial baseline. A normal process birth changes its
 measured PID/bridge; it does not reset the independent host generation.
 
+`observe_idempotent_cleanup()` is limited to the already `new-bound` owner and
+its exact cleanup call. It reuses `RestartInputs.observe()` with the original
+new-process reader, checks the same native birth and independent OS identity,
+retains the new source literal and updates the original restart reference.
+It sends no Stop/Launch and grants no quiet or complete-cleanup verdict.
+Premature calls poison the owner and preserve the first error before SDK IO.
+A separate host diagnostic exercised all14 actions, process binding and this
+second cleanup:60.355s,424 raw reads and exactly the original Stop/Launch pair.
+
 ## Closed decoding and final admission
 
 The optional closed-reader seal pins the actual readers, source catalogue,
@@ -90,7 +99,7 @@ retain original clock/range references;2 also carries the new Actor context.
 
 ## Evidence and remaining scope
 
-Ten focused cases in the existing Audio fences wrapper cover same-bank birth,
+Eleven focused cases in the existing Audio fences wrapper cover same-bank birth,
 default Actor/conservative behavior, three original literals, eight successful
 samples, unrelated caller charge, late sources, actual final-candidate corpus
 growth, replaced raw inode and premature Common admission. Existing fixture
