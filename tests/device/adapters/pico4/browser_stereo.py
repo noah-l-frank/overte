@@ -15,7 +15,7 @@ from adapters.navigation_arrival import pose_packet
 from adapters.pico4.browser_stereo_source import validate as stereo_frame,fields,source_version,surface as frame_surface
 from adapters.pico4.browser_source import fixture
 from adapters.pico4.browser_measurements import browser_status
-from adapters.graphics_journey.originals import GraphicsOriginals,record as image_record,transition as image_transition
+from adapters.graphics_journey.originals import GraphicsOriginals,GraphicsOriginalPixels,record as image_record,transition as image_transition
 from adapters.graphics_journey.samples import retirement
 from adapters.owned_world_render import OwnedWorldRenderCapture
 from adapters.script_journey.history import pack,unpack
@@ -61,7 +61,13 @@ class PicoBrowserStereo(OriginalStereoRetirement):
         need(native_factory is None or callable(native_factory));self.native_factory=native_factory
         self.journal_id=journal_id
         self.role,self.monotonic=role,monotonic;self.store=PrivateFeatureState(path);self.disk=self.store.read();self.state=None
-        self.images=GraphicsOriginals(artifact_root,binding,run,role,0,guard,self.image_intent,monotonic=monotonic)
+        self.pixel_memo=self._pixel_memo=GraphicsOriginalPixels()
+        self.images=GraphicsOriginals(artifact_root,binding,run,role,0,guard,self.image_intent,monotonic=monotonic,
+            pixel_memo=self.pixel_memo)
+        # Historical reads keep their original passive real-host clock/guard.
+        # They share only this owner's ONE immutable PNG decode key.
+        self.archival_images=self._archival_images=GraphicsOriginals(artifact_root,binding,run,role,0,
+            lambda:True,lambda _:False,pixel_memo=self.pixel_memo)
         self.validated_image=None
         if self.disk is not None:
             version=owner_version(surface)
@@ -124,7 +130,10 @@ class PicoBrowserStereo(OriginalStereoRetirement):
             scope=self.scope,surface=self.surface,sceneUrl=self.arrival.scene_url,artifactRoot=str(self.images.root)))
         expected=(key,tuple(before))
         need(self.validated_image is None or self.validated_image==expected)
-        raw=GraphicsOriginals.archive(self.images.root,image) if historical else self.images.read(image)
+        need(self.pixel_memo is self._pixel_memo and type(self.pixel_memo) is GraphicsOriginalPixels
+            and self.archival_images is self._archival_images and type(self.archival_images) is GraphicsOriginals
+            and self.archival_images.pixel_memo is self.images.pixel_memo is self.pixel_memo)
+        raw=self.archival_images.read(image) if historical else self.images.read(image)
         need(signature(path.lstat())==before)
         if self.validated_image is None:
             stereo_frame(frame,raw,self.run,self.binding,self.arrival.scene_url)

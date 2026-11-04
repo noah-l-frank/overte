@@ -33,6 +33,7 @@ def test(name: str, category: str, *command: str, requires: tuple[str, ...] = ()
 PYTHON = sys.executable
 TESTS = (
     test("snapshot-constructor-originals", "interaction", PYTHON, "device/test_snapshot_constructor_originals.py"),
+    test("browser-png-memo", "interaction", PYTHON, "device/test_browser_png_memo.py"),
     test("browser-witness-receipt", "interaction", PYTHON, "device/test_browser_witness_receipt.py"),
     test("browser-cold-peer", "interaction", PYTHON, "device/test_browser_cold_peer.py"),
     test("browser-peer-pending", "interaction", PYTHON, "device/test_browser_peer_pending.py"),

@@ -68,9 +68,37 @@ def content(value,raw):
     return raw
 
 
+class GraphicsOriginalPixels:
+    """One immutable PNG header's pure decode, never file/source authority.
+
+    Every use validates the full current record and freshly read PNG bytes.
+    No pixels, mutable DTO, file descriptor or current observation are cached.
+    """
+    __slots__=('key','_key')
+
+    def __init__(self):
+        self.key=self._key=None
+
+    def content(self,value,raw):
+        need(self.key is self._key and (self.key is None or type(self.key) is bytes))
+        record(value)
+        if value['kind']!='image':return content(value,raw)
+        need(type(raw) is bytes and len(raw)==value['bytes'] and hashlib.sha256(raw).hexdigest()==value['sha256'])
+        from adapters.script_journey.history import canonical
+        # The original closed image header includes nonce-bound name, byte and
+        # pixel hashes, dimensions and extent. All are checked by record().
+        key=canonical(value['capture']['source']['image'])
+        if key!=self.key:
+            original_pixels(value['capture'],raw)
+            self.key=self._key=key
+        return raw
+
+
 class GraphicsOriginals:
-    def __init__(self,root,binding,run,role,stage,guard,intent,*,monotonic=time.monotonic,timeout=5):
+    def __init__(self,root,binding,run,role,stage,guard,intent,*,monotonic=time.monotonic,timeout=5,pixel_memo=None):
         context(binding);identifier(run)
+        need(pixel_memo is None or type(pixel_memo) is GraphicsOriginalPixels)
+        self.pixel_memo=self._pixel_memo=pixel_memo
         need(type(role) is str and role in ('primary','actor') and type(stage) is int and stage in (0,1)
             and all(callable(v) for v in (guard,intent,monotonic)) and number(timeout,.01,5))
         self.root,self.binding,self.run,self.role,self.stage=Path(root),deepcopy(binding),run,role,stage
@@ -95,6 +123,11 @@ class GraphicsOriginals:
     def _budget(self,started,previous):
         need(self.guard() is not False);now=self._now();need(previous<=now and now-started<self.timeout);return now
 
+    def _content(self,value,raw):
+        need(self.pixel_memo is self._pixel_memo
+            and (self.pixel_memo is None or type(self.pixel_memo) is GraphicsOriginalPixels))
+        return content(value,raw) if self.pixel_memo is None else GraphicsOriginalPixels.content(self.pixel_memo,value,raw)
+
     def read(self,value):
         """Original owned bytes; no current product observation is created."""
         started=previous=self._now();previous=self._budget(started,previous);path=self._path(value)
@@ -102,7 +135,7 @@ class GraphicsOriginals:
         descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
         with os.fdopen(descriptor,'rb') as stream:
             self._file(path,stream.fileno(),value);raw=stream.read(limit+1);self._file(path,stream.fileno(),value)
-        content(value,raw);self._budget(started,previous);return raw
+        GraphicsOriginals._content(self,value,raw);self._budget(started,previous);return raw
 
     def write(self,ticket,capture,raw,*,kind='image'):
         """Reserve planned/opened ownership before bytes; never overwrite."""
@@ -113,7 +146,7 @@ class GraphicsOriginals:
         value=dict(graphicsOriginalVersion=VERSION,binding=deepcopy(self.binding),runId=self.run,role=self.role,stage=self.stage,
             ticket=ticket,kind=kind,capture=deepcopy(capture),name='graphics-'+self.run+'-'+self.role+'-'+str(self.stage)+'-'+str(capture.get('requestId'))+suffix,
             sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw),phase='planned',file=None)
-        content(value,raw);previous=self._budget(started,previous);path=self._path(value)
+        GraphicsOriginals._content(self,value,raw);previous=self._budget(started,previous);path=self._path(value)
         need(self.intent(deepcopy(value)) is not False);previous=self._budget(started,previous)
         descriptor=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
         with os.fdopen(descriptor,'wb') as stream:

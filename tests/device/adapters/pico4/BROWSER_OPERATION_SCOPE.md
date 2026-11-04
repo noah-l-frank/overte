@@ -451,3 +451,44 @@ preserved historical contradiction, original peer age, and original exception
 with tool release. The diagnostic remains outside default green catalog groups.
 A subsequent single diagnostic run must identify the actual step24 refusal;
 its additional observability does not qualify a runtime optimization or device.
+
+The instrumented whole is RED99.188s at the same step24. Its1930 selected
+return events record twelve post-evidence peer-currentness refusals: effective
+ages1506--1537ms, versus1455--1496ms immediately before evidence. Every Primary
+currentness return is true and no nonempty peer receipt contradicts the facts.
+Parent191/child268 loaded SHA/eight stats are stable; all2323 repository Python
+files are unchanged at terminal before edits. Actor shutdown has no after
+manifest. Negative cleanup/Common consumption completes, normal sequence false.
+
+## One owned PNG decode during stereo retirement
+
+A scoped diagnostic executes the existing24 normal inputs and effect checks,
+ONE actual Primary stereo acquisition and original cleanup. Native/Qt/VR/GPU
+producers remain declared models. Local monitoring is limited to selected
+original code objects; this is not a Common/Actor or unprofiled timing result.
+The first scope passes5.552s/207 stable sources. Eleven actual GraphicsOriginals
+reads spend85.482ms inclusive, repeatedly decoding the same original PNG.
+
+An explicit optional GraphicsOriginalPixels memo now retains only ONE immutable
+closed image-header byte string. It includes nonce-bound name, byte/pixel hashes,
+byte count and dimensions. A new header always executes original_pixels; failed
+decoding does not create a success key. Every read still validates the complete
+original capture/record, reads all file bytes, hashes them, checks file ownership
+and both physical endpoints, and runs its original guards and clocks. No pixels,
+mutable facts, descriptors or current product observation are cached. Defaults
+keep full decoding, including ordinary Graphics/Navigation/Phone/iOS callers.
+
+Only PicoBrowserStereo opts in and shares this one key between its actual writer
+and a warm passive historical reader. The latter keeps the original archive's
+real-host clock, passive guard and5s per-read bound. Existing full-eight-stamp
+checks, complete stereo-frame validation, native retirement, per-eye Common
+pixel assertions and1.5s/500ms/3s/20s/120s bounds remain unchanged. The persisted
+formats, original file set, SDK/part count and decoded/storage caps are unchanged.
+
+Seven new cases pass1.366s/141 stable sources and36 existing Graphics, browser,
+World Web and original-cache cases pass22.385s/217 stable sources. The changed
+same scoped24-input component passes5.492s/207 stable sources: all eleven reads
+still run, now11.280ms inclusive; the single measured acquisition is426ms versus
+483ms previously. These are separate fresh component executions with declared
+producers, not a whole-run speedup prediction. No full qualification is inferred.
+Selector browser-png-memo is host-only; catalog440.

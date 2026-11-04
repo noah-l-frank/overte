@@ -26,6 +26,17 @@ focused cases pass0.034s/33 stable sources. See the
 [exact Browser scope](BROWSER_OPERATION_SCOPE.md#passive-original-poll-return-diagnostics).
 The catalog remains439 groups and source-complete areas remain3/14.
 
+The next Browser diagnostic identifies twelve actual post-evidence peer ages
+1506--1537ms at normalstep24, with current Primary samples and no contradictory
+peer facts; RED99.188s remains retained. The measured duplicate storage PNG
+decoding is now opt-in memoized only within one Pico stereo owner, preserving
+every actual byte/hash/file/clock check and default behavior. Seven new cases
+and36 affected cases pass; a separate actual24-input/one-capture component keeps
+eleven physical reads while their measured cost falls85.482→11.280ms. This is
+not whole or device qualification. See the
+[exact memo scope](BROWSER_OPERATION_SCOPE.md#one-owned-png-decode-during-stereo-retirement).
+The catalog now contains440 groups; source-complete areas remain3/14.
+
 The 2026-11-02 continuation adds the private
 [World consumption readout](WORLD_CURRENT_CONSUMPTION_READOUT.md), with17
 no-build owning cases and original pre-send/outer-exit time fences. Its native
