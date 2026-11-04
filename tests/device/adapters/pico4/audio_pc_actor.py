@@ -48,7 +48,7 @@ def require_original(reference):
 
 
 class PicoAudioPCActor:
-    def __init__(self,recipe,phase_source,peer_factory,native,settings,pages,os_status,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,recipe,phase_source,peer_factory,native,settings,pages,os_status,*,monotonic=time.monotonic,sleep=time.sleep,cleanup_budget=None):
         from adapters.pico4.audio_recipe import PicoAudioRecipe
         need(type(recipe) is PicoAudioRecipe and isinstance(phase_source,PhaseFixtureReader)
             and phase_source.run==recipe.run and phase_source.area=='audio' and phase_source.fixture_url==recipe.source.fixture_url
@@ -60,6 +60,11 @@ class PicoAudioPCActor:
         self.recipe,self.source,self.native,self.settings,self.pages=recipe,phase_source,native,settings,pages
         self._phase_source,self._phase_client=phase_source,phase_source.client
         self.peer_factory,self.os_status,self.monotonic,self.sleep=peer_factory,os_status,monotonic,sleep
+        self.cleanup_budget=self._original_cleanup_budget=cleanup_budget
+        if cleanup_budget is not None:
+            from adapters.pico4.audio_cleanup_profile import AudioCleanupBudget1
+            need(type(cleanup_budget) is AudioCleanupBudget1)
+            cleanup_budget.admit_actor(self,recipe)
         self._peer_factory=peer_factory
         self.store=PrivateFeatureState(recipe.store.path.with_name('audio-recipe-pc-actor.json'))
         self.header=PrivateFeatureState(recipe.store.path.with_name('audio-recipe-pc-actor-header.json'))
@@ -125,6 +130,7 @@ class PicoAudioPCActor:
     def dispatch_identity(self):
         # Fresh role/header authority gates EVERY new source dispatch/getter.
         # It does not revoke already issued responses' archival reservations.
+        self.old_acquisition()
         try:
             need(not self.raws.stopped and host_identity()==self.host
                 and self.source is self._phase_source and self.source.client is self._phase_client
@@ -174,7 +180,8 @@ class PicoAudioPCActor:
         decoded+=len(canonical(self.state)) if self.state is not None else 0
         # Encoded source fields/native/PCM copies remain in their original
         # owners; actual retained artifact bytes are charged conservatively too.
-        return dict(parts=parts,decodedBytes=decoded+stored,storedBytes=stored)
+        extra=0 if self.cleanup_budget is None else self.cleanup_budget.current_bytes(self)
+        return dict(parts=parts,decodedBytes=decoded+stored+extra,storedBytes=stored)
 
     def literal_source(self):
         actor=self
@@ -255,7 +262,12 @@ class PicoAudioPCActor:
         self.store.write(body,self.disk);self.disk=deepcopy(body);self.pin=original(self.store)
         self.state=deepcopy(value);self.state_sha=json_digest(self.state)
 
+    def old_acquisition(self):
+        need(self.cleanup_budget is self._original_cleanup_budget)
+        if self.cleanup_budget is not None:self.cleanup_budget.require_old_acquisition(self)
+
     def _begin(self,kind,ticket):
+        self.old_acquisition()
         self.bound();need(self.state['pending'] is None)
         value=deepcopy(self.state);value['pending']=dict(kind=kind,ticket=ticket,raws=[],started=self.monotonic());self._save(value)
 
@@ -465,8 +477,17 @@ class PicoAudioPCActor:
 
     def quiet(self):
         self.unlocked();first=last=None;started=None;first_pc=None;previous_pc=None
+        need(self.cleanup_budget is self._original_cleanup_budget)
+        work_inclusive=False
+        if self.cleanup_budget is not None:
+            self.cleanup_budget.guard()
+            work_inclusive=self.cleanup_budget.value['picoAudioCleanupProfileVersion']==2
+        # Explicit cold Profile2 only. Native timers, hard500ms gaps, actual
+        # independent clocks, minimum3s and original41 attempts are unchanged.
+        period=.45 if work_inclusive else .25
         from adapters.pico4.audio_settings_source import CLOCKS
         for attempt in range(41):
+            poll_started=self.monotonic() if work_inclusive else None
             frame=self.observe();packets={}
             for ticket in tuple(row['ticket'] for row in self.state['jobs']):
                 with self.held():
@@ -501,5 +522,6 @@ class PicoAudioPCActor:
                 last=list(stamps);previous_pc=deepcopy(pc);previous_host=now
             need(0<=self.monotonic()-frame['startedMonotonic']<=1.5)
             if complete:return dict(digitalRecorderLeasesRetired=True,originalFilesRetained=True,physicalAcousticObserved=False,fullAudioQualified=False)
-            self.unlocked();need(attempt<40);self.sleep(.25)
+            self.unlocked();need(attempt<40)
+            self.sleep(max(.01,period-(self.monotonic()-poll_started)) if work_inclusive else .25)
         need(False)

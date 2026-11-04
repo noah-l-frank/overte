@@ -39,9 +39,10 @@ class AudioRecipeIO:
 
 
 class AudioRecipeFixture(unittest.TestCase):
+    boundary_factory=Boundary
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.path=Path(self.temp.name)
-        self.native=Boundary(self.path,lifetime=True);self.journal=Journal(clock=self.native.epoch)
+        self.native=getattr(self,'boundary_factory',Boundary)(self.path,lifetime=True);self.journal=Journal(clock=self.native.epoch)
         self.run=self.native.preview.run;generated=self.journal.register('audio');self.journal.runs[self.run]=self.journal.runs.pop(generated)
         test=self
         class PhaseClient(Client):

@@ -214,8 +214,10 @@ class ModelPC:
 
 
 class AudioPCStartTests(unittest.TestCase):
+    recipe_fixture=AudioRecipeFixture
+    def create_cleanup_budget(self):return None
     def setUp(self):
-        self.f=AudioRecipeFixture();self.f.setUp();self.f.temp._finalizer.detach();self.addCleanup(self.f.doCleanups)
+        self.f=getattr(self,'recipe_fixture',AudioRecipeFixture)();self.f.setUp();self.f.temp._finalizer.detach();self.addCleanup(self.f.doCleanups)
         self.f._cleanups=[row for row in self.f._cleanups if getattr(row[0],'__self__',None) is not self.f.temp]
         print('Retained original Audio armed normal recipe:',self.f.path,flush=True)
         self.actor=None;self.pc=ModelPC(self)
@@ -236,8 +238,10 @@ class AudioPCStartTests(unittest.TestCase):
                 test.assertEqual('/runs/'+test.f.run,path);return test.f.journal.snapshot(test.f.run)
         source=PhaseFixtureReader(ActorClient(self.f.source.client.url,'b'*64),self.f.run,'audio',
             monotonic=lambda:self.f.native.clock,epoch_ms=self.f.native.epoch)
+        budget_factory=getattr(self,'create_cleanup_budget',None)
+        cleanup_budget=None if budget_factory is None else budget_factory()
         self.actor=PicoAudioPCActor(self.f.owner,source,self.pc.peer,native,parent.settings,parent.pages,self.f.status,
-            monotonic=lambda:self.f.native.clock,sleep=self.pc.advance)
+            monotonic=lambda:self.f.native.clock,sleep=self.pc.advance,cleanup_budget=cleanup_budget)
         self.owner=PicoAudioPCStartCoordinator(self.f.owner,self.actor)
         complete=self.f.native.complete
         def original_complete():

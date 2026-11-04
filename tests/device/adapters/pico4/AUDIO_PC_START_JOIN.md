@@ -246,3 +246,7 @@ three disjoint selectors now cover52 cases. Targeted compatibility also exercise
 Lifecycle pending-body ranges, held return pins and100 Assets literals. These
 checks qualify host logic; complete Audio, physical acoustics and devices remain
 unqualified.
+
+The optional cold cleanup budget and original process/source handoff are
+documented in [the internal cleanup join](AUDIO_CLEANUP_JOIN.md). They preserve
+the default Actor path and do not enable complete public Audio capability.

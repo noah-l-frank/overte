@@ -10,6 +10,16 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 
 CASE_NAMES=(
+    'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_default_none_actor_still_observes_original_owner',
+    'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_selected_budget_is_registered_in_original_raw_family_before_source_io',
+    'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_unprepared_common_factory_refuses_before_credit_or_getter',
+    'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_three_original_literals_precede_successful_closed_handback',
+    'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_eight_samples_preserve_reader_roots_and_replace_only_own_work',
+    'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_default_false_keeps_conservative_decoder_sum',
+    'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_actual_extra_caller_graph_charge_survives_later_success',
+    'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_actual_late_source_preserves_full_sum_and_first_traceback',
+    'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_actual_final_candidate_corpus_growth_refuses_before_handback',
+    'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_actual_same_bytes_new_inode_after_success_refuses_next_source',
     'self_tests.test_pico_audio_cleanup_poll_period.AudioCleanupPollPeriodTests.test_original_default_fixed_sleep_is_preserved',
     'self_tests.test_pico_audio_cleanup_poll_period.AudioCleanupPollPeriodTests.test_only_actual_cleanup_window_uses_remaining450ms_period',
     'self_tests.test_pico_audio_cleanup_poll_period.AudioCleanupPollPeriodTests.test_other_audio_checkpoints_keep_default_sleep',

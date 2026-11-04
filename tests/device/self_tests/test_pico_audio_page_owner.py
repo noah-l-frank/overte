@@ -28,11 +28,11 @@ from self_tests.test_pico_openxr_adapter_session import FakeTransport
 
 
 class Boundary(PreviewBoundary):
-    def __init__(self,path,*,peak=False,muted=False,lifetime=False):
+    def __init__(self,path,*,peak=False,muted=False,lifetime=False,binding=None):
         super().__init__();self.shown=self.opened=False;self.origin_peak=self.peak=peak;self.muted=muted
         self.pages=PageBoundary();self.settings=SettingsBoundary();self.ui=UiBoundary();self.ui.rows=[];self.ui.raised=False
         self.sequence=0;self.entry_inputs=0;self.fault_effect='';self.entry_lost=False;self.retain_page=False;self.record_starts={}
-        self.binding=dict(BASE_BINDING,sessionId=BRIDGE);self.path=path;self.lock=ScriptSourceLock(path/'script-sources.lock')
+        self.binding=dict(BASE_BINDING,sessionId=BRIDGE) if binding is None else deepcopy(binding);self.path=path;self.lock=ScriptSourceLock(path/'script-sources.lock')
         self.instance=self.generation=BRIDGE;self.pages_mutate=None
         self.lifetime=lifetime;self.callback_events={};self.retained_capacity=0
         original=self.native.mutate
