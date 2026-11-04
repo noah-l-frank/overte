@@ -1310,6 +1310,19 @@
           "selectedPacket": "13 cases/10.117s:12 pass,1 existing real-host stereo Actor serialized source refusal;247 loaded source pins unchanged.",
           "scope": "New3 pass in both packets; existing separate-process normal Open/Close/quiet/return passes in both. No combined affected-green or whole qualification."
         }
+      },
+      "originalActorInputPhasePrerequisite": {
+        "selector": "browser-actor-phase",
+        "rootCases": 5,
+        "rootSeconds": 4.161,
+        "rootLoadedSources": 175,
+        "affectedCases": 39,
+        "affectedSeconds": 19.037,
+        "affectedLoadedSources": 251,
+        "scope": "Independent Actor waits before source intent/query when original validated fixture activations are ahead of the SAME durable Primary owner committed input phase. Existing uncertain history first refuses, never pending/replayed. Cold/warm/cleanup handoff and actual ignored-input contradictory facts verified. No expected state filters readiness; original source/phase/quiet/sample/whole limits unchanged.",
+        "currentWhole": "Changed real-clock diagnostic RED6.494s before normal Open: Actor began sample7 on announced phase while Primary still baseline; reading37/chunks18 retained; Primary correctly refused. Parent161/child266/actor167 sources stable. This precedes the new pre-acquisition gate; whole still open.",
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     },
     {

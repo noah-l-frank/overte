@@ -662,6 +662,13 @@ class PicoTabletWebFeature:
             owner=self.owner();need(owner is not None);state=self.role_state()
             need(state['publication'] is None or state['publication']['phase']=='accepted')
             phase=self.phase(owner)
+            if not same(phase['status']['activations'],owner['phaseSource']['activations']):
+                # Fixture activation precedes normal Primary input. Wait for
+                # that same durable owner to commit the input phase before any
+                # source intent/query. Existing uncertain originals stay fatal.
+                history=self.source_history(owner);history.matches(state)
+                need(history.disk is None or history.disk['phase']=='ready' and history.disk['intent'] is None)
+                raise PhasePending('Original Primary input phase is not committed yet')
             value=self.acquire(owner,phase,state)
             self._actor_started=True
             payload=dict(ticket=phase['ticket'],actor='owned-observer',actorSequence=value['sequence'],capturedEpochMs=value['capturedEpochMs'],facts=projection(self.area,value['state']))

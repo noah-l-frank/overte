@@ -307,3 +307,24 @@ loaded sources). A13-case selection at10.117s has12 passes and an existing
 real-host Actor stereo serialization refusal (247 stable). The new3 cases and
 the separate-process normal Open/Close/quiet/return component pass in both.
 Neither packet is reported as wholly green; both failures and originals remain.
+
+
+## Actor waits for the original committed input phase
+
+The real-clock-dispatch coordinator is retained RED6.494s before normal Open.
+The independent Actor saw the newly activated fixture Open while the durable
+Primary owner was still at baseline. It began source sample7, then refused the
+inconsistent capture. The original journal remained reading/revision37 with18
+chunks; Primary correctly rejected another input. Parent161/child266/actor167
+source pins stayed unchanged. This is a pre-input phase race, not a reason to
+accept or discard an unknown source.
+
+Before a source intent/query, Actor now compares the fully validated actual
+fixture activation history with the SAME original durable owner input phase.
+If the owner has not committed that phase, only an otherwise ready original
+history may wait. A pending/unknown previous source remains an error with its
+original intent held. Once normal input commits, Actor acquires independent
+actual facts, including contradictions from an ignored input. No requested
+product state filters the wait. Cold/warm/cleanup and unknown counterexamples
+pass5 focused cases4.161s/175 stable;39 focused/affected cases pass19.037s/251
+stable. Source/quiet/whole bounds and full-capability status remain unchanged.

@@ -4103,3 +4103,11 @@ product acquisition; product calls and default fixtures retain serialization.
 Three focused loopback cases pass. The earlier RED11.908s current-peer refusal
 remains historical; no production scheduling/source predicate changes or full
 capability follow. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+Browser Actor now waits before acquisition when an actual announced fixture
+phase precedes the same durable Primary owner's committed normal input. Unknown
+prior sources remain fatal; ignored input still yields contradictory actual
+facts. Five focused and39 combined cases pass. The earlier RED6.494s phase race
+is retained; full coordinator/native/device qualification remains open. See
+[BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

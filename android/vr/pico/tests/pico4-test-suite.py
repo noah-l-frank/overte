@@ -142,6 +142,7 @@ TESTS = (
     test("browser-operation-transport", "interaction", PYTHON, "device/test_browser_operation_transport.py"),
     test("browser-operation-binding", "interaction", PYTHON, "device/test_browser_operation_binding.py"),
     test("browser-actor-period", "interaction", PYTHON, "device/test_browser_actor_period.py"),
+    test("browser-actor-phase", "interaction", PYTHON, "device/test_browser_actor_phase.py"),
     test("browser-return-wait", "interaction", PYTHON, "device/test_browser_return_wait.py"),
     test("browser-owner-admission", "interaction", PYTHON, "device/test_browser_owner_admission.py"),
     test("browser-session", "interaction", PYTHON, "device/test_browser_session.py"),
