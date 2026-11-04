@@ -91,6 +91,45 @@ class PicoBrowserCaptureRetirementTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):f.primary.retire_original_captures(f.actor)
         with self.assertRaises(NativeUIError):f.primary.finalize()
 
+    def test_original_round_work_consumes_poll_period_without_shortening_three_second_quiet(self):
+        from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetirement
+        self.baseline();f=self.f;append=PicoBrowserCaptureRetirement.append;before=len(f.target.command_log)
+        def work(owner,row,*args,**kwargs):
+            result=append(owner,row,*args,**kwargs)
+            if row['kind']=='absence-window':f.clock.sleep(.35) # Declared host work only.
+            return result
+        with patch.object(PicoBrowserCaptureRetirement,'append',work):value=f.primary.retire_original_captures(f.actor)
+        owner=f.primary.capture_retirement;frames=[json.loads(raw) for raw in owner.frames]
+        self.assertTrue(value['complete']);self.assertTrue(owner.completed)
+        self.assertTrue(all(0<b['host']-a['host']<=.5 for a,b in zip(frames,frames[1:])))
+        self.assertGreaterEqual(frames[-1]['host']-frames[0]['host'],3)
+        self.assertTrue(all(b['capturedEpochMs']-a['capturedEpochMs']>=3000
+            for a,b in zip(frames[0]['packet']['captures'],frames[-1]['packet']['captures'])))
+        self.assertEqual(before,len(f.target.command_log))
+
+    def test_genuine_overlong_round_still_refuses_original_half_second_cadence_and_cannot_retry(self):
+        from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetirement
+        self.baseline();f=self.f;append=PicoBrowserCaptureRetirement.append
+        def work(owner,row,*args,**kwargs):
+            result=append(owner,row,*args,**kwargs)
+            if row['kind']=='absence-window':f.clock.sleep(.55)
+            return result
+        with patch.object(PicoBrowserCaptureRetirement,'append',work),self.assertRaises(NativeUIError):
+            f.primary.retire_original_captures(f.actor)
+        owner=f.primary.capture_retirement;count=len(self.batches)
+        self.assertTrue(owner.failed);self.assertFalse(owner.completed);self.assertEqual(1,len(owner.frames))
+        with self.assertRaises(NativeUIError):owner.run()
+        self.assertEqual(count,len(self.batches));self.assertTrue(all(row['store'].path.exists() for row in owner.catalog.rows.values()))
+
+    def test_fast_round_keeps_remaining_nominal_period_and_actual_final_query_bounds(self):
+        self.baseline();f=self.f;sleep=f.primary.sleep;delays=[]
+        def recorded(seconds):delays.append(seconds);return sleep(seconds)
+        with patch.object(f.primary,'sleep',recorded):f.primary.retire_original_captures(f.actor)
+        owner=f.primary.capture_retirement
+        self.assertTrue(owner.completed);self.assertEqual(len(owner.frames)-1,len(delays))
+        self.assertTrue(all(.025<=delay<=.2 for delay in delays),delays)
+        self.assertEqual(owner.previous,owner.receipt())
+
     def test_query_intent_clock_jump_prevents_native_query_and_cold_adoption(self):
         self.baseline();f=self.f;write=PrivateFeatureState.write;fired=[]
         def late(store,value,previous):

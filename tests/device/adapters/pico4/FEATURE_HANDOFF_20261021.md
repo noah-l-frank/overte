@@ -4159,3 +4159,13 @@ longer perform unrelated coordinator state validation; product operations and
 Native source clocks/freshness/whole predicates remain. Fifteen affected cases
 pass; changed coordinator qualification remains separate. See
 [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+Browser's local-Parent-clock diagnostic completes all26 normal acts, all28 Common
+phases and original independent Actor return, then remains RED114.764s during
+capture finalization at original500ms quiet cadence. Every2322 repository Python
+source pin remains unchanged. Capture-retirement polling now includes actual
+source/CAS/physical work within its existing200ms period;14 source/cadence and
+3 separate-process cases pass. Original freshness/quiet/whole guards remain;
+no complete Browser/host-release/device capability is claimed. See
+[BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

@@ -1363,6 +1363,20 @@
         },
         "wholeQualified": false,
         "nativeCompiled": false,
+        "devicesTested": false,
+        "currentWhole": "RED114.764s in finalize AFTERall26normalacts, all28Commonphases and actual originalActorreturn. Capture-retirement original500ms consecutivehost/native gap refused at run333; resources remain owned. Parent190/Actor177 SHA8stable; nochildaftermanifest; all2322repoPython source superset unchanged atterminalbeforenextmutation. Original120 not expired; canonicalcandidate/router anddevice remainunqualified."
+      },
+      "captureQuietPollPrerequisite": {
+        "selector": "tablet-web-capture-retirement",
+        "rootCases": 14,
+        "rootSeconds": 55.58,
+        "rootLoadedSources": 200,
+        "affectedRemoteCases": 3,
+        "affectedRemoteSeconds": 17.067,
+        "affectedRemoteLoadedSources": 209,
+        "scope": "Actual source/CAS/complete physical fences consume existing200ms poll period, min25ms yield. Original500ms host/native cadence,3s quiet,1.5s freshness,20s checkpoint,64samples/120whole remain. Declared350ms work passesafterfix and reproduced old extra-sleep cadence failure; realoverlong550ms stillrefuses/no retry/originalsretained. SeparateactualParent/Actor return/foreignPNG/unknownquery cases pass.",
+        "wholeQualified": false,
+        "nativeCompiled": false,
         "devicesTested": false
       }
     },

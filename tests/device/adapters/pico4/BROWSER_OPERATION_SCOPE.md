@@ -397,3 +397,29 @@ Fifteen existing actual-host clock, receipt and input-phase cases pass5.570s/212
 stable loaded sources. This verifies the reused clock and affected source rules;
 the changed real coordinator still needs its separate integration result. The
 previous RED96.630s normalstep24 and negative cleanup/Common record stay intact.
+
+
+## All normal phases and Actor return; remaining capture quiet
+
+The local-Parent-clock diagnostic reaches ALL26 normal acts, all28 Common
+phases, successful original Common consumption and actual independent Actor
+return. It remains RED114.764s in finalize: capture retirement's original500ms
+consecutive host/native gap check refuses. Parent190/Actor177 source SHA/eight
+stats are unchanged; no child-after manifest survives its failed unwind. A
+complete2322-file repository Python superset is verified unchanged at terminal
+before any next edits. Original120 is unexpired; no final host release/full
+capability/native/device acceptance is inferred.
+
+Capture retirement now charges source/CAS/full physical-check work against its
+existing200ms poll period, yielding at least25ms. It no longer adds another
+fixed200ms after that work. Every original full-byte/physical/clock/quiet guard
+still runs, including final actual lock exit. No saved current verdict or file
+retirement is substituted. The original500ms cadence,3s duration,1.5s source,
+20s checkpoint and64-sample limits remain.
+
+An unchanged-source counter with declared350ms work reproduces the old fixed
+sleep refusal. Fourteen current source/absence/cadence/unknown cases pass
+55.580s/200 stable; an actual550ms overlong round still refuses and cannot
+retry. Three separate-process return/foreign-PNG/unknown-query cases pass
+17.067s/209 stable. Model work is declared; actual changed whole remains a
+separate integration result.
