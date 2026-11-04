@@ -110,7 +110,7 @@ def child():
     f.target.check_flow=MethodType(PicoTabletWebBinding.check_flow,f.target)
     f.target._lock=lambda target,source_lock=None:f.target.lock
     f.target._tablet_web_actor_return=MethodType(PicoTabletWebBinding._tablet_web_actor_return,f.target)
-    service=ProductSources(f,model)
+    service=ProductSources(f,model,independent_clock=True)
     (ROOT/'native-model.json').write_text(json.dumps(service.configuration()))
     startup=ROOT/'startup';startup.mkdir(mode=0o700)
     (startup/'sitecustomize.py').write_text(

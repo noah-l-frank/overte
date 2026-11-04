@@ -1295,6 +1295,21 @@
         "affectedLoadedSources": 238,
         "scope": "Immutable actual journal receipt and its original host/epoch anchors preserve history validation and all contradictions. Only the latest new original can qualify the current pair; current1.5 freshness is checked after actual product acquisition and after evidence. Cursor changes during product work refuse. Default legacy clock/validation path unchanged.",
         "wholeQualified": false
+      },
+      "independentHostClockDispatchPrerequisite": {
+        "selector": "browser-clock-dispatch",
+        "rootCases": 3,
+        "rootSeconds": 0.444,
+        "rootLoadedSources": 140,
+        "scope": "Explicit born-host diagnostic dispatches only original real epoch/host/sleep outside the analytical product mutex. Actual separate RPC clients demonstrate Primary is independent of Actor sleep; all product calls still serialize. Default virtual-clock dispatch unchanged; exact BrowserHostClock and bool selection required. Old fixture demonstrably blocks Primary for actual Actor sleep. No production coordinator/source/Actor scheduling change.",
+        "currentWhole": "RED11.908s at current last-peer1.5 after first Open before this fixture correction; no full capability claim.",
+        "nativeCompiled": false,
+        "devicesTested": false,
+        "affectedResults": {
+          "firstPacket": "14 cases/119.830s:13 pass,1 existing complete default archive unresolved; owning120 retained,251 loaded source pins unchanged.",
+          "selectedPacket": "13 cases/10.117s:12 pass,1 existing real-host stereo Actor serialized source refusal;247 loaded source pins unchanged.",
+          "scope": "New3 pass in both packets; existing separate-process normal Open/Close/quiet/return passes in both. No combined affected-green or whole qualification."
+        }
       }
     },
     {

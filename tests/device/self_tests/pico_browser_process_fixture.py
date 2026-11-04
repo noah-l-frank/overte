@@ -40,7 +40,12 @@ LIMIT=2*1024*1024
 
 class ProductSources:
     """The original fixture target/model live in the actual Parent process."""
-    def __init__(self,fixture,model):
+    def __init__(self,fixture,model,*,independent_clock=False):
+        need(type(independent_clock) is bool)
+        if independent_clock:
+            from self_tests.pico_browser_host_clock import BrowserHostClock
+            need(type(fixture.clock) is BrowserHostClock)
+        self.independent_clock=independent_clock
         self.f,self.model=fixture,model;self.token=secrets.token_hex(32);self.calls=[]
         self.mutex=threading.RLock()
         service=self
@@ -53,7 +58,10 @@ class ProductSources:
                     need(0<len(raw)<=LIMIT)
                     request=json.loads(raw);need(type(request) is dict and set(request)=={'token','action','value'}
                         and request['token']==service.token)
-                    with service.mutex:result=service.dispatch(request['action'],request['value'])
+                    if service.independent_clock and request['action'] in ('epoch','host','sleep'):
+                        result=service.dispatch(request['action'],request['value'])
+                    else:
+                        with service.mutex:result=service.dispatch(request['action'],request['value'])
                     response=json.dumps(result,separators=(',',':'),allow_nan=False).encode()+b'\n'
                     need(len(response)<=LIMIT);self.wfile.write(response);self.wfile.flush()
         class Server(socketserver.ThreadingTCPServer):

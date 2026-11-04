@@ -4095,3 +4095,11 @@ without creating a JSON encoder for every number. Nine focused and25 affected
 cases pass, preserving exact byte budgets, type/escaping/cycle checks and original
 nonfinite rejection. A retained-graph method comparison measured0.413s to0.254s;
 this is not a whole-owner or Native/device timing qualification.
+
+
+The explicit Browser born-host diagnostic separates original real clock RPCs
+from its analytical product mutex. Actual Actor sleep no longer blocks Primary
+product acquisition; product calls and default fixtures retain serialization.
+Three focused loopback cases pass. The earlier RED11.908s current-peer refusal
+remains historical; no production scheduling/source predicate changes or full
+capability follow. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

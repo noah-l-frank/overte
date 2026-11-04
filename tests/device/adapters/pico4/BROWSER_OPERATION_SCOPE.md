@@ -280,3 +280,30 @@ evidence. A stale last entry, stale initial receipt, cursor mutation or clock
 violation refuses; no receipt timestamp or source anchor is renewed. Default
 legacy current-clock validation is unchanged.4 focused cases pass0.073s/31
 stable and40 affected cases pass3.994s/238 stable. Whole remains unqualified.
+
+
+## Independent real host clock dispatch in the diagnostic
+
+The actual born-host coordinator remains RED11.908s: the last independent
+original becomes stale at the unchanged1.5s check after first Open. Its negative
+cleanup/Common consumption completes. This is separate from historical entry
+receipt validation, which stays intact.
+
+The analytical source server previously held its product mutex during every
+Actor clock RPC, including actual sleep. A sleeping Actor therefore blocked an
+independent Primary despite releasing its original source lock. Only the
+explicit born-host diagnostic now allows exact BrowserHostClock epoch/host/sleep
+requests outside that product mutex. All candidate and product requests remain
+serialized; virtual-clock/default fixtures keep their original dispatch. This
+is a fixture correction, not product scheduling, an Actor yield change, a
+shortened real sleep, or a new source/currentness allowance. Actual two-client
+loopback concurrency passes3 focused cases0.444s/140 stable; the original server
+reproduces the refusal. Full coordinator and source capability remain open.
+
+
+Affected results remain mixed:14 cases at119.830s have13 passes and an unresolved
+existing complete default archive at the original owning120s bound (251 stable
+loaded sources). A13-case selection at10.117s has12 passes and an existing
+real-host Actor stereo serialization refusal (247 stable). The new3 cases and
+the separate-process normal Open/Close/quiet/return component pass in both.
+Neither packet is reported as wholly green; both failures and originals remain.
