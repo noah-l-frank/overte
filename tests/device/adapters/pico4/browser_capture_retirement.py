@@ -9,6 +9,7 @@ from copy import copy,deepcopy
 import hashlib
 import json
 import math
+import os
 
 from adapters.chat_journey.archive_file import signature,ClosedOriginalFile
 from adapters.chat_journey.evidence_archive import ChatArchiveCatalog
@@ -43,6 +44,7 @@ class PicoBrowserCaptureRetirement:
         self.scope=self.admitted=self._sealed_admitted=self.completed_root=self.stamp=None
         self.copying_catalog=False;self.catalog_rows=self._sealed_catalog_rows=None
         self.indexed_rows=self._sealed_indexed_rows=None
+        self._inventory=self._sealed_inventory=None
 
     def initialize_pngs(self):
         self._png_bytes=self._sealed_png_bytes=b'[]'
@@ -146,17 +148,39 @@ class PicoBrowserCaptureRetirement:
                 self.append_png(dict(role=flow.role,value=png,stamp=stamp))
             return owner,state
 
+    def freeze_inventory(self):
+        # Reuse immutable names only. Every invocation below still checks the
+        # current complete row/path binding and scans every directory entry.
+        need(self._inventory is self._sealed_inventory is None
+            and self.indexed_rows is self._sealed_indexed_rows and type(self.indexed_rows) is tuple)
+        primary=self.primary;parent=primary.store.path.parent;artifacts=primary.artifact_root
+        self.immutable_pngs()
+        self._inventory=self._sealed_inventory=(primary.store.path,self.store.path,parent,artifacts,primary.run,
+            frozenset(path.name for _label,path,*_rest in self.indexed_rows if path.parent==parent),
+            frozenset(path.name for _label,path,*_rest in self.indexed_rows if path.parent==artifacts),
+            frozenset(window[0] for window in self._png_windows))
+
     def inventory(self):
-        expected={row['store'].path for row in self.catalog.rows.values()}
-        parent=self.primary.store.path.parent
-        actual={path for path in parent.iterdir() if path.name.startswith('pico-tablet-web-')
-            and path!=self.store.path and not path.name.startswith(self.store.path.name+'.frame-')}
-        need(actual=={path for path in expected if path.parent==parent})
-        artifacts=self.primary.artifact_root
-        metadata={path for path in artifacts.iterdir() if path.name.startswith('tablet-web-'+self.primary.run+'-')}
-        need(metadata=={path for path in expected if path.parent==artifacts})
-        pngs={path.name for path in artifacts.iterdir() if path.name.startswith('graphics-'+self.primary.run+'-')}
-        self.immutable_pngs();need(pngs=={window[0] for window in self._png_windows})
+        need(self._inventory is self._sealed_inventory and type(self._inventory) is tuple
+            and len(self._inventory)==8 and self.indexed_rows is self._sealed_indexed_rows
+            and type(self.indexed_rows) is tuple and len(self.indexed_rows)==len(self.catalog.rows))
+        primary,path,parent,artifacts,run,state_names,metadata_names,png_names=self._inventory
+        need(self.primary.store.path==primary and self.store.path==path and self.primary.store.path.parent==parent
+            and self.primary.artifact_root==artifacts and self.primary.run==run)
+        for (label,row),original in zip(self.catalog.rows.items(),self.indexed_rows):
+            need(label==original[0] and row['store'].path==original[1])
+        self.immutable_pngs()
+        need(len(self._png_windows)==len(png_names) and all(window[0] in png_names for window in self._png_windows))
+        with os.scandir(parent) as entries:
+            actual={entry.name for entry in entries if entry.name.startswith('pico-tablet-web-')
+                and entry.name!=path.name and not entry.name.startswith(path.name+'.frame-')}
+        need(actual==state_names)
+        with os.scandir(artifacts) as entries:
+            metadata={entry.name for entry in entries if entry.name.startswith('tablet-web-'+run+'-')}
+        need(metadata==metadata_names)
+        with os.scandir(artifacts) as entries:
+            pngs={entry.name for entry in entries if entry.name.startswith('graphics-'+run+'-')}
+        need(pngs==png_names)
 
     def admission(self):
         return dict(scope=self.scope,proofs=self.proofs,pngs=self.pngs,owner=self.owner,
@@ -283,6 +307,7 @@ class PicoBrowserCaptureRetirement:
         self.indexed_rows=self._sealed_indexed_rows=tuple(
             (label,row['store'].path,row['owner'],row['raw'],tuple(row['stamp']),json_digest(row['expected']))
             for label,row in self.catalog.rows.items())
+        self.freeze_inventory()
         with self.primary.lock.held():
             self.originals();self.chunks=ChatSourceChunks(self.store,self.scope);self.chunks.inventory(0)
             self.write('admitting',[])

@@ -18,6 +18,61 @@ from feature_journeys.scenarios import VERSION
 from self_tests import test_pico_tablet_web_stereo_flow as seams
 
 
+class BrowserCaptureNamespaceTests(unittest.TestCase):
+    """Actual directory membership only; no product/source or byte qualification."""
+    def setUp(self):
+        from pathlib import Path
+        import tempfile
+        from types import SimpleNamespace
+        from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetirement
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        self.root=Path(temporary.name);self.state=self.root/'state';self.artifacts=self.root/'artifacts'
+        self.state.mkdir();self.artifacts.mkdir();self.run='a'*32
+        primary=PrivateFeatureState(self.state/'pico-tablet-web-primary.json')
+        metadata=PrivateFeatureState(self.artifacts/('tablet-web-'+self.run+'-capture.native.json'))
+        for store in (primary,metadata):store.path.write_text('{}')
+        self.owner=PicoBrowserCaptureRetirement.__new__(PicoBrowserCaptureRetirement)
+        self.owner.primary=SimpleNamespace(store=primary,artifact_root=self.artifacts,run=self.run)
+        self.owner.store=PrivateFeatureState(self.state/'pico-tablet-web-capture-retirement.json')
+        self.owner.catalog=SimpleNamespace(rows={name:dict(store=store) for name,store in (('primary',primary),('metadata',metadata))})
+        self.owner.indexed_rows=self.owner._sealed_indexed_rows=tuple(
+            (name,row['store'].path,None,None,None,None) for name,row in self.owner.catalog.rows.items())
+        self.owner._inventory=self.owner._sealed_inventory=None
+        self.owner.initialize_pngs();self.owner.freeze_inventory()
+
+    def test_same_complete_names_ignore_only_owned_root_children_and_unrelated_entries(self):
+        owner=self.owner;owner.inventory()
+        owner.store.path.write_text('{}')
+        owner.store.path.with_name(owner.store.path.name+'.frame-000.json').write_text('{}')
+        (self.state/'unrelated').mkdir();(self.artifacts/'unrelated').write_text('unrelated')
+        owner.inventory()
+
+    def test_unexpected_files_directories_and_symlinks_all_remain_members(self):
+        for parent,prefix in ((self.state,'pico-tablet-web-'),
+                (self.artifacts,'tablet-web-'+self.run+'-'),(self.artifacts,'graphics-'+self.run+'-')):
+            for kind in ('file','directory','symlink'):
+                with self.subTest(prefix=prefix,kind=kind):
+                    path=parent/(prefix+'unexpected')
+                    if kind=='file':path.write_text('unexpected')
+                    elif kind=='directory':path.mkdir()
+                    else:path.symlink_to(self.root/'missing-target')
+                    try:
+                        with self.assertRaises(NativeUIError):self.owner.inventory()
+                    finally:
+                        if kind=='directory':path.rmdir()
+                        else:path.unlink()
+        self.owner.inventory()
+
+    def test_frozen_names_do_not_hide_changed_current_row_path_or_run(self):
+        owner=self.owner;row=owner.catalog.rows['primary'];original=row['store']
+        row['store']=PrivateFeatureState(original.path.with_name('pico-tablet-web-foreign.json'))
+        with self.assertRaises(NativeUIError):owner.inventory()
+        row['store']=original;owner.primary.run='b'*32
+        with self.assertRaises(NativeUIError):owner.inventory()
+        owner.primary.run=self.run;owner.catalog.rows.pop('metadata')
+        with self.assertRaises(NativeUIError):owner.inventory()
+
+
 class PicoBrowserCaptureRetirementTests(unittest.TestCase):
     def setUp(self):
         base=seams.PicoTabletWebStereoFlowTests();base.setUp();self.addCleanup(base.doCleanups)

@@ -1426,7 +1426,28 @@
         "scope": "Diagnosticonly: detachTempweakref/atexitremoveratconstructionbeforeoriginals; exactoldGCdeletionreproduced. ActualGC/contextfailure/interpreterexit retainsowneddata. Nestedfinally runsfinalchildsourceinventory evenownerunwindfails. LocalSTART/RETURN on7selectedoriginalmethods andonecadenceLINE capturesactualexistingclockdeltas; no source/clock/predicate replacement or retiming. Genuinelyoverlong550ms stillrefuses/no retry. No runtimeoptimization or Native/device/wholequalification.",
         "wholeQualified": false,
         "nativeCompiled": false,
-        "devicesTested": false
+        "devicesTested": false,
+        "currentWhole": "RED95.831s/95.869outer in finalize AFTER all26acts,28Commonphases and actualActorreturn. ORIGINAL hostgap1.001907072s;83nativeclocks1002..1021ms. Parent191/child274/Actor177 SHA8stable and all2326repositoryPython unchanged atterminal beforeedits. Retention fix preserves1055original/diagnostic files and all3directories; no unreturned selected frames. No final host release or complete qualification."
+      },
+      "captureNamespacePrerequisite": {
+        "selector": "tablet-web-capture-retirement",
+        "rootCases": 17,
+        "rootSeconds": 51.442,
+        "rootLoadedSources": 200,
+        "scope": "Freeze only existing explicit immutable filename sets. Each call freshly checks complete current catalog row/path/context and PNG-name bindings, and scans all directory entries including files/directories/symlinks. Existing full original byte/OFD/eight-stat/parent checks remain. Same capture query/CAS/quiet/currentness/deadline semantics; no directory discovery or source verdict cache.",
+        "passiveMethodComparison": {
+          "catalogRows": 913,
+          "directoryEntries": 1037,
+          "oldMilliseconds": 10.24,
+          "nameScansMilliseconds": 0.641,
+          "scope": "Passive retained namespace method, before extra current binding checks; not a full physical window, unprofiled whole or speedup prediction."
+        },
+        "wholeQualified": false,
+        "nativeCompiled": false,
+        "devicesTested": false,
+        "affectedRemoteCases": 3,
+        "affectedRemoteSeconds": 15.264,
+        "affectedRemoteLoadedSources": 217
       }
     },
     {

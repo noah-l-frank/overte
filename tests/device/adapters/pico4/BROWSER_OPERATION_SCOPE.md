@@ -527,3 +527,43 @@ Three cases pass8.607s/182 stable sources: actual GC/context-failure/child-exit
 retention, successful existing original capture retirement, and a genuine550ms
 round that still refuses without retry while its failing delta is recorded.
 These explicit diagnostics remain outside default green catalog groups.
+
+
+The corrected-retention finalization diagnostic remains RED95.831s/95.869s
+outer after all26 normal acts, all28 Common phases and actual Actor return.
+The failing ORIGINAL host gap is1.001907072s; all83 native clocks advance
+1002--1021ms. All selected method frames return. Its1055 retained files and
+three original directories survive; Parent191/child274/Actor177 source SHA/eight
+stats and all2326 repository Python files are unchanged at terminal before
+edits. This establishes a concrete finalization timing boundary, not final host
+release, source completeness or device qualification.
+
+## Complete current capture namespace scans
+
+Capture retirement now freezes only the explicit admitted filename sets within
+its existing original index. Every inventory call verifies the original scope,
+current complete catalog label/path bindings and complete PNG-name binding.
+It then scans every actual directory entry with os.scandir, comparing names
+inside those same pinned parent directories. Files, directories, symlinks and
+unexpected siblings remain members. Only the same owning root/child prefix and
+unrelated names are excluded, as before. All original file bytes, descriptor
+aliases, complete eight-field stamps, current directories, native queries,
+CAS operations, quiet/currentness clocks and time limits remain checked.
+
+Seventeen owning cases pass51.442s/200 stable loaded sources, including three
+small actual-directory namespace cases and the existing fourteen capture
+retirement cases. The latter retain normal three-second quiet, genuinely late
+round refusal, original replacement, changed PNG, lost query and unknown CAS
+coverage. Three existing separate Common/Actor return/consumption/archive cases
+pass15.264s/217 stable sources. Run without a compiler or device:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests/device python3 -m unittest self_tests.test_pico_browser_capture_retirement
+```
+
+A separate passive method comparison over the retained913 catalog rows and
+1037 directory entries measures10.240ms for repeated Path-set construction
+versus0.641ms for name scans, before the extra current binding checks above.
+The namespace remains unchanged. This is not current-owner adoption, a complete
+physical-byte window or a whole-run speedup prediction. The most recent whole
+result above predates this runtime change; full Browser qualification stays open.

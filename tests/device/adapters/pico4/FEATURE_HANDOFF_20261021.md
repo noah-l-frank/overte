@@ -47,6 +47,16 @@ are now covered by3 passing cases8.607s/182 stable sources. See the
 [exact retention correction](BROWSER_OPERATION_SCOPE.md#finalization-diagnostics-and-temporary-source-retention).
 Final host release and complete Browser qualification remain open.
 
+The retained finalization diagnostic is RED95.831s after all26 acts, all28
+Common phases and actual Actor return. Its original host gap is1.001907s and
+83 native gaps are1002--1021ms. The retention correction preserves1055 files
+and all original directories; Parent191/child274/Actor177 and the2326-file
+Python source superset are unchanged. A new capture-namespace scan reuses only
+immutable filename sets and still checks current bindings and every entry.
+Its17 owning cases pass51.442s/200 stable sources; all original byte/OFD/stamp
+checks remain. No changed whole success is inferred. See the
+[namespace scope](BROWSER_OPERATION_SCOPE.md#complete-current-capture-namespace-scans).
+
 The 2026-11-02 continuation adds the private
 [World consumption readout](WORLD_CURRENT_CONSUMPTION_READOUT.md), with17
 no-build owning cases and original pre-send/outer-exit time fences. Its native
