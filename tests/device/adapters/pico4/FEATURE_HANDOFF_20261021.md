@@ -4142,3 +4142,12 @@ RED96.630s at return-from-inline's original20s source/evidence checkpoint.
 Negative cleanup/Common consumption completes. Parent161/child268 and the full
 2317 repository Python source superset remain unchanged; no loaded-Actor-after
 manifest follows test SIGTERM. Full Browser qualification is still open.
+
+
+The changed born-host Background5 diagnostic genuinely completes its first3s
+quiet window and reaches release-issued, then remains RED20.984s before Pending
+construction: final-quiet host gaps1.223/1.295/1.362s exceed original1s continuity.
+170 loaded source SHA/eight-stat pins remain unchanged; original120 is unexpired.
+The suppressed exact inner guard is unknown. This is progress within Lifecycle,
+not a complete feature or a reason to relax clocks. See
+[LIFECYCLE_QUIET_STEP5.md](LIFECYCLE_QUIET_STEP5.md).

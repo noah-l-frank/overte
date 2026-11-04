@@ -78,3 +78,18 @@ Pending3/Source8/eighth-action/independent Actor joins remain open. Canonical
 selection still needs born-UI2 and original namespace permissions; another
 actor's file writes are not adopted by name. No complete Lifecycle capability,
 Native compilation, device run or product acceptance is claimed.
+
+
+## First changed born-host whole result
+
+On3382b3c56f the one materially changed original Background5→Pending3 diagnostic
+remains RED20.984s (22.020s outer, original120 unexpired), with170 loaded source
+SHA/eight-stat identities unchanged. It genuinely reaches release-issued: the
+first original3s quiet window completes over five host samples at10.1929,
+11.1773,12.0251,12.9523,13.9456s. The subsequent four final-quiet samples at
+16.3742,17.5974,18.8920,20.2535s have1.223/1.295/1.362s gaps, exceeding the
+unchanged1s continuity bound. Raw reads are56 with no pending raw acquisition.
+Pending construction has not occurred. The suppressed innermost exception was
+not persisted, so this evidence does not identify its exact failed guard or
+invent a1.5s overrun amount. Original failure files remain retained; no unchanged
+whole retry or complete Lifecycle capability follows.

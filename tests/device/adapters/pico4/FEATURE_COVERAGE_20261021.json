@@ -2624,7 +2624,19 @@
         "returnedSeed": "Counter now observes actual sealed quiet_step return; same original row/fresh anchor once, recovery acquires new row/handle/invocation; actual Home/launch/arm each once.",
         "wholeQualified": false,
         "nativeCompiled": false,
-        "devicesTested": false
+        "devicesTested": false,
+        "currentWhole": {
+          "sourceCommit": "3382b3c56f",
+          "status": "RED",
+          "testSeconds": 20.984,
+          "outerSeconds": 22.02,
+          "loadedSources": 170,
+          "loadedSourcesUnchanged": true,
+          "original120Expired": false,
+          "scope": "Actual born-host Background5\u2192Pending3 diagnostic reaches release-issued: first original3s quiet completes over5samples at10.1929,11.1773,12.0251,12.9523,13.9456s. Finalquiet4samples at16.3742,17.5974,18.8920,20.2535 have1.223/1.295/1.362s gaps, exceeding unchanged1s continuity.56 raw reads,pending empty. Pending not constructed. Suppressed innermost failure was not persisted; no exact failed guard or1.5 overrun amount inferred.",
+          "nativeCompiled": false,
+          "devicesTested": false
+        }
       },
       "originalReturnCloseDispatchPrerequisite": {
         "selector": "lifecycle-return-close-dispatch",
