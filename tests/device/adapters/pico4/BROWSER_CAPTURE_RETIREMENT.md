@@ -5,6 +5,10 @@ The latest whole Browser diagnostic remains incomplete under the unchanged
 feature capability or device qualification. The current continuation branch is
 `test/android-pico/consolidated-adapters-20261027`.
 
+The current [direct historical-admission guard](BROWSER_OPERATION_SCOPE.md#direct-complete-historical-admission-within-released-storage)
+uses only actually released original catalog storage and keeps every complete
+physical query boundary. Whole/public completion remains open.
+
 `PicoBrowserCaptureRetirement` version1 is the warm durable owner of the
 complete original capture manifest and its fresh three-second absence window.
 The actual primary feature retains this owner before admission can open any

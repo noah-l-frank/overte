@@ -6,7 +6,8 @@ journals or grant a whole feature/host-close receipt.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import copy,deepcopy
-from adapters.json_original_value import capture as capture_json,matches_original_refs,scratch_bound
+from adapters.json_original_value import capture_containers,matches_containers,scratch_bound
+from operator import is_
 from adapters.chat_journey.expected_values import CatalogExpectedValues
 import hashlib
 import json
@@ -197,43 +198,69 @@ class PicoBrowserCaptureRetirement:
 
     def freeze_admission_values(self):
         need(self._admission_values is self._sealed_admission_values is None
-            and self.admitted is self._sealed_admitted and type(self.admitted) is bytes)
-        # Only ephemeral list/dict headers are new: all payload scalars and
-        # actual stamp lists already belong to the same original warm owner.
-        temporary=256*len(self.catalog.rows)+65536
+            and self.admitted is self._sealed_admitted and type(self.admitted) is bytes
+            and self.admission_bytes()==self.admitted)
+        # Entire catalog-entry/header/conversion work is conservatively kept
+        # charged, including after construction. Payload originals stay held.
+        need(type(self.catalog.rows) is dict)
+        count=len(self.catalog.rows);catalog_bound=512*count+65536
         cache=self.catalog.value_cache
         need(cache is self.catalog._original_value_cache and type(cache) is CatalogExpectedValues and cache.catalog is self.catalog)
-        credit=cache.auxiliary_credit(temporary)
+        credit=cache.auxiliary_credit(catalog_bound)
         if credit<scratch_bound(16):return
-        value=self.admission_values()
-        result=capture_json(value,capacity=credit,max_nodes=65536,max_depth=16)
+        roots=dict(scope=self.scope,owner=self.owner,proofs=self.proofs)
+        result=capture_containers(roots,capacity=credit,max_nodes=65536,max_depth=16)
         if result is None:return
         seal,resident,peak=result
-        need(matches_original_refs(value,seal))
-        self.catalog.value_cache.retain_auxiliary(resident,peak,temporary)
-        self._admission_wrapper_bytes=temporary
-        self._admission_values=self._sealed_admission_values=seal
+        need(matches_containers(roots,seal))
+        rows=[]
+        for label,row in self.catalog.rows.items():
+            need(len(rows)<count and type(row) is dict and type(label) is str)
+            store=row['store'];stamp=row['stamp'];sha=row['sha256']
+            need(type(stamp) is list and len(stamp)==8 and all(type(part) is int for part in stamp)
+                and type(sha) is str)
+            rows.append((label,row,store,store.path,stamp,tuple(stamp),sha))
+        need(len(rows)==count)
+        catalog=tuple(rows);rows=None
+        self.immutable_pngs()
+        pngs=(self._png_bytes,self._png_sha,self._png_windows)
+        cache.retain_auxiliary(resident+catalog_bound,peak+catalog_bound,0)
+        self._admission_wrapper_bytes=catalog_bound
+        self._admission_values=self._sealed_admission_values=(roots,seal,catalog,pngs)
 
     def admission_bytes(self):
         # Exactly canonical(admission()), retaining every original image
         # field. After optional admission, every other original metadata field
         # receives a fresh strict reference/value walk instead of serialization.
         # No physical or target observation is cached here.
-        self.immutable_pngs()
-        if self._admission_values is not None or self._sealed_admission_values is not None:
+        if self._admission_values is not None or self._sealed_admission_values is not None or self._admission_wrapper_bytes!=0:
             try:
+                self.immutable_pngs()
                 need(not self.failed and self._admission_values is self._sealed_admission_values
-                    and self.admitted is self._sealed_admitted
-                    and self._admission_wrapper_bytes==256*len(self.catalog.rows)+65536
+                    and self.admitted is self._sealed_admitted and type(self._admission_values) is tuple
+                    and len(self._admission_values)==4
+                    and self._admission_wrapper_bytes==512*len(self.catalog.rows)+65536
                     and self.catalog.value_cache is self.catalog._original_value_cache
                     and type(self.catalog.value_cache) is CatalogExpectedValues
                     and self.catalog.value_cache.catalog is self.catalog
-                    and self.catalog.value_cache.auxiliary_credit(self._admission_wrapper_bytes)>=0
-                    and matches_original_refs(self.admission_values(),self._admission_values))
+                    and self.catalog.value_cache.auxiliary_credit(0)>=0)
+                roots,seal,rows,pngs=self._admission_values
+                need(roots['scope'] is self.scope and roots['owner'] is self.owner
+                    and roots['proofs'] is self.proofs and matches_containers(roots,seal)
+                    and type(rows) is tuple and len(rows)==len(self.catalog.rows)
+                    and type(self.catalog.rows) is dict
+                    and self._png_bytes is pngs[0] and self._png_sha is pngs[1]
+                    and self._png_windows is pngs[2])
+                for (label,row),original in zip(self.catalog.rows.items(),rows):
+                    old_label,old_row,store,path,stamp,parts,sha=original
+                    need(label is old_label and row is old_row and row['store'] is store
+                        and store.path is path and row['stamp'] is stamp and type(stamp) is list
+                        and len(stamp)==len(parts) and all(map(is_,stamp,parts)) and row['sha256'] is sha)
                 return self.admitted
             except BaseException:
                 self.failed=True
                 raise
+        self.immutable_pngs()
         catalog=[dict(label=label,path=str(row['store'].path),stamp=row['stamp'],sha256=row['sha256'])
             for label,row in self.catalog.rows.items()]
         return (b'{"catalog":'+canonical(catalog)+b',"owner":'+canonical(self.owner)
@@ -270,7 +297,8 @@ class PicoBrowserCaptureRetirement:
         for parent in self.catalog.parents:self.catalog.verify_parent(parent)
 
     def physical(self):
-        need(self.admitted is self._sealed_admitted and self.admission_bytes()==self.admitted)
+        # The immediate physical_index starts with the complete fresh admission
+        # fence and then checks the full original physical inventory.
         # One full byte pass lies between complete physical inventories. A
         # second immediate reread of every historical JSON adds no new native
         # observation; changed paths/stamps/DTOs still refuse at either end.
@@ -350,8 +378,9 @@ class PicoBrowserCaptureRetirement:
             for label,row in self.catalog.rows.items())
         self.freeze_inventory()
         self.catalog.freeze_expected_values()
-        # Fresh canonical admission remains the normal capture path; the
-        # optional metadata seal requires its own measured explicit opt-in.
+        # Only historical in-memory metadata is sealed within storage that
+        # this same original catalog has actually released.
+        self.freeze_admission_values()
         with self.primary.lock.held():
             self.originals();self.chunks=ChatSourceChunks(self.store,self.scope);self.chunks.inventory(0)
             self.write('admitting',[])

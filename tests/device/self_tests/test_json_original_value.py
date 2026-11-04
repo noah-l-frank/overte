@@ -182,9 +182,100 @@ class JsonAdmissionValuesTests(unittest.TestCase):
         owner.freeze_admission_values()
         self.assertIsNotNone(owner._admission_values)
         self.assertGreater(owner.catalog.value_cache.metadata,before)
-        self.assertGreaterEqual(owner.catalog.value_cache.auxiliary_credit(owner._admission_wrapper_bytes),0)
+        self.assertGreaterEqual(owner.catalog.value_cache.auxiliary_credit(0),0)
         self.assertIs(original,owner.admission_bytes())
         self.assertEqual(canonical(owner.admission()),owner.admission_bytes())
+
+    def test_direct_seal_construction_and_live_charge_fit_actual_released_credit(self):
+        import tracemalloc
+        from adapters.json_original_value import container_dimensions
+        owner=self.capture_owner();cache=owner.catalog.value_cache
+        before=cache.metadata;credit=cache.auxiliary_credit(0)
+        tracemalloc.start()
+        try:
+            owner.freeze_admission_values()
+            live,peak=tracemalloc.get_traced_memory()
+        finally:tracemalloc.stop()
+        self.assertIsNotNone(owner._admission_values)
+        roots,seal,rows,pngs=owner._admission_values
+        bound=512*len(owner.catalog.rows)+65536
+        self.assertEqual(bound,owner._admission_wrapper_bytes)
+        resident=container_dimensions(roots,max_nodes=65536,max_depth=16)[3]
+        self.assertEqual(resident+bound,cache.metadata-before)
+        self.assertLessEqual(live,cache.metadata-before)
+        self.assertLessEqual(peak,credit)
+        self.assertGreaterEqual(cache.auxiliary_credit(0),0)
+        self.assertEqual(len(owner.catalog.rows),len(rows))
+        self.assertIs(owner.scope,roots['scope'])
+        self.assertIs(owner._png_bytes,pngs[0])
+        self.assertIs(owner.admitted,owner.admission_bytes())
+
+    def assert_sticky_mutation(self,mutate):
+        owner=self.capture_owner();owner.freeze_admission_values()
+        self.assertIsNotNone(owner._admission_values)
+        restore=mutate(owner)
+        with self.assertRaises(NativeUIError):owner.admission_bytes()
+        self.assertTrue(owner.failed)
+        restore()
+        with self.assertRaises(NativeUIError):owner.admission_bytes()
+
+    def test_original_roots_and_equal_nested_containers_are_retained(self):
+        for field in ('scope','owner','proofs'):
+            with self.subTest(root=field):
+                def change(owner):
+                    old=getattr(owner,field);setattr(owner,field,deepcopy(old))
+                    return lambda:setattr(owner,field,old)
+                self.assert_sticky_mutation(change)
+        def change(owner):
+            old=owner.proofs[0]['original'];owner.proofs[0]['original']=list(old)
+            return lambda:owner.proofs[0].__setitem__('original',old)
+        self.assert_sticky_mutation(change)
+
+    def test_current_catalog_row_store_path_stamp_sha_and_key_order_are_fresh(self):
+        for field in ('row','store','path','stamp','stamp-part','sha256','label','order'):
+            with self.subTest(field=field):
+                def change(owner):
+                    label,row=next(iter(owner.catalog.rows.items()))
+                    if field=='order':
+                        old=tuple(owner.catalog.rows.items());owner.catalog.rows=dict(reversed(old))
+                        return lambda:setattr(owner.catalog,'rows',dict(old))
+                    if field=='label':
+                        old=owner.catalog.rows;new=label.encode().decode();self.assertIsNot(new,label)
+                        owner.catalog.rows={new if key is label else key:value for key,value in old.items()}
+                        return lambda:setattr(owner.catalog,'rows',old)
+                    if field=='row':
+                        owner.catalog.rows[label]=dict(row)
+                        return lambda:owner.catalog.rows.__setitem__(label,row)
+                    if field=='path':
+                        old=row['store'].path;new=Path(str(old));self.assertIsNot(new,old)
+                        row['store'].path=new
+                        return lambda:setattr(row['store'],'path',old)
+                    if field=='stamp-part':
+                        old=row['stamp'][0];row['stamp'][0]=old+1
+                        return lambda:row['stamp'].__setitem__(0,old)
+                    old=row[field]
+                    new=(PrivateFeatureState(old.path) if field=='store' else
+                        list(old) if field=='stamp' else old.encode().decode())
+                    self.assertIsNot(new,old);row[field]=new
+                    return lambda:row.__setitem__(field,old)
+                self.assert_sticky_mutation(change)
+
+    def test_original_png_references_and_both_current_and_sealed_pins_are_checked(self):
+        for field in ('bytes','sha','windows'):
+            for pins in ('current','sealed','both'):
+                with self.subTest(field=field,pins=pins):
+                    def change(owner):
+                        current='_png_'+field;sealed='_sealed_png_'+field
+                        old=getattr(owner,current)
+                        new=(bytes(bytearray(old)) if field=='bytes' else
+                            old.encode().decode() if field=='sha' else ('foreign window',))
+                        self.assertIsNot(new,old)
+                        names=(current,) if pins=='current' else (sealed,) if pins=='sealed' else (current,sealed)
+                        for name in names:setattr(owner,name,new)
+                        def restore():
+                            for name in names:setattr(owner,name,old)
+                        return restore
+                    self.assert_sticky_mutation(change)
 
     def test_changed_original_metadata_is_sticky_instead_of_resealing(self):
         owner=self.capture_owner();owner.freeze_admission_values()
@@ -196,13 +287,18 @@ class JsonAdmissionValuesTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):owner.admission_bytes()
 
     def test_active_seal_eviction_is_sticky_instead_of_canonical_fallback(self):
-        owner=self.capture_owner();owner.freeze_admission_values()
-        original=owner._admission_values;self.assertIsNotNone(original)
-        owner._admission_values=None
-        with self.assertRaises(NativeUIError):owner.admission_bytes()
-        self.assertTrue(owner.failed)
-        owner._admission_values=original
-        with self.assertRaises(NativeUIError):owner.admission_bytes()
+        for pins in ('current','sealed','both'):
+            with self.subTest(pins=pins):
+                owner=self.capture_owner();owner.freeze_admission_values()
+                original=owner._admission_values;self.assertIsNotNone(original)
+                names=(('_admission_values',) if pins=='current' else
+                    ('_sealed_admission_values',) if pins=='sealed' else
+                    ('_admission_values','_sealed_admission_values'))
+                for name in names:setattr(owner,name,None)
+                with self.assertRaises(NativeUIError):owner.admission_bytes()
+                self.assertTrue(owner.failed)
+                for name in names:setattr(owner,name,original)
+                with self.assertRaises(NativeUIError):owner.admission_bytes()
 
     def test_insufficient_released_metadata_credit_keeps_original_serialization(self):
         from adapters.script_journey.history import canonical

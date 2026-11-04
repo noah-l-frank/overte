@@ -133,7 +133,13 @@ class PicoBrowserCaptureRetirementTests(unittest.TestCase):
         self.baseline();f=self.f;before=len(f.target.command_log)
         value=f.primary.retire_original_captures(f.actor);owner=f.primary.capture_retirement
         self.assertTrue(owner.completed);self.assertEqual(value,owner.receipt());self.assertTrue(value['complete'])
+        from adapters.json_original_value import container_dimensions
         self.assertIsNone(owner._admission_values);self.assertIsNone(owner._sealed_admission_values)
+        self.assertEqual(0,owner._admission_wrapper_bytes)
+        plan=container_dimensions(dict(scope=owner.scope,owner=owner.owner,proofs=owner.proofs),
+            max_nodes=65536,max_depth=16)
+        credit=owner.catalog.value_cache.auxiliary_credit(512*len(owner.catalog.rows)+65536)
+        self.assertTrue(plan is None or plan[4]>credit)
         self.assertIsNot(f.primary.lock,f.actor.lock);self.assertGreaterEqual(len(owner.proofs),2)
         self.assertEqual({'primary','actor'},{row['owner']['role'] for row in owner.proofs})
         self.assertGreaterEqual(len(owner.frames),3);self.assertEqual(len(owner.frames),len(self.batches))

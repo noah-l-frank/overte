@@ -784,3 +784,73 @@ whole-coordinator success or full Browser capability is inferred.
 The restored default has no new whole-run qualification. Feature 7 remains
 partial; even a successful existing host coordinator would still explicitly
 exclude the actual canonical factory/router/module/CLI positive composition.
+
+
+## Direct complete historical admission within released storage
+
+The normal capture owner now attempts a bounded original-container seal after
+its same catalog has actually released canonical expected-value storage. Every
+reuse checks the current original scope, owner and proof roots, every original
+dictionary/list edge, and the complete ordered catalog row/store/path/stamp/SHA
+binding. Original immutable PNG bytes, hash and projected windows retain both
+their current/sealed pins and their admitted identities. Mismatch or eviction
+of either or both admission pins is sticky; a retained nonzero charge cannot
+fall back to serialization. An unsealed owner with insufficient actual credit
+keeps complete fresh canonical serialization without acquiring new quota.
+
+Root seal resident bytes and construction peak are reserved separately from a
+permanently retained `512 * catalog_rows + 65536` catalog construction/header
+charge. All charged memory fits storage genuinely released by this original
+catalog. No role budget or temporary workspace is borrowed. The focused cold
+construction test measures actual traced live/peak allocations against that
+released credit and verifies the exact retained accounting.
+
+`physical()` delegates its first admission fence to the immediately called
+`physical_index()`, whose first predicate is the same fresh fence plus further
+original inventory checks. There is no intervening operation or callback. Only
+the duplicate predicate is removed. Every query still performs complete original
+file/PNG byte/OFD/eight-stat/parent/namespace passes before native send, after
+the answer and after actual outer-lock exit. No native observation, source
+verdict or clock is cached; the source1.5s, quiet500ms/3s, checkpoint20s and
+whole120s requirements stay unchanged.
+
+Before that final duplicate removal,22 focused cases pass0.172s with72 loaded
+sources unchanged. The affected22-case selection passes21 cases and fails only
+an incorrectly broadened test expectation that the small normal-capture owner
+must activate the optional seal. Its actual capture, original queries and quiet
+complete. That fixture has insufficient real released credit; restoring its
+None expectation and additionally proving zero charge and the exact plan's
+failure to fit produces23 passing focused/normal-capture cases in4.987s with234
+loaded sources unchanged. These are distinct source epochs, not one green
+22-case affected run. The failed test bytes match their original manifest;
+all3672 failed-scope originals and full hashes/physical pins remain retained.
+The final runtime change requires a fresh affected selection recorded below.
+
+A preceding private passive comparison uses922 historical catalog rows/81
+proofs on two manually initialized metadata-only objects sharing one newly
+owned local catalog. Median original canonical comparison is5.785ms versus
+3.676ms for the candidate; comparison peak is192B. Charged metadata grows from
+714216B to2485664B and leaves3029252B of actual released credit. All965 retained
+files,2329 repository Python and3 private source pins remain unchanged, and all
+new local owners close. This is not warm source-owner adoption or a Native,
+SDK, input or whole-coordinator qualification. Evidence is retained under
+`~/.local/state/overte-pico-resume-integration-20261102-24qkewqw/`, including
+`browser-direct-admission-20261104/direct-report.json` and the uniquely named
+`direct-admission-*` source/result/original manifests.
+
+No complete Browser capability follows. The existing whole coordinator still
+models the Primary facade factory and Actor candidate/CLI composition; actual
+canonical factory/router/module/CLI positive composition remains open. Source
+complete areas remain Scripts, Authentication and Graphics (3/14), and devices
+remain untested.
+
+
+The final runtime's fresh focused22 cases pass0.184s with72 loaded sources
+unchanged; the complete affected22 selection passes80.749s with252 loaded
+sources unchanged. Both terminal comparisons also verify every one of2329
+initial repository Python SHA/eight-stat originals before the next edit.
+The selected documentation, documentation-contracts, source-layout and
+project-coverage checks all pass, as do contract-version validation,20 Pico
+coverage cases covering440 catalog groups, feature inventory synchronization
+and `git diff --check`. These results still establish host components only;
+no changed whole-coordinator result is available in this commit.
