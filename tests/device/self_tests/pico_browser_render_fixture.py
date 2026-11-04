@@ -15,6 +15,7 @@ from adapters.pico4.browser_stereo import PicoBrowserStereo,original_name
 from feature_journeys.fixtures import marker_bytes
 from feature_journeys.graphics_fixture import subject_ids
 from self_tests.test_pico_browser_stereo import Model
+from self_tests.pico_browser_host_clock import BrowserHostClock
 
 
 class RenderModel(Model):
@@ -39,7 +40,12 @@ class RenderModel(Model):
         self.storage.mutate=stored
         inventory=self.inventory.send
         def receipts(request):
-            self.inventory.epoch=target.clock.tick();return inventory(request)
+            # The real native getter reads QDateTime and advances its sequence;
+            # multiple inventories in one batch can share a millisecond. Only
+            # this explicit actual-host fixture uses the real epoch directly.
+            # Advancing model frames and legacy virtual clocks retain tick().
+            self.inventory.epoch=(target.clock.epoch() if type(target.clock) is BrowserHostClock else target.clock.tick())
+            return inventory(request)
         self.inventory.send=receipts
         gpu=self.gpu.mutate
         def rendered(value):

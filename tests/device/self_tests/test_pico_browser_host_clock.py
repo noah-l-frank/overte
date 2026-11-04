@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import time
 import unittest
+import uuid
 from unittest.mock import patch
 from adapters.host_process_identity import host_identity
 from adapters.normal_ui import NativeUIError
@@ -10,6 +11,39 @@ from self_tests.pico_browser_host_clock import BrowserHostClock
 
 
 class BrowserHostClockTests(unittest.TestCase):
+    def receipt_component(self,real):
+        from self_tests import test_pico_tablet_web_flow as flow
+        from self_tests import test_pico_tablet_web_stereo_flow as stereo
+        case=stereo.PicoTabletWebStereoFlowTests()
+        self.addCleanup(case.doCleanups)
+        if real:
+            with patch.object(flow,'Clock',BrowserHostClock):case.setUp()
+        else:case.setUp()
+        return case.fixture.clock,case.model.inventory
+
+    def inspect(self,source):
+        return source.send(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='feature-world-render-receipts',
+            operation='inspect',requestId=source.owner['capture']['commandId'],receiptIds=list(source.owner['receipts'])))
+
+    def test_actual_host_inventory_reads_epoch_without_waiting_for_an_artificial_frame(self):
+        clock,source=self.receipt_component(True);before=clock.epoch();last_tick=clock.last_tick
+        sequence=source.sequence;packets=[]
+        for _ in range(80):
+            self.inspect(source);packets.append(source.value.copy())
+        after=clock.epoch()
+        self.assertEqual(last_tick,clock.last_tick)
+        self.assertEqual(80,len({packet['commandId'] for packet in packets}))
+        self.assertEqual(list(range(sequence+1,sequence+81)),[packet['sequence'] for packet in packets])
+        self.assertTrue(all(before<=packet['capturedEpochMs']<=after for packet in packets))
+        self.assertTrue(all(a['capturedEpochMs']<=b['capturedEpochMs'] for a,b in zip(packets,packets[1:])))
+
+    def test_legacy_virtual_inventory_still_advances_its_original_tick(self):
+        clock,source=self.receipt_component(False);before=clock.epoch();sequence=source.sequence
+        self.inspect(source);first=source.value.copy();self.inspect(source);second=source.value.copy()
+        self.assertEqual([sequence+1,sequence+2],[first['sequence'],second['sequence']])
+        self.assertGreater(first['capturedEpochMs'],before)
+        self.assertGreater(second['capturedEpochMs'],first['capturedEpochMs'])
+
     def test_unrequested_real_work_advances_original_host_and_epoch_clocks(self):
         clock=BrowserHostClock();first=clock.now();epoch=clock.epoch()
         time.sleep(.025)

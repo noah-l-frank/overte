@@ -567,3 +567,29 @@ versus0.641ms for name scans, before the extra current binding checks above.
 The namespace remains unchanged. This is not current-owner adoption, a complete
 physical-byte window or a whole-run speedup prediction. The most recent whole
 result above predates this runtime change; full Browser qualification stays open.
+
+
+## Actual receipt epochs in the explicit host model
+
+The native receipt getter in TestScriptingInterface reads
+QDateTime::currentMSecsSinceEpoch without waiting for a new millisecond.
+PicoWorldRenderRetirements obtains every original inventory in one GUI dispatch;
+command nonces and native sequences advance independently. Its existing native
+and Host grammar allows equal millisecond timestamps inside the batch.
+
+Only the exact BrowserHostClock analytical RenderModel now reads its actual
+epoch directly at the existing receipt producer call. It no longer waits for a
+new clock tick for every individual receipt inventory. No retained packet is
+retimed; every fresh producer still runs. Other advancing frame producers and
+legacy virtual clocks retain their original tick behavior. Native sources,
+validators, source locks, full original files and all time/quiet limits are
+unchanged. This removes a model-only wait, not a measured native bottleneck.
+
+Eight cases pass1.912s/206 stable sources. Eighty actual modeled receipt calls
+retain unique original commands, strict sequences and genuine current host
+epochs while leaving last_tick unchanged; legacy virtual inventories still
+advance. The existing actual-host Primary/Actor stereo component passes.
+Seventeen affected cases pass59.749s/232 stable sources, including the unchanged
+full common Browser journey under its declared virtual producers and actual
+Node probe dispatch. No compiler or device runs. No changed whole coordinator
+or final ownership release is inferred from these separate component results.

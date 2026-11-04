@@ -1448,6 +1448,19 @@
         "affectedRemoteCases": 3,
         "affectedRemoteSeconds": 15.264,
         "affectedRemoteLoadedSources": 217
+      },
+      "nativeReceiptEpochModelPrerequisite": {
+        "selector": "browser-host-clock",
+        "rootCases": 8,
+        "rootSeconds": 1.912,
+        "rootLoadedSources": 206,
+        "affectedCases": 17,
+        "affectedSeconds": 59.749,
+        "affectedLoadedSources": 232,
+        "scope": "Fixture only: exact BrowserHostClock receipt getter reads actual epoch directly rather than waiting for a new millisecond per inventory. Native C++ getter uses QDateTime and strict independent command IDs/sequences; multiple observations may share a millisecond. Eighty actual modeled inventory calls retain unique IDs/strict sequences/current original epochs without advancing tick. Legacy virtual clocks still tick, other model producers unchanged, no stored original retiming/native/validator/timeout changes.",
+        "wholeQualified": false,
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     },
     {

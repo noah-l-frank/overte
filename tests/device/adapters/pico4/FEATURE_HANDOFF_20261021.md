@@ -57,6 +57,14 @@ Its17 owning cases pass51.442s/200 stable sources; all original byte/OFD/stamp
 checks remain. No changed whole success is inferred. See the
 [namespace scope](BROWSER_OPERATION_SCOPE.md#complete-current-capture-namespace-scans).
 
+The explicit actual-host Browser fixture now follows the native receipt
+getter's non-waiting epoch reads; command IDs/sequences still advance. Legacy
+virtual ticks and all native/Host guards remain unchanged. Eight clock cases
+pass1.912s/206 stable sources and17 affected source/Node/common-journey cases
+pass59.749s/232 stable sources. This is a model correction, not native timing or
+whole coordinator qualification. See the
+[receipt epoch scope](BROWSER_OPERATION_SCOPE.md#actual-receipt-epochs-in-the-explicit-host-model).
+
 The 2026-11-02 continuation adds the private
 [World consumption readout](WORLD_CURRENT_CONSUMPTION_READOUT.md), with17
 no-build owning cases and original pre-send/outer-exit time fences. Its native
