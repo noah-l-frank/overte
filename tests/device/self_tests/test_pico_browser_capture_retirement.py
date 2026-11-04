@@ -133,6 +133,7 @@ class PicoBrowserCaptureRetirementTests(unittest.TestCase):
         self.baseline();f=self.f;before=len(f.target.command_log)
         value=f.primary.retire_original_captures(f.actor);owner=f.primary.capture_retirement
         self.assertTrue(owner.completed);self.assertEqual(value,owner.receipt());self.assertTrue(value['complete'])
+        self.assertIsNone(owner._admission_values);self.assertIsNone(owner._sealed_admission_values)
         self.assertIsNot(f.primary.lock,f.actor.lock);self.assertGreaterEqual(len(owner.proofs),2)
         self.assertEqual({'primary','actor'},{row['owner']['role'] for row in owner.proofs})
         self.assertGreaterEqual(len(owner.frames),3);self.assertEqual(len(owner.frames),len(self.batches))

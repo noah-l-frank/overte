@@ -697,3 +697,50 @@ SHA/eight-stat originals unchanged before the next edit. Repository validation
 passes the documentation, documentation-contracts, source-layout and
 project-coverage suites; contract-version coherence;20 Pico coverage cases
 (440 catalog groups); feature inventory synchronization; and `git diff --check`.
+
+
+## Keep fresh canonical admission after the measured regression
+
+The one changed public coordinator at ec2a7bed41 completes all 26 normal acts,
+all 28 Common phases and actual independent Actor6 return, then remains RED
+95.896 s / 95.934 s outer. Its original 500 ms final capture cadence sees
+687.311 ms and 83 original native gaps of 687--688 ms, versus 615.126 ms in the
+preceding run. The whole 120 s deadline does not expire. Admission metadata
+comparison takes 1,471.510 ms across 109 calls, versus 773.571 ms previously.
+The complete fresh Python reference walk is slower here than the original
+C canonical encoder. No unchanged whole retry follows.
+
+Before any edit, all 2,329 initial repository Python SHA/eight-stat originals,
+the actual Parent193/Child276/Actor179 before/after manifests and their current
+file pins remain unchanged. All 1,064 retained originals are preserved. This
+proves source identity for the failed scope, not successful final host release.
+
+A private passive experiment compares the same newly owned historical DTOs:
+922 actual catalog rows and 81 proofs. Across nine calls, the old reference
+walk median is 11.731 ms; direct scalar-leaf checks improve that to 9.428 ms;
+the original canonical encoder remains faster at 5.703 ms. All 41 equivalence
+cases pass, including exact types/keys/order/scalar identities, Unicode and
+surrogates, signed zero, cycles and aliases. Compare peak is 616 B within the
+existing 25,600 B scratch allowance; all 44 retained input-file pins remain
+unchanged. No Native, SDK, model, input or warm-owner adoption occurs. This
+method comparison neither predicts whole performance nor warrants integration.
+
+The normal capture path therefore keeps fresh canonical admission serialization:
+the automatic `freeze_admission_values` call is removed. The explicit helper,
+its bounded storage accounting, sticky mismatch/eviction tests and measured
+provenance remain available for review. No physical, native, source-currentness,
+time, quiet or capacity guard changes. The inline experiment stays private.
+
+The existing 38 focused cases plus one actual normal capture positive pass
+39 cases in 5.210 s with 251 loaded sources and all 2,329 initial repository
+Python SHA/eight-stat pins unchanged. The normal positive now explicitly asserts
+that both admission-seal fields remain None, and still performs full original
+queries and three-second quiet. Its exact extra selection is:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests/device:tests/device/self_tests:android/vr/pico/tests/device python3 -m unittest self_tests.test_pico_browser_capture_retirement.PicoBrowserCaptureRetirementTests.test_complete_original_histories_share_durable_queries_and_three_second_all_capture_quiet
+```
+
+The restored default has no new whole-run qualification. Feature 7 remains
+partial; even a successful existing host coordinator would still explicitly
+exclude the actual canonical factory/router/module/CLI positive composition.

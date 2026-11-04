@@ -4237,3 +4237,17 @@ pre-change public coordinator remains RED98.771s/98.809s outer after all26 acts,
 all28 Common phases and actual Actor return: final capture cadence615.126ms
 exceeds the unchanged500ms guard. No changed whole run, final release or public
 feature qualification is claimed. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+Browser keeps fresh canonical admission by default after the one changed ec2a
+whole remains RED 95.896 s / 95.934 s outer at 687.311 ms against the original
+500 ms capture cadence. All 26 acts, 28 Common phases and actual Actor6 return
+pass, with 2,329 repo Python and Parent193/Child276/Actor179 source originals
+unchanged; 1,064 files are retained. The private inline reference walk improves
+11.731 to 9.428 ms but remains slower than C canonical encoding at 5.703 ms, so
+it is not integrated. Only automatic admission-seal activation is removed;
+explicit helper/negative guards/provenance and every physical/native/time/capacity
+check stay. The 38 focused cases plus actual normal capture positive pass
+39 cases in 5.210 s / 251 unchanged loaded sources, confirming both seals remain
+None normally. No restored-default whole or complete feature claim follows. See
+[BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

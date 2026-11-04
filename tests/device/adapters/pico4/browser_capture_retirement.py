@@ -350,7 +350,8 @@ class PicoBrowserCaptureRetirement:
             for label,row in self.catalog.rows.items())
         self.freeze_inventory()
         self.catalog.freeze_expected_values()
-        self.freeze_admission_values()
+        # Fresh canonical admission remains the normal capture path; the
+        # optional metadata seal requires its own measured explicit opt-in.
         with self.primary.lock.held():
             self.originals();self.chunks=ChatSourceChunks(self.store,self.scope);self.chunks.inventory(0)
             self.write('admitting',[])
