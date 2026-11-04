@@ -4045,3 +4045,11 @@ actual host time through the reused Lifecycle host context;6 focused cases
 including distinct Primary/Actor stereo pass in1.435s/206 stable. This clock
 correction does not relabel any earlier scope or qualify a whole coordinator.
 See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+Background5 now uses the same durably retained NativeFeature response as its
+raw carrier, avoiding a second SDK getter. The additional1769472-byte work
+window is charged before any source IO. Root8 cases pass in9.951s/159 stable;
+unknown results, foreign class/code/methods and physical replacement refuse.
+The measured one-read/1558-storage-byte reduction is not a CPU gain or full
+flow proof. See [LIFECYCLE_PENDING3_STORAGE.md](LIFECYCLE_PENDING3_STORAGE.md).

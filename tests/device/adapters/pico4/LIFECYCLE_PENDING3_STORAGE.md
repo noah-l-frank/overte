@@ -97,3 +97,19 @@ The one materially changed born-host flow still refused at the original 1500 ms 
 Root independently passed the two actual same-invocation/recovery/expired-anchor
 counters in4.807s with159 loaded sources unchanged. The normal seed is never
 a persisted recovery authority; default routes retain their original behavior.
+
+## Same-read Native feature carrier
+
+Only the explicitly constructed Background5 path now executes its original NativeFeature read and obtains the exact literal of that SAME durably retained read, instead of issuing a second getter solely to reconstruct the raw frame. It preserves the five Background source roles, independent Actor six-reader architecture, all request/sequence/clock guards and all failed originals. Actual retries can still retain more than five responses; no retry/quota bound changes.
+
+The exact bank-owned State5 helper permanently reserves 1,769,472 decoded work bytes before the first source IO, in addition to all existing per-getter side/pending/part/CAS reservations and complete batch bills. The original NativeFeature class/function/code/MRO and bound method are checked before SDK dispatch and again after fresh full archive/root/index/part/range verification. The latest new actual feature receipt must match this read's original request, PID, instance and sequence, and its complete parsed literal must equal the returned actual value. Neither a cached DTO nor an arbitrary historical matching hash substitutes for the current original receipt.
+
+An existing typed OriginalGraph5 stage holds the actual reader before guards and the returned DTO before any post-return check. Capacity failure prevents SDK dispatch. Business failure, physical replacement or post-response code/descriptor mutation retains the actual value/raw/temporary graphs, fences the bank and prevents the next SDK query. Default1/3/4 routes retain their original read/getter path. Disk/source formats are unchanged.
+
+Eight new cases passed in **10.914 s / 159 unchanged loaded sources**, including both actual getter-time read-code/class-descriptor mutations with zero foreign getter calls and retained durable raw. Eighteen affected cases passed in the earlier 19-case group; its old positional GC test was RED and is not relabeled GREEN19. The corrected actual source-identity GC proof plus old normal default route passed in **10.146 s / 158 sources**. A final stronger GC-disabled proof and isolated caller comparison passed in **6.700 s / 158 sources**. All receipts retain their exact original source epochs.
+
+The caller-only control uses two alternating old/current captures with the SAME new permanent reservation charged in both. Actual new reads fall from six to five, added literals from 10,661 to 9,419 bytes and added stored archive bytes from 12,752 to 11,194 bytes. Original source host/three-anchor values remain identical. Median component time is 0.20698 s versus 0.21000 s: **no CPU improvement is claimed**. The new born-host BG/Pending3 whole flow has not been rerun on this epoch. The preceding returned-seed RED22.416 s remains the last whole result. Pending3 preparation, final joined retirement and the eighth action remain open.
+
+Root independently passed the8 new original-carrier cases in9.951s with159
+loaded sources unchanged. This does not relabel earlier dependency epochs or
+qualify a born full Background/Pending3, Source8, Native or device flow.

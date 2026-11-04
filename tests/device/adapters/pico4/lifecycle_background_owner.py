@@ -271,7 +271,9 @@ class PicoLifecycleBackground:
             packets=world.current();need(len(world.state['attempts'])==1 and world.state['attempts'][0]['phase']=='quiet'
                 and len(world.attempts(world.state,packets['gesture']))==1)
             neutral(packets['gesture']);actual=world.anchor.measure(packets['drive']);need(not actual['heldInputs'] and actual['worldDisplacement']<=.025)
-            value=native.read(native.sequence);raw=frame(native.original());need(proof.bytes_packet(raw)==value)
+            if self.version==5:value,original=self.state5.read_feature_original(native)
+            else:value=native.read(native.sequence);original=native.original()
+            raw=frame(original);need(proof.bytes_packet(raw)==value)
             row=dict(sourceIndex=len(self.state['sources'])-1,world=deepcopy(world.state['frames'][-1]),native=raw,hostMonotonic=self.bound())
             stamps=[observer.last['capturedEpochMs'],value['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()),packets['gesture']['source']['frameEpochMs']]
             self.fresh_anchor=start,requested,min(stamps);self.fresh();return row
@@ -293,7 +295,9 @@ class PicoLifecycleBackground:
                 need(before['id']==chat.state['originalId'] and before['focused'] and len(world.state['attempts'])==1
                     and world.state['attempts'][0]['phase']=='quiet' and len(world.attempts(world.state,packets['gesture']))==1)
                 neutral(packets['gesture']);actual=world.anchor.measure(packets['drive']);need(not actual['heldInputs'] and actual['worldDisplacement']<=.025)
-                value=native.read(native.sequence);raw=frame(native.original());need(proof.bytes_packet(raw)==value)
+                if self.version==5:value,original=self.state5.read_feature_original(native)
+                else:value=native.read(native.sequence);original=native.original()
+                raw=frame(original);need(proof.bytes_packet(raw)==value)
                 observer.read(self.run);need(observer.last['available'] and observer.last['ownerRunId']=='' and observer.last['lastIntentSequence']==0)
                 archives={}
                 for name in ARCHIVES:

@@ -10,6 +10,7 @@ import math
 from adapters.normal_ui import NativeUIError
 import json
 from dataclasses import dataclass
+from types import FunctionType,MethodType
 
 from adapters.chat_journey.source_chunks import json_digest
 from adapters.native_feature_observation import LIMIT,need,integer
@@ -65,6 +66,22 @@ def _result_signature(value,size):
     except (_SignatureFallback,ValueError,TypeError,RecursionError):return None
 
 
+def _feature_reader(reader,proof):
+    """Pure raw entry proof before any descriptor binding; no SDK callback."""
+    from adapters.native_feature_observation import NativeFeatureObservation
+    need(type(proof) is tuple and len(proof)==6)
+    need(proof[0] is NativeFeatureObservation and type(reader) is NativeFeatureObservation
+        and type.__getattribute__(NativeFeatureObservation,'__mro__') is proof[3])
+    namespace=type.__getattribute__(NativeFeatureObservation,'__dict__')
+    read=namespace.get('read')
+    need(type(read) is FunctionType and read is proof[1] and read.__code__ is proof[2]
+        and '__getattribute__' not in namespace and '__getattr__' not in namespace
+        and all(name not in namespace for name in ('sequence','instance','pid','ios','send','original','before_io')))
+    bound=object.__getattribute__(reader,'read')
+    need(type(bound) is MethodType and bound.__self__ is reader and bound.__func__ is read)
+    return read
+
+
 @dataclass(eq=False)
 class OriginalGraph5:
     holder:object
@@ -102,6 +119,16 @@ class LifecycleBackgroundState5:
         self.methods=tuple(getattr(PicoLifecycleBackground,name) for name in
             ('_validate_plain','_packet_plain','_report_plain','_before_ui_plain','_save_plain'))
         self._methods=self.methods;self._codes=tuple(method.__code__ for method in self.methods)
+        from adapters.native_feature_observation import NativeFeatureObservation
+        read=type.__getattribute__(NativeFeatureObservation,'__dict__')['read']
+        need(type(read) is FunctionType)
+        self.feature_proof=self._feature_proof=(NativeFeatureObservation,read,read.__code__,
+            type.__getattribute__(NativeFeatureObservation,'__mro__'),_feature_reader,_feature_reader.__code__)
+        # Chosen before the first source IO. This permanent work reservation
+        # covers the bounded current raw/string/DTO projection, including an
+        # unknown result, in addition to the existing full archive batch bill.
+        self.feature_work=self._feature_work=(6*LIMIT+3*PART,)
+        self.preflight()
 
     def guard(self):
         from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
@@ -127,6 +154,9 @@ class LifecycleBackgroundState5:
             and _signature_ordered is codec[3] and _signature_ordered.__code__ is codec[4]
             and math.isfinite is codec[5] and type(PART) is int and type(MAX_RAW) is int
             and PART==codec[6] and MAX_RAW==codec[7])
+        need(self.feature_work is self._feature_work and type(self.feature_work) is tuple
+            and len(self.feature_work)==1 and type(self.feature_work[0]) is int
+            and self.feature_work[0]==6*LIMIT+3*PART)
         total=1024;work=0
         for value,size,digest,signature in self.results:
             need(type(size) is int and 0<=size<=MAX_RAW and type(digest) is str)
@@ -146,7 +176,7 @@ class LifecycleBackgroundState5:
         need(total==self._result_seal[1]+1024 and work==self._result_seal[2])
         # All later audits reserve one largest actual current normalizer/output
         # work window, including before metadata verification allocates it.
-        total+=work
+        total+=work+self.feature_work[0]
         need(self.held is self._held and len(self.held)==len(self._held_seal)
             and all(stage is fixed for stage,fixed in zip(self.held,self._held_seal)))
         for stage in self.held:
@@ -156,6 +186,64 @@ class LifecycleBackgroundState5:
                 and type(stage.reserve_seal[1]) is int and stage.reserve==stage.reserve_seal[1])
             total+=stage.reserve
         return total
+
+    def read_feature_original(self,reader):
+        """One original Native read and its SAME durable raw; no second getter."""
+        from adapters.pico4.lifecycle_background_raw_state import UNRESOLVED
+        from adapters.native_feature_observation import NativeFeatureObservation,decode
+        stage=OriginalGraph5(self,reader,0);stage.reserve_before(0)
+        self.held.append(stage);self._held_seal=(*self._held_seal,stage)
+        try:
+            self.guard();need(not self.failed and not self.bank.failed and not self.bank.frozen
+                and self.active is None and self.save_stage is None)
+            self.active=stage;proof=self.feature_proof
+            need(type(proof) is tuple and len(proof)==6 and proof is self._feature_proof
+                and type(_feature_reader) is FunctionType and _feature_reader is proof[4]
+                and _feature_reader.__code__ is proof[5])
+            read=proof[4](reader,proof)
+            self.bank.check_hooks();hook=self.bank.hooks.get('feature')
+            need(type(hook) is tuple and len(hook)==8 and hook[0] is reader
+                and type(reader.pid) is int and reader.pid==self.owner.pid and reader.ios is False
+                and type(reader.sequence) is int and reader.sequence>=0)
+            floor=self.bank.archive.state['reads'];sequence=reader.sequence
+            self.preflight() # All fixed work is booked BEFORE Native's SDK callbacks.
+            value=proof[1](reader,sequence)
+            stage.source=value # Acquired return first, before any later guard/copy.
+            need(type(value) is dict and type(reader.pid) is int and reader.pid==self.owner.pid
+                and type(value.get('processId')) is int and value['processId']==reader.pid
+                and type(reader.instance) is str and type(value.get('instance')) is str
+                and value['instance']==reader.instance and type(value.get('requestId')) is str
+                and type(reader.sequence) is int and type(value.get('sequence')) is int
+                and value['sequence']==reader.sequence and value['sequence']>sequence)
+            canonical_size(value,LIMIT);self.preflight()
+            batch,records=self.bank.verify(materialize=True);stage.batch=batch
+            index=max((index for index,row in records.items() if row['role']=='feature'),default=-1)
+            need(index>=floor and index in records);record=records[index];command=record['command']
+            need(record['kind']=='utf8' and type(command) is dict
+                and set(command)=={'schemaVersion','commandId','action'}
+                and type(command['schemaVersion']) is int and command['schemaVersion']==1
+                and command['action']=='feature-native-observe'
+                and command['commandId']==value.get('requestId'))
+            stage.result=batch[index].decode('utf-8');stage.graph=decode(stage.result)
+            need(stage.graph==value and json_digest(stage.graph)==json_digest(value))
+            self.bank.verify();self.guard();self.bank.check_hooks()
+            need(type(proof) is tuple and len(proof)==6 and proof is self._feature_proof
+                and type(_feature_reader) is FunctionType and _feature_reader is proof[4]
+                and _feature_reader.__code__ is proof[5])
+            need(proof[4](reader,proof) is read)
+            need(self.bank.hooks.get('feature') is hook and type(reader.sequence) is int
+                and reader.sequence==value['sequence'] and type(reader.instance) is str
+                and reader.instance==value['instance'] and not self.bank.failed and not self.bank.frozen)
+            result=value,stage.result
+            stage.graph=stage.batch=stage.source=stage.result=None
+            batch=records=record=command=None
+            need(self.held[-1] is stage and self._held_seal[-1] is stage)
+            stage.reserve_seal=None;self.held.pop();self._held_seal=self._held_seal[:-1];self.active=None
+            return result
+        except BaseException:
+            stage.failed=True;self.failed=True;self.bank.failed=True
+            if not any(holder is self for _path,holder in UNRESOLVED):UNRESOLVED.append((self.bank.path.parent,self))
+            raise
 
     def preflight(self):
         current=self.bank.other_bill();ours=self.bank.archive.bill()

@@ -269,6 +269,7 @@ TESTS = (
     test("authentication-feature-engine", "interaction", PYTHON, "device/test_authentication_journey.py", "PicoAuthenticationEngineTests"),
     test("tablet-home-ray", "interaction", PYTHON, "device/test_tablet_home.py"),
     test("lifecycle-input-owner", "interaction", PYTHON, "device/test_lifecycle_input.py", requires=("node",)),
+    test("lifecycle-feature-original", "interaction", PYTHON, "device/test_lifecycle_feature_original.py"),
     test("lifecycle-returned-seed", "interaction", PYTHON, "device/test_lifecycle_returned_seed.py"),
     test("lifecycle-state5-signature", "interaction", PYTHON, "device/test_lifecycle_state5_signature.py"),
     test("lifecycle-host-mailbox", "interaction", PYTHON, "device/test_lifecycle_host_mailbox.py"),

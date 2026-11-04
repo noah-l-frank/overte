@@ -2476,6 +2476,18 @@
         "currentWhole": "RED22.416s/169 stable at original1500ms before Pending3; original1s quiet continuity still unmet.",
         "nativeCompiled": false,
         "devicesTested": false
+      },
+      "originalFeatureCarrierPrerequisite": {
+        "selector": "lifecycle-feature-original",
+        "rootCases": 8,
+        "rootSeconds": 9.951,
+        "rootLoadedSources": 159,
+        "scope": "Explicit Background5 owns one original NativeFeature.read and resolves the same newly durable raw literal through fresh original-bank validation. Permanent1769472B work booked before first source. Original class/code/MRO/MethodType proof before/after, unknown returns retained. Default1/3/4 paths unchanged.",
+        "affected": "18 passed within prior19 with one old positional GC-instrumentation error; corrected GC/source-identity and default scopes pass. Actual GC-disabled prior source stages dead before codec, current save alive and validation dead.",
+        "method": "6 to5 reads,1242 literal and1558 stored bytes fewer per measured capture. Median0.20698 to0.21000s; no measured CPU gain.",
+        "currentWhole": false,
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     }
   ],

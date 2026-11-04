@@ -66,21 +66,26 @@ class LifecycleBackgroundState5Tests(unittest.TestCase):
 
     def test_validation_stage_is_actually_dead_before_codec_while_actual_save_graph_remains_owned(self):
         created=[];seen=[];construct=OriginalGraph5.__init__;before=LifecycleFamilyGate4.before
-        def tracked(stage,*args,**kwargs):construct(stage,*args,**kwargs);created.append(weakref.ref(stage))
+        def tracked(stage,*args,**kwargs):construct(stage,*args,**kwargs);created.append((weakref.ref(stage),id(stage.source)))
         def codec(gate,value):
             helper=self.owner.state5
             self.assertIsNone(helper.active);self.assertEqual(1,len(helper.held))
             self.assertIs(helper.save_stage,helper.held[0]);self.assertIs(helper.save_stage.source,value)
-            # First stage is the acquired-state holder. Its validation child
-            # returned and lost its last strong reference BEFORE codec entry.
-            self.assertIsNotNone(created[0]());self.assertIsNone(created[1]())
+            # Identify the actual SAME save value, independently of earlier
+            # source projection stages. Its validation child must be dead
+            # BEFORE codec entry while the acquired save value stays owned.
+            actual=[reference for reference,source_id in created if source_id==id(helper.save_stage.source)]
+            self.assertEqual(2,len(actual));self.assertIs(helper.save_stage,actual[0]())
+            self.assertIsNone(actual[1]())
+            previous=[reference for reference,source_id in created if source_id!=id(helper.save_stage.source)]
+            self.assertTrue(previous);self.assertTrue(all(reference() is None for reference in previous))
             seen.append(True);return before(gate,value)
         enabled=gc.isenabled();gc.disable()
         try:
             with patch.object(OriginalGraph5,'__init__',tracked),patch.object(LifecycleFamilyGate4,'before',codec):self.prepare()
         finally:
             if enabled:gc.enable()
-        self.assertTrue(seen);self.assertTrue(all(reference() is None for reference in created))
+        self.assertTrue(seen);self.assertTrue(all(reference() is None for reference,_source_id in created))
 
     def test_same_phase_cas_uses_confirmed_original_refs_without_any_new_source_query(self):
         self.prepare();sources=self.bank.archive.state['reads'];commands=len(self.seams.history.commands)

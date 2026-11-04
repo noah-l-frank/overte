@@ -1,0 +1,15 @@
+"""Disjoint private same-read Native original cases; no whole claim."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from pathlib import Path
+import sys
+import unittest
+sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
+from self_tests.test_pico_lifecycle_feature_original import LifecycleFeatureOriginalTests
+
+
+def load_tests(loader,tests,pattern):
+    return loader.loadTestsFromTestCase(LifecycleFeatureOriginalTests)
+
+
+if __name__=='__main__':unittest.main()
