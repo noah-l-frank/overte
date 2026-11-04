@@ -13,6 +13,7 @@ suite=unittest.defaultTestLoader.loadTestsFromNames([
     'self_tests.test_native_process_presence',
     'self_tests.test_pico_binding_transfer',
     'self_tests.test_pico_chat_restart_io',
+    'self_tests.test_pico_bounded_restart_transport',
     'test_chat_restart_io',
     'test_controller_transport_hook',
     'test_lifecycle_transport_once',

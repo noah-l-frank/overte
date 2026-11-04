@@ -211,3 +211,14 @@ Root's short selector uses shared binding whole-file SHA
 the Audio factory's method is unchanged. Separate later Create/Emote methods
 carry their own qualification. The actual Voice CLI help/parser entry also
 exits0 and lists the new opt-in commands; no PC/audio service is started.
+
+
+## Optional original PID acquisition prerequisite
+
+The [bounded process-original collector](../BOUNDED_PROCESS_ORIGINAL.md) can be
+selected through the existing restart transport before construction. Its actual
+host pipe and unchanged PID-parser tests preserve literal failures and original
+cursor/no-replay behavior. The default transport remains unchanged. This is a
+prerequisite only: the complete Audio cleanup owner, cold global-budget/source
+composition, new independent roles and physical acoustic evidence remain open.
+No additional complete feature capability is advertised.

@@ -28,10 +28,12 @@ def process(value):
 
 
 class PicoChatRestartIO:
-    def __init__(self,adapter,target,binding,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,adapter,target,binding,*,monotonic=time.monotonic,sleep=time.sleep,process_acquire=None):
         context(binding);need(adapter.pico_configuration is not None and adapter.profile['package']==PACKAGE
             and binding['targetFingerprint']==hashlib.sha256((target+'\0'+str(adapter.pico_configuration)).encode()).hexdigest()
             and callable(monotonic) and callable(sleep))
+        need(process_acquire is None or callable(process_acquire))
+        self.process_acquire=self._original_process_acquire=process_acquire
         self.adapter,self.target,self.binding=adapter,target,deepcopy(binding);self.pid,self.start=process(binding['processIdentity'])
         self.monotonic,self.sleep=monotonic,sleep;self.stop_called=self.launch_called=False
         self.installed=deepcopy(adapter._installation(target));self.guard_candidate()
@@ -66,7 +68,9 @@ class PicoChatRestartIO:
 
     def stopped(self):
         self.guard_candidate()
-        source=AndroidProcessQuery(self.adapter.adb,PACKAGE,self.guard_candidate,monotonic=self.monotonic)
+        need(self.process_acquire is self._original_process_acquire)
+        source=AndroidProcessQuery(self.adapter.adb,PACKAGE,self.guard_candidate,monotonic=self.monotonic,
+            acquire=self.process_acquire)
         receipt=source.read(self.target,self.pid);self.guard_candidate()
         self.last_process_query=deepcopy(receipt)
         running=bool(receipt['processIds'])

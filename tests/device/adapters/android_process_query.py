@@ -17,11 +17,13 @@ VERSION = 1
 
 
 class AndroidProcessQuery:
-    def __init__(self, transport, package, guard, *, monotonic=time.monotonic):
+    def __init__(self, transport, package, guard, *, monotonic=time.monotonic, acquire=None):
         need(type(package) is str and re.fullmatch('[A-Za-z0-9_]+(?:[.][A-Za-z0-9_]+)+', package)
              and callable(guard) and callable(monotonic)
              and type(transport.command) is list and 0 < len(transport.command) <= 5
              and all(type(part) is str and bool(part) for part in transport.command))
+        need(acquire is None or callable(acquire))
+        self.acquire = self._original_acquire = acquire
         self.command = list(transport.command)
         self.package, self.guard, self.monotonic = package, guard, monotonic
 
@@ -36,8 +38,12 @@ class AndroidProcessQuery:
             # output reaches the target. run-as retains the selected app UID.
             argv = [*self.command, '-s', target, 'exec-out', 'run-as', self.package,
                     '/system/bin/ps', '-p', str(pid), '-o', 'PID']
-            result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                timeout=5 - (before - started), check=False)
+            need(self.acquire is self._original_acquire)
+            if self.acquire is None:
+                result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    timeout=5 - (before - started), check=False)
+            else:
+                result = self.acquire(argv, timeout=5 - (before - started))
             need(type(result.returncode) is int and result.returncode in (0, 1)
                  and type(result.stdout) is bytes and len(result.stdout) <= 128 and result.stdout.endswith(b'\n')
                  and type(result.stderr) is bytes and result.stderr == b'')
