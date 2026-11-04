@@ -156,13 +156,17 @@ class PicoBrowserCaptureRetirementTests(unittest.TestCase):
     def test_original_round_work_consumes_poll_period_without_shortening_three_second_quiet(self):
         from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetirement
         self.baseline();f=self.f;append=PicoBrowserCaptureRetirement.append;before=len(f.target.command_log)
+        sleep=f.primary.sleep;delays=[]
+        def recorded(seconds):delays.append(seconds);return sleep(seconds)
         def work(owner,row,*args,**kwargs):
             result=append(owner,row,*args,**kwargs)
             if row['kind']=='absence-window':f.clock.sleep(.35) # Declared host work only.
             return result
-        with patch.object(PicoBrowserCaptureRetirement,'append',work):value=f.primary.retire_original_captures(f.actor)
+        with patch.object(PicoBrowserCaptureRetirement,'append',work),patch.object(f.primary,'sleep',recorded):
+            value=f.primary.retire_original_captures(f.actor)
         owner=f.primary.capture_retirement;frames=[json.loads(raw) for raw in owner.frames]
         self.assertTrue(value['complete']);self.assertTrue(owner.completed)
+        self.assertEqual([.01]*(len(frames)-1),delays)
         self.assertTrue(all(0<b['host']-a['host']<=.5 for a,b in zip(frames,frames[1:])))
         self.assertGreaterEqual(frames[-1]['host']-frames[0]['host'],3)
         self.assertTrue(all(b['capturedEpochMs']-a['capturedEpochMs']>=3000
@@ -189,7 +193,8 @@ class PicoBrowserCaptureRetirementTests(unittest.TestCase):
         with patch.object(f.primary,'sleep',recorded):f.primary.retire_original_captures(f.actor)
         owner=f.primary.capture_retirement
         self.assertTrue(owner.completed);self.assertEqual(len(owner.frames)-1,len(delays))
-        self.assertTrue(all(.025<=delay<=.2 for delay in delays),delays)
+        self.assertTrue(all(.01<=delay<=.2 for delay in delays),delays)
+        self.assertTrue(any(delay>.01 for delay in delays),delays)
         self.assertEqual(owner.previous,owner.receipt())
 
     def test_query_intent_clock_jump_prevents_native_query_and_cold_adoption(self):

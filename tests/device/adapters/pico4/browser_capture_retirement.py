@@ -449,10 +449,10 @@ class PicoBrowserCaptureRetirement:
                     self.completed=True;return result
                 need(attempt<63)
                 # Source, CAS and complete physical fences consume the200ms
-                # poll period. A fixed extra sleep can itself violate the
-                # original500ms quiet cadence after a valid costly round.
+                # poll period. After a consumed period retain a10ms OS yield;
+                # a fixed extra delay must not consume the quiet-gap budget.
                 finished=flow.monotonic();need(number(finished,self.round_started,self.round_started+1.5))
-                flow.sleep(max(.025,.2-(finished-self.round_started)))
+                flow.sleep(max(.01,.2-(finished-self.round_started)))
         except Exception:
             self.failed=True;self.completed=False
             raise NativeUIError('Original browser capture retirement is incomplete; all ownership is retained') from None

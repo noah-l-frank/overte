@@ -854,3 +854,43 @@ project-coverage checks all pass, as do contract-version validation,20 Pico
 coverage cases covering440 catalog groups, feature inventory synchronization
 and `git diff --check`. These results still establish host components only;
 no changed whole-coordinator result is available in this commit.
+
+
+## Current whole cadence and consumed-period yield
+
+The one changed whole diagnostic at `b539016eb6` remains RED97.513s: all26
+normal acts,28 Common phases and actual independent Actor6 return precede the
+final capture quiet refusal. The original host gap is504.417ms; all83 original
+native gaps are502--504ms. The120s whole deadline has not expired. Admission
+comparison is470.739ms across104 calls, physical index377.730ms across20 calls,
+physical passes702.724ms across6 calls and full catalog reads516.680ms across7
+calls. These selected completed spans are diagnostic measurements, not a
+successful whole performance or capability claim. No unchanged retry follows.
+
+Before any later source edit, all2329 initial repository Python SHA/eight-stat
+originals and the actual Parent193/Child276/Actor179 before/after manifests are
+verified unchanged. All1046 retained files have two matching complete terminal
+SHA/eight-stat inventories; no recorded worker remains. The whole root is
+`/tmp/pico-index-direct-admission-whole-20261104-01-4g_phdor/` and its private
+source/process/original audit is
+`~/.local/state/overte-pico-resume-integration-20261102-24qkewqw/browser-direct-admission-20261104/whole-01-terminal/`.
+No failed warm owner is adopted or resumed.
+
+The capture scheduler still targets a200ms work-inclusive period. If actual
+work has already consumed that period, it now yields the OS for10ms rather than
+25ms. The previous25ms was an implementation backoff, not a minimum observation
+spacing or native contract. Fast rounds still wait out their remaining nominal
+period; slow rounds still yield, without spinning. This changes no source/host
+clock read, timestamp, anchor, pending intent, byte/OFD/stamp/namespace pass,
+input or current verdict. Original advancing host/native gaps must still be
+positive and at most500ms, quiet lasts at least3s, and1.5s freshness,20s/64-frame
+and120s limits remain. A genuine550ms work interval must still refuse.
+
+
+The changed scheduler's narrow fast/350ms-work/550ms-overlong cases pass3 in
+12.478s with214 loaded sources unchanged. The complete affected22-case selection
+passes77.339s with252 loaded sources unchanged. Both terminal full2329-file
+repository Python SHA/eight-stat supersets also remain unchanged. The selected
+four project checks, contract versions,20 Pico coverage cases/440 groups,
+feature inventory and whitespace checks pass. These are host verification;
+a changed whole result remains separate from this scheduler commit.
