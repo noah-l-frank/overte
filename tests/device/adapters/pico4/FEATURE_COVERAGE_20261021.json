@@ -1257,9 +1257,20 @@
         "rootSeconds": 1.435,
         "rootLoadedSources": 206,
         "scope": "Existing original Lifecycle host context reused for the Browser diagnostic, selected before source/server/input construction. Actual host clock and single real sleeps; ticks wait for genuine milliseconds. Existing distinct primary/actor stereo component passes on this clock. Native/Qt/GPU/candidate remain declared models. Old fixed-clock scopes keep their original qualification.",
-        "currentWhole": false,
+        "currentWhole": "RED21.507s at original20s initial baseline. No normal action issued: actual fastPrimary4Hz outpaces Actor2.5Hz; absent new peer entries reset stability. Parent157/child265 sources unchanged. No unchanged retry.",
         "nativeCompiled": false,
         "devicesTested": false
+      },
+      "independentPeerPendingPrerequisite": {
+        "selector": "browser-peer-pending",
+        "rootCases": 8,
+        "rootSeconds": 0.138,
+        "rootLoadedSources": 31,
+        "affectedCases": 121,
+        "affectedSeconds": 69.722,
+        "affectedLoadedSources": 237,
+        "scope": "Explicit Pico browser awaits any valid new actual independent original BEFORE product acquisition. Preview does not consume cursors or filter requested facts; immutable canonical received content is fully revalidated against the actual product sample afterward. Contradictions remain failures; stale/foreign errors propagate. No product sample ages during passive peer waiting. Original source1.5/checkpoint20/whole120/quiet/sample/archive limits retained; default behavior unchanged.",
+        "wholeQualified": false
       }
     },
     {

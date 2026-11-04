@@ -4053,3 +4053,13 @@ window is charged before any source IO. Root8 cases pass in9.951s/159 stable;
 unknown results, foreign class/code/methods and physical replacement refuse.
 The measured one-read/1558-storage-byte reduction is not a CPU gain or full
 flow proof. See [LIFECYCLE_PENDING3_STORAGE.md](LIFECYCLE_PENDING3_STORAGE.md).
+
+
+The first actual-host Browser diagnostic fails its original20s baseline because
+Primary reads outpace independent publications. Explicit Pico Common polling
+now acquires a valid NEW peer original before the product read, previews no
+cursor authority, holds received content immutable and revalidates after the
+actual product acquisition. No requested fact filters readiness, contradictory
+peers remain negative, and stale originals are not refreshed. Eight focused
+cases and121 affected cases pass; full coordinator/source/device claims remain
+open. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

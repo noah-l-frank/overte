@@ -118,8 +118,9 @@ class Journey:
         self.sequence, self.last_epoch = value['sequence'], captured
         return value
 
-    def observed_witness(self, ticket, barrier, expected):
-        value = self.witness()
+    def observed_witness(self, ticket, barrier, expected, *, original=None, consume=True):
+        if type(consume) is not bool:raise ValueError('Invalid independent journal cursor policy')
+        value = self.witness() if original is None else original
         exact(value, {'schemaVersion', 'runId', 'area', 'ticket', 'sampleEpochMs', 'entries'}, 'independent journal')
         if (type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
                 or value['runId'] != self.run or value['area'] != self.area or value['ticket'] != ticket):
@@ -132,15 +133,16 @@ class Journey:
             raise ValueError('Invalid bounded independent journal')
         last_sequence = 0
         new = []
+        previous_actor=self.last_actor_sequence;previous_epoch=self.last_actor_epoch;cutoff=self.witness_sequence
         for entry in value['entries']:
             exact(entry, {'ticket', 'actor', 'actorSequence', 'capturedEpochMs', 'facts', 'sequence', 'receivedEpochMs'}, 'independent raw observation')
             seq = entry['sequence']
             if type(seq) is not int or seq <= last_sequence or type(entry['actorSequence']) is not int or entry['actorSequence'] <= 0:
                 raise ValueError('Independent journal order is invalid')
             last_sequence = seq
-            if seq <= self.witness_sequence or entry['ticket'] != ticket:
+            if seq <= cutoff or entry['ticket'] != ticket:
                 continue
-            if entry['actorSequence'] <= self.last_actor_sequence:
+            if entry['actorSequence'] <= previous_actor:
                 raise ValueError('Independent source sample sequence was replayed')
             if entry['actor'] != 'owned-observer':
                 raise ValueError('Independent observation has an unregistered origin')
@@ -150,18 +152,44 @@ class Journey:
             # Such a sample is valid journal history but cannot prove this action.
             if observed < barrier:
                 continue
-            if (observed < self.last_actor_epoch or observed > received + 250
+            if (observed < previous_epoch or observed > received + 250
                     or received > epoch + 250 or epoch - observed > 1500):
                 raise ValueError('Independent actor observation is stale')
             exact(entry['facts'], expected, 'independent fact projection')
             validate_state(self.area, {**SCENARIOS[self.area]['baseline'], **entry['facts']}, self.run)
-            self.last_actor_epoch = observed
-            self.last_actor_sequence = entry['actorSequence']
-            self.witness_sequence = seq
+            previous_epoch=observed;previous_actor=entry['actorSequence'];cutoff=seq
+            if consume:
+                self.last_actor_epoch = observed
+                self.last_actor_sequence = entry['actorSequence']
+                self.witness_sequence = seq
             new.append(entry)
         if not new:
             return False, None
         return all(matches(entry['facts'], expected) for entry in new), new[-1]
+
+    def poll_original_current(self,value,started,requested):
+        """Same acquired source, including all passive peer/evidence work."""
+        now=self.now();epoch=number(self.epoch_ms(),1);captured=value['capturedEpochMs']
+        return (now-started<=1.5 and captured<=epoch+250
+            and max(epoch-captured,requested-captured+math.ceil((now-started)*1000))<=1500)
+
+    def poll_independent_witness(self,deadline,ticket,barrier,expected):
+        # Await an actual NEW peer original BEFORE acquiring another Primary
+        # original. Select any valid new publication, including contradictions;
+        # no requested fact is a readiness predicate or sent to the producer.
+        while True:
+            if self.now()>=deadline:raise AssertionError('Independent journal exceeded original checkpoint deadline')
+            original=self.witness()
+            _okay,witness=self.observed_witness(ticket,barrier,expected,original=original,consume=False)
+            if witness is not None:
+                # Keep the received original immutable through product callbacks.
+                # Full ownership/order/freshness/facts are checked again AFTER
+                # the actual product read; a preview grants no cursor progress.
+                raw=json.dumps(original,sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')
+                if len(raw)>16*1024*1024:raise ValueError('Independent journal original exceeds existing raw bound')
+                return raw
+            if self.now()>=deadline:raise AssertionError('Independent journal exceeded original checkpoint deadline')
+            self.sleep(.025)
 
     def navigation(self,ticket,barrier):
         if self.area!='world-navigation':return True,[]
@@ -340,7 +368,11 @@ class Journey:
         actual_lifecycle=None
         release_position=None
         for _attempt in range(81):
+            witness_original=None
+            if work_inclusive and 'peer' in kinds:
+                witness_original=self.poll_independent_witness(deadline,ticket,barrier,projection(self.area,expected))
             poll_started=self.now() if work_inclusive else None
+            poll_requested=number(self.epoch_ms(),1) if work_inclusive else None
             value = self.observe(ticket, barrier)
             current = self.now()
             okay = matches(value['state'], expected)
@@ -400,7 +432,11 @@ class Journey:
                     # committed-document counter. A forged primary increment
                     # cannot pass with a still-old secondary document.
                     peer_expected['documentLoads']=value['state']['documentLoads']
-                peer_okay, witness = self.observed_witness(ticket, barrier, peer_expected)
+                if work_inclusive:
+                    peer_okay,witness=self.observed_witness(ticket,barrier,peer_expected,
+                        original=json.loads(witness_original))
+                    witness_original=None
+                else:peer_okay, witness = self.observed_witness(ticket, barrier, peer_expected)
                 okay = okay and peer_okay
             details, subject = [], None
             if okay:
@@ -410,6 +446,7 @@ class Journey:
                     okay, last_problem = False, str(error)
             # Fixture, peer and artifact I/O also consume the existing checkpoint
             # budget. A late final source read cannot turn an old sample green.
+            if work_inclusive:okay=okay and self.poll_original_current(value,poll_started,poll_requested)
             current=self.now()
             if current>=deadline:raise AssertionError('Common '+self.area+' '+label+': source/evidence exceeded the checkpoint deadline; '+last_problem)
             self.samples.append(dict(phase=label, ticket=ticket, actionBarrierEpochMs=barrier, sequence=value['sequence'], capturedEpochMs=value['capturedEpochMs'],

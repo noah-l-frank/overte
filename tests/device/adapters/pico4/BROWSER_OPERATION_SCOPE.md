@@ -218,3 +218,31 @@ for a fabricated timestamp. Default fixed-clock component fixtures are kept.
 Six focused cases pass in1.435s with206 loaded sources unchanged, including the
 existing original Primary/Actor stereo component. Native/candidate/Qt/GPU
 producers remain models. A full born-host coordinator remains unqualified.
+
+
+## Independent originals precede fresh product acquisition
+
+The first born-host coordinator remains RED21.507s at the original20s initial
+baseline checkpoint, before any normal action. Actual fast Primary polling
+outpaces Actor6 publication; missing new entries between publications reset
+stability. Parent157 and child265 loaded sources were unchanged. This result
+does not qualify a whole coordinator or justify raising any source/time limit.
+
+The explicit Pico Common polling policy now waits for ANY valid new independent
+publication before the next product source read. No expected fact is a readiness
+filter or sent to the producer. Preview checks ownership/order/freshness/schema
+without consuming the original cursors. Its canonical received content is held
+immutable through product callbacks, then validated again against the actual
+product result, current clocks and original cursor state. A contradictory peer
+is consumed as a negative sample, never hidden by waiting for a replacement.
+Foreign/stale errors propagate; a peer which ages during product work cannot
+be refreshed or relabeled. No product original waits for a new peer afterward.
+All original minimum samples, quiet durations,20s/120s deadlines and frame/raw
+limits remain. The existing1.5s result/call window also includes final evidence
+work. This is Common source/coordination logic, not Native/device qualification.
+
+Eight focused cases pass0.138s/31 stable;121 affected Common/module/evidence,
+polling and born-clock cases pass69.722s/237 stable. Earlier after-product peer
+waiting was kept private and superseded before commit or whole execution. Its
+separate test receipts are not relabeled as the new before-product policy.
+A materially changed born-host coordinator remains to run.
