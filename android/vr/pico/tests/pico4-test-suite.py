@@ -33,6 +33,7 @@ def test(name: str, category: str, *command: str, requires: tuple[str, ...] = ()
 PYTHON = sys.executable
 TESTS = (
     test("snapshot-constructor-originals", "interaction", PYTHON, "device/test_snapshot_constructor_originals.py"),
+    test("browser-host-clock", "interaction", PYTHON, "device/test_browser_host_clock.py"),
     test("browser-poll-period", "interaction", PYTHON, "device/test_browser_poll_period.py"),
     test("strict-json-size", "infrastructure", PYTHON, "device/test_strict_json_size.py"),
     test("strict-json-digest", "infrastructure", PYTHON, "device/test_strict_json_digest.py"),

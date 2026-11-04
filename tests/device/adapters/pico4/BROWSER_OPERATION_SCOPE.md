@@ -195,3 +195,26 @@ JSON type-check calls, DOM copy reduction and compression-level changes. None
 of those experiments was applied. The current cold historical Actor graph still
 costs3.888s over793 files/492 rows/160 VM frames; all original file hashes were
 unchanged, and no query/input was issued. This is not process-return authority.
+
+
+## Born-host diagnostic clock and retained changed-flow refusal
+
+The first work-inclusive coordinator attempt remains RED111.709s: all26 normal
+inputs completed, then the Actor reached its original512 history records during
+cleanup. Parent161, child238 and Actor169 loaded source SHA/eight-field pins
+were unchanged; the original120s budget had not expired. All original files
+and failed reading intent remain retained. No input is resent or record cap
+increased. This result does not qualify Common consumption or Actor return.
+
+That diagnostic still used the old shared virtual model clock for its Journey
+and source stamps. Its polling elapsed value omits actual archival CPU work.
+The production module already uses real monotonic time. The diagnostic now
+selects `BrowserHostClock`, reusing the original Lifecycle host identity/time
+context before any server, source reader or input is born. Explicit sleeps run
+once; frame ticks wait for an actual advancing host millisecond. A future prior
+tick or changed host identity refuses without manufacturing time or waiting
+for a fabricated timestamp. Default fixed-clock component fixtures are kept.
+
+Six focused cases pass in1.435s with206 loaded sources unchanged, including the
+existing original Primary/Actor stereo component. Native/candidate/Qt/GPU
+producers remain models. A full born-host coordinator remains unqualified.

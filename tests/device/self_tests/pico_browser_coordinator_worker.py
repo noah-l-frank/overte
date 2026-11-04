@@ -72,6 +72,7 @@ def child():
     from self_tests import test_pico_tablet_web_stereo_flow as stereo
     from self_tests import test_pico_browser_capture_retirement as capture
     from self_tests.pico_browser_fixture import PicoTarget
+    from self_tests.pico_browser_host_clock import BrowserHostClock
     from self_tests.pico_browser_process_fixture import ProductSources
     held=ScriptSourceLock.held
     @contextmanager
@@ -91,6 +92,10 @@ def child():
                     stream.write(json.dumps(dict(pid=os.getpid(),requested=requested,acquired=acquired,released=time.monotonic()))+'\n')
     ScriptSourceLock.held=diagnostic_held
     class DirectoryFixture(flow.PicoTabletWebFlowTests):
+        def setUp(self):
+            # Select before any server, source reader, frame or input exists.
+            # Earlier fixed-clock scopes retain their original qualification.
+            with patch.object(flow,'Clock',BrowserHostClock):super().setUp()
         def make_target(self):
             state=self.path/archive_sentry_prefix('target').removesuffix('-archive-owner-')
             state.mkdir(mode=0o700)
@@ -159,7 +164,7 @@ def child():
             elif operation=='close':owner.close_host();result=True
             elif operation=='epoch':result=f.clock.epoch()
             elif operation=='host':result=f.clock.now()
-            elif operation=='sleep':f.clock.sleep(arguments);time.sleep(arguments);result=None
+            elif operation=='sleep':f.clock.sleep(arguments);result=None
             else:raise ValueError('Unknown coordinator model operation')
             emit(dict(result=result))
     except BaseException as failure:

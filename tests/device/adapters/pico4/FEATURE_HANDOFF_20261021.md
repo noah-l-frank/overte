@@ -4036,3 +4036,12 @@ polling; default shared Journey behavior is preserved. Seven focused cases and
 100 affected Common/module/evidence cases pass, with no quiet/deadline/source
 limit change. A changed full coordinator proof remains required; completed
 areas stay3/14. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+The changed Browser polling coordinator remains RED111.709s at the original
+Actor512 history limit during cleanup after26 normal inputs. It used the prior
+virtual model clock. The diagnostic now constructs its existing producers with
+actual host time through the reused Lifecycle host context;6 focused cases
+including distinct Primary/Actor stereo pass in1.435s/206 stable. This clock
+correction does not relabel any earlier scope or qualify a whole coordinator.
+See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
