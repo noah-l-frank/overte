@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Enforce the machine-readable compatibility and migration registry."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
@@ -39,6 +41,10 @@ REQUIRED = {
     "pico-world-current-keys-component": 1,
     "pico-world-current-keys-literal-codec": 1,
     "pico-world-current-document": 1,
+    "pico-world-root-resource": 1,
+    "pico-world-current-host-stage": 1,
+    "pico-world-current-host-model": 1,
+    "pico-world-current-json-work": 1,
     "pico-world-web-stereo-join": 1,
     "pico-world-web-source-pass": 2,
     "pico-world-web-source-return": 2,

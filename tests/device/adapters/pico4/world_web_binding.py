@@ -23,9 +23,22 @@ class PicoWorldWebBinding(PicoScriptJourney):
 
     def _lock(self,target,source_lock=None):return self.original._script_journey()._lock(target,source_lock)
 
-    def prefix(self,target,source,foreign_fixture_url,*,role='primary',require_new_actor=False):
+    def prefix(self,target,source,foreign_fixture_url,*,role='primary',require_new_actor=False,resource_selection=None):
         from adapters.pico4.world_web_prefix import PicoWorldWebPrefix
-        return PicoWorldWebPrefix(self,target,source,foreign_fixture_url,role=role,require_new_actor=require_new_actor)
+        if resource_selection is None:
+            return PicoWorldWebPrefix(self,target,source,foreign_fixture_url,role=role,require_new_actor=require_new_actor)
+        # Strong cold ownership BEFORE the real constructor. No initialized
+        # Parent is borrowed or adopted; failed partial owners remain here.
+        need(not hasattr(self,'_resource_parent'))
+        parent=object.__new__(PicoWorldWebPrefix)
+        self._resource_parent=parent;self._resource_parent_failure=None
+        try:
+            PicoWorldWebPrefix.__init__(parent,self,target,source,foreign_fixture_url,
+                role=role,require_new_actor=require_new_actor,resource_selection=resource_selection)
+            return parent
+        except BaseException as error:
+            self._resource_parent_failure=(error,error.__traceback__)
+            raise
 
     def source_return(self,target,parent,process,expected,*,stereo=None):
         from adapters.pico4.world_web_source_pass import WorldSourceReturn
@@ -123,7 +136,13 @@ class PicoWorldWebBinding(PicoScriptJourney):
 
     def world_prefix_current_source(self,target,parent):
         self.check_identity(target,parent);need(parent.lock._owner is None)
-        return self.original._world_current_input_originals(target,source_lock=parent.lock)
+        resources=getattr(parent,'resource_participant',None)
+        if resources is None:return self.original._world_current_input_originals(target,source_lock=parent.lock)
+        from adapters.pico4.world_root_resource import WorldRootParticipant1
+        from adapters.pico4.world_current_host_stage import WorldRootCurrentParticipant2
+        need(type(resources) is WorldRootParticipant1 or type(resources) is WorldRootCurrentParticipant2)
+        resources.admit_current_factory(self.original,target,parent.lock)
+        return self.original._world_current_input_originals(target,source_lock=parent.lock,root_resources=resources)
 
     def world_prefix_current_ray(self,target,parent,source,intent,*,stream_intent,before_publish,admission):
         self.check_identity(target,parent);need(parent.lock._owner is None)

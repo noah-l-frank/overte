@@ -128,7 +128,11 @@ def validate(value,request,pid,epoch):
 
 class PicoWorldCurrentDocument:
     """One nonce/send/read-only DOM transaction; same-nonce polls only read bytes."""
-    def __init__(self,send,read,clock_ms,guard,pid,source_lock,*,monotonic=time.monotonic,sleep=time.sleep,retain=None,capacity=None):
+    def __init__(self,send,read,clock_ms,guard,pid,source_lock,*,monotonic=time.monotonic,sleep=time.sleep,retain=None,capacity=None,resource_provider=None):
+        if resource_provider is not None:
+            from adapters.pico4.world_current_host_stage import WorldRootCurrentParticipant2
+            need(type(resource_provider) is WorldRootCurrentParticipant2)
+        self.resource_provider=resource_provider
         need(all(callable(v) for v in (send,read,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and type(source_lock) is ScriptSourceLock
              and (retain is None or callable(retain)) and (capacity is None or callable(capacity)))
         self.lock=source_lock;self.last=self.raw=self.last_request=None
@@ -143,6 +147,10 @@ class PicoWorldCurrentDocument:
             need(number(now,started,started+1.5));fresh(requested,epoch)
 
     def read(self,run,fixture_url,owner):
+        if self.resource_provider is None:return self._read_original(run,fixture_url,owner)
+        return self.resource_provider.document_read(self,run,fixture_url,owner)
+
+    def _read_original(self,run,fixture_url,owner):
         need(self.lock._owner is None and self.guard() is not False)
         started=self.monotonic();requested=self.clock_ms()
         need(number(started,0,1e15) and integer(requested,1))

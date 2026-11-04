@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Validate and summarize the risk-based Pico 4 test coverage matrix."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
 import ast
@@ -10,7 +12,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 440
+EXPECTED_CATALOG_CASES = 441
 
 
 def catalog_entries() -> list[str]:
@@ -31,6 +33,26 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_world_host_resource_wrapper_selects_each_new_finite_case_once(self):
+        root=TEST_DIR.parents[3]
+        wrapper=ast.parse((TEST_DIR/'device/test_world_current_host_resource.py').read_text())
+        names=ast.literal_eval(next(node.value for node in wrapper.body if isinstance(node,ast.Assign)
+            and any(isinstance(target,ast.Name) and target.id=='CASE_NAMES' for target in node.targets)))
+        expected=set()
+        for module in ('test_pico_world_current_host_resource','test_pico_world_current_host_work','test_pico_world_current_host_default'):
+            path=root/'tests/device/self_tests'/(module+'.py')
+            for owner in (node for node in ast.parse(path.read_text()).body if isinstance(node,ast.ClassDef)):
+                for method in owner.body:
+                    if isinstance(method,ast.FunctionDef) and method.name.startswith('test_'):
+                        expected.add('self_tests.'+module+'.'+owner.name+'.'+method.name)
+        self.assertEqual(14,len(names));self.assertEqual(14,len(set(names)))
+        self.assertEqual(expected,set(names))
+        selected=[node for node in ast.walk(RUNNER_TREE) if isinstance(node,ast.Call)
+            and isinstance(node.func,ast.Name) and node.func.id=='test' and node.args
+            and isinstance(node.args[0],ast.Constant) and node.args[0].value=='world-current-host-resource']
+        self.assertEqual(1,len(selected));self.assertEqual(4,len(selected[0].args))
+        self.assertEqual('device/test_world_current_host_resource.py',selected[0].args[3].value)
+
     def test_scene_wrappers_keep_exact_retention_correct_counter_partition(self):
         selected=[]
         for name,count in (('test_navigation_scene_probe',4),('test_navigation_scene_raw',7),

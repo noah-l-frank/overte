@@ -95,7 +95,18 @@ def validate_owner(value,run,url,*,version=VERSION):
 
 class PicoWorldWebPrefix:
     area='world-web'
-    def __init__(self,adapter,target,source,foreign_fixture_url,*,role='primary',require_new_actor=False):
+    def __init__(self,adapter,target,source,foreign_fixture_url,*,role='primary',require_new_actor=False,resource_selection=None):
+        self.resource_participant=None
+        if resource_selection is not None:
+            from adapters.pico4.world_root_resource import WorldRootParticipant1,WorldRootSelection1
+            from adapters.pico4.world_current_host_stage import WorldCurrentHostSelection1,WorldRootCurrentParticipant2
+            if type(resource_selection) is WorldRootSelection1:
+                self.resource_participant=object.__new__(WorldRootParticipant1)
+                WorldRootParticipant1.__init__(self.resource_participant,resource_selection)
+            else:
+                need(type(resource_selection) is WorldCurrentHostSelection1)
+                self.resource_participant=object.__new__(WorldRootCurrentParticipant2)
+                WorldRootCurrentParticipant2.__init__(self.resource_participant,resource_selection)
         need(isinstance(source,PhaseFixtureReader) and source.area==self.area and role in ('primary','actor'))
         need(type(require_new_actor) is bool and (not require_new_actor or role=='actor'))
         self.require_new_actor=require_new_actor;self._actor_started=False;self._source_pass_export=None
@@ -108,6 +119,7 @@ class PicoWorldWebPrefix:
         self.scope=dict(runId=self.run,fixtureUrl=self.url,foreignFixtureUrl=self.foreign,sourceLock=str(self.lock.path),
             path=str(self.store.path),worldCode=reviewed('world')[0])
         self.scope_sha=json_digest(self.scope);self.role_sha=json_digest(role);self.fence=None;self.history=None;self.vm=None;self.runtime_guard=None;self.failed=False
+        if self.resource_participant is not None:self.resource_participant.bind(self,type(self))
 
     def read(self):
         self.lock.assert_held();body=self.store.read()
@@ -364,7 +376,12 @@ class PicoWorldWebPrefix:
             parent_guard();names=sorted(self.root.iterdir());need(len(names)<=512)
             rows=[]
             for path in names:
-                original=ClosedOriginalFile(path,0o600,parent_guard)
+                file_mode=0o600
+                resources=getattr(self,'resource_participant',None)
+                if resources is not None:
+                    from adapters.pico4.world_current_host_stage import WorldRootCurrentParticipant2
+                    if type(resources) is WorldRootCurrentParticipant2:file_mode=resources.file_mode(path)
+                original=ClosedOriginalFile(path,file_mode,parent_guard)
                 try:raw,stamp=original.read();need(original.close())
                 except BaseException:
                     if not original.close():UNRESOLVED_PIN_READS.append((self.root,original))

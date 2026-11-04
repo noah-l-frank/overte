@@ -279,3 +279,50 @@ artifacts have unique `*-current-input-root-20261024` names. The private
 retained stages and exact new artifact hashes.
 The new readonly current ray/focus source, normal input consumption,
 explicit shared-version dispatch and whole retirement remain separate work.
+
+
+## Internal cold HOST resource component
+
+The optional World Root selection is internal test architecture. DefaultNone
+keeps the original World factory/Document behavior. The resource-only selection
+counts the actual cold Parent namespace, real original file/OFD/full-byte pins,
+all actual Root bytes and exact known decoded fields before any getter. The
+separate declared-host selection uses a bounded file-backed source model and
+one original CurrentDocument.read with two distinct durable Raw receipts.
+Neither selection prepares a Parent or enables the public World capability.
+
+The shared budget remains512 actual Root entries/16MiB; original Raw journal
+limits, source1.5 and whole120 remain. The lexical counter is allocation
+planning only: original decoding/validation remains authoritative. All current,
+caller, Root, raw, model and pending domains stay additive; only verified
+successful scalar-projection scratch and later decoder work share a MAX.
+Unknown/malformed/failed originals keep their full claim and first traceback.
+Physical host close is reported separately from Parent/Native retirement.
+
+Internal registry contracts are pico-world-root-resource1,
+pico-world-current-host-stage1, pico-world-current-host-model1 and
+pico-world-current-json-work1. The existing CurrentDocument1/CurrentInput1 wire
+and World prefix3 are unchanged. New wrapper world-current-host-resource selects
+exactly14 finite host/pure/default cases; it does not select the older reader,
+Native compiler, normal-prefix or whole suites.
+
+Private provenance before repository installation: resource4 normal passed
+with227 before-pinned Python modules; resource5 actual Root inode replacement
+and bool-credit faults with228; resource6 absent-current-stage with228; each
+had no late import and stable whole repository Python/source/head pins. Eight
+new pure lexical cases passed with229/2341 repository Python sources on35c1f4a4.
+The one positive cold host document passed with239/2342 repository Python
+sources on6cec6c27, zero late imports,5 actual original files double SHA/stat8,
+three known host closes and zero children. It produced one new declared-model
+query/two actual Raw receipts,0SDK/input/Qt calls,14,529,199 decoded logical
+bytes and3,050,815 stored bill bytes. Its actual original1.5 fence passed;
+original finish epoch/grant stayed unchanged across current grant2.
+These historical epochs are not automatically relabeled as repository runs.
+The earlier namespace setup failure and late utf_16_le preflight failure remain
+failed evidence; only their explicit fresh runner successors were green.
+
+Native/Qt allocation/ABI/device input, current focus/IME effect, independent
+Actor/Common/stereo/export and Parent retirement remain unqualified. In
+particular commit-current-text is still a proposal, not an implemented native
+CurrentInput operation. Source-complete count remains3/14 and public Feature6
+capabilities stay off.

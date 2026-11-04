@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Hardware-independent Pico 4 regression-suite orchestrator."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
@@ -172,6 +174,7 @@ TESTS = (
     test("world-current-document-native", "webview", PYTHON, "device/test_world_current_document_native.py", requires=("c++", "pkg-config", "javac", "java", "unshare")),
     test("world-current-document-java", "webview", PYTHON, "device/test_world_current_document_java.py", requires=("javac", "java")),
     test("world-current-document-reader", "webview", PYTHON, "device/test_world_current_document_reader.py"),
+    test("world-current-host-resource", "webview", PYTHON, "device/test_world_current_host_resource.py"),
     test("world-web-retained-resume-source", "webview", PYTHON, "device/test_world_web_resume_native.py", requires=("c++", "pkg-config", "javac", "java", "unshare")),
     test("world-web-stereo-join", "webview", PYTHON, "device/test_world_web_stereo_join.py"),
     test("world-web-source-process", "webview", PYTHON, "device/test_world_web_source_process.py"),
