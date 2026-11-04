@@ -264,7 +264,8 @@ class LifecycleSourceRaw4(LifecycleBackgroundRaw3):
         if self.background_state5 is None:return 0
         from adapters.pico4.lifecycle_background_state5 import LifecycleBackgroundState5
         need(type(self.background_state5) is LifecycleBackgroundState5 and self.background_state5.bank is self)
-        return self.background_state5.metadata_bytes()
+        from adapters.pico4.lifecycle_background_state5 import helper_method
+        return helper_method(self.background_state5,'metadata_bytes')()
 
     def capacity_pass_bytes(self):
         need(self._capacity_pass is self._original_capacity_pass)
@@ -562,13 +563,15 @@ class LifecycleSourceRaw4(LifecycleBackgroundRaw3):
             if self.background_state5 is not None:
                 from adapters.pico4.lifecycle_background_state5 import LifecycleBackgroundState5
                 need(type(self.background_state5) is LifecycleBackgroundState5)
-                known=self.background_state5.close_host() is True
+                from adapters.pico4.lifecycle_background_state5 import helper_method
+                known=helper_method(self.background_state5,'close_host')() is True
             from adapters.pico4.lifecycle_pending_return import LifecyclePendingReturnPins
             need(self.return_slot is self._original_return_slot)
             if self.return_slot is not None:
                 holder=self.return_slot
                 need(type(holder) is LifecyclePendingReturnPins and holder.raw is self)
-                known=holder.close_host() is True
+                from adapters.pico4.lifecycle_pending_return import close_return_pins
+                known=close_return_pins(holder) is True and known
             need(self.family_attempt is self._original_family_attempt)
             if self.family_attempt is not None:
                 from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4

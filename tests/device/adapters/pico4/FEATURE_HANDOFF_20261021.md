@@ -4127,3 +4127,18 @@ original freshness/quiet/whole limits. Real original lock contention and six
 focused timing cases pass. Prior RED14.045s selected-peer aging and actual
 negative cleanup/Common completion are retained; no complete capability follows.
 See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+Background5 quiet now keeps its actual drive/window copies in a typed,
+prospectively charged invocation instead of escaping another public packet.
+Canonical11/affected60 and current37-case close/descriptor scopes pass on their
+recorded source epochs; original quiet/source/whole and global limits remain.
+Raw4 close checks original helper/ReturnPins dispatch and actual slot release.
+The BG5 expanded/projected ReturnPins join, Source8 and independent Actor remain
+open. See [LIFECYCLE_QUIET_STEP5.md](LIFECYCLE_QUIET_STEP5.md).
+
+Browser's changed born-host coordinator reaches normalstep24 of26, then remains
+RED96.630s at return-from-inline's original20s source/evidence checkpoint.
+Negative cleanup/Common consumption completes. Parent161/child268 and the full
+2317 repository Python source superset remain unchanged; no loaded-Actor-after
+manifest follows test SIGTERM. Full Browser qualification is still open.

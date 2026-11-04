@@ -112,6 +112,7 @@ class LifecycleBackgroundState5:
             and owner.state5 is owner._state5 is self and bank.archive.state['reads']==0)
         self.owner,self.bank=owner,bank
         self._fixed=self._original_fixed=(owner,bank)
+        self.quiet=self._quiet=None;self.quiet_request=self._quiet_request=None
         self.active=None;self.held=self._held=[];self._held_seal=();self.save_stage=None;self.selection=self._selection=None;self.failed=False
         self.results=self._results=();self._result_seal=self._original_result_seal=(self.results,0,0)
         self.signature_codec=self._original_signature_codec=(marshal.dumps,_result_signature,
@@ -128,7 +129,12 @@ class LifecycleBackgroundState5:
         # covers the bounded current raw/string/DTO projection, including an
         # unknown result, in addition to the existing full archive batch bill.
         self.feature_work=self._feature_work=(6*LIMIT+3*PART,)
-        self.preflight()
+        from adapters.pico4.lifecycle_quiet_step5 import QuietBook5,capture_api,guard_api
+        self.quiet_api=self._quiet_api=capture_api()
+        self.quiet_guard=self._quiet_guard=(guard_api,guard_api.__code__)
+        book=object.__new__(QuietBook5);self.quiet=self._quiet=book
+        helper_method(self,'quiet_book')().__init__(self)
+        helper_method(self,'preflight')()
 
     def guard(self):
         from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
@@ -141,6 +147,8 @@ class LifecycleBackgroundState5:
                 (PicoLifecycleBackground._validate_plain,PicoLifecycleBackground._packet_plain,
                     PicoLifecycleBackground._report_plain,PicoLifecycleBackground._before_ui_plain,PicoLifecycleBackground._save_plain)))
             and all(method.__code__ is code for method,code in zip(self.methods,self._codes)))
+        from adapters.pico4.lifecycle_quiet_step5 import QuietBook5
+        need(self.quiet is self._quiet and type(self.quiet) is QuietBook5)
         self.bank.lock.assert_held()
 
     def metadata_bytes(self):
@@ -176,7 +184,7 @@ class LifecycleBackgroundState5:
         need(total==self._result_seal[1]+1024 and work==self._result_seal[2])
         # All later audits reserve one largest actual current normalizer/output
         # work window, including before metadata verification allocates it.
-        total+=work+self.feature_work[0]
+        total+=work+self.feature_work[0]+helper_method(self,'quiet_book')().metadata_bytes()
         need(self.held is self._held and len(self.held)==len(self._held_seal)
             and all(stage is fixed for stage,fixed in zip(self.held,self._held_seal)))
         for stage in self.held:
@@ -187,6 +195,29 @@ class LifecycleBackgroundState5:
             total+=stage.reserve
         return total
 
+    def quiet_book(self):
+        from adapters.pico4.lifecycle_quiet_step5 import guard_api
+        need(self.quiet_api is self._quiet_api and type(self.quiet_guard) is tuple and len(self.quiet_guard)==2
+            and self.quiet_guard is self._quiet_guard
+            and type(guard_api) is FunctionType and guard_api is self.quiet_guard[0]
+            and guard_api.__code__ is self.quiet_guard[1] and self.quiet is self._quiet)
+        return self.quiet_guard[0](self.quiet,self.quiet_api)
+
+    def begin_quiet_invocation(self):
+        return helper_method(self,'quiet_book')().token()
+
+    def quiet_step(self,row,handle,invocation,role):
+        request=helper_method(self,'quiet_book')().prepare(row,handle,invocation,role)
+        try:
+            need(self.quiet_request is self._quiet_request is None)
+            self.quiet_request=self._quiet_request=request
+            helper_method(self,'call')(row,'quiet')
+            result=helper_method(self,'quiet_book')().finish(request)
+            self.quiet_request=self._quiet_request=None
+            return result
+        except BaseException:
+            helper_method(self,'quiet_book')().fail(request);raise
+
     def read_feature_original(self,reader):
         """One original Native read and its SAME durable raw; no second getter."""
         from adapters.pico4.lifecycle_background_raw_state import UNRESOLVED
@@ -194,7 +225,7 @@ class LifecycleBackgroundState5:
         stage=OriginalGraph5(self,reader,0);stage.reserve_before(0)
         self.held.append(stage);self._held_seal=(*self._held_seal,stage)
         try:
-            self.guard();need(not self.failed and not self.bank.failed and not self.bank.frozen
+            helper_method(self,'guard')();need(not self.failed and not self.bank.failed and not self.bank.frozen
                 and self.active is None and self.save_stage is None)
             self.active=stage;proof=self.feature_proof
             need(type(proof) is tuple and len(proof)==6 and proof is self._feature_proof
@@ -206,7 +237,7 @@ class LifecycleBackgroundState5:
                 and type(reader.pid) is int and reader.pid==self.owner.pid and reader.ios is False
                 and type(reader.sequence) is int and reader.sequence>=0)
             floor=self.bank.archive.state['reads'];sequence=reader.sequence
-            self.preflight() # All fixed work is booked BEFORE Native's SDK callbacks.
+            helper_method(self,'preflight')() # All fixed work is booked BEFORE Native's SDK callbacks.
             value=proof[1](reader,sequence)
             stage.source=value # Acquired return first, before any later guard/copy.
             need(type(value) is dict and type(reader.pid) is int and reader.pid==self.owner.pid
@@ -215,7 +246,7 @@ class LifecycleBackgroundState5:
                 and value['instance']==reader.instance and type(value.get('requestId')) is str
                 and type(reader.sequence) is int and type(value.get('sequence')) is int
                 and value['sequence']==reader.sequence and value['sequence']>sequence)
-            canonical_size(value,LIMIT);self.preflight()
+            canonical_size(value,LIMIT);helper_method(self,'preflight')()
             batch,records=self.bank.verify(materialize=True);stage.batch=batch
             index=max((index for index,row in records.items() if row['role']=='feature'),default=-1)
             need(index>=floor and index in records);record=records[index];command=record['command']
@@ -226,7 +257,7 @@ class LifecycleBackgroundState5:
                 and command['commandId']==value.get('requestId'))
             stage.result=batch[index].decode('utf-8');stage.graph=decode(stage.result)
             need(stage.graph==value and json_digest(stage.graph)==json_digest(value))
-            self.bank.verify();self.guard();self.bank.check_hooks()
+            self.bank.verify();helper_method(self,'guard')();self.bank.check_hooks()
             need(type(proof) is tuple and len(proof)==6 and proof is self._feature_proof
                 and type(_feature_reader) is FunctionType and _feature_reader is proof[4]
                 and _feature_reader.__code__ is proof[5])
@@ -254,11 +285,11 @@ class LifecycleBackgroundState5:
         stage=OriginalGraph5(self,value,0);stage.reserve_before(0)
         self.held.append(stage);self._held_seal=(*self._held_seal,stage)
         try:
-            self.guard();need(self.save_stage is None and self.active is None and not self.failed)
+            helper_method(self,'guard')();need(self.save_stage is None and self.active is None and not self.failed)
             self.save_stage=stage
             need(self.selection is self._selection is None)
             stage.reserve_before(3*canonical_size(value)+3*PART)
-            self.preflight()
+            helper_method(self,'preflight')()
             self.methods[4](self.owner,value)
             need(self.active is None and self.held[-1] is stage and self._held_seal[-1] is stage)
             stage.source=None;stage.reserve_seal=None;self.held.pop();self._held_seal=self._held_seal[:-1];self.save_stage=None
@@ -275,10 +306,13 @@ class LifecycleBackgroundState5:
         stage=OriginalGraph5(self,value,0);stage.reserve_before(0)
         self.held.append(stage);self._held_seal=(*self._held_seal,stage)
         try:
-            self.guard();need(not self.failed and not self.bank.failed and self.active is None
-                and kind in ('validate','packet','report','ui') and len(self.results)<MAX_FRAMES)
+            helper_method(self,'guard')();need(not self.failed and not self.bank.failed and self.active is None
+                and kind in ('validate','packet','report','ui','quiet') and len(self.results)<MAX_FRAMES)
+            if kind=='quiet':
+                need(self.quiet_request is self._quiet_request is self.quiet.active
+                    and self.quiet_request is not None and self.quiet_request.row is value)
             self.active=stage;size=canonical_size(value)
-            stage.reserve_before(3*size+6*LIMIT+8*PART);self.preflight()
+            stage.reserve_before(3*size+6*LIMIT+8*PART);helper_method(self,'preflight')()
             batch,records=self.bank.verify(materialize=True);stage.batch=batch
             latest={}
             for index,record in records.items():
@@ -319,7 +353,7 @@ class LifecycleBackgroundState5:
                 elif type(item) is list:work.extend((child,(*path,index)) for index,child in enumerate(item))
             raw=None;work=None;stage.choices=tuple(sorted(choices.values()))
             stage.reserve_before(3*size+3*expanded+6*literal_bytes+6*LIMIT+8*PART)
-            self.preflight()
+            helper_method(self,'preflight')()
             for digest,role,index,command_sha in stage.choices:
                 packet=json.loads(batch[index]);request=records[index]['command']
                 need(type(packet) is dict and packet.get('processId')==self.owner.pid
@@ -348,10 +382,17 @@ class LifecycleBackgroundState5:
             self.owner._plain5=True
             try:
                 if kind=='report':self.owner.state=stage.graph
-                stage.result=self.methods[('validate','packet','report','ui').index(kind)](self.owner,stage.graph) if kind!='report' else self.methods[2](self.owner)
+                method_kind='packet' if kind=='quiet' else kind
+                stage.result=self.methods[('validate','packet','report','ui').index(method_kind)](self.owner,stage.graph) if kind!='report' else self.methods[2](self.owner)
             finally:self.owner.state=old_state;self.owner._plain5=False
-            need(json_digest(value)==before);self.bank.verify();self.guard()
-            if kind=='validate':
+            need(json_digest(value)==before);self.bank.verify();helper_method(self,'guard')()
+            if kind=='quiet':
+                request=self.quiet_request
+                helper_method(self,'quiet_book')().observe(request,stage.result,value['hostMonotonic'])
+                self.bank.verify();helper_method(self,'guard')();need(json_digest(value)==before)
+                helper_method(self,'quiet_book')().confirm(request)
+                result=request.complete,request.handle
+            elif kind=='validate':
                 need(stage.result is None)
                 if self.save_stage is not None:
                     need(value is self.save_stage.source and self.selection is self._selection is None)
@@ -370,7 +411,7 @@ class LifecycleBackgroundState5:
                 current=self.bank.other_bill();ours=self.bank.archive.bill()
                 if current['decodedBytes']+ours['decodedBytes']+prospective<=MAX_RAW:
                     old_reserve=stage.reserve
-                    stage.reserve_before(old_reserve+prospective);self.preflight();extra_reservation=True
+                    stage.reserve_before(old_reserve+prospective);helper_method(self,'preflight')();extra_reservation=True
                     stage.signature=_result_signature(stage.result,result_size)
                     signature=stage.signature
                     need(signature is None or type(signature) is bytes and len(signature)<=window)
@@ -384,8 +425,8 @@ class LifecycleBackgroundState5:
                 # the immutable result seal; do not bill the old provisional
                 # reservation and its exact completed representation twice.
                 if extra_reservation:stage.reserve_before(old_reserve)
-                self.preflight()
-            result=stage.result
+                helper_method(self,'preflight')()
+            if kind!='quiet':result=stage.result
             stage.graph=stage.batch=stage.source=stage.result=stage.signature=None
             original=None;batch=records=view=choices=None
             need(self.held[-1] is stage and self._held_seal[-1] is stage)
@@ -414,7 +455,7 @@ class LifecycleBackgroundState5:
 
     def selected_reference(self,item,value,records):
         from adapters.pico4.lifecycle_source_raw import reference
-        self.guard();need(self.selection is self._selection and self.selection is not None)
+        helper_method(self,'guard')();need(self.selection is self._selection and self.selection is not None)
         source,digest,reads,choices=self.selection
         need(type(value) is list and len(value)==1 and value[0] is source
             and json_digest(source)==digest and self.bank.archive.state['reads']==reads)
@@ -426,7 +467,38 @@ class LifecycleBackgroundState5:
         return reference(self.bank.archive.scope_sha,record)
 
     def close_host(self):
-        if self.failed or self.active is not None or self.save_stage is not None or self.held:return False
-        self.metadata_bytes()
-        self.results=self._results=();self._result_seal=self._original_result_seal=(self.results,0,0)
-        return True
+        if self.failed or self.active is not None or self.save_stage is not None:return False
+        try:
+            known=helper_method(self,'quiet_book')().known_stages()
+            need(not any(not any(stage is window for window in known) for stage in self.held))
+            helper_method(self,'metadata_bytes')()
+            if helper_method(self,'quiet_book')().close_host() is not True:return False
+            self.results=self._results=();self._result_seal=self._original_result_seal=(self.results,0,0)
+            return True
+        except BaseException:return False
+
+
+_HELPER_CLASS=LifecycleBackgroundState5
+_HELPER_MRO=type.__getattribute__(_HELPER_CLASS,'__mro__')
+_HELPER_RAW=tuple(type.__getattribute__(_HELPER_CLASS,'__dict__').items())
+_HELPER_METHODS=('__init__','guard','metadata_bytes','quiet_book','begin_quiet_invocation','quiet_step',
+    'read_feature_original','preflight','save','call','selected_reference','close_host')
+_HELPER_FUNCTIONS=tuple((name,dict(_HELPER_RAW)[name],dict(_HELPER_RAW)[name].__code__) for name in _HELPER_METHODS)
+_HELPER_STATIC=dict(_HELPER_RAW)['role_at'].__func__
+_HELPER_STATIC_CODE=_HELPER_STATIC.__code__
+def helper_method(helper,name):
+    need(type(helper) is _HELPER_CLASS and LifecycleBackgroundState5 is _HELPER_CLASS
+        and type.__getattribute__(_HELPER_CLASS,'__mro__') is _HELPER_MRO)
+    raw=type.__getattribute__(_HELPER_CLASS,'__dict__')
+    need(len(raw)==len(_HELPER_RAW) and all(raw.get(key) is value for key,value in _HELPER_RAW))
+    # Never bind a foreign descriptor or inspect a foreign callable attribute.
+    role=raw.get('role_at')
+    need(type(role) is staticmethod and role.__func__ is _HELPER_STATIC
+        and type(_HELPER_STATIC) is FunctionType and _HELPER_STATIC.__code__ is _HELPER_STATIC_CODE)
+    for key,function,code in _HELPER_FUNCTIONS:
+        need(type(function) is FunctionType and raw.get(key) is function and function.__code__ is code)
+    for key,function,code in _HELPER_FUNCTIONS:
+        bound=object.__getattribute__(helper,key)
+        need(type(bound) is MethodType and bound.__self__ is helper and bound.__func__ is function)
+    need(type(name) is str and name in _HELPER_METHODS)
+    return object.__getattribute__(helper,name)

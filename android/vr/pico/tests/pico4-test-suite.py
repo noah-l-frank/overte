@@ -279,6 +279,8 @@ TESTS = (
     test("tablet-home-ray", "interaction", PYTHON, "device/test_tablet_home.py"),
     test("lifecycle-input-owner", "interaction", PYTHON, "device/test_lifecycle_input.py", requires=("node",)),
     test("lifecycle-feature-original", "interaction", PYTHON, "device/test_lifecycle_feature_original.py"),
+    test("lifecycle-quiet-step5", "interaction", PYTHON, "device/test_lifecycle_quiet_step5.py"),
+    test("lifecycle-return-close-dispatch", "interaction", PYTHON, "device/test_lifecycle_return_close_dispatch.py"),
     test("lifecycle-returned-seed", "interaction", PYTHON, "device/test_lifecycle_returned_seed.py"),
     test("lifecycle-state5-signature", "interaction", PYTHON, "device/test_lifecycle_state5_signature.py"),
     test("lifecycle-host-mailbox", "interaction", PYTHON, "device/test_lifecycle_host_mailbox.py"),

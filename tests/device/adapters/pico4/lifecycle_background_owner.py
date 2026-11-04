@@ -9,6 +9,7 @@ foreground guard is weakened and no uncertain input is delivered twice.
 from copy import deepcopy
 import hashlib
 import time
+from adapters.pico4.lifecycle_background_state5 import helper_method
 from adapters.native_feature_observation import NativeFeatureObservation,exact,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
@@ -83,7 +84,7 @@ class PicoLifecycleBackground:
         return now
 
     def packet(self,row):
-        if self.version==5 and not self._plain5:return self.state5.call(row,'packet')
+        if self.version==5 and not self._plain5:return helper_method(self.state5,'call')(row,'packet')
         return self._packet_plain(row)
 
     def _packet_plain(self,row):
@@ -115,7 +116,7 @@ class PicoLifecycleBackground:
             returned=self.state['sources'][row['sourceIndex']],afterUi=row['world']['ui'],afterNative=row['native'])
 
     def validate(self,state):
-        if self.version==5 and not self._plain5:return self.state5.call(state,'validate')
+        if self.version==5 and not self._plain5:return helper_method(self.state5,'call')(state,'validate')
         return self._validate_plain(state)
 
     def _validate_plain(self,state):
@@ -197,7 +198,7 @@ class PicoLifecycleBackground:
         rows=(unpack(disk['payload']) if self.version==5 else self.originals.decode(unpack(disk['payload'])));need(len(rows)==1);self.validate(rows[0]);self.disk,self.state=deepcopy(disk),deepcopy(rows[0]);self.bound()
 
     def save(self,state):
-        if self.version==5:return self.state5.save(state)
+        if self.version==5:return helper_method(self.state5,'save')(state)
         return self._save_plain(state)
 
     def _save_plain(self,state):
@@ -271,7 +272,7 @@ class PicoLifecycleBackground:
             packets=world.current();need(len(world.state['attempts'])==1 and world.state['attempts'][0]['phase']=='quiet'
                 and len(world.attempts(world.state,packets['gesture']))==1)
             neutral(packets['gesture']);actual=world.anchor.measure(packets['drive']);need(not actual['heldInputs'] and actual['worldDisplacement']<=.025)
-            if self.version==5:value,original=self.state5.read_feature_original(native)
+            if self.version==5:value,original=helper_method(self.state5,'read_feature_original')(native)
             else:value=native.read(native.sequence);original=native.original()
             raw=frame(original);need(proof.bytes_packet(raw)==value)
             row=dict(sourceIndex=len(self.state['sources'])-1,world=deepcopy(world.state['frames'][-1]),native=raw,hostMonotonic=self.bound())
@@ -295,7 +296,7 @@ class PicoLifecycleBackground:
                 need(before['id']==chat.state['originalId'] and before['focused'] and len(world.state['attempts'])==1
                     and world.state['attempts'][0]['phase']=='quiet' and len(world.attempts(world.state,packets['gesture']))==1)
                 neutral(packets['gesture']);actual=world.anchor.measure(packets['drive']);need(not actual['heldInputs'] and actual['worldDisplacement']<=.025)
-                if self.version==5:value,original=self.state5.read_feature_original(native)
+                if self.version==5:value,original=helper_method(self.state5,'read_feature_original')(native)
                 else:value=native.read(native.sequence);original=native.original()
                 raw=frame(original);need(proof.bytes_packet(raw)==value)
                 observer.read(self.run);need(observer.last['available'] and observer.last['ownerRunId']=='' and observer.last['lastIntentSequence']==0)
@@ -328,6 +329,7 @@ class PicoLifecycleBackground:
         try:
             with self.lock.held():
                 self.load();need(self.state is not None);returned_seed=None
+                quiet_invocation=helper_method(self.state5,'begin_quiet_invocation')() if self.version==5 else None
                 if self.state['phase']=='prepared':
                     _world,observer,_native=self.live();self.phase('arm-issued');observer.arm(self.run);self.remember(observer)
                 if self.state['phase']=='arm-issued':
@@ -379,9 +381,12 @@ class PicoLifecycleBackground:
                             row,anchor=returned_seed;returned_seed=None
                             need(self.version==5 and self.fresh_anchor is anchor)
                         capture_start=self.fresh_anchor[0] if self.version in (4,5) else None
-                        packets=self.packet(row)
-                        if window is None:window=drive.AvatarReleaseWindow(drive.AvatarDisplacement(packets['drive']))
-                        rows.append(row);complete=window.observe(packets['drive'],row['hostMonotonic'])
+                        if self.version==5:complete,window=helper_method(self.state5,'quiet_step')(row,window,quiet_invocation,'quiet')
+                        else:
+                            packets=self.packet(row)
+                            if window is None:window=drive.AvatarReleaseWindow(drive.AvatarDisplacement(packets['drive']))
+                            complete=window.observe(packets['drive'],row['hostMonotonic'])
+                        rows.append(row)
                         state=deepcopy(self.state);state.update(phase='quiet' if complete else 'returned',quiet=deepcopy(rows));self.save(state);self.fresh()
                         if complete:break
                         need(index<24);self.poll_delay(capture_start)
@@ -392,9 +397,12 @@ class PicoLifecycleBackground:
                     self.phase('release-issued');rows=[];window=None
                     for index in range(25):
                         row=self.capture();capture_start=self.fresh_anchor[0] if self.version in (4,5) else None
-                        packets=self.packet(row)
-                        if window is None:window=drive.AvatarReleaseWindow(drive.AvatarDisplacement(packets['drive']))
-                        rows.append(row);complete=window.observe(packets['drive'],row['hostMonotonic'])
+                        if self.version==5:complete,window=helper_method(self.state5,'quiet_step')(row,window,quiet_invocation,'finalQuiet')
+                        else:
+                            packets=self.packet(row)
+                            if window is None:window=drive.AvatarReleaseWindow(drive.AvatarDisplacement(packets['drive']))
+                            complete=window.observe(packets['drive'],row['hostMonotonic'])
+                        rows.append(row)
                         state=deepcopy(self.state);state.update(phase='released' if complete else 'release-issued',finalQuiet=deepcopy(rows),final=row)
                         self.save(state);self.fresh()
                         if complete:break
@@ -405,14 +413,14 @@ class PicoLifecycleBackground:
         except Exception:raise NativeUIError('Lifecycle background unresolved; original intents/history retained, none repeated') from None
 
     def before_ui(self):
-        if self.version==5 and not self._plain5:return self.state5.call(self.state['beforeUi'],'ui')
+        if self.version==5 and not self._plain5:return helper_method(self.state5,'call')(self.state['beforeUi'],'ui')
         return self._before_ui_plain(self.state['beforeUi'])
 
     def _before_ui_plain(self,value):
         return proof.original(value,ui.validate,self.pid,self.run)
 
     def report(self):
-        if self.version==5 and not self._plain5:return self.state5.call(self.state,'report')
+        if self.version==5 and not self._plain5:return helper_method(self.state5,'call')(self.state,'report')
         return self._report_plain()
 
     def _report_plain(self):

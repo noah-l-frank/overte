@@ -6,6 +6,7 @@ not qualify Pending3, another owner, product effects or a new current verdict.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from dataclasses import dataclass
+from types import FunctionType,MethodType
 import hashlib
 import os
 import stat
@@ -239,3 +240,34 @@ class LifecyclePendingReturnPins:
                 except BaseException:self._fail();raise
         else:self._fail()
         return result and not self.failed
+
+
+# Pure original dispatch proof; no query, lock acquisition or file adoption.
+_RETURN_CLOSE_CLASS=LifecyclePendingReturnPins
+_RETURN_CLOSE_MRO=type.__getattribute__(_RETURN_CLOSE_CLASS,'__mro__')
+_RETURN_CLOSE_RAW=tuple(type.__getattribute__(_RETURN_CLOSE_CLASS,'__dict__').items())
+_RETURN_CLOSE_FUNCTIONS=tuple((name,value,value.__code__) for name,value in _RETURN_CLOSE_RAW if type(value) is FunctionType)
+_RETURN_CLOSE_NAMES=('close_host','_close_host','_fail')
+
+def _return_close_guard(holder):
+    need(type(holder) is _RETURN_CLOSE_CLASS and LifecyclePendingReturnPins is _RETURN_CLOSE_CLASS
+        and type.__getattribute__(_RETURN_CLOSE_CLASS,'__mro__') is _RETURN_CLOSE_MRO)
+    raw=type.__getattribute__(_RETURN_CLOSE_CLASS,'__dict__')
+    # Prove every raw entry BEFORE any instance binding. A foreign descriptor
+    # or callable getter therefore receives no callback, including on failure.
+    need(len(raw)==len(_RETURN_CLOSE_RAW) and all(raw.get(name) is value for name,value in _RETURN_CLOSE_RAW))
+    for name,function,code in _RETURN_CLOSE_FUNCTIONS:
+        need(type(function) is FunctionType and raw.get(name) is function and function.__code__ is code)
+    for name in _RETURN_CLOSE_NAMES:
+        bound=object.__getattribute__(holder,name);function=raw[name]
+        need(type(bound) is MethodType and bound.__self__ is holder and bound.__func__ is function)
+
+def close_return_pins(holder):
+    _return_close_guard(holder)
+    result=object.__getattribute__(holder,'close_host')()
+    _return_close_guard(holder)
+    # Successful original close must actually release its exact bank slot.
+    if result is True:
+        need(holder.closed is True and holder.failed is False and holder.raw.return_slot is None
+            and holder.raw._original_return_slot is None)
+    return result

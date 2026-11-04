@@ -1343,7 +1343,7 @@
         "rootSeconds": 4.778,
         "rootLoadedSources": 47,
         "scope": "Explicit Actor6 floor75ms preserves400ms work-inclusive period for faster work and legacyActor4 fixed250ms. Original source1.5/quiet500/whole120 unchanged, Common peer poll25ms unchanged. Actual original OS locks and declared40ms RPC arrival demonstrate preemption order; expensive/faster/legacy/deadline cases pass. No native timing prediction.",
-        "currentWhole": "Causal-probe run RED14.045 at currentlatestpeer1.5 after normalOpen; negativecleanup/Commoncomplete. Actual Actor reclaims4.1849 afterrelease4.1581, Primaryrequest4.1880 waits.5281 thenreads.4661. Parent161/child268 stable; ActorSIGTERM has no loaded-aftermanifest and later superset includes2 declared post-whole WIP files. No Actorloaded/fullfeature qualification.",
+        "currentWhole": "Changed actual born-host coordinator RED96.630s at normalstep24 return-from-inline original20s source/evidence checkpoint; negativecleanup/Commoncomplete. Parent161/child268 sources stable, all2317 before-pinned repository Python source SHA8 superset unchanged at terminal before next edits. Actor SIGTERM has no separate loaded-aftermanifest; not fullactor/whole acceptance.",
         "nativeCompiled": false,
         "devicesTested": false,
         "affectedCases": 25,
@@ -2610,6 +2610,30 @@
         "affected": "18 passed within prior19 with one old positional GC-instrumentation error; corrected GC/source-identity and default scopes pass. Actual GC-disabled prior source stages dead before codec, current save alive and validation dead.",
         "method": "6 to5 reads,1242 literal and1558 stored bytes fewer per measured capture. Median0.20698 to0.21000s; no measured CPU gain.",
         "currentWhole": false,
+        "nativeCompiled": false,
+        "devicesTested": false
+      },
+      "nonEscapingQuietStepPrerequisite": {
+        "selector": "lifecycle-quiet-step5",
+        "canonicalCases": 11,
+        "firstCanonical10Seconds": 34.797,
+        "firstCanonical10LoadedSources": 160,
+        "affected60Seconds": 94.664,
+        "affected60LoadedSources": 165,
+        "scope": "Same original packet/restoration and Avatar release window, actual two retained drive copies, typed invocation/role, additive3P book +row reserve +18D/8P prospective +3S/6P confirmed. No packet escape for quiet, no global quota/grammar/clock change. Partial/unknown data and all overlapping copies remain strongly held/charged; default packet paths retained.",
+        "returnedSeed": "Counter now observes actual sealed quiet_step return; same original row/fresh anchor once, recovery acquires new row/handle/invocation; actual Home/launch/arm each once.",
+        "wholeQualified": false,
+        "nativeCompiled": false,
+        "devicesTested": false
+      },
+      "originalReturnCloseDispatchPrerequisite": {
+        "selector": "lifecycle-return-close-dispatch",
+        "currentCases": 37,
+        "currentSeconds": 55.082,
+        "currentLoadedSources": 164,
+        "scope": "Actual close class/MRO/raw functions/code and exact public/delegated/failure bindings before/after return-pin dispatch. True requires actual original descriptor closure and original bank slot release. Prior false verdict preserved.37disjoint current cases:11quiet+6dispatch+12ReturnPins+8descriptor. No native/product completion.",
+        "remaining": "Actual BG5 ReturnPins expanded-vs-projected comparison remains unresolved (retained pre-dispatch-patch counter at line86); combined Pending3/Source8/Actor join unqualified. Source8 cannot adopt independent namespace writes or promote UI1\u21922.",
+        "wholeQualified": false,
         "nativeCompiled": false,
         "devicesTested": false
       }
