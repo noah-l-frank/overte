@@ -358,4 +358,38 @@ class AssetsRawRangesTests(unittest.TestCase):
             self.assertEqual(b'unknown',path.read_bytes())
 
 
+    def index_original(self,count=1):
+        with self.parent.lock.held():
+            for ordinal in range(count):self.acquire(('actual-original-'+str(ordinal)).encode())
+        return self.parent.raw_archive,self.parent.raw_archive.audio
+    def test_actual_two_page_final_windows_preserve_every_original_byte(self):
+        archive,a=self.index_original(40);self.assertEqual(2,len(a.page_bodies))
+        before={i:body for i,body in a.page_bodies.items()}
+        archive.verify_final();self.assertEqual([],archive.final_windows)
+        for i,body in before.items():
+            self.assertIs(body,a.page_bodies[i]);self.assertEqual(body+b'\n',a.page_store(i).path.read_bytes())
+            self.assertIs(a.page_pins[i][0],a.pages[i])
+        self.assertFalse(archive.failed);self.assertFalse(self.model.inputs)
+    def test_actual_boolean_alias_in_live_index_refuses_final(self):
+        archive,a=self.index_original();body=a.page_bodies[0]
+        a.pages[0]['receipts'][0]['read']=False
+        with self.assertRaises(NativeUIError):archive.verify_final()
+        self.assertTrue(archive.failed);self.assertIs(body,a.page_bodies[0])
+        self.assertEqual(body+b'\n',a.page_store(0).path.read_bytes());self.assertFalse(self.model.inputs)
+    def test_changed_both_cache_and_live_index_cannot_replace_actual_file(self):
+        archive,a=self.index_original();original=a.page_store(0).path.read_bytes()
+        a.pages[0]['receipts'][0]['read']=1
+        a.page_bodies[0]=canonical(a.pages[0])
+        with self.assertRaises(NativeUIError):archive.verify_final()
+        self.assertTrue(archive.failed);self.assertTrue(archive.final_windows)
+        self.assertEqual(original,a.page_store(0).path.read_bytes());self.assertFalse(self.model.inputs)
+    def test_actual_same_byte_new_index_inode_refuses_original_identity(self):
+        archive,a=self.index_original();path=a.page_store(0).path;body=path.read_bytes();stamp=path.stat()
+        replacement=path.with_name(path.name+'.owned-replacement')
+        replacement.write_bytes(body);replacement.chmod(0o600);os.replace(replacement,path)
+        self.assertNotEqual(stamp.st_ino,path.stat().st_ino)
+        with self.assertRaises(NativeUIError):archive.verify_final()
+        self.assertTrue(archive.failed);self.assertTrue(archive.final_windows)
+        self.assertEqual(body,path.read_bytes());self.assertFalse(self.model.inputs)
+
 if __name__=='__main__':unittest.main()

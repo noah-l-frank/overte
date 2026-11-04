@@ -135,11 +135,18 @@ class AssetsRawRanges:
             self.final_overlay=transient
             self.final_file(a.path,0o600,canonical(a.disk)+b'\n',a.pin)
             names=set()
+            # Confirmed immutable index bytes come from the same original
+            # Audio archive. Rehash them freshly and encode each live DTO once.
+            need(type(a.page_bodies) is dict and set(a.page_bodies)==set(a.page_pins)
+                and all(type(body) is bytes and 0<len(body)<PART for body in a.page_bodies.values()))
+            expected_pages=[]
             for index,(value,physical) in sorted(a.page_pins.items()):
-                need(same(value,a.pages[index]));path=a.page_store(index).path;names.add(path.name)
-                self.final_file(path,0o600,canonical(value)+b'\n',physical)
-            expected_pages=[dict(page=index,sha256=json_digest(value),physical=physical)
-                for index,(value,physical) in sorted(a.page_pins.items())]
+                need(type(index) is int and value is a.pages[index])
+                body=a.page_bodies[index];digest=hashlib.sha256(body).hexdigest()
+                need(digest==json_digest(value))
+                path=a.page_store(index).path;names.add(path.name)
+                self.final_file(path,0o600,body+b'\n',physical)
+                expected_pages.append(dict(page=index,sha256=digest,physical=physical))
             need(same(a.state['pages'],expected_pages))
             for index,row in enumerate(a.state['parts']):
                 path=a.part_path(index);names.add(path.name)
