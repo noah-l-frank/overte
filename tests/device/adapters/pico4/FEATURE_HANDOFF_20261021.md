@@ -25,6 +25,13 @@ is10.324→0.458ms; it does not establish a changed whole Assets result. See the
 [exact parser scope](ASSETS_PREFIX_SOURCE.md#printable-ascii-validation-cost).
 Source-complete areas remain3/14; native/device qualification is unchanged.
 
+Assets now calculates the same exact ASCII quoted-string length without the
+per-character Python loop or a quoted payload allocation. Unicode behavior and
+all admission limits remain unchanged. Twenty-eight owning raw/range/default
+carrier cases pass16.601s/246 stable sources; the isolated retained-response
+comparison is92.649→1.740ms. The changed large-UI input-reference epoch has not
+yet been qualified. See the [sizing scope](ASSETS_PREFIX_SOURCE.md#exact-ascii-literal-sizing-before-parser-admission).
+
 The latest Browser capture-poll whole is RED98.545s at normalstep24; the prior
 114.764s scope reached all26 acts, all28 Common phases and Actor return before
 the capture-retirement cadence refusal. Neither establishes final host release.

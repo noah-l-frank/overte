@@ -224,3 +224,27 @@ The earlier large-UI input-reference diagnostic still failed its original
 1.5-second source-age check after input and before receipt completion. That
 private mode has not been requalified by this shared parser improvement.
 Complete Assets qualification remains open.
+
+## Exact ASCII literal sizing before parser admission
+
+Assets literal sizing now counts printable ASCII and JSON quote/backslash
+escapes with built-in string operations. For ASCII controls and DEL it adds
+the exact original escape lengths through a sequential regular-expression
+iterator. Non-ASCII text keeps the original character loop. The exact string
+type check precedes both paths; neither path constructs a quoted payload.
+Parser admission, retained raw bytes, unknown-delivery custody and the original
+1.5-second, 512-part and 16-MiB limits are unchanged.
+
+Pure comparison covers 82169 ASCII, control, Unicode, surrogate, length and
+foreign-type inputs with identical integer results and refusal errors. On four
+retained actual response texts (262143, 262143, 223 and 262143 bytes), the
+isolated complete sizing method improves from 92.649 to 1.740 ms median.
+This is not a whole-input timing result. All 114 retained original files stay
+unchanged. The existing raw-archive, range-storage and default Pico carrier
+selection passes 28 owning cases in 16.601 seconds with 246 loaded source files
+unchanged, including actual capacity and uncertain-CAS refusals.
+
+The preceding five-file private input-reference epoch remains RED: its large
+After response arrives 16.426 ms beyond the unchanged original deadline, before
+additional receipt work. The newly prepared epoch containing this sizing
+change requires its own owning checks; full Assets qualification remains open.

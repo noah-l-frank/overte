@@ -88,8 +88,42 @@ class AssetsRawArchiveTests(unittest.TestCase):
         self.addCleanup(self.owner.raws.close_host)
 
     def test_exact_quoted_length_matches_ascii_codec_without_large_wrapped_allocation(self):
-        for text in (''.join(chr(code) for code in range(256)), '\U0001f41a', 'plain', '\\"\n'):
-            self.assertEqual(len(json.dumps(text, ensure_ascii=True).encode()), quoted_bytes(text))
+        texts = ['', 'plain', '"\\', ''.join(chr(code) for code in range(256)),
+            '\ud800\udfff', '\U0001f41a', 'a\x7f\t\n', 'é"\\\n', 'z'*262144]
+        texts.extend(chr(code) for code in range(128))
+        texts.extend(chr(left)+chr(right) for left in range(128) for right in range(128))
+        for text in texts:
+            actual = quoted_bytes(text)
+            self.assertIs(type(actual), int)
+            self.assertEqual(len(json.dumps(text, ensure_ascii=True).encode('ascii')), actual)
+        calls = []
+        class Foreign(str):
+            def __len__(self):
+                calls.append('len')
+                raise AssertionError('foreign length callback')
+            def __iter__(self):
+                calls.append('iter')
+                raise AssertionError('foreign iterator callback')
+            def isascii(self):
+                calls.append('isascii')
+                raise AssertionError('foreign ASCII callback')
+            def isprintable(self):
+                calls.append('isprintable')
+                raise AssertionError('foreign print callback')
+            def count(self, *args):
+                calls.append('count')
+                raise AssertionError('foreign count callback')
+        class Equal(type):
+            def __eq__(self, other):
+                calls.append('type-equality')
+                return True
+        class Alias(str, metaclass=Equal):
+            pass
+        for value in (None, True, 1, 1.0, b'plain', [], {}, Foreign('plain'), Alias('plain')):
+            from adapters.normal_ui import NativeUIError
+            with self.assertRaises(NativeUIError):
+                quoted_bytes(value)
+        self.assertEqual([], calls)
 
     def test_actual_four_mib_control_literal_survives_before_decoder_refusal(self):
         owner = self.owner

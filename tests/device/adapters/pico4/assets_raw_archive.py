@@ -53,6 +53,13 @@ def expanded(value, name):
 def quoted_bytes(text):
     """Exact ensure_ascii JSON string length without constructing that string."""
     need(type(text) is str)
+    if str.isascii(text):
+        count = 2+len(text)+str.count(text, '"')+str.count(text, '\\')
+        if not text or str.isprintable(text):
+            return count
+        for match in re.finditer(r'[\x00-\x1f\x7f]', text):
+            count += 1 if match[0] in '\b\f\n\r\t' else 5
+        return count
     count = 2
     for character in text:
         code = ord(character)
