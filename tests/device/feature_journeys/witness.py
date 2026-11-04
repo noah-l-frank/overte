@@ -44,7 +44,7 @@ def projection(area, value):
 class Journal:
     """Bounded in-memory coordinator; persistence is private runner evidence only."""
     def __init__(self, clock=None):
-        self.clock = clock or (lambda: time.time() * 1000)
+        self.clock = clock or (lambda: int(time.time() * 1000))
         self.runs = {}
         self.phase_instance = secrets.token_hex(16)
         self.phase_sequence = 0

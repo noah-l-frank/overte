@@ -47,6 +47,24 @@ collision between Common files and the exclusive stdio archive root. The prefix
 still refuses the next unsupported native source operation. It does not qualify
 the complete public journey or any device behavior.
 
+The actual default fixture Journal now creates integer epoch milliseconds from
+its real wall clock before publishing a run, activation or phase. Explicit
+caller-supplied clocks keep their exact previous values, including fractions;
+published records are never converted. This lets default phase metadata pass
+the existing integer native freshness boundary without changing an age limit.
+On operation-host failure only, bounded original exception context code
+locations may be retained through the existing private stderr channel. That
+record contains no exception messages, locals, selectors or product verdicts;
+diagnostic failure cannot replace the original exception.
+
+With the default integer producer, a cold actual module/CLI/Actor prefix returns
+two original closed browser observations, including an empty-resource baseline
+candidate. Common then refuses its original independent Actor observation as
+older than1500ms after the next actual product acquisition. No baseline phase,
+full public journey, final host release or device is qualified by this prefix.
+The next task is to measure that actual source acquisition and independent-peer
+interval while retaining the existing freshness boundary and all originals.
+
 ## Original common return
 
 Only the actual Journey cleanup callback exports its exact lexical JSON and

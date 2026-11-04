@@ -16,6 +16,33 @@ def process_identity(pid):
     return str(pid)+':'+fields[19]+':'+Path('/proc/sys/kernel/random/boot_id').read_text().strip()
 
 
+def retain_original_failure(error, destination=None):
+    """Failure-only bounded code locations, never messages, locals or verdicts."""
+    try:
+        from pathlib import Path
+        contexts=[];seen=set();current=error;truncated=False
+        for _ in range(32):
+            if current is None:break
+            if id(current) in seen:truncated=True;break
+            seen.add(id(current));frames=[];trace=current.__traceback__
+            for _ in range(256):
+                if trace is None:break
+                code=trace.tb_frame.f_code
+                frames.append(dict(file=Path(code.co_filename).name[:64],function=code.co_name[:48],line=trace.tb_lineno))
+                if len(frames)>4:frames.pop(0)
+                trace=trace.tb_next
+            if trace is not None:truncated=True
+            contexts.append(dict(type=type(current).__name__[:64],frames=frames))
+            if len(contexts)>4:contexts.pop(0);truncated=True
+            current=current.__context__
+        else:truncated=truncated or current is not None
+        raw=dto_bytes(dict(picoOperationFailureVersion=1,contexts=contexts,truncated=truncated),4096)
+        descriptor=sys.stderr.fileno() if destination is None else destination
+        return os.write(descriptor,raw)==len(raw)
+    except BaseException:
+        return False
+
+
 def serve(args,binding,base_class,construct,*,profiles,stdin=None,stdout=None):
     """Called only by the existing Android main BEFORE its normal factory.
 
@@ -122,6 +149,9 @@ def serve(args,binding,base_class,construct,*,profiles,stdin=None,stdout=None):
                 need(guard()<deadline);_,writable,_=select.select([],[destination],[],min(.1,max(0,deadline-time.monotonic())))
                 if writable:position+=os.write(destination,reply[position:position+4096])
             need(guard()<deadline)
+    except BaseException as error:
+        retain_original_failure(error)
+        raise
     finally:
         if create_owner is not None:
             try:create_owner.unwind()

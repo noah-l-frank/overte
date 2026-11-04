@@ -80,6 +80,9 @@ def main():
     except AssertionError as error:
         raise AssertionFailure(str(error)) from error
     except (ValueError, OSError, KeyError) as error:
+        if browser is not None:
+            from adapters.pico4.operation_host import retain_original_failure
+            retain_original_failure(error)
         raise InfrastructureError('Common feature contract or fixture failed') from error
     finally:
         already_failing = sys.exc_info()[0] is not None

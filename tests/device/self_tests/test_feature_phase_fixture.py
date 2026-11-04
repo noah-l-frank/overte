@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 import sys
 import threading
+import time
 import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
@@ -20,6 +21,31 @@ from feature_journeys.witness import Client, Journal, projection
 
 RUN='a'*32; TICKET='b'*32; SECOND='c'*32; REQUEST='d'*32
 URL='http://controlled.test/feature-fixture/v1'
+
+
+class DefaultPhaseClockTests(unittest.TestCase):
+    def test_original_default_run_activation_and_retirement_are_native_milliseconds(self):
+        from adapters.native_feature_observation import fresh
+        before=int(time.time()*1000);journal=Journal();run=journal.register('tablet-web')
+        journal.activate(run,TICKET);active=journal.phase(run,REQUEST);original=deepcopy(active)
+        journal.close(run);retired=journal.phase(run,SECOND);after=int(time.time()*1000)
+        for value in (active,retired):
+            validate(value,run=run,area='tablet-web',request=value['requestId'],epoch=after)
+            for captured in (value['createdEpochMs'],value['capturedEpochMs'],value['activations'][0]['activatedEpochMs']):
+                self.assertIs(type(captured),int);self.assertLessEqual(before,captured);self.assertLessEqual(captured,after)
+                fresh(captured,after)
+        self.assertIs(type(retired['retiredEpochMs']),int)
+        self.assertEqual(original,active);self.assertEqual(active['activations'],retired['activations'])
+
+    def test_explicit_fractional_source_clock_and_published_originals_are_unchanged(self):
+        epoch=[20000.25];clock=lambda:epoch[0];journal=Journal(clock)
+        self.assertIs(clock,journal.clock)
+        run=journal.register('tablet-web');journal.activate(run,TICKET)
+        first=journal.phase(run,REQUEST);original=deepcopy(first)
+        epoch[0]=20000.75;second=journal.phase(run,SECOND)
+        validate(second,run=run,area='tablet-web',request=SECOND,epoch=epoch[0],previous=first)
+        self.assertEqual(20000.25,first['capturedEpochMs']);self.assertEqual(20000.75,second['capturedEpochMs'])
+        self.assertEqual(original,first);self.assertEqual(first['activations'],second['activations'])
 
 
 class PhaseFixtureTests(unittest.TestCase):

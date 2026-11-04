@@ -19,6 +19,70 @@ from adapters.pico4.operation_protocol import STRIPPED_ENV,dto_bytes,decode,requ
 WORKER=Path(__file__).with_name('pico_operation_host_worker.py').resolve()
 
 
+class OriginalOperationFailureTests(unittest.TestCase):
+    def record(self,error):
+        from adapters.pico4.operation_host import retain_original_failure
+        source,destination=os.pipe()
+        try:
+            self.assertTrue(retain_original_failure(error,destination))
+            os.close(destination);destination=-1
+            raw=os.read(source,4097)
+            self.assertLessEqual(len(raw),4096)
+            return raw,json.loads(raw)
+        finally:
+            os.close(source)
+            if destination>=0:os.close(destination)
+
+    def test_original_from_none_context_survives_without_messages_or_locals(self):
+        failures=[]
+        try:
+            try:raise KeyError('PRIVATE_SELECTOR_AND_POLICY_CANARY')
+            except KeyError:raise ValueError('PRIVATE_MESSAGE_CANARY') from None
+        except ValueError as error:failures.append(error)
+        original=failures[0];context=original.__context__
+        raw,value=self.record(original)
+        self.assertNotIn(b'PRIVATE_',raw)
+        self.assertEqual(['ValueError','KeyError'],[row['type'] for row in value['contexts']])
+        self.assertTrue(all(row['frames'] for row in value['contexts']))
+        self.assertIs(context,original.__context__);self.assertTrue(original.__suppress_context__)
+        with self.assertRaises(ValueError) as raised:raise original
+        self.assertIs(original,raised.exception)
+
+    def test_context_cycle_and_long_chain_are_bounded_without_rewriting_them(self):
+        first=ValueError('private first');second=RuntimeError('private second')
+        first.__context__=second;second.__context__=first
+        _raw,value=self.record(first)
+        self.assertTrue(value['truncated']);self.assertEqual(2,len(value['contexts']))
+        self.assertIs(second,first.__context__);self.assertIs(first,second.__context__)
+        current=None
+        for _ in range(40):
+            error=ValueError('private chain');error.__context__=current;current=error
+        _raw,value=self.record(current)
+        self.assertTrue(value['truncated']);self.assertEqual(4,len(value['contexts']))
+
+    def test_closed_diagnostic_pipe_cannot_replace_the_original_failure(self):
+        from adapters.pico4.operation_host import retain_original_failure
+        source,destination=os.pipe();os.close(source);os.close(destination)
+        original=ValueError('Original failure')
+        with self.assertRaises(ValueError) as raised:
+            try:raise original
+            except ValueError as error:
+                self.assertFalse(retain_original_failure(error,destination))
+                raise
+        self.assertIs(original,raised.exception)
+
+    def test_actual_deep_traceback_stops_at_the_frame_bound(self):
+        def descend(remaining):
+            if remaining:descend(remaining-1)
+            else:raise RuntimeError('Private deep failure')
+        errors=[]
+        try:descend(300)
+        except RuntimeError as error:errors.append(error)
+        _raw,value=self.record(errors[0])
+        self.assertTrue(value['truncated'])
+        self.assertEqual(4,len(value['contexts'][0]['frames']))
+
+
 class PicoOperationHostTests(unittest.TestCase):
     def setUp(self):
         temporary=tempfile.TemporaryDirectory(prefix='pico-stdio-host-')
