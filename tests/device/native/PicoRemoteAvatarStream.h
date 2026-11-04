@@ -75,6 +75,15 @@ public:
             && hex(value.value("policySha256").toString(),64);
     }
     bool captureSelected() const { return _captureSelected; }
+    bool sourceTransactionPermit(const QVariantMap& request) const {
+        return context() && _used && _captureSelected && !_failed && !_stopped && !_drained
+            && _policy.value("picoRemoteAvatarStreamPolicyVersion")==QVariant(3)
+            && _policy.value("sourceTransactionEnabled")==QVariant(1)
+            && _gate && _gate->fresh() && _gate->armCompleted.load() && _file && _file->ready()
+            && request.value("runId")==QVariant(_run)
+            && request.value("originalPolicySha256").toString().toLatin1()==_policySha
+            && request.value("parentBaselineSha256")==_policy.value("parentBaselineSha256");
+    }
     bool captureResult(const QString& leaf,const QString& nonce,const QByteArray& bytes) {
         if (!context() || !_captureSelected || !_capture || !_gate || !_gate->fresh()
                 || _failed || _stopped || !_capture->publish(leaf,nonce,bytes)) { fail();return false; }
@@ -169,8 +178,8 @@ private:
         const auto document=QJsonDocument::fromJson(bytes);
         if (!document.isObject()) { return false; }
         const auto json=document.object();_policy=json.toVariantMap();
-        _captureSelected=json.value("picoRemoteAvatarStreamPolicyVersion").isDouble()
-            && json.value("picoRemoteAvatarStreamPolicyVersion").toDouble()==2;
+        const bool sourceProfile=whole(json.value("picoRemoteAvatarStreamPolicyVersion"),3,3);
+        _captureSelected=whole(json.value("picoRemoteAvatarStreamPolicyVersion"),2,2) || sourceProfile;
         auto expected=QStringList{"picoRemoteAvatarStreamPolicyVersion","runId","parentScopeSha256","parentBaselineSha256",
             "parentHostProcessIdentity","role","processId","originalNativeEpochMs","deadlineNativeEpochMs",
             "originalHostStartedMonotonic","originalHostDeadlineMonotonic","nativeFrameLimit","sampleIntervalMs"};
@@ -182,8 +191,20 @@ private:
                     || !whole(json.value("inventoryFileBytes"),262144,262144) || !whole(json.value("storageReceiptFileBytes"),100000,100000)
                     || !whole(json.value("pendingMarkerFileBytes"),1024,1024)) {return false;}
         }
+        if (sourceProfile) {
+            expected.append({"picoEmoteSourceProfileVersion","sourceTransactionEnabled","sourceWireFileBytes",
+                "sourceReceiptFileBytes","sourceCommandFileBytes","sourcePersistentBytes","sourceReservedTransientBytes"});
+            if (!whole(json.value("picoEmoteSourceProfileVersion"),1,1)
+                    || !whole(json.value("sourceTransactionEnabled"),0,1)
+                    || !whole(json.value("sourceWireFileBytes"),1040383,1040383)
+                    || !whole(json.value("sourceReceiptFileBytes"),4096,4096)
+                    || !whole(json.value("sourceCommandFileBytes"),1024,1024)
+                    || !whole(json.value("sourcePersistentBytes"),2416640,2416640)
+                    || !whole(json.value("sourceReservedTransientBytes"),4222976,4222976)) {return false;}
+        }
+        const auto version=sourceProfile ? 3 : _captureSelected ? 2 : 1;
         if (!keys(_policy,expected)
-                || !whole(json.value("picoRemoteAvatarStreamPolicyVersion"),_captureSelected ? 2 : 1,_captureSelected ? 2 : 1)
+                || !whole(json.value("picoRemoteAvatarStreamPolicyVersion"),version,version)
                 || _policy.value("runId")!=_run || !hex(_policy.value("runId").toString())
                 || !hex(_policy.value("parentScopeSha256").toString(),64) || !hex(_policy.value("parentBaselineSha256").toString(),64)
                 || !QRegularExpression("\\A[1-9][0-9]*:[1-9][0-9]*:[0-9a-f-]{36}\\z").match(_policy.value("parentHostProcessIdentity").toString()).hasMatch()

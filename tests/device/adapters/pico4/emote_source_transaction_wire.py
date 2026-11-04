@@ -61,33 +61,35 @@ class SourceExtents:
     records:tuple
 
 
-def extents(wire,expected):
+def extents(wire,expected,*,start=0,end=None):
     """Wire framing only; no inner source JSON becomes a current observation."""
-    request(expected);need(type(wire) is bytes and len(wire)<=WIRE_LIMIT and wire.startswith(HEADER))
-    offset=len(HEADER);end=wire.find(b'\n',offset)
-    need(end>=offset and end-offset<=4096)
-    raw_header=wire[offset:end];header=strict_json(raw_header.decode('utf-8'))
+    request(expected);need(type(wire) is bytes and len(wire)<=WIRE_LIMIT)
+    if end is None:end=len(wire)
+    need(type(start) is int and type(end) is int and 0<=start<end<=len(wire) and wire.startswith(HEADER,start,end))
+    offset=start+len(HEADER);line_end=wire.find(b'\n',offset,end)
+    need(line_end>=offset and line_end-offset<=4096)
+    raw_header=wire[offset:line_end];header=strict_json(raw_header.decode('utf-8'))
     exact(header,set(expected)|{'picoEmoteSourceTransactionVersion','complete','sourceCount'})
     need(type(header['picoEmoteSourceTransactionVersion']) is int and header['picoEmoteSourceTransactionVersion']==VERSION
         and header['complete'] is True and type(header['sourceCount']) is int and header['sourceCount']==6
         and all(type(header[key]) is type(value) and header[key]==value for key,value in expected.items()))
-    offset=end+1;records=[];next_label=0;pending=0
+    offset=line_end+1;records=[];next_label=0;pending=0
     while next_label<len(LABELS):
-        end=wire.find(b'\n',offset);need(end>=offset and end-offset<=128)
-        fields=wire[offset:end].split(b' ');need(len(fields)==3)
+        line_end=wire.find(b'\n',offset,end);need(line_end>=offset and line_end-offset<=128)
+        fields=wire[offset:line_end].split(b' ');need(len(fields)==3)
         label=fields[0].decode('ascii');size_text=fields[1];digest=fields[2].decode('ascii')
         need(size_text.isdigit() and size_text==str(int(size_text)).encode('ascii')
             and re.fullmatch('[0-9a-f]{64}',digest))
-        size=int(size_text);offset=end+1
+        size=int(size_text);offset=line_end+1
         if label=='nativePending':
             need(LABELS[next_label]=='native' and pending<51 and integer(size,1,256));pending+=1
         else:
             need(label==LABELS[next_label] and integer(size,1,LIMITS[label]));next_label+=1
-        need(offset+size<len(wire) and wire[offset+size:offset+size+1]==b'\n')
+        need(offset+size<end and wire[offset+size:offset+size+1]==b'\n')
         # A bounded memoryview hashes the existing bytes, not another body copy.
         need(hashlib.sha256(memoryview(wire)[offset:offset+size]).hexdigest()==digest)
         records.append(SourceExtent(label,offset,size,digest));offset+=size+1
-    need(wire[offset:]==FOOTER)
+    need(end-offset==len(FOOTER) and wire.startswith(FOOTER,offset,end))
     result=SourceExtents(raw_header,tuple(records))
     need(canonical_size(dict(header=raw_header.decode(),parsedHeader=header,request=expected,records=[dict(label=r.label,offset=r.offset,
         size=r.size,sha256=r.sha256) for r in records]))<=METADATA_LIMIT)
@@ -156,13 +158,25 @@ class PicoEmoteSourceTransactionWire:
         self.claims=self._claims=()
         self._protocol=protocol_identity;self._protocol_pin=protocol_identity()
         self._issued=None
+        # Cold selection, before every guard/clock/getter callback. Subclasses
+        # may compose a physical protocol without another Raw writer.
+        self.reply_reserver=self._reply_reserver=self.reserve_reply
+        self.reply_parser=self._reply_parser=self.parse_reply
         OWNED.append(self)
 
     def identity(self):
         need(not self.failed and self.archive is self._pins[0] and same_callable(self.exchange,self._pins[1])
             and same_callable(self.guard,self._pins[2]) and same_callable(self.clock,self._pins[3])
+            and same_callable(self.reply_reserver,self._reply_reserver) and same_callable(self.reserve_reply,self._reply_reserver)
+            and same_callable(self.reply_parser,self._reply_parser) and same_callable(self.parse_reply,self._reply_parser)
             and self.claims is self._claims and self._protocol()==self._protocol_pin)
         self.archive.lock.assert_held()
+
+    def reserve_reply(self,value):
+        return self.archive.reserve('emote-source-txn',value,WIRE_LIMIT,side_bytes=SIDE_LIMIT)
+
+    def parse_reply(self,wire,value):
+        proof=extents(wire,value);return proof,decode_sources(wire,proof)
 
     def fresh(self):
         self.identity();need(self.guard() is not False);self.identity();now=self.clock();self.identity()
@@ -197,7 +211,7 @@ class PicoEmoteSourceTransactionWire:
         self.reference=None;self.acquired=None
         try:
             self.started=self.clock();need(number(self.started,0,1e15));self.fresh()
-            token=self.archive.reserve('emote-source-txn',value,WIRE_LIMIT,side_bytes=SIDE_LIMIT)
+            token=self.reply_reserver(value)
             self.pending=deepcopy(token)
             self._issued=(self.archive,token,self.archive.retain,token['limit'])
             now=self.fresh();need(canonical(value)==frozen and self.active is claim)
@@ -209,7 +223,7 @@ class PicoEmoteSourceTransactionWire:
                 raise
             self.retain(wire) # Resource authority only, before every parser or late business guard.
             self.fresh();need(canonical(value)==frozen and self.active is claim)
-            proof=extents(wire,value);sources=decode_sources(wire,proof)
+            proof,sources=self.reply_parser(wire,value)
             self.fresh();need(canonical(value)==frozen and self.active is claim)
             return self.reference,proof,sources
         except BaseException:self.failed=True;raise

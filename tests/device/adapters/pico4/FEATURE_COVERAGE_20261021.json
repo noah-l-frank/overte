@@ -733,7 +733,36 @@
         "tests/device/adapters/pico4/EMOTE_COMMON_PARENT2.md",
         "tests/device/self_tests/test_pico_emote_common.py",
         "android/vr/pico/tests/device/test_emote_common_pending.py",
-        "android/vr/pico/tests/device/test_emote_common_fences.py"
+        "android/vr/pico/tests/device/test_emote_common_fences.py",
+        "android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp",
+        "interface/src/scripting/TestScriptingInterface.cpp",
+        "interface/src/scripting/TestScriptingInterface.h",
+        "tests/device/adapters/pico4/EMOTE_SOURCE_TRANSACTION_PHYSICAL2.md",
+        "tests/device/adapters/pico4/emote_cold_factory.py",
+        "tests/device/adapters/pico4/emote_source_transaction_command.py",
+        "tests/device/adapters/pico4/emote_source_transaction_physical.py",
+        "tests/device/adapters/pico4/emote_source_transaction_profile.py",
+        "tests/device/adapters/pico4/emote_source_transaction_wire.py",
+        "tests/device/adapters/pico4/emote_stream_capacity.py",
+        "tests/device/adapters/pico4/emote_stream_capture.py",
+        "tests/device/adapters/pico4/emote_stream_factory.py",
+        "tests/device/adapters/pico4/emote_stream_originals.py",
+        "tests/device/adapters/pico4/emote_stream_policy.py",
+        "tests/device/native/PicoEmoteCaptureFile.h",
+        "tests/device/native/PicoEmoteSourceArena.h",
+        "tests/device/native/PicoEmoteSourceJsonBudget.h",
+        "tests/device/native/PicoEmoteSourcePublisher.h",
+        "tests/device/native/PicoEmoteSourceTransaction.h",
+        "tests/device/native/PicoEmoteSourceWidgets.h",
+        "tests/device/native/PicoRemoteAvatarStream.h",
+        "tests/device/probe/overte_e2e_probe.js",
+        "tests/device/self_tests/pico_emote_cold_factory_fixture.py",
+        "tests/device/self_tests/test_pico_emote_source_transaction_admission.py",
+        "tests/device/self_tests/test_pico_emote_source_transaction_command.py",
+        "tests/device/self_tests/test_pico_emote_source_transaction_probe.py",
+        "android/vr/pico/tests/device/test_emote_source_transaction_sdk.py",
+        "android/vr/pico/tests/device/test_emote_source_transaction_admission.py",
+        "android/vr/pico/tests/device/test_emote_source_transaction_probe.py"
       ],
       "declaredCheckpoints": 28,
       "inputVerbs": [
@@ -817,6 +846,33 @@
         ],
         "scope": "Same existing Parent2/Cycle/Source graph with declared SDK/Qt/Rig producers; actual fixed host raw scripts, original retained bytes and input/effect owners.",
         "wholeCommon": false,
+        "nativeCompiled": false,
+        "devicesTested": false
+      },
+      "physicalSourcePrerequisite": {
+        "profileVersion": 1,
+        "physicalVersion": 2,
+        "capacityVersion": 2,
+        "sourcePolicyBudgetOriginalsVersion": 3,
+        "rootCases": 15,
+        "rootSeconds": 7.119,
+        "rootLoadedSources": [
+          291,
+          1
+        ],
+        "selectors": [
+          "emote-source-transaction-sdk",
+          "emote-source-transaction-admission",
+          "emote-source-transaction-probe"
+        ],
+        "scope": "Actual original cold factory, fixed one-SDK shell/raw archive/physical extents and pre-IO profile admission; actual Probe rejects28 converting headers, plus static C++ source-order check. Native/Qt producers are modeled, C++ does not execute. Every enabled role has its own permanently charged slot under unchanged global limits. Existing Source2 baseline still uses six getters; actual owning Source factory does not consume SourceTxn yet.",
+        "genericHistoricalDecoder": "Existing general stream archive remains1/2-only; opt-in Source formats have separate registry entries, not broad reader support.",
+        "open": [
+          "Complete Native first-builder QVariant allocation peak",
+          "Actual Source factory/phase/role integration",
+          "Whole at-least31 Common action/Actor/capture budget fit and lossless generated metadata",
+          "Full original finalization"
+        ],
         "nativeCompiled": false,
         "devicesTested": false
       }

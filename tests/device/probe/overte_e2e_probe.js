@@ -296,6 +296,22 @@
         Test.saveObject(value,"feature-script-work.json");
     }
 
+    function savePicoEmoteSourceTransaction(command, remaining) {
+        if (command.commandId !== lastNativeFeatureRequest) { return; }
+        if (remaining === undefined) { remaining = 50; }
+        try {
+            if (typeof Test.featurePicoEmoteSourceTransaction !== "function") { return; }
+            var actual = Test.featurePicoEmoteSourceTransaction(command);
+            if (actual && actual.requestId === command.commandId && actual.pending === true && remaining > 0) {
+                nativeFeatureTimer = Script.setTimeout(function () {
+                    if (command.commandId !== lastNativeFeatureRequest) { return; }
+                    nativeFeatureTimer = null;
+                    savePicoEmoteSourceTransaction(command, remaining - 1);
+                }, 50);
+            }
+        } catch (_sourceTransactionUnavailable) { /* No fallback file/second observation. */ }
+    }
+
     function saveNativeFeatureObservation(requestId, remaining) {
         if (requestId !== lastNativeFeatureRequest) { return; }
         if (remaining === undefined) { remaining = 50; }
@@ -2315,6 +2331,24 @@
             return;
         }
         if (command && command.schemaVersion === 1
+                && command.action === "feature-pico-emote-source-transaction"
+                && typeof command.commandId === "string"
+                && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string"
+                && /^[0-9a-f]{32}$/.test(command.runId)
+                && typeof command.originalPolicySha256 === "string"
+                && /^[0-9a-f]{64}$/.test(command.originalPolicySha256)
+                && typeof command.parentBaselineSha256 === "string"
+                && /^[0-9a-f]{64}$/.test(command.parentBaselineSha256)
+                && objectKeysMatch(command,["schemaVersion","action","commandId","runId","originalPolicySha256","parentBaselineSha256"])) {
+            if (command.commandId !== lastNativeFeatureRequest) {
+                if (nativeFeatureTimer !== null) { Script.clearTimeout(nativeFeatureTimer); nativeFeatureTimer = null; }
+                lastNativeFeatureRequest = String(command.commandId);
+                savePicoEmoteSourceTransaction(command);
+            }
+            return;
+        }
+        if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
                 && command.action === "feature-native-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
@@ -2585,6 +2619,7 @@
 
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
+                || command.action === "feature-pico-emote-source-transaction"
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-chat-peer-position" || command.action === "feature-chat-profile" || command.action === "feature-chat-profile-current" || command.action === "feature-web-dom-observe" || command.action === "pico-world-web" || command.action === "pico-tablet-web" || command.action === "pico-web-reference" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-pico-pending-read" || command.action === "feature-navigation-replies"
                 || command.action === "feature-location-bookmarks"

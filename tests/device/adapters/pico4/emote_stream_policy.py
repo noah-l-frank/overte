@@ -39,7 +39,7 @@ class PicoEmoteStreamPolicy:
         if capacity is not None:
             from adapters.pico4.emote_stream_capacity import PicoEmoteStreamCapacity
             need(type(capacity) is PicoEmoteStreamCapacity and capacity.parent is parent);capacity.require()
-        self.capacity=self._capacity=capacity;self.version=self._version=1 if capacity is None else 2
+        self.capacity=self._capacity=capacity;self.version=self._version=1 if capacity is None else 2 if capacity.source_profile is None else 3
         self.host=host_identity();self.run=parent.source.run;self.parent_identity=canonical(parent.identity)
         self.started=parent.state['started'];self.deadline=self.started+120
         self.native_epoch=parent.state['epochMs'];self.provider_epoch=parent.state['hostEpochMs']
@@ -76,7 +76,9 @@ class PicoEmoteStreamPolicy:
                     originalNativeEpochMs=epoch,deadlineNativeEpochMs=end,
                     originalHostStartedMonotonic=repr(self.started),originalHostDeadlineMonotonic=repr(self.deadline),
                     nativeFrameLimit=ROLE_FRAMES,sampleIntervalMs=INTERVAL_MS)
-                if capacity is not None:policy.update(capacity.limits())
+                if capacity is not None:
+                    policy.update(capacity.limits())
+                    if capacity.source_profile is not None:policy.update(capacity.source_profile.limits(role))
                 policies[role]=canonical(policy).decode('ascii');bindings[role]=deepcopy(binding)
             need(bindings['primary']==parent.source.binding and bindings['primary']!=bindings['actor'])
             self.disk=dict(picoEmoteStreamBudgetVersion=self.version,parentIdentity=deepcopy(parent.identity),
@@ -85,7 +87,9 @@ class PicoEmoteStreamPolicy:
                 originalHostStartedMonotonic=self.started,originalHostDeadlineMonotonic=self.deadline,
                 originalParentNativeEpochMs=self.native_epoch,originalProviderEpochMs=self.provider_epoch,
                 bindings=bindings,policies=policies,totalNativeFrameAllowance=512)
-            if capacity is not None:self.disk['captureCapacitySha256']=capacity.descriptor_sha
+            if capacity is not None:
+                self.disk['captureCapacitySha256']=capacity.descriptor_sha
+                if capacity.source_profile is not None:self.disk['sourceProfileSha256']=capacity.source_profile.sha256
             self.store.write(self.disk,None);actual,unused=raw_file(self.store)
             need(actual==canonical(self.disk)+b'\n');self.raw=actual
             self.budget_file=ClosedOriginalFile(self.path,0o600,self.host_identity)
@@ -104,7 +108,7 @@ class PicoEmoteStreamPolicy:
             and self.lock is self.original_lock and self.lock.path==self._lock_path)
 
     def identity(self):
-        need(self.capacity is self._capacity and type(self.version) is int and self.version==self._version== (1 if self.capacity is None else 2))
+        need(self.capacity is self._capacity and type(self.version) is int and self.version==self._version== (1 if self.capacity is None else 2 if self.capacity.source_profile is None else 3))
         if self.capacity is not None:self.capacity.resource_identity()
         self.host_identity();need(not self.failed and self.original is self.original_pins and self.disk is self.original[-1]
             and self.parent.source is self.source and self.source.lock is self.lock

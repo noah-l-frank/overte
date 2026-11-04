@@ -37,7 +37,7 @@ class ColdModel(FactoryModel):
         self.adapters={'primary':self.primary_normal.instance,'actor':self.adapter}
         self.sdks={'primary':self.primary_normal.native,'actor':self.sdk}
         self.cold_calls=[];self.getter_fault=None;self.leaves=None;self.runtimes=None
-        self.clock_hook=None;self.process_hook=None
+        self.clock_hook=None;self.process_hook=None;self.before_sdk=None
         self.cold_rows={}
         for role in ('primary','actor'):
             adapter=self.adapters[role];sdk=self.sdks[role];producer=self.streams[role]
@@ -88,6 +88,7 @@ class ColdModel(FactoryModel):
 
     def cold_binary(self,role,arguments,*,target,timeout,check=False):
         assert check is False and target==role+'-model';argv=shlex.split(arguments[1])
+        if self.before_sdk is not None:self.before_sdk(role,arguments)
         kinds=[kind for kind in FILES if argv[4]==script(kind)]
         if not kinds:return self.streams[role].execute_bytes(arguments,target=target,timeout=timeout)
         self.publish_cold_runtime(role)
@@ -130,13 +131,13 @@ class ColdModel(FactoryModel):
         kind,index=selected[command['action']];leaf=self.leaves[index];leaf.send(command)
         output=self.streams[role].root/FILES[kind];output.write_text(leaf.original());output.chmod(0o600)
 
-    def cold(self,*,canonical=False):
+    def cold(self,*,canonical=False,source_profile=None):
         if canonical:
             cycle,runtimes=self.adapters['primary']._emote_cold_common('primary-model',self.cold_rows,
-                self.m.s.phase,self.m.s.root,self.m.s.lock)
+                self.m.s.phase,self.m.s.root,self.m.s.lock,source_profile=source_profile)
         else:
             cycle,runtimes=create_cold_common(self.adapters['primary'],'primary-model',self.cold_rows,self.m.s.phase,
-                self.m.s.root,self.m.s.lock,monotonic=self.now,sleep=self.m.sleep)
+                self.m.s.root,self.m.s.lock,monotonic=self.now,sleep=self.m.sleep,source_profile=source_profile)
         self.cycle=cycle;self.parent=cycle.parent;self.runtimes=runtimes;self.capacity=cycle.capacity
         self.m.s.store=self.parent.source.store
         for role in self.streams:self.streams[role].native=runtimes[role].native

@@ -104,8 +104,8 @@ public:
     }
     bool valid() const { return _valid && !_closed; }
     bool writing() const { return _writing; }
-    QVariantMap originalProof() {
-        if (!_valid || _writing || _expected.isEmpty() || !current()) { return {}; }
+    QVariantMap originalProof(bool allowEmpty=false) {
+        if (!_valid || _writing || (!allowEmpty && _expected.isEmpty()) || !current()) { return {}; }
         struct stat root{};
         if (::fstat(_root.fd(),&root) || !directory() || !current()) { return {}; }
         const auto node=[](const struct stat& info) { return QVariantList{
@@ -121,6 +121,8 @@ public:
     }
 private:
     static qsizetype limit(const QString& leaf) {
+        if (leaf=="feature-pico-emote-source-transaction.wire") {return 1048576-1-4096-4096;}
+        if (leaf=="feature-pico-emote-source-receipt.json") {return 4096;}
         if (leaf=="world-render-observation.json" || leaf=="feature-pico-world-model-draws.json"
                 || leaf=="world-render-receipts-result.json") { return 262144; }
         return QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(leaf).hasMatch() ? 100000 : 0;

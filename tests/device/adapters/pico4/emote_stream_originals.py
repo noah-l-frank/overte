@@ -40,11 +40,15 @@ class PicoEmoteStreamOriginals:
         admitted={Path(path).resolve(strict=True) for path in (*required,*roots)}
         self.roots=self._roots=tuple(sorted((path for path in admitted
             if not any(path!=other and path.is_relative_to(other) for other in admitted)),key=str))
-        scope=dict(picoEmoteStreamOriginalsVersion=1 if capacity is None else 2,containerFormat='audioRawJournalVersion1-raw-only',
+        scope=dict(picoEmoteStreamOriginalsVersion=1 if capacity is None else 2 if capacity.source_profile is None else 3,containerFormat='audioRawJournalVersion1-raw-only',
             budgetSha256=hashlib.sha256(policy.raw).hexdigest(),baselineSha256=policy.baseline_sha,
             parentIdentitySha256=hashlib.sha256(policy.parent_identity).hexdigest(),roots=[str(path) for path in self.roots],
             roles=['primary','actor'],maximumNativeFramesPerRole=256,maximumCompoundNativeFrames=512)
-        if capacity is not None:scope['captureCapacitySha256']=capacity.descriptor_sha
+        if capacity is not None:
+            scope['captureCapacitySha256']=capacity.descriptor_sha
+            if capacity.source_profile is not None:
+                scope.update(picoEmoteSourceTransactionVersion=1,picoEmoteSourcePhysicalVersion=2,
+                    sourceProfileSha256=capacity.source_profile.sha256)
         self.scope=self._scope=canonical(scope);self.lock=self._lock=AudioRawSourceLock(policy.lock)
         self.monotonic=self._monotonic=parent.source.monotonic
         self.archive=self._archive=object.__new__(AudioRawArchive)

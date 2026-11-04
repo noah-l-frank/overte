@@ -40,10 +40,14 @@ def descriptor():return deepcopy(LIMITS)
 
 
 class PicoEmoteStreamCapacity:
-    def __init__(self,parent,roles):
+    def __init__(self,parent,roles,*,source_profile=None):
         need(type(parent) is PicoEmoteNativeCycle and type(roles) is dict and set(roles)=={'primary','actor'})
         parent.source.lock.assert_held();parent.bound()
         need(parent.previous is None and parent.state is None and not parent.source.frames and parent.inputs.previous is None)
+        if source_profile is not None:
+            from adapters.pico4.emote_source_transaction_profile import PicoEmoteSourceProfile
+            need(type(source_profile) is PicoEmoteSourceProfile);source_profile.identity()
+        self.source_profile=self._source_profile=source_profile
         self.parent=self._parent=parent;self.lock=self._lock=parent.source.lock;self.host=host_identity()
         self.source=self._source=parent.source;self.clock=self._clock=parent.source.monotonic
         self.path=self._path=parent.store.path.with_name(parent.store.path.name+'.child-stream-capacity.json')
@@ -56,8 +60,9 @@ class PicoEmoteStreamCapacity:
                 and type(row['target']) is str and row['target'] and row['phase'].run==parent.source.run
                 and row['phase'].area=='emotes')
         self.role_pins=tuple(self.role_pin(role,row) for role,row in self.roles)
-        self.identity=dict(picoEmoteStreamCapacityVersion=VERSION,parentIdentity=deepcopy(parent.identity),limits=descriptor(),
+        self.identity=dict(picoEmoteStreamCapacityVersion=VERSION if source_profile is None else 2,parentIdentity=deepcopy(parent.identity),limits=descriptor(),
             roles={role:dict(targetBinding=deepcopy(row['binding'])) for role,row in self.roles})
+        if source_profile is not None:self.identity['sourceProfileSha256']=source_profile.sha256
         self.identity_bytes=canonical(self.identity);self.descriptor_sha=json_digest(LIMITS)
         self.state=self._state=dict(phase='prepared',originalClocks=None,receipts=[],pngs=[])
         self._state_bytes=canonical(self.state);self.previous=None;self.failed=False;self.admission_stopped=False
@@ -102,6 +107,9 @@ class PicoEmoteStreamCapacity:
         # Passive current host proof used before Cycle acquires its locks.
         # This calls no SDK, Native, phase, source advancement or input.
         self.host_identity();need(not self.failed);self.configs()
+        need(self.source_profile is self._source_profile)
+        if self.source_profile is not None:
+            self.source_profile.identity();need(self.identity['sourceProfileSha256']==self.source_profile.sha256)
         need(canonical(self.identity)==self.identity_bytes and self.identity['limits']==LIMITS
             and self.state is self._state and canonical(self.state)==self._state_bytes
             and self.archive is self._archive and same_callable(self.aggregate_bill,self._aggregate_bill)
@@ -144,8 +152,11 @@ class PicoEmoteStreamCapacity:
         native=2*(3*262144+1024)+receipts*100000
         # Fixed native files, shared pending markers, actual receipt files and
         # future actual PNG file copies. Metadata/CAS copies share this bill.
-        return dict(parts=8+receipts+len(pngs)+3,storedBytes=native+sum(row['bytes'] for row in pngs)+3*PART,
+        value=dict(parts=8+receipts+len(pngs)+3,storedBytes=native+sum(row['bytes'] for row in pngs)+3*PART,
             decodedBytes=native+sum(row['bytes'] for row in pngs)+3*PART+3*len(canonical(state)))
+        if self.source_profile is not None:
+            extra=self.source_profile.extra_bill();value={key:value[key]+extra[key] for key in value}
+        return value
 
     def bind_archive(self,archive,aggregate_bill):
         self.require();need(self.archive is None and type(archive) is AudioRawArchive and callable(aggregate_bill)
@@ -162,7 +173,7 @@ class PicoEmoteStreamCapacity:
                 and max(candidate['storedBytes'],candidate['decodedBytes'])<=MAX_RAW);return
         self.archive.verify();need(self.archive.path==self.path.with_name(self.parent.store.path.name+'.child-stream-raw.json')
             and type(self.archive.scope.get('picoEmoteStreamOriginalsVersion')) is int
-            and self.archive.scope['picoEmoteStreamOriginalsVersion']==2
+            and self.archive.scope['picoEmoteStreamOriginalsVersion']==(2 if self.source_profile is None else 3)
             and self.archive.scope.get('captureCapacitySha256')==self.descriptor_sha
             and self.archive.scope.get('parentIdentitySha256')==json_digest(self.parent.identity))
         ours=self.archive.bill();whole=self.aggregate_bill();pending=self.archive.state['pending']

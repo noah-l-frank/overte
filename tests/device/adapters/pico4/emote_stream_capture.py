@@ -43,7 +43,8 @@ class PicoEmoteStreamCapture(PicoEmoteCapture):
         from adapters.pico4.emote_stream_capacity import PicoEmoteStreamCapacity
         need(type(cycle.capacity) is PicoEmoteStreamCapacity and cycle.policy.capacity is cycle.capacity
             and cycle.originals.capacity is cycle.capacity and cycle.capacity.archive is cycle.originals.archive
-            and cycle.policy.version==2 and cycle.originals.archive.scope['picoEmoteStreamOriginalsVersion']==2)
+            and cycle.policy.version==(2 if cycle.capacity.source_profile is None else 3)
+            and cycle.originals.archive.scope['picoEmoteStreamOriginalsVersion']==cycle.policy.version)
         self.cycle=self._cycle=cycle;self.parent=cycle.parent;self.primary=cycle.streams['primary'];self.source=cycle.streams['actor']
         self.lock,self.monotonic=self.source.lock,self.parent.source.monotonic;self._monotonic=self.monotonic
         self.binding,self.pid=deepcopy(self.source.binding),self.source.pid;self.run,self.role=self.source.run,'actor'

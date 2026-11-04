@@ -274,8 +274,11 @@ class PicoEmoteColdRuntime:
             monotonic=self.monotonic,sleep=self.sleep)
 
 
-def create_cold_common(adapter,target,roles,phase,artifact_root,source_lock,*,monotonic=time.monotonic,sleep=time.sleep):
+def create_cold_common(adapter,target,roles,phase,artifact_root,source_lock,*,monotonic=time.monotonic,sleep=time.sleep,source_profile=None):
     """Explicit expected contexts without eager Native observer objects."""
+    if source_profile is not None:
+        from adapters.pico4.emote_source_transaction_profile import PicoEmoteSourceProfile
+        need(type(source_profile) is PicoEmoteSourceProfile);source_profile.require_bootstrap()
     need(type(roles) is dict and set(roles)=={'primary','actor'})
     need(roles['primary']['adapter'] is adapter and roles['primary']['target']==target
         and roles['primary']['phase'] is phase and roles['primary']['lock'] is source_lock)
@@ -293,7 +296,7 @@ def create_cold_common(adapter,target,roles,phase,artifact_root,source_lock,*,mo
     PicoEmoteNativeCycle.__init__(parent,cycle_store(adapter,target),inputs,lifetime,common=PicoEmoteCommon())
     configured={role:dict(row,native=runtimes[role].native) for role,row in roles.items()}
     capacity=object.__new__(PicoEmoteStreamCapacity);OWNED.append(capacity)
-    PicoEmoteStreamCapacity.__init__(capacity,parent,configured)
+    PicoEmoteStreamCapacity.__init__(capacity,parent,configured,source_profile=source_profile)
     cycle=object.__new__(PicoEmoteStreamCycle);OWNED.append(cycle)
     PicoEmoteStreamCycle.__init__(cycle,parent,configured,capacity=capacity)
     for runtime in runtimes.values():runtime.bind(cycle)

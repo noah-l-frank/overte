@@ -50,6 +50,7 @@
 #include "../../../tests/device/native/PicoRemoteAvatarObservation.h"
 #if defined(Q_OS_LINUX)
 #include "../../../tests/device/native/PicoRemoteAvatarStream.h"
+#include "../../../tests/device/native/PicoEmoteSourceArena.h"
 #endif
 #include "../avatar/OtherAvatar.h"
 #include "Audio.h"
@@ -367,6 +368,70 @@ QVariantMap TestScriptingInterface::featurePicoRemoteAvatarOriginal(const std::s
 }
 
 #if defined(Q_OS_LINUX)
+void TestScriptingInterface::bindPicoEmoteSourceWidgets(std::shared_ptr<overte::e2e::PicoEmoteSourceWidgets> provider) {
+    if (QThread::currentThread()!=thread() || !qApp || thread()!=qApp->thread() || !provider || !provider->available()
+            || _featureEmoteSourceWidgetsSelected) {
+        _featureEmoteSourceFailed.store(true);return;
+    }
+    _featureEmoteSourceWidgetsSelected=true;_featureEmoteSourceWidgets=std::move(provider);
+}
+
+QVariantMap TestScriptingInterface::featurePicoEmoteSourceTransaction(const QVariantMap& command) {
+    if (!overte::e2e::PicoEmoteSourceTransaction::command(command)) {return {};}
+    auto original=std::make_shared<const overte::e2e::PicoEmoteSourceTransactionRequest>(command);
+    {
+        std::lock_guard<std::mutex> lock(_featureEmoteSourceAdmission);
+        if (_featureEmoteSourceFailed.load()) {return {};}
+        if (!_featureEmoteSourceFirst) {_featureEmoteSourceFirst=original;_featureEmoteSourceSelected.store(true);}
+        if (!_featureEmoteSourceAdmitted.load()) {
+            if (_featureEmoteSourceFirst->command!=command) {_featureEmoteSourceFailed.store(true);return {};}
+            original=_featureEmoteSourceFirst; // FIRST pre-queue5; never refreshed by pending/retry.
+        }
+    }
+    return featurePicoEmoteSourceOriginal(original);
+}
+
+QVariantMap TestScriptingInterface::featurePicoEmoteSourceOriginal(
+        const std::shared_ptr<const overte::e2e::PicoEmoteSourceTransactionRequest>& original) {
+    const auto queue=_featureRemoteAvatarQueue;
+    if (!queue || !original || !original->fresh() || _featureEmoteSourceFailed.load()) {
+        _featureEmoteSourceFailed.store(true);return {};
+    }
+    if (QThread::currentThread()!=thread()) {
+        const auto result=queue->read("dispatch",this,[original](QObject* owner) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(owner)->featurePicoEmoteSourceOriginal(original),{}};
+        }).values;
+        if (!original->fresh()) {_featureEmoteSourceFailed.store(true);return {};}
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !qApp || thread()!=qApp->thread() || !QCoreApplication::arguments().contains("--testScript")
+            || !_featureRemoteAvatarStream || !_featureRemoteAvatarStream->sourceTransactionPermit(original->command)
+            || !_featureEmoteSourceWidgets || !_featureEmoteSourceWidgets->available()) {
+        _featureEmoteSourceFailed.store(true);return {};
+    }
+    if (!_featureEmoteSourceArena) {
+        const QPointer<TestScriptingInterface> owner(this);
+        _featureEmoteSourceArena=std::make_shared<overte::e2e::PicoEmoteSourceArena>(
+            _featureRemoteAvatarStream,QDir::cleanPath(_testResultsLocation),_featureEmoteSourceWidgets,
+            [owner](const QString& label,const QString& id) {
+                if (!owner) {return QVariantMap{};}
+                if (label=="rootsBefore" || label=="rootsAfter") {
+                    return owner->featureScriptRoots({{"schemaVersion",1},{"commandId",id},{"action","feature-script-roots-observe"}});
+                }
+                if (label=="script") {return owner->featureScriptObservation(id);}
+                if (label=="inventory") {
+                    return owner->featureAnimationInventory({{"schemaVersion",1},{"commandId",id},{"action","feature-animation-inventory-observe"}});
+                }
+                if (label=="native") {return owner->featureNativeObservation(id);}
+                return QVariantMap{};
+            },[owner] {return owner && !owner->_featureEmoteSourceFailed.load();}); // Strong BEFORE advance/file open.
+    }
+    const auto result=_featureEmoteSourceArena->advance(original);
+    if (result.isEmpty()) {_featureEmoteSourceFailed.store(true);return {};}
+    _featureEmoteSourceAdmitted.store(true);return result;
+}
+
 void TestScriptingInterface::selectPicoCapturePolicy(const QVariantMap& command) {
     if (command.value("operation")!=QVariant("arm") || command.value("ownerPolicy").type()!=QVariant::String) {return;}
     const auto text=command.value("ownerPolicy").toString();
@@ -442,9 +507,21 @@ QVariantMap TestScriptingInterface::featurePicoRemoteAvatarStreamOriginal(
     };
     auto quiet=[original,queue] {
         return original && original->_featureRemoteAvatarQueue==queue
+            && (!original->_featureEmoteSourceSelected.load()
+                || (!original->_featureEmoteSourceFailed.load() && original->_featureEmoteSourceArena
+                    && !original->_featureEmoteSourceArena->unfinished()))
             && queue->settled(overte::e2e::AudioSettingsQueue::dispatching(original.data()) ? "dispatch" : QString());
     };
-    const auto result=_featureRemoteAvatarStream->control(request,this,QDir::cleanPath(_testResultsLocation),snapshot,quiet);
+    if (_featureEmoteSourceArena && command.value("operation")==QVariant("stop")) {_featureEmoteSourceArena->stop();}
+    if (command.value("operation")==QVariant("drain") && _featureEmoteSourceSelected.load()
+            && (_featureEmoteSourceFailed.load() || !_featureEmoteSourceArena || !_featureEmoteSourceArena->drain())) {
+        _featureRemoteAvatarStream->refuseMixed();return {};
+    }
+    auto result=_featureRemoteAvatarStream->control(request,this,QDir::cleanPath(_testResultsLocation),snapshot,quiet);
+    if (_featureEmoteSourceSelected.load()) {
+        result["pendingWrite"]=result.value("pendingWrite").toBool() || _featureEmoteSourceFailed.load()
+            || !_featureEmoteSourceArena || _featureEmoteSourceArena->unfinished();
+    }
     // Encoding and every preceding file/queue guard consume the SAME original
     // control request. No new request or timestamp is manufactured on return.
     const bool bounded=QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact).size()<=16384;

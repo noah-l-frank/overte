@@ -22,10 +22,12 @@
 #include <QPointer>
 #include <memory>
 #include <atomic>
+#include <mutex>
 namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; class CreateModelResources; class AudioSettingsObservation; class AudioSettingsQueue; }
 namespace overte::e2e { class ChatPeerPosition; }
 namespace overte::e2e { class PicoRemoteAvatarObservation; struct PicoRemoteAvatarRequest; }
 namespace overte::e2e { class PicoRemoteAvatarStream; struct PicoRemoteAvatarStreamRequest; struct PicoRemoteAvatarStreamWindow; }
+namespace overte::e2e { class PicoEmoteSourceArena; class PicoEmoteSourceWidgets; struct PicoEmoteSourceTransactionRequest; }
 namespace overte::e2e { class PicoEmoteSceneFixture; class AvatarPreferenceSnapshot; class PrivateAssetsFiles; class PicoAssetsReadJob; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
@@ -35,6 +37,9 @@ class TestScriptingInterface : public QObject {
     Q_OBJECT
 
 public:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE) && defined(Q_OS_LINUX)
+    void bindPicoEmoteSourceWidgets(std::shared_ptr<overte::e2e::PicoEmoteSourceWidgets> provider);
+#endif
     void setTestResultsLocation(const QString path);
     const QString& getTestResultsLocation() { return _testResultsLocation;  };
 
@@ -234,6 +239,7 @@ public slots:
     Q_INVOKABLE QVariantMap featurePicoRemoteAvatarObservation(const QVariantMap& command);
 #if defined(Q_OS_LINUX)
     Q_INVOKABLE QVariantMap featurePicoRemoteAvatarStreamControl(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoEmoteSourceTransaction(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featurePicoEmoteScene(const QVariantMap& command);
 #endif
@@ -341,6 +347,13 @@ private:
     std::shared_ptr<overte::e2e::PicoRemoteAvatarStream> _featureRemoteAvatarStream;
     bool _featureRemoteAvatarStreamAttempted{false};
     std::atomic_bool _featurePicoCapturePolicySelected{false};
+    std::mutex _featureEmoteSourceAdmission;
+    std::atomic_bool _featureEmoteSourceFailed{false},_featureEmoteSourceAdmitted{false},_featureEmoteSourceSelected{false};
+    std::shared_ptr<const overte::e2e::PicoEmoteSourceTransactionRequest> _featureEmoteSourceFirst;
+    std::shared_ptr<overte::e2e::PicoEmoteSourceWidgets> _featureEmoteSourceWidgets;
+    std::shared_ptr<overte::e2e::PicoEmoteSourceArena> _featureEmoteSourceArena;
+    bool _featureEmoteSourceWidgetsSelected{false};
+    QVariantMap featurePicoEmoteSourceOriginal(const std::shared_ptr<const overte::e2e::PicoEmoteSourceTransactionRequest>& original);
     void selectPicoCapturePolicy(const QVariantMap& command);
     bool publishPicoCaptureOriginal(const QString& leaf,const QString& nonce,const QByteArray& bytes);
 #endif

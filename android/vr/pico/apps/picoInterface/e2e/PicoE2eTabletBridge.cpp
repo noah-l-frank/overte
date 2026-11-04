@@ -16,6 +16,9 @@
 #include "../../../../../../tests/device/native/PicoSnapshotFastCancel.h"
 #include "../../../../../../tests/device/native/PicoSnapshotCancelBridge.h"
 #include <scripting/TestScriptingInterface.h>
+#if defined(Q_OS_LINUX)
+#include "../../../../../../tests/device/native/PicoEmoteSourceWidgets.h"
+#endif
 #include "../../../../../../tests/device/native/LoginUiInventory.h"
 #include <AccountManager.h>
 #include <scripting/RenderScriptingInterface.h>
@@ -572,6 +575,21 @@ private:
         installWorldWebRayProvider();
         installWorldWebTextProvider();
         installSnapshotCancelProvider();
+#if defined(Q_OS_LINUX)
+        if (!_emoteSourceWidgetsAttempted) {
+            _emoteSourceWidgetsAttempted=true;const QPointer<TabletBridge> original(this);
+            _emoteSourceWidgets=std::make_shared<overte::e2e::PicoEmoteSourceWidgets>(this,[original] {
+                if (!original || !bridgeEnabled()) {return QVariantMap{};}
+                auto interface=DependencyManager::get<TabletScriptingInterface>();
+                auto tablet=interface ? interface->getTablet(SYSTEM_TABLET) : nullptr;
+                auto surface=tablet ? tablet->getTabletSurface() : nullptr;
+                auto root=tablet ? tablet->getTabletRoot() : nullptr;
+                auto window=surface ? surface->getWindow() : nullptr;
+                return original->_navigation.observe(root,window,tablet && tablet->property("tabletShown").toBool()).toVariantMap();
+            });
+            TestScriptingInterface::getInstance()->bindPicoEmoteSourceWidgets(_emoteSourceWidgets);
+        }
+#endif
 #endif
         const Observation observation = observeTablet();
         writeJson(OBSERVATION_PATH, {
@@ -999,6 +1017,10 @@ private:
     QString _lastCommandId;
     QString _lastNavigationCommandId;
     NavigationUi _navigation;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_LINUX)
+    std::shared_ptr<overte::e2e::PicoEmoteSourceWidgets> _emoteSourceWidgets;
+    bool _emoteSourceWidgetsAttempted{false};
+#endif
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QMap<QString,std::shared_ptr<overte::e2e::PicoSnapshotFastCancel>> _snapshotCancelJobs;
     QString _lastSnapshotCancelCommand;

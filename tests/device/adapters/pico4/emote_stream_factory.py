@@ -50,7 +50,8 @@ class PicoEmoteStreamFactory:
         cycle.locks();cycle.identity()
         need(type(cycle.capacity) is PicoEmoteStreamCapacity and cycle.policy.capacity is cycle.capacity
             and cycle.originals.capacity is cycle.capacity and cycle.capacity.archive is cycle.originals.archive
-            and cycle.policy.version==2 and cycle.originals.archive.scope['picoEmoteStreamOriginalsVersion']==2)
+            and cycle.policy.version==(2 if cycle.capacity.source_profile is None else 3)
+            and cycle.originals.archive.scope['picoEmoteStreamOriginalsVersion']==cycle.policy.version)
         roles=dict(cycle.roles);source=cycle.streams['actor']
         need(type(primary_target) is str and primary_target==roles['primary']['target']
             and type(actor_target) is str and actor_target==roles['actor']['target']
