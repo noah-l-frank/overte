@@ -4080,3 +4080,11 @@ comparison saves about140ms; it does not predict live1.5s success. Original
 512/16MiB bounds, Source1 behavior, wire formats and Native endpoints are kept;
 Closed83.255s remains RED and restoration remains unqualified. See
 [SNAPSHOT_SETTINGS_SCOPE2.md](SNAPSHOT_SETTINGS_SCOPE2.md).
+
+
+Pico Common distinguishes actual receipt-history constraints from the latest
+current independent original. All contradictions remain effective; current
+1.5s checks run after product acquisition and evidence without timestamp renewal.
+Four focused and40 affected cases pass. The retained12.409s first-Open refusal
+and successful negative cleanup remain historical whole evidence; no new full
+capability is advertised. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

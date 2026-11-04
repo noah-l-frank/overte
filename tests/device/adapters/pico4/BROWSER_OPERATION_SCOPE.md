@@ -260,3 +260,23 @@ independent original first. A lost first observation is never retried; changed
 poll policy refuses before either source. Default and measured-baseline behavior
 remain unchanged.3 focused cases pass0.500s/30 stable;27 affected module, peer,
 polling and measured-Graphics cases pass2.220s/92 stable. Whole remains open.
+
+
+## Receipt history and current independent evidence
+
+The first cold-owner run remains RED12.409s after a successful initial baseline
+and first normal Open. Multiple new actor journal entries were fresh when
+received; an older entry became historical during the actual Primary source
+read (two open source frames cost0.451/0.460s). The original1.5s guard refused.
+Cleanup and negative Common consumption completed; no full success followed.
+
+The explicit Pico path now freezes the actual receipt's host/epoch anchors and
+complete content. Every entry still receives original receipt-time schema,
+order, identity, age and fact validation, including all contradictions. Those
+older entries are historical constraints; only the LAST new original may
+qualify the current pair. Its unchanged captured timestamp is checked against
+current epoch and original host elapsed time after product acquisition AND after
+evidence. A stale last entry, stale initial receipt, cursor mutation or clock
+violation refuses; no receipt timestamp or source anchor is renewed. Default
+legacy current-clock validation is unchanged.4 focused cases pass0.073s/31
+stable and40 affected cases pass3.994s/238 stable. Whole remains unqualified.

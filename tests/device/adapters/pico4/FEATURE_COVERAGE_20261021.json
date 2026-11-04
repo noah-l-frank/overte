@@ -1282,6 +1282,18 @@
         "affectedSeconds": 2.22,
         "affectedLoadedSources": 92,
         "scope": "Explicit Pico Common performs one genuine unpaired baseline candidate using existing original observation/owner preparation. Candidate grants no peer/quiet success; later qualified samples still acquire new independent originals first. Unknown first source is not retried; policy mutation refuses before either source. Existing measured-baseline/default paths retained.",
+        "wholeQualified": false,
+        "currentWhole": "RED12.409s after initial baseline and first open: old new journal entries were fresh at receipt but stale after actualPrimary acquisition. Cleanup/negative Common consumption completes. Primary open frames0.451/0.460s; original1.5 guard not extended."
+      },
+      "independentReceiptHistoryPrerequisite": {
+        "selector": "browser-witness-receipt",
+        "rootCases": 4,
+        "rootSeconds": 0.073,
+        "rootLoadedSources": 31,
+        "affectedCases": 40,
+        "affectedSeconds": 3.994,
+        "affectedLoadedSources": 238,
+        "scope": "Immutable actual journal receipt and its original host/epoch anchors preserve history validation and all contradictions. Only the latest new original can qualify the current pair; current1.5 freshness is checked after actual product acquisition and after evidence. Cursor changes during product work refuse. Default legacy clock/validation path unchanged.",
         "wholeQualified": false
       }
     },

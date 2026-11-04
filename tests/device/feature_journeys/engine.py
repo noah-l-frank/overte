@@ -123,14 +123,14 @@ class Journey:
         self.sequence, self.last_epoch = value['sequence'], captured
         return value
 
-    def observed_witness(self, ticket, barrier, expected, *, original=None, consume=True):
+    def observed_witness(self, ticket, barrier, expected, *, original=None, consume=True, receipt_epoch=None):
         if type(consume) is not bool:raise ValueError('Invalid independent journal cursor policy')
         value = self.witness() if original is None else original
         exact(value, {'schemaVersion', 'runId', 'area', 'ticket', 'sampleEpochMs', 'entries'}, 'independent journal')
         if (type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
                 or value['runId'] != self.run or value['area'] != self.area or value['ticket'] != ticket):
             raise ValueError('Independent journal belongs to a foreign run, area or ticket')
-        epoch = number(self.epoch_ms(), 1)
+        epoch = number(self.epoch_ms(), 1) if receipt_epoch is None else number(receipt_epoch,1)
         captured = number(value['sampleEpochMs'], 1)
         if captured < barrier or captured > epoch + 250 or epoch - captured > 1500:
             raise ValueError('Independent journal snapshot is stale')
@@ -178,6 +178,12 @@ class Journey:
         return (now-started<=1.5 and captured<=epoch+250
             and max(epoch-captured,requested-captured+math.ceil((now-started)*1000))<=1500)
 
+    def poll_witness_current(self,witness,original):
+        _raw,received,epoch_at_receipt,cursor=original
+        now=self.now();epoch=number(self.epoch_ms(),1);captured=witness['capturedEpochMs']
+        return (now>=received and captured<=epoch+250
+            and max(epoch-captured,epoch_at_receipt-captured+math.ceil((now-received)*1000))<=1500)
+
     def poll_independent_witness(self,deadline,ticket,barrier,expected):
         # Await an actual NEW peer original BEFORE acquiring another Primary
         # original. Select any valid new publication, including contradictions;
@@ -185,14 +191,17 @@ class Journey:
         while True:
             if self.now()>=deadline:raise AssertionError('Independent journal exceeded original checkpoint deadline')
             original=self.witness()
-            _okay,witness=self.observed_witness(ticket,barrier,expected,original=original,consume=False)
+            received=self.now();epoch_at_receipt=number(self.epoch_ms(),1)
+            cursor=(self.witness_sequence,self.last_actor_sequence,self.last_actor_epoch)
+            _okay,witness=self.observed_witness(ticket,barrier,expected,original=original,consume=False,
+                receipt_epoch=epoch_at_receipt)
             if witness is not None:
                 # Keep the received original immutable through product callbacks.
                 # Full ownership/order/freshness/facts are checked again AFTER
                 # the actual product read; a preview grants no cursor progress.
                 raw=json.dumps(original,sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')
                 if len(raw)>16*1024*1024:raise ValueError('Independent journal original exceeds existing raw bound')
-                return raw
+                return raw,received,epoch_at_receipt,cursor
             if self.now()>=deadline:raise AssertionError('Independent journal exceeded original checkpoint deadline')
             self.sleep(.025)
 
@@ -436,9 +445,15 @@ class Journey:
                     # cannot pass with a still-old secondary document.
                     peer_expected['documentLoads']=value['state']['documentLoads']
                 if work_inclusive:
+                    if witness_original[3]!=(self.witness_sequence,self.last_actor_sequence,self.last_actor_epoch):
+                        raise ValueError('Independent journal cursor changed during product acquisition')
+                    # Older entries were actual fresh observations at receipt,
+                    # and remain historical constraints, including contradictions.
+                    # Only the LAST new original may qualify this current pair.
                     peer_okay,witness=self.observed_witness(ticket,barrier,peer_expected,
-                        original=json.loads(witness_original))
-                    witness_original=None
+                        original=json.loads(witness_original[0]),receipt_epoch=witness_original[2])
+                    if not self.poll_witness_current(witness,witness_original):
+                        raise ValueError('Independent actor observation is stale')
                 else:peer_okay, witness = self.observed_witness(ticket, barrier, peer_expected)
                 okay = okay and peer_okay
             details, subject = [], None
@@ -450,6 +465,8 @@ class Journey:
             # Fixture, peer and artifact I/O also consume the existing checkpoint
             # budget. A late final source read cannot turn an old sample green.
             if work_inclusive:okay=okay and self.poll_original_current(value,poll_started,poll_requested)
+            if work_inclusive and witness is not None:okay=okay and self.poll_witness_current(witness,witness_original)
+            witness_original=None
             current=self.now()
             if current>=deadline:raise AssertionError('Common '+self.area+' '+label+': source/evidence exceeded the checkpoint deadline; '+last_problem)
             self.samples.append(dict(phase=label, ticket=ticket, actionBarrierEpochMs=barrier, sequence=value['sequence'], capturedEpochMs=value['capturedEpochMs'],
