@@ -90,6 +90,14 @@ class IOSChatDraftRuntime(IOSScriptRuntime):
         return IOSChatSendOperation(receive,lambda:self.draft_owner(selector,run,root,client,
             **options),sender_role=sender_role)
 
+    def _chat_offline_send_operation(self,selector,run,root,client,receive,*,peer_receipts=None,qml_bound=False):
+        # Existing canonical factory validates the actual pair, run, root,
+        # original locks and source/QML profile before constructing anything.
+        base=self._chat_send_operation(selector,run,root,client,receive,
+            sender_role='primary',peer_receipts=peer_receipts,qml_bound=qml_bound)
+        from ios.adapters.chat_offline_send_operation import IOSChatOfflineSendOperation
+        return IOSChatOfflineSendOperation(base.receive,base.draft_owner,sleep=time.sleep)
+
     def _chat_receive_components(self,primary_selector,peer_selector,run,primary_root,peer_root,primary_lock,peer_lock):
         from ios.adapters.chat_receive_runtime import receive_components
         return receive_components(self,primary_selector,peer_selector,run,primary_root,peer_root,primary_lock,peer_lock)

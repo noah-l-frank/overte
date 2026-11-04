@@ -70,6 +70,11 @@ no deferred replay, exact restoration for all admitted profiles and actual nativ
 callback/source/process/SDK retirement. Native compilation and devices remain
 unverified; none of these host cases changes the completed feature count.
 
+The additive [offline Send and no-replay component](CHAT_OFFLINE_SEND.md) now
+uses the same ordinary Send journal with separate historical local-only and
+restored-mixer observations. It preserves the connected delivery validator and
+does not establish complete Chat or current Domain continuity.
+
 The same normal owner now also has a connected production-script boundary.
 `chat_message_script_domain` loads the actual repository `armored_chat.js`
 once in a separate Node process with the declared iOS tablet environment.
