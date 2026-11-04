@@ -2443,6 +2443,16 @@
         "currentWhole": "RED21.888s/169 stable: original Background.fresh1500ms before Pending preparation; original one-second quiet gaps exceeded. No full Pending3, Source8 or independent Actor qualification.",
         "nativeCompiled": false,
         "devicesTested": false
+      },
+      "sameInvocationReturnedSeed": {
+        "selector": "lifecycle-returned-seed",
+        "rootCases": 2,
+        "rootSeconds": 4.807,
+        "rootLoadedSources": 159,
+        "scope": "BG5 only: retain actual first returned capture once within same invocation; recovery acquires a new original. No renewed clocks or changed quiet/source quotas. Method control removes six actual reads and22143 stored bytes.",
+        "currentWhole": "RED22.416s/169 stable at original1500ms before Pending3; original1s quiet continuity still unmet.",
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     }
   ],

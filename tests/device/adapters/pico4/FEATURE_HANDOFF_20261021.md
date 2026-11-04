@@ -4020,3 +4020,12 @@ the original1500ms fence before Pending3 preparation. This is source-partial
 work, with no new complete capability. See
 [LIFECYCLE_PENDING3_STORAGE.md](LIFECYCLE_PENDING3_STORAGE.md) for exact scope,
 actual FD reuse, model boundaries and retained failure evidence.
+
+
+Background5 now consumes its actual first returned row once in the same
+invocation. Recovery still acquires a new original and starts a fresh quiet
+window. Root passed2 focused cases in4.807s/159 stable. The method control
+removes6 actual reads and22143 stored bytes, but the changed born flow remains
+RED22.416s at the original1500ms fence before Pending3. No capability promotion
+or original clock/byte/part limit change follows. See
+[LIFECYCLE_PENDING3_STORAGE.md](LIFECYCLE_PENDING3_STORAGE.md).

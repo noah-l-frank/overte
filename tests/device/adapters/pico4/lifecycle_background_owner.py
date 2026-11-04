@@ -323,7 +323,7 @@ class PicoLifecycleBackground:
     def run_owned(self):
         try:
             with self.lock.held():
-                self.load();need(self.state is not None)
+                self.load();need(self.state is not None);returned_seed=None
                 if self.state['phase']=='prepared':
                     _world,observer,_native=self.live();self.phase('arm-issued');observer.arm(self.run);self.remember(observer)
                 if self.state['phase']=='arm-issued':
@@ -362,12 +362,19 @@ class PicoLifecycleBackground:
                     foreground=self.wait_status(True);proof.status(foreground,self.binding,True)
                     state=deepcopy(self.state);state['foreground']=foreground;self.save(state)
                     row=self.capture();state=deepcopy(self.state);state.update(phase='returned',quiet=[row]);self.save(state);self.fresh()
+                    if self.version==5:returned_seed=(row,self.fresh_anchor)
                 if self.state['phase']=='returned':
                     # A fresh quiet window is required on recovery; historic
                     # host monotonic values cannot bridge a new acquisition.
                     rows=[];window=None
                     for index in range(25):
-                        row=self.capture();capture_start=self.fresh_anchor[0] if self.version in (4,5) else None
+                        if returned_seed is None:row=self.capture()
+                        else:
+                            # Only this invocation's actual returned capture;
+                            # recovery begins with no seed or historic window.
+                            row,anchor=returned_seed;returned_seed=None
+                            need(self.version==5 and self.fresh_anchor is anchor)
+                        capture_start=self.fresh_anchor[0] if self.version in (4,5) else None
                         packets=self.packet(row)
                         if window is None:window=drive.AvatarReleaseWindow(drive.AvatarDisplacement(packets['drive']))
                         rows.append(row);complete=window.observe(packets['drive'],row['hostMonotonic'])

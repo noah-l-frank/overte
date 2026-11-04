@@ -83,3 +83,17 @@ The affected current State5 warm-signature eight, Background5 nine and real mail
 Root independently re-executed the disjoint new signature8, mailbox2 and close8
 cases together:18 GREEN in16.895s with166 loaded sources unchanged and no
 120-second expiry. This does not replace the retained born-flow RED result.
+
+## Same-invocation returned-row seed
+
+Only layout5 uses the actual first returned capture as the first row of the same invocation's quiet window. The row and its exact original freshness-anchor tuple remain bound; its host timestamp is not renewed. Processing consumes the seed once, retains the existing 25-row bound and calls the original poll-delay calculation from the original capture start. A new invocation entering `returned` has no seed and must acquire a new original. Historical journal rows cannot bridge a recovered quiet window.
+
+The two focused counters passed in **5.684 s / 159 unchanged loaded sources**: normal first-public-packet identity plus genuine new recovery capture with unchanged OS inputs, and a two-second post-CAS delay refusing before a public packet or further raw query. Twelve affected existing Background5/default-normal/lost-resume/quiet-gap cases passed in the earlier 14-case group whose two new test spies initially miscounted internal materialized validation calls. That first group is not labeled GREEN14. The spies now delegate `_plain5` validation unchanged and only count the public quiet-window packet.
+
+A private exact archived-method control and current-method component comparison stopped at the first public window packet. Old two captures/21 originals became one capture/15 originals. Actual literal bytes fell from 57,914 to 38,012 and stored archive bytes from 66,886 to 44,743. The original source host timestamp and all three capture-anchor values were identical; both performed the same two normal OS inputs. Component time was 1.482 s versus 1.206 s. This demonstrates one genuine future six-read group removed, with no acquired original discarded; it does not qualify the born-host whole flow.
+
+The one materially changed born-host flow still refused at the original 1500 ms fence: **RED22.416 s / 169 unchanged loaded sources**, original 120 s unexpired, before Pending preparation. Its first returned row is now included, but subsequent quiet gaps of 0.979, 0.845, 0.944 and 1.037 seconds still interrupt the original one-second continuity before three seconds mature. The retained bank contains 69 originals/nine parts/555,585 literal bytes; namespace decoded bytes are 3,144,931 and retained metadata is 1,662,747. No unchanged whole retry is qualified.
+
+Root independently passed the two actual same-invocation/recovery/expired-anchor
+counters in4.807s with159 loaded sources unchanged. The normal seed is never
+a persisted recovery authority; default routes retain their original behavior.
