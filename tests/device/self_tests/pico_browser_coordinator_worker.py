@@ -249,7 +249,13 @@ def parent():
             monotonic=parent_clock.now,epoch_ms=parent_clock.epoch,sleep=parent_clock.sleep,
             report=reports.append,after_cleanup_baseline=export.callback,input_context=input_context,
             poll_work_inclusive=True)
-        export.attach(journey);journey.execute()
+        from self_tests.pico_browser_poll_diagnostic import PollReturns
+        diagnosis=PollReturns(Journey)
+        export.attach(journey)
+        try:
+            with diagnosis:journey.execute()
+        finally:
+            (ROOT/'poll-return-decisions.json').write_text(json.dumps(diagnosis.rows))
         assert export.complete and reports[-1]['sequenceCompleted'] and len(journey.phases)==28
         fixture_close_started=True;client.close();client=None
         call('actor.return');final=call('finalize');assert final['sequenceCompleted'] and final['hostReleased']

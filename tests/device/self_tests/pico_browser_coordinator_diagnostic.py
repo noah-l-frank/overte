@@ -1,4 +1,4 @@
-"""Explicit whole-run diagnostic, currently RED at Actor6 retirement/return.
+"""Explicit whole-run diagnostic; no default green catalog admission.
 
 Run this module explicitly; it is not a default green catalog/unit selection.
 Candidate/VR sources are declared host models, never actual device automation.
@@ -12,6 +12,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
+from feature_journeys.engine import Journey
+from self_tests.pico_browser_poll_diagnostic import PollReturns
 
 ENTRY=Path(__file__).with_name('pico_browser_coordinator_worker.py').resolve()
 
@@ -40,6 +43,68 @@ class BrowserCoordinatorTests(unittest.TestCase):
             source=json.loads((root/(name+'-sources.json')).read_text())
             self.assertEqual([],source['changed']);self.assertEqual(source['before'],source['after'])
         self.assertFalse(Path(f'/proc/{p.pid}').exists())
+
+
+class BrowserPollReturnTests(unittest.TestCase):
+    def test_original_historical_peer_contradiction_remains_false(self):
+        from self_tests.test_pico_browser_witness_receipt import BrowserWitnessReceiptTests
+        fixture=BrowserWitnessReceiptTests();fixture.setup_wait(old_bad=True)
+        with PollReturns(Journey) as diagnosis:
+            fixture.fixture.wait(kinds=('peer',))
+        consumed=[row for row in diagnosis.rows if row['check']=='observed_witness' and row['consume']]
+        self.assertFalse(consumed[0]['okay'])
+        self.assertEqual(2,consumed[0]['newCount'])
+        self.assertTrue(all(row['okay'] for row in consumed[1:]))
+        self.assertEqual(3,fixture.journey.phases[-1]['advancingSamples'])
+
+    def test_actual_peer_preview_and_consumption_are_only_observed(self):
+        from self_tests.test_pico_browser_poll_period import BrowserPollPeriodTests
+        fixture=BrowserPollPeriodTests();fixture.setup_wait()
+        with PollReturns(Journey) as diagnosis:
+            fixture.wait(kinds=('peer',))
+        rows=[row for row in diagnosis.rows if row['check']=='observed_witness']
+        self.assertTrue(any(not row['consume'] for row in rows))
+        self.assertTrue(any(row['consume'] for row in rows))
+        self.assertTrue(all(row['newCount']==1 and row['okay'] for row in rows))
+        self.assertEqual(3,fixture.journey.phases[-1]['advancingSamples'])
+
+    def owner(self, now=2., epoch=2000):
+        calls=[]
+        owner=SimpleNamespace(samples=[],now=lambda:(calls.append('host') or now),
+            epoch_ms=lambda:(calls.append('epoch') or epoch))
+        return owner,calls
+
+    def test_original_true_false_and_exact_original_clock_calls_are_preserved(self):
+        owner,calls=self.owner()
+        with PollReturns(Journey) as diagnosis:
+            self.assertTrue(Journey.poll_original_current(owner,dict(sequence=1,capturedEpochMs=1800),1.8,1800))
+            self.assertFalse(Journey.poll_original_current(owner,dict(sequence=2,capturedEpochMs=1800),0.,0))
+        self.assertEqual(['host','epoch']*2,calls)
+        self.assertEqual([True,False],[row['okay'] for row in diagnosis.rows])
+        self.assertEqual([1,2],[row['sequence'] for row in diagnosis.rows])
+        self.assertIsNone(diagnosis.tool)
+
+    def test_same_received_peer_retains_real_age_and_no_extra_clock_read(self):
+        owner,calls=self.owner()
+        witness=dict(ticket='a'*32,sequence=3,actorSequence=9,capturedEpochMs=200)
+        original=(b'original',.2,200,(0,0,0))
+        with PollReturns(Journey) as diagnosis:
+            self.assertFalse(Journey.poll_witness_current(owner,witness,original))
+        self.assertEqual(['host','epoch'],calls)
+        self.assertEqual((200,.2,200,False),tuple(diagnosis.rows[0][key] for key in
+            ('captured','received','epochAtReceipt','okay')))
+
+    def test_owned_tool_is_released_on_original_exception_without_changing_function(self):
+        code=Journey.poll_original_current.__code__
+        diagnosis=PollReturns(Journey)
+        with self.assertRaisesRegex(ValueError,'original clock failure'):
+            with diagnosis:
+                tool=diagnosis.tool
+                owner=SimpleNamespace(now=lambda:(_ for _ in ()).throw(ValueError('original clock failure')))
+                Journey.poll_original_current(owner,{},0,0)
+        self.assertEqual([],diagnosis.rows)
+        self.assertIsNone(sys.monitoring.get_tool(tool))
+        self.assertIs(code,Journey.poll_original_current.__code__)
 
 
 if __name__=='__main__':unittest.main()

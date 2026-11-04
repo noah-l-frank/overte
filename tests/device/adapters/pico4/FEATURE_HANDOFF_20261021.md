@@ -17,6 +17,15 @@ native components and original production bodies now compile and pass host
 checks; the full application/APK and every device remain unqualified. See the
 [current build and integration record](BUILD_VERIFICATION_20261022.md).
 
+The latest Browser capture-poll whole is RED98.545s at normalstep24; the prior
+114.764s scope reached all26 acts, all28 Common phases and Actor return before
+the capture-retirement cadence refusal. Neither establishes final host release.
+The explicit diagnostic now passively records ORIGINAL peer/freshness return
+decisions without extra clock/source calls or predicate replacement. Five
+focused cases pass0.034s/33 stable sources. See the
+[exact Browser scope](BROWSER_OPERATION_SCOPE.md#passive-original-poll-return-diagnostics).
+The catalog remains439 groups and source-complete areas remain3/14.
+
 The 2026-11-02 continuation adds the private
 [World consumption readout](WORLD_CURRENT_CONSUMPTION_READOUT.md), with17
 no-build owning cases and original pre-send/outer-exit time fences. Its native

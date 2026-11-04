@@ -423,3 +423,31 @@ sleep refusal. Fourteen current source/absence/cadence/unknown cases pass
 retry. Three separate-process return/foreign-PNG/unknown-query cases pass
 17.067s/209 stable. Model work is declared; actual changed whole remains a
 separate integration result.
+
+## Passive original poll-return diagnostics
+
+The changed capture-poll whole is retained RED98.545s at step24,
+`return-from-inline`, under its original20s source/evidence checkpoint.
+Parent190/child268 loaded source SHA/eight stats are unchanged; Actor shutdown
+has no loaded-after manifest. All2322 before-pinned repository Python files
+are unchanged at terminal before the next edit. Negative cleanup and original
+Common consumption complete, but the normal sequence does not. The earlier
+114.764s scope reached all28 phases; neither scope is full qualification.
+
+The explicit host-only coordinator diagnostic now records local Python
+`PY_RETURN` events for the ORIGINAL `observed_witness`,
+`poll_original_current` and `poll_witness_current` functions. It stores only
+returned decisions and already acquired scalar frame locals, including actual
+clock values. It never calls a clock, source, producer, artifact or predicate,
+replaces an original method, filters a contradiction or changes a decision.
+It claims only an unused monitoring tool ID, enables events only on those
+three code objects, bounds its event list and releases its own registrations
+on original success or failure. Diagnostic output is written outside the
+product namespace after the actual Journey returns or unwinds.
+
+Five focused cases pass0.034s/33 stable loaded sources: unchanged true/false
+freshness results and clock call counts, actual peer preview/consumption,
+preserved historical contradiction, original peer age, and original exception
+with tool release. The diagnostic remains outside default green catalog groups.
+A subsequent single diagnostic run must identify the actual step24 refusal;
+its additional observability does not qualify a runtime optimization or device.
