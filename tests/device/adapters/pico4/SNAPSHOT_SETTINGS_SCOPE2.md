@@ -92,7 +92,7 @@ it is not a whole-run saving. Eight actual warm-namespace/file/identity/capacity
 counterexamples pass, alongside the 16 existing Source2 cases. Saturation and
 retained-memory stress are declared Host preconditions, not Native effects.
 
-The material changed normal-Close diagnostic remains **RED at 83.255 seconds**
+The earlier numeric-only normal-Close diagnostic is retained **RED at 83.255 seconds**
 under the original 120-second watchdog, with all 266 loaded source hashes and
 eight-field stamps unchanged. Its original exception chain now identifies the
 actual Host 1.5-second refusal at `reserve_read`'s final `fresh`, after the
@@ -134,7 +134,24 @@ unchanged2097152 reservation. It supplies no Native/effect/Actor fact. A separat
 complete historical-method comparison over411 retained originals and identical
 declared graph costs improves1.35395s to1.21417s (three cold passes per algorithm).
 This grants no live known-owner/phase/host authority or real1.5s timing proof.
-The earlier83.255s Closed refusal before the third send remains current whole
-evidence. Full-batch/256KiB admission refusals,128KiB duplicate-footer no-gain,
+The numeric-only83.255s and groups-only84.624s pre-send refusals remain
+historical evidence. The later scalar-epoch result is recorded below. Full-batch/256KiB admission refusals,128KiB duplicate-footer
+no-gain,
 and foreign-JSON/class-descriptor failures remain separately retained. No wire
 format, Binder, Native endpoint, restoration claim or capability is changed.
+
+### Scalar-epoch normal Close: later final-age refusal
+
+On source epoch `bcb1a8d90a`, the one materially changed continuous Source2
+component remains **RED86.593s** (87.629s outer, original120s). All three actual
+adapter queries returned and were accepted; the baseline observation and the
+settings Close checkpoint with both bookends were committed. The last original
+Host1.5s check still refused in `final_actual_fence` after the outer lock release
+and fresh original-file verification. Its first failed inner guard is line64,
+after `self.bound()`. No numeric overrun amount was captured. This is later than
+the historical pre-send refusals, but grants no final Closed success.
+
+All266 loaded source SHA/eight-field pins and HEAD stayed unchanged;486 original
+files, the complete exception chain and actual child exit/absence were retained.
+Native/Qt/SDK producers remain models. Settings restoration and complete Snapshot
+qualification remain false; no unchanged whole retry or relaxed clock follows.
