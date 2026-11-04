@@ -76,6 +76,32 @@ inner guard/age cause remains under diagnosis; this is not a successful closed
 Scope2 transaction. Earlier diagnostics and their exact source epochs remain
 retained separately.
 
+The Source2 namespace now retains only immutable numerical expansion costs for
+freshly verified complete file bytes. Every hit still performs the original
+typed-owner/manifest, full-byte/OFD/eight-stat, strict canonical JSON, current
+graph and final namespace checks. Names/SHA/byte extents bind each contribution;
+no parsed DTO or source verdict survives. The same global bill includes 4,096
+fixed metadata bytes and 768 bytes before each next entry, at most 512 entries.
+A full table takes the original unpack path without resetting its budget.
+
+An exact historical inner-method comparison on 412 retained files reduced the
+warm median from 732.185 ms to 37.725 ms, with identical 4,469,700 expanded bytes
+and 37,578-byte peak. Cold admission took 764.867 ms. This excludes warm-owner
+traversal, current retained graphs, root CAS and the complete namespace verdict;
+it is not a whole-run saving. Eight actual warm-namespace/file/identity/capacity
+counterexamples pass, alongside the 16 existing Source2 cases. Saturation and
+retained-memory stress are declared Host preconditions, not Native effects.
+
+The material changed normal-Close diagnostic remains **RED at 83.255 seconds**
+under the original 120-second watchdog, with all 266 loaded source hashes and
+eight-field stamps unchanged. Its original exception chain now identifies the
+actual Host 1.5-second refusal at `reserve_read`'s final `fresh`, after the
+namespace bill and reservation CAS and before the third Native send/getter.
+The third query is issued with zero acquired originals; the previous two remain
+returned. Later normal-flow histories are cold at this first Closed observation,
+so the warm method result does not solve that actual admission. No unchanged
+whole retry, wider clock, capacity increase or restored-settings claim follows.
+
 `settingsRestored`, complete common-v16 Snapshot journey (18 checkpoints), OS chooser/receiver, independent Actor,
 full retirement and device qualification remain false. The next distinct
 native lease must retain its own exact pre-input originals, original Manager

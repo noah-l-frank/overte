@@ -24,16 +24,98 @@ from adapters.script_journey.history import canonical,unpack,MAX_FRAMES,MAX_RAW
 UNRESOLVED=[]
 
 
+class _SnapshotPackedCosts:
+    SLOTS=512
+    SLOT_BYTES=768
+    FIXED_BYTES=4096
+    def __init__(self,functions,constants):
+        need(type(functions) is tuple and type(constants) is tuple
+            and all(callable(fn) for fn in functions) and all(type(value) is int for value in constants))
+        self.functions=self._functions=functions
+        self.codes=self._codes=tuple(getattr(fn,'__code__',None) for fn in functions)
+        self.constants=self._constants=constants
+        self.rows=self._rows=();self.pending=self._pending=None
+        self.failed=False;self.hits=self.misses=0
+
+    def guard(self,functions,constants):
+        need(self.failed is False and self.functions is self._functions and self.codes is self._codes
+            and self.constants is self._constants and type(functions) is tuple and len(functions)==len(self.functions)
+            and all(a is b for a,b in zip(functions,self.functions))
+            and all(getattr(fn,'__code__',None) is code for fn,code in zip(functions,self.codes))
+            and type(constants) is tuple and all(type(value) is int for value in constants) and constants==self.constants)
+        need(self.rows is self._rows and type(self.rows) is tuple and self.pending is self._pending
+            and len(self.rows)+(self.pending is not None)<=self.SLOTS)
+        need(type(self.SLOTS) is int and self.SLOTS==512 and type(self.SLOT_BYTES) is int and self.SLOT_BYTES==768 and type(self.FIXED_BYTES) is int and self.FIXED_BYTES==4096)
+        if self.pending is not None:
+            need(type(self.pending) is tuple and len(self.pending)==2 and type(self.pending[1]) is object)
+            self.key(self.pending[0])
+
+    @staticmethod
+    def key(key):
+        need(type(key) is tuple and len(key)==3 and type(key[0]) is str and 0<len(key[0])<=128
+            and re.fullmatch('[A-Za-z0-9_.-]{1,128}',key[0]) and type(key[1]) is str and re.fullmatch('[0-9a-f]{64}',key[1])
+            and integer(key[2],1,65536))
+
+    def metadata_bytes(self):
+        need(self.rows is self._rows and self.pending is self._pending)
+        return self.FIXED_BYTES+self.SLOT_BYTES*(len(self.rows)+(self.pending is not None))
+
+    def lookup(self,key):
+        self.key(key);need(self.pending is None)
+        for row in self.rows:
+            if row[:3]==key:self.hits+=1;return row[3:]
+        return None
+
+    def next_metadata_bytes(self):
+        need(self.pending is None)
+        return self.SLOT_BYTES if len(self.rows)<self.SLOTS else 0
+
+    def begin(self,key):
+        # Caller admits next_metadata_bytes in the SAME actual global bill
+        # BEFORE allocating this pending row. A full memo uses the old path.
+        self.key(key);need(self.pending is None)
+        if len(self.rows)>=self.SLOTS:return None
+        ticket=(key,object());self.pending=self._pending=ticket;return ticket
+
+    def finish(self,ticket,delta,largest):
+        need(self.pending is self._pending is ticket and type(ticket) is tuple and len(ticket)==2
+            and integer(delta,0,16777216) and integer(largest,0,delta))
+        self.key(ticket[0]);entry=(*ticket[0],delta,largest)
+        from adapters.pico4.lifecycle_namespace_bill import canonical_size
+        need(canonical_size(list(entry),256)<=256)
+        self.rows=self._rows=(*self.rows,entry)
+        self.pending=self._pending=None;self.misses+=1
+
+
+
 class SnapshotSettingsNamespaceBill:
     def __init__(self,raw):
         self.raw=self.original_raw=raw;self.lock=self.original_lock=raw.lock
         self.path=self.original_path=raw.path.parent;self.host=host_identity();self.thread=threading.get_ident()
+        self.costs=self.original_costs=_SnapshotPackedCosts(self.cost_functions(),self.cost_constants())
         self.directory=self.original_directory=object.__new__(OriginalDescriptor)
         self.windows=[];self.failed=False
         try:
             OriginalDescriptor.__init__(self.directory,self.path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
             self.resource()
         except BaseException:self.poison();raise
+
+    @staticmethod
+    def cost_functions():
+        # Actual used parser/length/decoder entrypoints, not a source verdict.
+        return (strict,canonical_size,unpack,canonical,integer,need,
+            strict.__globals__['json'].loads,canonical.__globals__['json'].dumps,
+            canonical_size.__globals__['re'].finditer,
+            unpack.__globals__['exact'],unpack.__globals__['integer'],unpack.__globals__['need'],
+            unpack.__globals__['json'].loads,unpack.__globals__['canonical'],
+            unpack.__globals__['base64'].b64decode,unpack.__globals__['base64'].b64encode,
+            unpack.__globals__['zlib'].decompressobj,unpack.__globals__['hashlib'].sha256,
+            unpack.__globals__['re'].fullmatch)
+
+    @staticmethod
+    def cost_constants():
+        return (MAX_RAW,MAX_FRAMES,unpack.__globals__['MAX_RAW'],
+            unpack.__globals__['MAX_FRAMES'],unpack.__globals__['MAX_PACKED'])
 
     def poison(self):
         self.failed=True
@@ -43,6 +125,8 @@ class SnapshotSettingsNamespaceBill:
         need(not self.failed and self.raw is self.original_raw and self.lock is self.original_lock
             and self.path is self.original_path and self.directory is self.original_directory
             and self.raw.path.parent==self.path and self.host==host_identity() and self.thread==threading.get_ident())
+        need(self.costs is self.original_costs and type(self.costs) is _SnapshotPackedCosts)
+        self.costs.guard(self.cost_functions(),self.cost_constants())
         self.lock.assert_held();require_directory(self.directory,self.path)
 
     def read(self,path,expected,physical,mutex=None):
@@ -154,7 +238,7 @@ class SnapshotSettingsNamespaceBill:
         ownership that those legacy writers never provided.
         """
         try:
-            self.resource()
+            self.resource();self.raw.codec.guard()
             named={}
             with os.scandir(self.path) as entries:
                 for index,entry in enumerate(entries):
@@ -173,15 +257,15 @@ class SnapshotSettingsNamespaceBill:
             # Two bounded copies cover the named JSON and its derived exact
             # expected bytes; all decoded graphs and prospective wire copies
             # are billed separately below.
-            need(2*stored+3*65536+2097152<=MAX_RAW)
+            need(2*stored+self.costs.metadata_bytes()+3*65536+2097152<=MAX_RAW)
             rows,parts,graphs=self.known(context);need(set(rows)==set(named) and parts<=MAX_FRAMES)
             expected=sum(len(row[1]) for row in rows.values());need(expected==stored)
             retained=sum(canonical_size(graph) for graph in graphs)
-            codec=self.raw.codec.metadata_bytes();held=self.raw.resource_bytes()
+            codec=self.raw.codec.metadata_bytes()+self.costs.metadata_bytes();held=self.raw.resource_bytes()
             need(2*stored+retained+codec+held+3*65536+2097152<=MAX_RAW)
-            expanded=0;largest=0
+            expanded=0;largest=0;entry_largest=0
             def expand(value):
-                nonlocal expanded,largest
+                nonlocal expanded,largest,entry_largest
                 if type(value) is dict:
                     if set(value)=={'encoding','bytes','sha256','data'}:
                         size=value['bytes'];need(integer(size,2,MAX_RAW))
@@ -190,7 +274,7 @@ class SnapshotSettingsNamespaceBill:
                             +codec+held+3*65536+2097152<=MAX_RAW)
                         self.raw.codec.guard();output=unpack(value);self.raw.codec.guard()
                         need(canonical_size(output)==size)
-                        expanded=prospective;largest=max(largest,size);expand(output)
+                        expanded=prospective;largest=max(largest,size);entry_largest=max(entry_largest,size);expand(output)
                     else:
                         for item in value.values():expand(item)
                 elif type(value) is list:
@@ -200,8 +284,21 @@ class SnapshotSettingsNamespaceBill:
                 if kind=='mutex':need(raw==b'' and actual_mutex is mutex);continue
                 value=strict(raw)
                 if kind=='chunk':need(type(value.get('chatSampleChunkVersion')) is int and value['chatSampleChunkVersion']==1)
-                expand(value)
-            self.resource()
+                key=(name,hashlib.sha256(raw).hexdigest(),len(raw))
+                found=self.costs.lookup(key)
+                if found is not None:
+                    delta,peak=found;prospective=expanded+delta
+                    need(2*stored+max(retained,2*prospective)+max(largest,peak)
+                        +codec+held+3*65536+2097152<=MAX_RAW)
+                    expanded=prospective;largest=max(largest,peak)
+                else:
+                    extra=self.costs.next_metadata_bytes()
+                    need(2*stored+max(retained,2*expanded)+largest
+                        +codec+extra+held+3*65536+2097152<=MAX_RAW)
+                    ticket=self.costs.begin(key);codec+=extra;start=expanded;entry_largest=0
+                    expand(value)
+                    if ticket is not None:self.costs.finish(ticket,expanded-start,entry_largest)
+            self.resource();self.raw.codec.guard()
             current=set()
             with os.scandir(self.path) as entries:
                 for index,entry in enumerate(entries):

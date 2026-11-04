@@ -1771,7 +1771,8 @@
         "android/vr/pico/tests/device/test_snapshot_settings_scope2.py",
         "android/vr/pico/tests/device/test_snapshot_settings_transport.py",
         "android/vr/pico/tests/device/test_snapshot_settings_probe.py",
-        "tests/device/adapters/pico4/SNAPSHOT_SETTINGS_SCOPE2.md"
+        "tests/device/adapters/pico4/SNAPSHOT_SETTINGS_SCOPE2.md",
+        "android/vr/pico/tests/device/test_snapshot_settings_numeric_costs.py"
       ],
       "declaredCheckpoints": 18,
       "inputVerbs": [
@@ -1821,7 +1822,7 @@
         "Delete only actual owned private/saved/received/uploaded originals",
         "Restore permissions/preferences and observe quiet absent leases"
       ],
-      "nextExecutableStep": "Explicit Source2 now captures fixed13 raw keys plus actual typed duration raw/cache before normal input, with durable binary return, fresh complete namespace windows and original real-age bounds. Its23 focused host cases pass; current continuous Source2 reaches same-session Close then refuses query3 after raw durability at82.325s, before acceptance. Diagnose that actual guard/age without renewed clocks or lost originals. Implement distinct native-owned original settings/cache/registration restoration, then real OS chooser/receiver, independent upload/Actor/stereo, true common-v16 whole journey and final global retirement. Preserve Source1 historical/default scope and its earlier successful continuous component. See SNAPSHOT_SETTINGS_SCOPE2.md; Phone initialized-baseline restoration is not a Pico restoration proof.",
+      "nextExecutableStep": "Current Source2 numeric memo component retains full actual bytes/OFD8/strictJSON/quota checks; changed normal Close83.255s now precisely refuses real1.5s after capacity/reservationCAS before third Native send. Most later histories are cold. Measure and bound actual cold namespace/known-graph/CAS work without renewing clocks or losing originals; a callback-free prebooked decoder batch is PRIVATE/unqualified. Native-owned original raw/cache/registration/writer restoration, real OS chooser/receiver, independent Actor/stereo and complete common-v16 journey/final retirement remain open. Historical82.325s post-durability refusal and Source1 successful component keep their original scopes.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested",
       "normalCloseComposition": "Current continuous pre-input lease/Cancel/Still/Save/offline+successful TLS Upload/Resume/return PNG/normal Mode+Format/Close/raw settings/3s quiet component passes1/99.130s under original120s,233 loaded sources stable. Original same Session/nonce/cursor retained. Strict passive Close source acquisition now avoids the open-only Upload effect predicate, which remains mandatory for ordinary Upload. Raw Settings/cache restoration, OS chooser/receiver, independent Actor/challenge pixels, whole Common16 and global retirement remain unqualified.",
@@ -1863,6 +1864,19 @@
         "settingsRestored": false,
         "nativeCompiled": false,
         "devicesTested": false
+      },
+      "numericCapacityPrerequisite": {
+        "selector": "snapshot-settings-numeric-costs",
+        "newCases": 8,
+        "scope": "Immutable numeric expansion contributions over same actual warm namespace, all fresh complete bytes/OFD8/strictJSON/typedowner/final checks and full decoded costs retained. Additional4096+768B per entry, at most512; full table uses original decoder. No decoded DTO or current verdict cached.",
+        "historicalMethod": "412 files:732.185ms original,37.725ms warm,764.867ms cold; same4469700expandedB/37578peak,319744B metadata. Histories largely cold at first Closed query, so warm timing does not qualify that endpoint.",
+        "currentNormalClose": "RED83.255s/266loadedSHA8 stable, original120 not expired. Original exception chain proves final real1.5s fresh refusal after namespace measure/reservationCAS, BEFORE third Native send/getter. Query3issued/0acquired originals, prior2returned. No Closed/restoration/fulljourney success.",
+        "settingsRestored": false,
+        "nativeCompiled": false,
+        "devicesTested": false,
+        "rootAffectedCases": 24,
+        "rootSeconds": 28.498,
+        "rootLoadedSources": 251
       }
     },
     {
