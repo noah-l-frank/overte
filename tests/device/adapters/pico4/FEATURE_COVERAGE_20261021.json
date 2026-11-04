@@ -1270,6 +1270,18 @@
         "affectedSeconds": 69.722,
         "affectedLoadedSources": 237,
         "scope": "Explicit Pico browser awaits any valid new actual independent original BEFORE product acquisition. Preview does not consume cursors or filter requested facts; immutable canonical received content is fully revalidated against the actual product sample afterward. Contradictions remain failures; stale/foreign errors propagate. No product sample ages during passive peer waiting. Original source1.5/checkpoint20/whole120/quiet/sample/archive limits retained; default behavior unchanged.",
+        "wholeQualified": false,
+        "currentWhole": "RED21.529s initial20s/0Productreads: lazy original owner must first be prepared by a genuine observation; original source/time caps intact."
+      },
+      "coldIndependentBootstrapPrerequisite": {
+        "selector": "browser-cold-peer",
+        "rootCases": 3,
+        "rootSeconds": 0.5,
+        "rootLoadedSources": 30,
+        "affectedCases": 27,
+        "affectedSeconds": 2.22,
+        "affectedLoadedSources": 92,
+        "scope": "Explicit Pico Common performs one genuine unpaired baseline candidate using existing original observation/owner preparation. Candidate grants no peer/quiet success; later qualified samples still acquire new independent originals first. Unknown first source is not retried; policy mutation refuses before either source. Existing measured-baseline/default paths retained.",
         "wholeQualified": false
       }
     },

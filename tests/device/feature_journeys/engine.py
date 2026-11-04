@@ -90,6 +90,11 @@ class Journey:
         request=None if kind!='act' else dict(contractVersion=VERSION,runId=self.run,**fields)
         return self.input_context(kind,request)
 
+    def poll_policy(self):
+        if type(self.poll_work_inclusive) is not bool or self.poll_work_inclusive is not self._poll_work_inclusive:
+            raise ValueError('Original feature polling policy changed')
+        return self.poll_work_inclusive
+
     def now(self):
         value = number(self.monotonic())
         if self.last_clock is not None and value < self.last_clock:
@@ -356,9 +361,7 @@ class Journey:
         for query in queries:self.navigation_stereo_queries[query]=pin
 
     def wait(self, label, ticket, barrier, expected, kinds, *, duration=0.5):
-        if type(self.poll_work_inclusive) is not bool or self.poll_work_inclusive is not self._poll_work_inclusive:
-            raise ValueError('Original feature polling policy changed')
-        work_inclusive=self.poll_work_inclusive
+        work_inclusive=self.poll_policy()
         consumption_start=len(self.samples)
         deadline = self.now() + 20
         stable_since = None
@@ -507,6 +510,7 @@ class Journey:
         self.after_cleanup_baseline(self.cleanup_consumption)
 
     def execute(self):
+        poll_work_inclusive=self.poll_policy()
         if self.cleanup_hook_started:
             raise ValueError('Consumed cleanup finalization cannot be replayed')
         self._cleanup_sequence_succeeded=False
@@ -525,12 +529,16 @@ class Journey:
             with self.input_scope('prepare'):
                 self.activate(initial)
                 barrier = number(self.epoch_ms(), 1)
-            if measured:
+            if measured or poll_work_inclusive and self.sequence==0:
                 candidate = self.observe(initial, barrier)
-                if not matches({key: candidate['state'][key] for key in expected_baseline if key not in measured},
-                               {key: value for key,value in expected_baseline.items() if key not in measured}):
-                    raise AssertionError('Original baseline contains a foreign open UI or unowned state')
-                expected_baseline.update({key: candidate['state'][key] for key in measured})
+                if measured:
+                    if not matches({key: candidate['state'][key] for key in expected_baseline if key not in measured},
+                                   {key: value for key,value in expected_baseline.items() if key not in measured}):
+                        raise AssertionError('Original baseline contains a foreign open UI or unowned state')
+                    expected_baseline.update({key: candidate['state'][key] for key in measured})
+                # The explicit browser owner is prepared lazily by its first
+                # original observation. This unpaired candidate cannot prove a
+                # checkpoint; qualified samples still await a new peer first.
                 self.samples.append(dict(phase='original-baseline-candidate',ticket=initial,
                     actionBarrierEpochMs=barrier,sequence=candidate['sequence'],capturedEpochMs=candidate['capturedEpochMs'],
                     state=candidate['state'],resources=candidate['resources'],lifecycle=candidate['lifecycle'],

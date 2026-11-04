@@ -4063,3 +4063,11 @@ actual product acquisition. No requested fact filters readiness, contradictory
 peers remain negative, and stale originals are not refreshed. Eight focused
 cases and121 affected cases pass; full coordinator/source/device claims remain
 open. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+Pico Common now bootstraps its lazy browser owner with one genuine unpaired
+original candidate before waiting for the first actor publication. That read
+cannot qualify baseline/peer/quiet success; unknown results are not retried.
+Three focused and27 affected cases pass. This fixes the concrete startup
+dependency of the retained RED21.529s run without raising clocks or source
+limits. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

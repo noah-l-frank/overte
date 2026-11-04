@@ -246,3 +246,17 @@ polling and born-clock cases pass69.722s/237 stable. Earlier after-product peer
 waiting was kept private and superseded before commit or whole execution. Its
 separate test receipts are not relabeled as the new before-product policy.
 A materially changed born-host coordinator remains to run.
+
+
+## Cold original owner bootstrap
+
+The first before-product peer run remains RED21.529s at the original20s baseline
+with zero product reads: the original browser owner is prepared lazily by the
+first actual observation, so its actor cannot publish earlier. The explicit
+Pico Common flow now performs one genuine unpaired original baseline candidate,
+using the existing measured-baseline candidate path. It cannot count as a
+qualified sample or peer/quiet success. Subsequent samples still acquire a new
+independent original first. A lost first observation is never retried; changed
+poll policy refuses before either source. Default and measured-baseline behavior
+remain unchanged.3 focused cases pass0.500s/30 stable;27 affected module, peer,
+polling and measured-Graphics cases pass2.220s/92 stable. Whole remains open.
