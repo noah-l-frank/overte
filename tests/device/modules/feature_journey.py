@@ -61,7 +61,8 @@ def main():
                 sleep=time.sleep, report=lambda value: write_json('feature-journey-observation.json', value),
                 navigation_source=client.navigation_status if args.area=='world-navigation' else None,
                 after_cleanup_baseline=None if browser is None else browser.export.callback,
-                input_context=None if browser is None else browser.input_context)
+                input_context=None if browser is None else browser.input_context,
+                poll_work_inclusive=browser is not None)
             if browser is not None:browser.export.attach(journey)
             journey.execute()
 

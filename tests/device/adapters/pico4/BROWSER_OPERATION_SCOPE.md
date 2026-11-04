@@ -170,3 +170,28 @@ original120s budget at121.260s observed completion. Source manifests remain
 stable; uncertainty and originals are retained. Complete Actor return/archive/
 host closure and the canonical candidate/router path remain open. Catalogue404
 adds only the two disjoint component selectors; complete areas remain3/14.
+
+
+## Common polling includes actual work in the explicit Pico scope
+
+The shared Journey adds optional `poll_work_inclusive=False`. The default keeps
+the existing fixed quarter-second pause. Only the original PicoBrowser module
+scope enables it; the matching coordinator diagnostic selects the same policy.
+The polling period includes actual source, peer, artifact and clock work and
+always yields at least25ms to the independently owned actor. The period is not
+a new source clock or an extension of any quiet/checkpoint/whole deadline.
+All original freshness, peer progress, minimum sample counts, three-second
+quiet windows, source/frame/archive limits and uncertain-input rules remain.
+
+Seven focused Common wait cases passed in0.092s/30 stable loaded sources. The
+actual module scope and100 affected default feature/evidence cases passed
+together in68.026s/91 stable loaded sources. These host timing models preserve
+their declared boundaries. The old actual transport contains157 product
+observations and129 fixed quarter-second sleeps (32.25s); it does not predict
+the new whole timing. A changed coordinator run remains required.
+
+Separate private historical probes found only narrow gains from conditional
+JSON type-check calls, DOM copy reduction and compression-level changes. None
+of those experiments was applied. The current cold historical Actor graph still
+costs3.888s over793 files/492 rows/160 VM frames; all original file hashes were
+unchanged, and no query/input was issued. This is not process-return authority.

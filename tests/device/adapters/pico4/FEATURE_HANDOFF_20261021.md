@@ -4029,3 +4029,10 @@ removes6 actual reads and22143 stored bytes, but the changed born flow remains
 RED22.416s at the original1500ms fence before Pending3. No capability promotion
 or original clock/byte/part limit change follows. See
 [LIFECYCLE_PENDING3_STORAGE.md](LIFECYCLE_PENDING3_STORAGE.md).
+
+
+The explicit PicoBrowser Common module now selects optional work-inclusive
+polling; default shared Journey behavior is preserved. Seven focused cases and
+100 affected Common/module/evidence cases pass, with no quiet/deadline/source
+limit change. A changed full coordinator proof remains required; completed
+areas stay3/14. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

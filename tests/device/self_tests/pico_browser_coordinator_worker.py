@@ -237,7 +237,8 @@ def parent():
             activate=client.activate,read_artifact=lambda name:read_private_artifact(artifacts,name),
             image_policy=dict(screen=policy),continuity=lambda *_args:None,
             monotonic=lambda:call('host'),epoch_ms=lambda:call('epoch'),sleep=lambda seconds:call('sleep',seconds),
-            report=reports.append,after_cleanup_baseline=export.callback,input_context=input_context)
+            report=reports.append,after_cleanup_baseline=export.callback,input_context=input_context,
+            poll_work_inclusive=True)
         export.attach(journey);journey.execute()
         assert export.complete and reports[-1]['sequenceCompleted'] and len(journey.phases)==28
         fixture_close_started=True;client.close();client=None

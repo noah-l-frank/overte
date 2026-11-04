@@ -1237,6 +1237,18 @@
         "originalMedianMilliseconds": 295.978,
         "currentMedianMilliseconds": 242.09,
         "scope": "Same complete geometry grammar over the once-decoded local literal of each input row; every next validation decodes current bytes again. Actual normal input/HTTP/file components use declared native/DOM producers. Historical cost probe preserves every byte/full-eight-stat and issues no queries or inputs. No cross-read cache, current-source or whole-coordinator qualification."
+      },
+      "commonPollPeriodPrerequisite": {
+        "selector": "browser-poll-period",
+        "rootCases": 7,
+        "rootSeconds": 0.092,
+        "rootLoadedSources": 30,
+        "affectedCases": 100,
+        "affectedSeconds": 68.026,
+        "affectedLoadedSources": 91,
+        "scope": "Explicit PicoBrowser module opts in to work-inclusive quarter-second polling with minimum25ms actor yield. Common source/peer/evidence work consumes the polling period. Default behavior, original checkpoint/whole/quiet/source predicates, sample and archive limits remain unchanged.",
+        "historicalOriginalTransport": "157 observations and129 fixed quarter sleeps (32.25s), not a prediction of whole speedup.",
+        "wholeQualified": false
       }
     },
     {

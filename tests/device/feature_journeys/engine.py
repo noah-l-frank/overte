@@ -32,7 +32,7 @@ def matches(actual, expected):
 class Journey:
     def __init__(self, area, run, fixture_url, *, invoke, witness, activate,
                  read_artifact, image_policy, continuity, monotonic, epoch_ms, sleep, report, navigation_source=None,
-                 after_cleanup_baseline=None,input_context=None):
+                 after_cleanup_baseline=None,input_context=None,poll_work_inclusive=False):
         if area not in SCENARIOS:
             raise ValueError('Unknown common feature area')
         self.area, self.run, self.url = area, identifier(run), fixture_url
@@ -78,6 +78,9 @@ class Journey:
         self._cleanup_sequence_succeeded=False
         if input_context is not None and not callable(input_context):raise ValueError('Feature input context must be callable')
         self.input_context=input_context
+        if type(poll_work_inclusive) is not bool or poll_work_inclusive and area!='tablet-web':
+            raise ValueError('Work-inclusive polling requires the explicit tablet browser journey')
+        self.poll_work_inclusive=self._poll_work_inclusive=poll_work_inclusive
 
     def input_scope(self,kind,fields=None):
         # Only normal input fields cross this optional seam. Expected recipe,
@@ -325,6 +328,9 @@ class Journey:
         for query in queries:self.navigation_stereo_queries[query]=pin
 
     def wait(self, label, ticket, barrier, expected, kinds, *, duration=0.5):
+        if type(self.poll_work_inclusive) is not bool or self.poll_work_inclusive is not self._poll_work_inclusive:
+            raise ValueError('Original feature polling policy changed')
+        work_inclusive=self.poll_work_inclusive
         consumption_start=len(self.samples)
         deadline = self.now() + 20
         stable_since = None
@@ -334,6 +340,7 @@ class Journey:
         actual_lifecycle=None
         release_position=None
         for _attempt in range(81):
+            poll_started=self.now() if work_inclusive else None
             value = self.observe(ticket, barrier)
             current = self.now()
             okay = matches(value['state'], expected)
@@ -427,9 +434,15 @@ class Journey:
                     return value
             else:
                 stable_since, stable_count, initial_effects = None, 0, None
-            if self.now() >= deadline:
+            poll_finished=self.now()
+            if poll_finished >= deadline:
                 break
-            self.sleep(0.25)
+            # Only the explicit Pico browser scope opts in. All actual source,
+            # peer, image and clock work consumes this original polling period.
+            # Keep a real yield to the independently owned actor; no quiet
+            # window, checkpoint deadline or source predicate is renewed.
+            delay=max(.025,.25-(poll_finished-poll_started)) if work_inclusive else .25
+            self.sleep(delay)
         raise AssertionError('Common ' + self.area + ' ' + label + ': ' + last_problem)
 
     def consumed_cleanup(self,ticket,barrier,samples_start):
