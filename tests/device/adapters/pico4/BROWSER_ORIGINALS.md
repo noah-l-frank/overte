@@ -299,3 +299,21 @@ after actual parent-FD closure. Private `browser-png-immutable-*20261024`
 records and separate before/after cost records preserve provenance. The
 previous full-run timeout and partial198-unlink state remain untouched;
 this packet does not claim a complete feature or justify an unchanged retry.
+
+## Single local geometry decode during input-history validation
+
+Each input-history row now passes its already decoded local geometry/focus
+original to the unchanged complete geometry grammar. The public raw reader
+still performs both JSON layers. Every subsequent validation decodes its own
+current literals again; no cross-read cache, source verdict or clock is reused.
+Duplicate fields, nonfinite values, changed geometry/document/focus and typed
+cursor aliases still refuse. Three focused counters and nine affected normal
+input/reveal cases pass, including the existing 26-step input/state component.
+
+On the same 493 retained historical files and 164 native packets, three passes
+reduce JSON decode calls from 32,190 to 16,818. Median complete native-packet
+validation changes from 295.978 to 242.090 ms. Every original byte and full
+eight-field stamp remains unchanged; no query or input executes in this cost
+probe. This narrow saving does not qualify the current failed whole coordinator
+run or justify an unchanged retry. Whole Browser and device acceptance remain
+unavailable.

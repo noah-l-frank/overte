@@ -156,6 +156,11 @@ def validate(value,request,pid,epoch):
 
 def geometry_original(raw,call,document,epoch,*,focused=False,visible=True):
     need(type(raw) is str);actual=decode(decode(raw))
+    return _geometry_value(actual,call,document,epoch,focused=focused,visible=visible)
+
+
+def _geometry_value(actual,call,document,epoch,*,focused=False,visible=True):
+    """Validate one already decoded local original; no cross-read cache."""
     exact(actual,{'webGeometryVersion','requestId','instance','sequence','capturedEpochMs','document','control','editor','viewport','rect','center','hit','enabled','connected'})
     need(type(actual['webGeometryVersion']) is int and actual['webGeometryVersion']==1 and actual['requestId']==call['commandId']
         and actual['control']==call['control'] and integer(actual['sequence'],1) and integer(actual['capturedEpochMs'],max(1,epoch-1500),epoch))
@@ -191,7 +196,7 @@ def input_history(rows,request,epoch,documents,*,version=VERSION):
             and all(call[key]==request[key] for key in ('action','runId','ownerToken','fixtureUrl'))
             and integer(row['issuedEpochMs'],max(1,previous),epoch))
         seen.add(call['commandId']);previous=row['issuedEpochMs'];stage=row['issuedEpochMs']
-        first_geometry=None
+        first_geometry=None;geometry_values={}
         for key in ('geometryRaw','focusRaw'):
             raw=row[key]
             if raw is None:continue
@@ -203,6 +208,7 @@ def input_history(rows,request,epoch,documents,*,version=VERSION):
             need(type(decoded) is str);actual=decode(decoded)
             if type(actual) is not dict:continue
             need(actual.get('requestId')==call['commandId'] and actual.get('control')==call['control'])
+            geometry_values[key]=actual
             if key=='geometryRaw':first_geometry=actual
             elif first_geometry is not None:
                 need(actual['instance']==first_geometry['instance'] and actual['sequence']>first_geometry['sequence'])
@@ -232,9 +238,9 @@ def input_history(rows,request,epoch,documents,*,version=VERSION):
             if done['status']=='ready':
                 need((wheel or row['pointerEpochMs'] is not None) and (call['control'] not in ('text','foreign') or row['imeEpochMs'] is not None))
                 key=':'.join(str(call[k]) for k in ('handle','creation','grant','page'));need(key in documents)
-                original=geometry_original(row['geometryRaw'],call,documents[key]['url'],row['wheelEpochMs'] if wheel else row['pointerEpochMs'])
+                original=_geometry_value(geometry_values.get('geometryRaw'),call,documents[key]['url'],row['wheelEpochMs'] if wheel else row['pointerEpochMs'])
                 if row['imeEpochMs'] is not None:
-                    focus=geometry_original(row['focusRaw'],call,documents[key]['url'],row['imeEpochMs'],focused=True)
+                    focus=_geometry_value(geometry_values.get('focusRaw'),call,documents[key]['url'],row['imeEpochMs'],focused=True)
                     need(focus['instance']==original['instance'] and focus['sequence']>original['sequence']
                         and focus['capturedEpochMs']>=row['pointerEpochMs']
                         and all(native[key]==focus['editor'][key] for key in ('text','cursor','anchor')))

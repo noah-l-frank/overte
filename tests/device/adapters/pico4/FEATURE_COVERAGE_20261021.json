@@ -1062,7 +1062,9 @@
         "tests/device/self_tests/test_chat_archive_directories.py",
         "tests/device/self_tests/test_chat_archive_directory_scale.py",
         "tests/device/self_tests/test_pico_browser_directory_archive.py",
-        "tests/device/adapters/pico4/BROWSER_DIRECTORY_ARCHIVE.md"
+        "tests/device/adapters/pico4/BROWSER_DIRECTORY_ARCHIVE.md",
+        "tests/device/self_tests/test_pico_browser_input_history.py",
+        "android/vr/pico/tests/device/test_browser_input_history.py"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -1162,6 +1164,23 @@
         "latestWholeResult": "RED at original120s during actor.return, Common complete",
         "canonicalCandidateRouter": false,
         "devicesTested": false
+      },
+      "localGeometryDecode": {
+        "selector": "browser-input-history",
+        "rootCases": 3,
+        "rootSeconds": 0.314,
+        "rootLoadedSources": 76,
+        "affectedCases": 9,
+        "affectedSeconds": 4.135,
+        "affectedLoadedSources": 107,
+        "historicalNativePackets": 164,
+        "historicalOriginalFiles": 493,
+        "historicalPassesPerVersion": 3,
+        "originalDecodeCalls": 32190,
+        "currentDecodeCalls": 16818,
+        "originalMedianMilliseconds": 295.978,
+        "currentMedianMilliseconds": 242.09,
+        "scope": "Same complete geometry grammar over the once-decoded local literal of each input row; every next validation decodes current bytes again. Actual normal input/HTTP/file components use declared native/DOM producers. Historical cost probe preserves every byte/full-eight-stat and issues no queries or inputs. No cross-read cache, current-source or whole-coordinator qualification."
       }
     },
     {
