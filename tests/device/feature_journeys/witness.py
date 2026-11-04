@@ -43,10 +43,13 @@ def projection(area, value):
 
 class Journal:
     """Bounded in-memory coordinator; persistence is private runner evidence only."""
-    def __init__(self, clock=None, *, snapshot_scene_samples=False):
+    def __init__(self, clock=None, *, snapshot_scene_samples=False, snapshot_actor_pixels=False):
         self.clock = clock or (lambda: time.time() * 1000)
         if type(snapshot_scene_samples)is not bool:raise ValueError('Explicit Snapshot scene sample opt-in required')
         self.snapshot_scene_samples=snapshot_scene_samples
+        if type(snapshot_actor_pixels)is not bool:raise ValueError('Explicit Actor PNG sample opt-in required')
+        if snapshot_scene_samples and snapshot_actor_pixels:raise ValueError('Choose exactly one explicit Snapshot Actor sample family')
+        self.snapshot_actor_pixels=snapshot_actor_pixels
         self.runs = {}
         self.phase_instance = secrets.token_hex(16)
         self.phase_sequence = 0
@@ -106,7 +109,11 @@ class Journal:
             captured = number(value['capturedEpochMs'], 1)
             if not row['activeEpochMs'] <= captured <= self.clock() + 250 or self.clock() - captured > 1500:
                 raise ValueError('Actor sample is stale or from the future')
-            if row['area']=='snapshots'and self.snapshot_scene_samples:
+            if row['area']=='snapshots'and self.snapshot_actor_pixels:
+                from .snapshot_actor_pixel_samples import facts
+                facts(value['facts'],captured=captured)
+                if seq!=value['facts']['witnessIndex']:raise ValueError('Actor PNG sequence must retain its real witness index')
+            elif row['area']=='snapshots'and self.snapshot_scene_samples:
                 from .snapshot_scene_samples import facts
                 facts(value['facts'],captured=captured)
                 if seq!=value['facts']['witnessIndex']:raise ValueError('Scene sample sequence must retain its real witness index')

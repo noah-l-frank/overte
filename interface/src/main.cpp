@@ -483,6 +483,7 @@ int main(int argc, const char* argv[]) {
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
     parser.addOption(QCommandLineOption("testSnapshotProvenance", "Observe ordinary main-mono forward Snapshot callback provenance; requires --testScript."));
     parser.addOption(QCommandLineOption("testSnapshotSceneInputs", "Observe same-frame entity render-entry inputs; requires --testScript and --testSnapshotProvenance."));
+    parser.addOption(QCommandLineOption("testSnapshotActorPixels", "Observe bounded original PNG pixels of the held Actor OpenGL frame; requires --testScript, --testSnapshotProvenance and --testSnapshotSceneInputs."));
 #endif
     parser.addOption(testResultsLocationOption);
     parser.addOption(quitWhenFinishedOption);

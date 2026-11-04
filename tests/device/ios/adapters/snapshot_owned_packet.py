@@ -19,11 +19,11 @@ from ios.adapters.feature_observation import FeatureObservation
 from ios.adapters.emote_native_prefix import follow
 from ios.adapters import snapshot_owned_files as source,snapshot_file_work,snapshot_work,snapshot_captures,snapshot_exports,snapshot_inputs,snapshot_pending_inputs,snapshot_uploads,snapshot_combined_work,snapshot_combined_preflight_http,snapshot_causal_dispatch
 
-from ios.adapters import snapshot_provenance,snapshot_scene
+from ios.adapters import snapshot_provenance,snapshot_scene,snapshot_actor_pixels
 
 VERSION=1
 KINDS={'owned':source,'file-work':snapshot_file_work,'script-work':snapshot_work,'captures':snapshot_captures,
-    'provenance':snapshot_provenance,'scene-inputs':snapshot_scene,'exports':snapshot_exports,'inputs':snapshot_inputs,'pending-choices':snapshot_pending_inputs,'uploads':snapshot_uploads,'combined-script-work':snapshot_combined_work,'combined-preflight-http':snapshot_combined_preflight_http,'causal-dispatch':snapshot_causal_dispatch}
+    'provenance':snapshot_provenance,'scene-inputs':snapshot_scene,'actor-pixels':snapshot_actor_pixels,'exports':snapshot_exports,'inputs':snapshot_inputs,'pending-choices':snapshot_pending_inputs,'uploads':snapshot_uploads,'combined-script-work':snapshot_combined_work,'combined-preflight-http':snapshot_combined_preflight_http,'causal-dispatch':snapshot_causal_dispatch}
 
 
 def originals(packet):

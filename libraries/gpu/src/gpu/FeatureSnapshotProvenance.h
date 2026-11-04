@@ -14,6 +14,13 @@ class FeatureSnapshotProvenance {
 public:
     static bool enabled();
     static bool sceneEnabled();
+    // Separate default-off observation of THIS held Actor frame, never a
+    // Primary capture or WDA screen. Callback QImage dies before commit.
+    static bool actorPixelsEnabled();
+    static bool beginActorPixelReadback(const QVariantMap& frame,quint32 index,bool mono);
+    static QVariantMap actorPixelReadback(const QImage& callbackImage);
+    static void commitActorPixelReadback(const QVariantMap& record);
+    static QVariantMap actorPixelOriginal();
     // The same recorded frame carries these observed render-entry inputs.
     static void entityInput(QVariantMap& frame,const QVariantMap& actual,bool returned);
     static void consumedScene(const QVariantMap& frame,quint32 index,bool mono);

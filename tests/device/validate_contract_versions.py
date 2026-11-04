@@ -9,6 +9,18 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-snapshot-actor-pixel-packet": 1,
+    "ios-snapshot-actor-pixel-witness-original": 1,
+    "ios-snapshot-actor-pixel-witness-owner": 1,
+    "ios-snapshot-actor-pixels": 1,
+    "ios-snapshot-actor-pixels-acquisition": 1,
+    "ios-snapshot-actor-primary-png-comparison": 1,
+    "ios-snapshot-native-actor-pixels-frame": 1,
+    "ios-snapshot-native-actor-pixels-original": 1,
+    "snapshot-actor-pixel-public": 1,
+    "snapshot-actor-pixel-publication-original": 1,
+    "snapshot-actor-pixel-published-original": 1,
+    "snapshot-actor-pixel-sample": 1,
     "ios-snapshot-canonical-scene-order": 1,
     "ios-snapshot-native-scene-frame": 1,
     "ios-snapshot-native-scene-original": 1,

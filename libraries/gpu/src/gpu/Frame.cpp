@@ -46,12 +46,117 @@ void Frame::preRender() {
 #include <QDateTime>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QBuffer>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 
 namespace {
 QMutex snapshotSceneMutex;
 QVariantMap snapshotSceneLatest;
+QVariantMap snapshotActorPixelLatest;
+QString snapshotActorPixelAttempt;
+// Strong copy of the actual consumed input map, before adding output metadata.
+// Qt map copy-on-write preserves these originals if the Frame later mutates.
+QVariantMap snapshotActorConsumedInputs;
+QString snapshotActorInvalidatedFrame;
+quint32 snapshotActorGreatestIndex {0};
+QString snapshotActorGreatestIdentity;
+bool snapshotActorHeadRejected {false};
+// A real uint32 producer wrap or regressed presentation cannot open a new
+// generation in this process. No unbounded identity history is retained.
+bool snapshotActorIndexRegressed {false};
+void invalidateActorInputs(const QString& identity) {
+    // Caller holds snapshotSceneMutex. A rejected identity cannot be retried or
+    // re-anchored by restoring its map; only a distinct recorded frame advances.
+    snapshotActorHeadRejected=true;
+    snapshotActorInvalidatedFrame=identity;
+    snapshotActorPixelAttempt=identity;
+    snapshotActorConsumedInputs.clear();
+    snapshotSceneLatest.clear();snapshotActorPixelLatest.clear();
 }
+}
+bool FeatureSnapshotProvenance::actorPixelsEnabled() {
+    return sceneEnabled() && QCoreApplication::arguments().contains("--testSnapshotActorPixels");
+}
+bool FeatureSnapshotProvenance::beginActorPixelReadback(const QVariantMap& held,quint32 index,bool mono) {
+    if (!actorPixelsEnabled()) {return false;}
+    QMutexLocker lock(&snapshotSceneMutex);
+    const auto identity=held.value("frameInstance").toString();
+    // A later unsupported frame invalidates the old pixel slot. No old PNG
+    // is returned as if it belonged to the newest scene/camera observation.
+    if (index==0 || index<snapshotActorGreatestIndex) {snapshotActorIndexRegressed=true;}
+    if (snapshotActorIndexRegressed || snapshotActorHeadRejected
+            || index!=snapshotActorGreatestIndex || identity!=snapshotActorGreatestIdentity
+            || snapshotActorInvalidatedFrame==identity || identity.isEmpty() || !mono || held.value("frameIndex").toULongLong()!=index
+            || held.value("processId").toLongLong()!=QCoreApplication::applicationPid()
+            || snapshotSceneLatest.value("frameInstance")!=identity
+            || snapshotSceneLatest.value("frameIndex").toULongLong()!=index
+            || snapshotActorConsumedInputs!=held) {
+        invalidateActorInputs(identity);return false;
+    }
+    if (snapshotActorPixelAttempt==identity) {return false;}
+    snapshotActorPixelAttempt=identity;snapshotActorPixelLatest.clear();
+    const auto scene=held.value("scene").toMap();
+    return scene.value("complete").toBool() && !scene.value("entities").toList().isEmpty();
+}
+QVariantMap FeatureSnapshotProvenance::actorPixelReadback(const QImage& callbackImage) {
+    if (!actorPixelsEnabled()) {return {};}
+    const auto originalFrame=original(callbackImage);
+    if (originalFrame.isEmpty() || originalFrame.value("snapshotFrameProvenanceVersion").toInt()!=2) {return {};}
+    QVariantMap scene;
+    {
+        QMutexLocker lock(&snapshotSceneMutex);
+        if (snapshotActorPixelAttempt!=originalFrame.value("frameInstance").toString()
+                || snapshotSceneLatest.value("frameInstance")!=originalFrame.value("frameInstance")) {return {};}
+        scene=snapshotSceneLatest;
+    }
+    auto base=originalFrame;base.remove("readback");base.remove("callbackEpochMs");
+    auto consumed=scene;consumed.remove("consumedEpochMs");
+    if (base!=consumed) {return {};}
+    // This is the FIRST PNG encoding of this actual callback image. No resize,
+    // requested expected pixels, old PNG recompression or replacement read.
+    QByteArray encoded;QBuffer buffer(&encoded);
+    if (!buffer.open(QIODevice::WriteOnly) || !callbackImage.save(&buffer,"PNG")
+            || encoded.isEmpty() || encoded.size()>64*1024) {return {};}
+    buffer.close();
+    auto frame=originalFrame;frame["consumedEpochMs"]=scene.value("consumedEpochMs");
+    QVariantMap frameBinding;
+    for (const auto& key:QStringList{"frameInstance","frameIndex","processId","camera","worldFromCamera","viewport","transformSlot"}) {
+        frameBinding.insert(key,originalFrame.value(key));
+    }
+    const auto hash=QCryptographicHash::hash(encoded,QCryptographicHash::Sha256).toHex();
+    QVariantMap result {{"complete",true},{"frame",frame},
+        {"png",QVariantMap{{"format","png"},{"encoding","base64"},{"bytes",encoded.size()},
+            {"sha256",QString::fromLatin1(hash)},{"data",QString::fromLatin1(encoded.toBase64())},{"frameBinding",frameBinding}}},
+        {"resource",QVariantMap{{"profile","single-latest-actor-frame-v1"},
+            {"callbackScopeRetired",false},{"retainedQImage",false},{"nativeSlotProcessLifetime",true}}}};
+    if (QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact).size()>240*1024) {return {};}
+    return result;
+}
+void FeatureSnapshotProvenance::commitActorPixelReadback(const QVariantMap& record) {
+    if (!actorPixelsEnabled()) {return;}
+    QMutexLocker lock(&snapshotSceneMutex);
+    // The ordinary consumer calls this only AFTER its exact local Scope and
+    // local QImage are destroyed. A reentrant or changed-frame read refuses.
+    if (current()!=nullptr || record.isEmpty()) {snapshotActorPixelLatest.clear();return;}
+    auto value=record;const auto frame=value.value("frame").toMap();
+    auto base=frame;base.remove("readback");base.remove("callbackEpochMs");
+    if (frame.value("frameInstance").toString()!=snapshotActorPixelAttempt || base!=snapshotSceneLatest) {
+        snapshotActorPixelLatest.clear();return;
+    }
+    auto resource=value.value("resource").toMap();resource["callbackScopeRetired"]=true;value["resource"]=resource;
+    snapshotActorPixelLatest=value;
+}
+QVariantMap FeatureSnapshotProvenance::actorPixelOriginal() {
+    if (!actorPixelsEnabled()) {return {};}
+    QMutexLocker lock(&snapshotSceneMutex);
+    if (snapshotActorPixelLatest.isEmpty()) {return {};}
+    auto base=snapshotActorPixelLatest.value("frame").toMap();base.remove("readback");base.remove("callbackEpochMs");
+    if (base!=snapshotSceneLatest) {return {};}
+    return snapshotActorPixelLatest;
+}
+
 bool FeatureSnapshotProvenance::sceneEnabled() {
     return enabled() && QCoreApplication::arguments().contains("--testSnapshotSceneInputs");
 }
@@ -75,11 +180,34 @@ void FeatureSnapshotProvenance::consumedScene(const QVariantMap& original,quint3
     if (!sceneEnabled() || !mono || original.value("frameIndex").toULongLong()!=index
             || original.value("processId").toLongLong()!=QCoreApplication::applicationPid()) {return;}
     auto value=original;const auto scene=value.value("scene").toMap();
-    if (scene.isEmpty()) {return;}
     // Copy at the actual execute/composite consumer. Re-presenting the same
     // frame keeps its original timestamp; a query cannot make it fresh again.
     QMutexLocker lock(&snapshotSceneMutex);
+    const auto identity=original.value("frameInstance").toString();
+    if (actorPixelsEnabled()) {
+        if (index==0 || index<snapshotActorGreatestIndex) {snapshotActorIndexRegressed=true;}
+        if (snapshotActorIndexRegressed) {invalidateActorInputs(identity);return;}
+        if (index==snapshotActorGreatestIndex
+                && (identity!=snapshotActorGreatestIdentity || snapshotActorHeadRejected)) {
+            invalidateActorInputs(identity);return;
+        }
+        if (index>snapshotActorGreatestIndex) {
+            snapshotActorGreatestIndex=index;snapshotActorGreatestIdentity=identity;
+            snapshotActorHeadRejected=false;
+        }
+        if (snapshotActorInvalidatedFrame==identity) {invalidateActorInputs(identity);return;}
+        if (snapshotSceneLatest.value("frameInstance")==identity) {
+            // Compare ALL actual input fields before the duplicate early return.
+            // In particular no camera/scene/backend/clock field is projected out.
+            if (snapshotActorConsumedInputs!=original) {invalidateActorInputs(identity);}
+            return;
+        }
+    }
+    if (scene.isEmpty()) {return;}
     if (snapshotSceneLatest.value("frameInstance")==value.value("frameInstance")) {return;}
+    if (actorPixelsEnabled()) {
+        snapshotActorInvalidatedFrame.clear();snapshotActorConsumedInputs=original;
+    }
     value.remove("readback");value.remove("callbackEpochMs");
     value["backend"]="opengl";value["consumedEpochMs"]=QDateTime::currentMSecsSinceEpoch();
     snapshotSceneLatest=value;

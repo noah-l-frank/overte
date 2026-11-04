@@ -1002,6 +1002,28 @@ void OpenGLDisplayPlugin::present(const std::shared_ptr<RefreshRateController>& 
 
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
         gpu::FeatureSnapshotProvenance::consumedScene(_currentFrame->featureSnapshotProvenance,_currentFrame->frameIndex,!isHmd());
+        if (gpu::FeatureSnapshotProvenance::actorPixelsEnabled()) {
+            const auto heldActorFrame=_currentFrame;
+            const auto heldActorInputs=heldActorFrame->featureSnapshotProvenance;
+            const auto heldActorIndex=heldActorFrame->frameIndex;
+            if (gpu::FeatureSnapshotProvenance::beginActorPixelReadback(heldActorInputs,heldActorIndex,!isHmd())) {
+                QVariantMap actorPixelRecord;
+                const auto extent=_compositeFramebuffer->getSize();
+                if (extent.x>0 && extent.y>0 && extent.x<=8192 && extent.y<=8192) {
+                    {
+                        gpu::FeatureSnapshotProvenance::Scope actorPixels(heldActorInputs,heldActorIndex,!isHmd());
+                        const auto originalImage=getScreenshot(0.0f);
+                        if (_currentFrame==heldActorFrame && heldActorFrame->frameIndex==heldActorIndex
+                                && heldActorFrame->featureSnapshotProvenance==heldActorInputs) {
+                            actorPixelRecord=gpu::FeatureSnapshotProvenance::actorPixelReadback(originalImage);
+                        }
+                    } // Actual callback-local QImage and TLS Scope retire here.
+                }
+                if (_currentFrame!=heldActorFrame || heldActorFrame->frameIndex!=heldActorIndex
+                        || heldActorFrame->featureSnapshotProvenance!=heldActorInputs) {actorPixelRecord.clear();}
+                gpu::FeatureSnapshotProvenance::commitActorPixelReadback(actorPixelRecord);
+            }
+        }
 #endif
         { // If we have any snapshots this frame, handle them
             PROFILE_RANGE_EX(render, "snapshotOperators", 0xffff00ff, frameId)

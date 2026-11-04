@@ -2072,6 +2072,24 @@
             }
             return;
         }
+        if (command && command.action === "feature-ios-snapshot-actor-pixels") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                if (iosNewSourceRequests[command.commandId] || iosNewSourceRequestCount >= 4096) { return; }
+                iosNewSourceRequests[command.commandId]=true;iosNewSourceRequestCount+=1;
+                var snapshotActorPixels={iosSnapshotActorPixelsVersion:1,requestId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureIOSSnapshotActorPixels === "function") {
+                        var originalSnapshotActorPixels=Test.featureIOSSnapshotActorPixels(command);
+                        if (originalSnapshotActorPixels && originalSnapshotActorPixels.requestId === command.commandId) { snapshotActorPixels=originalSnapshotActorPixels; }
+                    }
+                } catch (_snapshotActorPixelsError) { /* An uncertain read remains consumed. */ }
+                Test.saveObject(snapshotActorPixels,"feature-ios-snapshot-actor-pixels.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-ios-snapshot-captures") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36

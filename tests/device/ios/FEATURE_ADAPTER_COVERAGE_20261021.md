@@ -410,3 +410,7 @@ thirty-one legacy abort, worker and routing regressions pass in 32.140 seconds.
 Sixteen final configuration/routing/API-entry cases also pass. Complete private
 Navigation admission is enabled; the current count is five complete source-level
 areas and nine partial areas. This count establishes no build or device result.
+
+## Snapshot Actor-original raster component: private host scope
+
+[Independent Actor PNG originals and exact Primary crop equality](SNAPSHOT_ACTOR_ORIGINAL_PIXELS.md) adds a finite original-owner/publication/historical-raster join. The exact Source9+Source7 composition passed34 distinct host cases (22+12),88.305 test seconds,82 TDs and239 actual standard cleanups. Source9's bounded same-frame input/replay/wrap refusal and Source7's exact recorded crop/camera/extent/RGBA comparison are retained separately from current-public copy compatibility, which remains unrun. Native code is uncompiled; actual rendering, full appearance, capture temporal bracketing, independent process/authentication, complete destinations/failure/resume and paired source/process/SDK End remain open. Snapshot11 stays partial; the five-of-fourteen count and capabilities are unchanged. The immutable Root scope is9ab60f35, not a new public/device/Whole pass.

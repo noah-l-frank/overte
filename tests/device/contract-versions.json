@@ -5034,6 +5034,42 @@
         1
       ]
     },
+    "ios-snapshot-actor-pixel-packet": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-actor-pixel-witness-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-actor-pixel-witness-owner": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-actor-pixels": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-actor-pixels-acquisition": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-actor-primary-png-comparison": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
     "ios-snapshot-artifact": {
       "current": 1,
       "reads": [
@@ -5474,6 +5510,18 @@
       ]
     },
     "ios-snapshot-manifest-owner": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-native-actor-pixels-frame": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-native-actor-pixels-original": {
       "current": 1,
       "reads": [
         1
@@ -8427,6 +8475,30 @@
       ]
     },
     "share-source-retirement-output-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-actor-pixel-public": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-actor-pixel-publication-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-actor-pixel-published-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-actor-pixel-sample": {
       "current": 1,
       "reads": [
         1

@@ -1758,6 +1758,29 @@ QVariantMap TestScriptingInterface::featureIOSSnapshotScene(const QVariantMap& c
     });
 }
 
+QVariantMap TestScriptingInterface::featureIOSSnapshotActorPixels(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) {return {};}
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] {result=featureIOSSnapshotActorPixels(command);},Qt::BlockingQueuedConnection)) {return {};}
+        return result;
+    }
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !gpu::FeatureSnapshotProvenance::actorPixelsEnabled() || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-ios-snapshot-actor-pixels")
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) {return {};}
+    static overte::e2e::NativeReadBracket reader;
+    return reader.read("iosSnapshotActorPixelsVersion","native-main-snapshot-actor-pixels",request,run,[]() -> QVariantMap {
+        const auto original=gpu::FeatureSnapshotProvenance::actorPixelOriginal();
+        return original.isEmpty() ? QVariantMap{{"complete",false}} : original;
+    });
+}
+
 QVariantMap TestScriptingInterface::featureIOSSnapshotUploads(const QVariantMap& command) {
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
     if (QThread::currentThread()!=thread()) {

@@ -249,6 +249,9 @@ class FeatureObservation:
         elif command.get('action')=='feature-ios-avatar-social-http':avatar_social_http_command(command)
         elif command.get('action')=='feature-ios-snapshot-preflight-http':snapshot_preflight_http_command(command)
         elif command.get('action')=='feature-ios-snapshot-combined-preflight-http':snapshot_combined_preflight_http_command(command)
+        elif command.get('action')=='feature-ios-snapshot-actor-pixels':
+            from ios.adapters.snapshot_actor_pixels import command as snapshot_actor_pixels_command
+            snapshot_actor_pixels_command(command)
         elif command.get('action')=='feature-ios-snapshot-scene':
             from ios.adapters.snapshot_scene import command as snapshot_scene_command
             snapshot_scene_command(command)

@@ -165,3 +165,7 @@ readback do not establish execution of ordinary Snapshot capture. Adapter-only
 work must preserve this limitation rather than enable product behavior or
 substitute an instrumentation image. Exact captured scene/camera provenance,
 independent Actor agreement and the full flow/end composition remain open.
+
+## Original Actor raster comparison remains a separate join
+
+The [Source9/Source7 Actor PNG component](SNAPSHOT_ACTOR_ORIGINAL_PIXELS.md) adds a typed historical join between the actual saved Primary PNG/callback provenance and an independently retained Actor frame PNG. Its34 host overlay cases pass; copying those25 source paths to current public definitions still requires its own compatibility run. The join is neither a WDA screenshot nor a substitution for this rendered-review owner's original Page/screen bracket. Exact supported camera/viewport/extent and bottom-left-to-top-left crop equality do not establish a temporal Actor-before/after PNG bracket, full scene appearance, real process/authentication, destinations or final paired End. No existing capture/review/native time or resource bound is raised.
