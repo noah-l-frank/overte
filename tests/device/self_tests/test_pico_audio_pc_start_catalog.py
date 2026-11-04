@@ -20,7 +20,8 @@ class AudioPCStartCatalogTests(unittest.TestCase):
             loaders=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='load_tests']
             self.assertEqual(1,len(loaders));self.assertEqual('return loader.loadTestsFromNames(CASE_NAMES)',ast.unparse(loaders[0].body[0]))
         self.assertEqual(len(names),len(set(names)));expected=set()
-        for module,kind in (('test_pico_audio_pc_start','AudioPCSourceTests'),
+        for module,kind in (('test_pico_audio_cleanup_poll_period','AudioCleanupPollPeriodTests'),
+                ('test_pico_audio_pc_start','AudioPCSourceTests'),
                 ('test_pico_audio_pc_start','AudioPCStartTests'),
                 ('test_pico_audio_pc_start_binding','AudioPCBindingTests'),
                 ('test_pico_audio_raw_archive','AudioRawArchiveTests'),
@@ -30,6 +31,6 @@ class AudioPCStartCatalogTests(unittest.TestCase):
             classes=[node for node in tree.body if isinstance(node,ast.ClassDef) and node.name==kind];self.assertEqual(1,len(classes))
             expected.update('self_tests.'+module+'.'+kind+'.'+node.name for node in classes[0].body
                 if isinstance(node,ast.FunctionDef) and node.name.startswith('test_'))
-        self.assertEqual(52,len(expected));self.assertEqual(expected,set(names))
+        self.assertEqual(59,len(expected));self.assertEqual(expected,set(names))
 
 if __name__=='__main__':unittest.main()

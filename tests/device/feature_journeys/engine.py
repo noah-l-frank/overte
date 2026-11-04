@@ -32,7 +32,7 @@ def matches(actual, expected):
 class Journey:
     def __init__(self, area, run, fixture_url, *, invoke, witness, activate,
                  read_artifact, image_policy, continuity, monotonic, epoch_ms, sleep, report, navigation_source=None,
-                 after_cleanup_baseline=None,input_context=None,poll_work_inclusive=False):
+                 after_cleanup_baseline=None,input_context=None,poll_work_inclusive=False,audio_cleanup_poll_profile=None):
         if area not in SCENARIOS:
             raise ValueError('Unknown common feature area')
         self.area, self.run, self.url = area, identifier(run), fixture_url
@@ -81,6 +81,10 @@ class Journey:
         if type(poll_work_inclusive) is not bool or poll_work_inclusive and area!='tablet-web':
             raise ValueError('Work-inclusive polling requires the explicit tablet browser journey')
         self.poll_work_inclusive=self._poll_work_inclusive=poll_work_inclusive
+        if audio_cleanup_poll_profile is not None and (type(audio_cleanup_poll_profile) is not str
+                or audio_cleanup_poll_profile!='pico-audio-cleanup1' or area!='audio' or poll_work_inclusive):
+            raise ValueError('Audio cleanup polling requires its explicit original audio profile')
+        self.audio_cleanup_poll_profile=self._audio_cleanup_poll_profile=audio_cleanup_poll_profile
 
     def input_scope(self,kind,fields=None):
         # Only normal input fields cross this optional seam. Expected recipe,
@@ -93,6 +97,11 @@ class Journey:
     def poll_policy(self):
         if type(self.poll_work_inclusive) is not bool or self.poll_work_inclusive is not self._poll_work_inclusive:
             raise ValueError('Original feature polling policy changed')
+        if (self.audio_cleanup_poll_profile is not self._audio_cleanup_poll_profile
+                or self.audio_cleanup_poll_profile is not None and
+                (type(self.audio_cleanup_poll_profile) is not str or self.audio_cleanup_poll_profile!='pico-audio-cleanup1'
+                 or self.area!='audio' or self.poll_work_inclusive)):
+            raise ValueError('Original audio cleanup polling profile changed')
         return self.poll_work_inclusive
 
     def now(self):
@@ -372,6 +381,7 @@ class Journey:
 
     def wait(self, label, ticket, barrier, expected, kinds, *, duration=0.5):
         work_inclusive=self.poll_policy()
+        audio_cleanup=self.audio_cleanup_poll_profile is not None and label=='cleanup-restored-baseline'
         consumption_start=len(self.samples)
         deadline = self.now() + 20
         stable_since = None
@@ -384,8 +394,8 @@ class Journey:
             witness_original=None
             if work_inclusive and 'peer' in kinds:
                 witness_original=self.poll_independent_witness(deadline,ticket,barrier,projection(self.area,expected))
-            poll_started=self.now() if work_inclusive else None
-            poll_requested=number(self.epoch_ms(),1) if work_inclusive else None
+            poll_started=self.now() if work_inclusive or audio_cleanup else None
+            poll_requested=number(self.epoch_ms(),1) if work_inclusive or audio_cleanup else None
             value = self.observe(ticket, barrier)
             current = self.now()
             okay = matches(value['state'], expected)
@@ -468,7 +478,8 @@ class Journey:
                     okay, last_problem = False, str(error)
             # Fixture, peer and artifact I/O also consume the existing checkpoint
             # budget. A late final source read cannot turn an old sample green.
-            if work_inclusive:okay=okay and self.poll_original_current(value,poll_started,poll_requested)
+            if work_inclusive or audio_cleanup:okay=okay and self.poll_original_current(value,poll_started,poll_requested)
+            if audio_cleanup and witness is not None:okay=okay and self.poll_original_current(witness,poll_started,poll_requested)
             if work_inclusive and witness is not None:okay=okay and self.poll_witness_current(witness,witness_original)
             witness_original=None
             current=self.now()
@@ -498,11 +509,12 @@ class Journey:
             poll_finished=self.now()
             if poll_finished >= deadline:
                 break
-            # Only the explicit Pico browser scope opts in. All actual source,
-            # peer, image and clock work consumes this original polling period.
+            # Explicit Pico browser and Audio cleanup profiles include work.
+            # Actual source, peer, image and clock work consumes the period.
             # Keep a real yield to the independently owned actor; no quiet
             # window, checkpoint deadline or source predicate is renewed.
-            delay=max(.01,.25-(poll_finished-poll_started)) if work_inclusive else .25
+            delay=(max(.01,.45-(poll_finished-poll_started)) if audio_cleanup else
+                max(.01,.25-(poll_finished-poll_started)) if work_inclusive else .25)
             self.sleep(delay)
         raise AssertionError('Common ' + self.area + ' ' + label + ': ' + last_problem)
 

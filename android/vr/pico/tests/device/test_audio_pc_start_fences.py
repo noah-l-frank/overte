@@ -10,6 +10,13 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 
 CASE_NAMES=(
+    'self_tests.test_pico_audio_cleanup_poll_period.AudioCleanupPollPeriodTests.test_original_default_fixed_sleep_is_preserved',
+    'self_tests.test_pico_audio_cleanup_poll_period.AudioCleanupPollPeriodTests.test_only_actual_cleanup_window_uses_remaining450ms_period',
+    'self_tests.test_pico_audio_cleanup_poll_period.AudioCleanupPollPeriodTests.test_other_audio_checkpoints_keep_default_sleep',
+    'self_tests.test_pico_audio_cleanup_poll_period.AudioCleanupPollPeriodTests.test_slow_source_cannot_hide_from_original20second_deadline',
+    'self_tests.test_pico_audio_cleanup_poll_period.AudioCleanupPollPeriodTests.test_typed_selection_refuses_other_feature_before_any_source',
+    'self_tests.test_pico_audio_cleanup_poll_period.AudioCleanupPollPeriodTests.test_changed_selection_refuses_before_first_acquisition',
+    'self_tests.test_pico_audio_cleanup_poll_period.AudioCleanupPollPeriodTests.test_peer_io_cannot_make_an_expired_primary_qualify_cleanup',
     'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_actual_two_index_pages_keep_exact_original_bytes_and_typed_literal_roundtrip',
     'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_actual_bool_alias_in_live_index_refuses_before_next_admission',
     'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_actual_same_byte_index_new_inode_refuses_without_reacquisition',
