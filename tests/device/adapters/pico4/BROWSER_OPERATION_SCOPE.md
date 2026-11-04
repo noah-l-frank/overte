@@ -213,13 +213,32 @@ host closure and the canonical candidate/router path remain open. Catalogue404
 adds only the two disjoint component selectors; complete areas remain3/14.
 
 
+## Expired observation pairs remain unqualified
+
+In the explicit work-inclusive Pico wait, an independent original that was fresh
+at receipt can expire while the Primary observation is acquired. That pair now
+resets stability and cannot count among the three advancing qualifying samples.
+The read-only wait can acquire a genuinely new pair under the same original
+20-second checkpoint; no normal input is repeated or deadline renewed.
+
+Original journal validation and cursor consumption remain unchanged. Foreign,
+malformed, replayed and stale-at-receipt observations still fail immediately.
+A changed future/backward clock context also remains a hard error. Earlier
+contradictions stay in the original history, and an expired captured timestamp
+is never refreshed or relabeled. The unchanged 1.5-second source/peer predicates
+are applied before qualification and again after evidence work.
+
+Fourteen host tests cover the existing default/polling policy and these expiry,
+new-pair, history, no-input and bounded-refusal cases using declared timing
+models. They do not qualify the complete public Browser transport or hardware.
+
 ## Common polling includes actual work in the explicit Pico scope
 
 The shared Journey adds optional `poll_work_inclusive=False`. The default keeps
 the existing fixed quarter-second pause. Only the original PicoBrowser module
 scope enables it; the matching coordinator diagnostic selects the same policy.
 The polling period includes actual source, peer, artifact and clock work and
-always yields at least25ms to the independently owned actor. The period is not
+always yields at least10ms to the independently owned actor. The period is not
 a new source clock or an extension of any quiet/checkpoint/whole deadline.
 All original freshness, peer progress, minimum sample counts, three-second
 quiet windows, source/frame/archive limits and uncertain-input rules remain.

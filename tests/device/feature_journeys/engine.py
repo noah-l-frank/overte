@@ -181,8 +181,9 @@ class Journey:
     def poll_witness_current(self,witness,original):
         _raw,received,epoch_at_receipt,cursor=original
         now=self.now();epoch=number(self.epoch_ms(),1);captured=witness['capturedEpochMs']
-        return (now>=received and captured<=epoch+250
-            and max(epoch-captured,epoch_at_receipt-captured+math.ceil((now-received)*1000))<=1500)
+        if now<received or captured>epoch+250:
+            raise ValueError('Independent actor clock context changed after receipt')
+        return max(epoch-captured,epoch_at_receipt-captured+math.ceil((now-received)*1000))<=1500
 
     def poll_independent_witness(self,deadline,ticket,barrier,expected):
         # Await an actual NEW peer original BEFORE acquiring another Primary
@@ -453,7 +454,10 @@ class Journey:
                     peer_okay,witness=self.observed_witness(ticket,barrier,peer_expected,
                         original=json.loads(witness_original[0]),receipt_epoch=witness_original[2])
                     if not self.poll_witness_current(witness,witness_original):
-                        raise ValueError('Independent actor observation is stale')
+                        # This original was valid at receipt. An expired pair
+                        # cannot qualify; await a genuinely NEW original under
+                        # the same checkpoint, without replaying normal input.
+                        peer_okay=False
                 else:peer_okay, witness = self.observed_witness(ticket, barrier, peer_expected)
                 okay = okay and peer_okay
             details, subject = [], None

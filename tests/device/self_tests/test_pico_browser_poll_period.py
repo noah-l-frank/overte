@@ -80,4 +80,70 @@ class BrowserPollPeriodTests(unittest.TestCase):
         self.assertEqual([],self.reads)
 
 
+class PeerPairExpiryTests(unittest.TestCase):
+    def setup_pair(self,*,all_expired=False,stale_at_receipt=False,foreign=False,replay=False,contradictory=False):
+        self.boundary=boundary=fixture.Boundary('tablet-web');boundary.activate(fixture.TICKET)
+        self.reads=[];self.previews=0
+        def witness():
+            self.previews+=1
+            if contradictory and self.previews==1:boundary.state['documentLoads']=1
+            value=boundary.witness()
+            if contradictory:boundary.state['documentLoads']=0
+            if foreign:value['runId']='e'*32
+            if replay and self.previews==2:value['entries'][-1]['actorSequence']=1
+            # Each actual new model observation is captured BEFORE its own
+            # receipt delay. No old frame is cast, retimed or made new.
+            if stale_at_receipt:boundary.sleep(1.6)
+            elif all_expired or self.previews==1:boundary.sleep(.8)
+            return value
+        def invoke(operation,fields):
+            if operation.endswith('.observe'):
+                boundary.sleep(.8 if all_expired or len(self.reads)==0 else .3)
+                self.reads.append(boundary.clock)
+            return boundary.invoke(operation,fields)
+        self.journey=Journey('tablet-web',fixture.RUN,f'http://controlled.test/feature-fixture/v1/runs/{fixture.RUN}/',
+            invoke=invoke,witness=witness,activate=boundary.activate,read_artifact=boundary.files.__getitem__,
+            image_policy=fixture.POLICY,continuity=boundary.continuity,monotonic=lambda:boundary.clock,
+            epoch_ms=boundary.epoch,sleep=boundary.sleep,report=boundary.reports.append,poll_work_inclusive=True)
+    def wait(self):
+        return self.journey.wait('expiry-counter',fixture.TICKET,2_000_000,deepcopy(SCENARIOS['tablet-web']['baseline']),('peer',))
+    def test_peer_expiring_during_source_never_qualifies_then_three_genuine_new_pairs_can_pass(self):
+        self.setup_pair();self.wait()
+        self.assertEqual(4,len(self.reads));self.assertEqual(4,len(self.journey.samples))
+        self.assertEqual(1,self.journey.samples[0]['witness']['actorSequence'])
+        self.assertEqual([1,2,3,4],[r['witness']['actorSequence'] for r in self.journey.samples])
+        self.assertEqual(3,self.journey.phases[-1]['advancingSamples']);self.assertGreaterEqual(self.journey.phases[-1]['stableSeconds'],.5)
+        self.assertEqual(['feature.tablet-web.observe']*len(self.reads),[operation for operation,_ in self.boundary.actions])
+        self.assertEqual(list(range(len(self.reads))),[fields['afterSequence'] for _,fields in self.boundary.actions])
+    def test_all_pairs_expire_and_original_twenty_second_checkpoint_cannot_succeed(self):
+        self.setup_pair(all_expired=True)
+        with self.assertRaisesRegex(AssertionError,'checkpoint deadline'):self.wait()
+        self.assertEqual([],self.journey.phases);self.assertGreaterEqual(self.boundary.clock,20)
+        self.assertLess(self.boundary.clock,22);self.assertEqual(['feature.tablet-web.observe']*len(self.reads),[operation for operation,_ in self.boundary.actions])
+    def test_stale_at_original_receipt_is_still_hard_error_before_source(self):
+        self.setup_pair(stale_at_receipt=True)
+        with self.assertRaisesRegex(ValueError,'snapshot is stale'):self.wait()
+        self.assertEqual([],self.reads);self.assertEqual([],self.journey.phases)
+    def test_foreign_original_is_still_hard_error_before_source(self):
+        self.setup_pair(foreign=True)
+        with self.assertRaisesRegex(ValueError,'foreign run'):self.wait()
+        self.assertEqual([],self.reads)
+    def test_replayed_new_actor_sequence_is_still_hard_error_before_next_source(self):
+        self.setup_pair(replay=True)
+        with self.assertRaisesRegex(ValueError,'replayed'):self.wait()
+        self.assertEqual(1,len(self.reads));self.assertEqual([],self.journey.phases)
+    def test_expired_earlier_contradiction_remains_original_history_and_resets_stability(self):
+        self.setup_pair(contradictory=True);self.wait()
+        self.assertEqual(1,self.journey.samples[0]['witness']['facts']['documentLoads'])
+        self.assertEqual(3,self.journey.phases[-1]['advancingSamples']);self.assertEqual(['feature.tablet-web.observe']*len(self.reads),[operation for operation,_ in self.boundary.actions])
+    def test_invalid_clock_context_after_receipt_remains_hard_error(self):
+        self.setup_pair();epoch=self.boundary.epoch()
+        for received,captured in ((self.boundary.clock,epoch+251),(self.boundary.clock+1,epoch)):
+            with self.subTest(received=received,captured=captured):
+                original=(b'original',received,epoch,(0,0,0))
+                with self.assertRaisesRegex(ValueError,'clock context'):
+                    self.journey.poll_witness_current(dict(capturedEpochMs=captured),original)
+        self.assertEqual([],self.reads)
+
+
 if __name__=='__main__':unittest.main()
