@@ -7,7 +7,7 @@ original bytes, stamps, descriptors and directory windows remain independent.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
-from adapters.json_original_value import capture,dimensions,scratch_bound,matches_original_refs
+from adapters.json_original_value import capture_containers as capture,container_dimensions as dimensions,scratch_bound,matches_containers as matches_original_refs
 from adapters.native_feature_observation import need
 
 

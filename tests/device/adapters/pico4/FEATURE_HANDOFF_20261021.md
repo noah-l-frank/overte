@@ -32,6 +32,13 @@ carrier cases pass16.601s/246 stable sources; the isolated retained-response
 comparison is92.649→1.740ms. The changed large-UI input-reference epoch has not
 yet been qualified. See the [sizing scope](ASSETS_PREFIX_SOURCE.md#exact-ascii-literal-sizing-before-parser-admission).
 
+Browser's explicitly frozen historical catalog now checks every original
+container edge within its existing released-canonical memory credit. Equal
+nested replacement is sticky before a new file read; actual full-byte/OFD/
+physical/namespace guards remain. Eighteen focused cases pass0.092s/72 stable
+sources and22 affected cases pass76.276s/252 stable sources. Whole Browser
+qualification remains open. See the [edge-check scope](BROWSER_OPERATION_SCOPE.md#bounded-original-container-edge-checks).
+
 The latest Browser capture-poll whole is RED98.545s at normalstep24; the prior
 114.764s scope reached all26 acts, all28 Common phases and Actor return before
 the capture-retirement cadence refusal. Neither establishes final host release.

@@ -741,6 +741,46 @@ queries and three-second quiet. Its exact extra selection is:
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests/device:tests/device/self_tests:android/vr/pico/tests/device python3 -m unittest self_tests.test_pico_browser_capture_retirement.PicoBrowserCaptureRetirementTests.test_complete_original_histories_share_durable_queries_and_three_second_all_capture_quiet
 ```
 
+## Bounded original-container edge checks
+
+The explicitly frozen catalog now retains each original dictionary/list and
+its complete ordered keys and children. Every use freshly compares all current
+edges by identity using built-in operations. Immutable scalar values retain
+their original types and identities; every mutable container is checked too.
+An equal replacement nested container is refused, with sticky catalog failure
+before a new file read. Retained original children prevent identity reuse.
+No product observation, original byte read, OFD proof, physical stamp, parent
+check or namespace scan is reused as a verdict.
+
+Admission first counts the bounded original graph. It preallocates fixed
+vectors and refuses growth, foreign types, nonfinite numbers, cycles and
+unsupported depth/node counts. Construction uses module-level walkers rather
+than self-referencing recursive closures. Its resident bound includes each
+container/header/vector; construction also charges vector conversion, the row
+array and the existing bounded recursion scratch. These bytes replace actual
+released canonical storage within the original canonical-plus-encoding peak.
+Unsupported or uneconomical values keep the original canonical validation.
+
+Eighteen focused owning cases pass0.092s with72 loaded sources unchanged.
+They include actual full-file reads, before/after directory guards, retained
+payloads, foreign-type callbacks, sticky mutation, small/branched construction
+peaks and the unchanged optional admission-seal behavior. The normal capture
+path continues to use fresh canonical admission serialization.
+
+A preceding standalone new-local-catalog prototype over913 retained originals
+measures69.361ms per complete file pass versus the historical74.420ms. It keeps
+635 seals/708008 metadata bytes and releases4728549 canonical-storage bytes;
+construction highwater5689653 stays within the original5713096-byte envelope.
+All954 original files remain unchanged and all newly acquired local owners
+close. That experiment neither adopts an older warm source owner nor invokes
+Native/SDK/input. It is not current whole-coordinator timing qualification.
+
+The current affected selection passes22 cases in76.276s with252 loaded sources
+unchanged: complete-history capture17, remote consumption3 and original
+retirement diagnostics2. Original half-second cadence, three-second quiet,
+late-result refusal and unknown-return retention remain covered. No changed
+whole-coordinator success or full Browser capability is inferred.
+
 The restored default has no new whole-run qualification. Feature 7 remains
 partial; even a successful existing host coordinator would still explicitly
 exclude the actual canonical factory/router/module/CLI positive composition.

@@ -223,3 +223,94 @@ def matches_original_refs(value,seal):
     if type(shape) is not bytes or type(refs) is not tuple:return False
     cursors=[0,0]
     return _compare_original_refs(value,shape,refs,cursors) and cursors==[len(shape),len(refs)]
+
+
+# Complete original container edges retain all original children before reuse.
+from operator import is_ as _original_is
+
+def _count_containers(item,depth,limits,counts,ancestors):
+ counts[0]+=1
+ if counts[0]>limits[0] or depth>limits[1]:raise _NoSeal
+ kind=type(item)
+ if kind is dict or kind is list:
+  if any(item is old for old in ancestors):raise _NoSeal
+  size=len(item);counts[1]+=1;counts[2]+=size;counts[4]=max(counts[4],size)
+  counts[3]+=(192+16*size if kind is dict else 128+8*size)
+  if size>limits[0]-counts[0]:raise _NoSeal
+  parents=ancestors+(item,)
+  if kind is dict:
+   for key,child in item.items():
+    if type(key) is not str:raise _NoSeal
+    counts[0]+=1
+    if counts[0]>limits[0]:raise _NoSeal
+    _count_containers(child,depth+1,limits,counts,parents)
+  else:
+   for child in item:_count_containers(child,depth+1,limits,counts,parents)
+ elif kind is float:
+  if not math.isfinite(item):raise _NoSeal
+ elif not (kind is str or kind is int or kind is bool or kind is type(None)):raise _NoSeal
+
+def container_dimensions(value,*,max_nodes=16384,max_depth=16):
+ if type(max_nodes) is not int or type(max_depth) is not int:return None
+ if not 1<=max_nodes<=65536 or not 0<=max_depth<=64:return None
+ counts=[0,0,0,256,0]
+ try:_count_containers(value,0,(max_nodes,max_depth),counts,())
+ except (_NoSeal,RuntimeError):return None
+ nodes,rows,edges,resident,largest=counts
+ peak=resident+16*rows+16*largest+scratch_bound(max_depth)
+ return nodes,rows,edges,resident,peak
+
+def _fill_containers(item,depth,max_depth,ancestors,plan,rows,cursor):
+ cursor[0]+=1
+ if cursor[0]>plan[0] or depth>max_depth:raise _NoSeal
+ kind=type(item)
+ if kind is dict or kind is list:
+  if cursor[1]>=plan[1] or any(item is old for old in ancestors):raise _NoSeal
+  size=len(item);cursor[2]+=size
+  if cursor[2]>plan[2]:raise _NoSeal
+  cursor[3]+=(192+16*size if kind is dict else 128+8*size)
+  if cursor[3]>plan[3]:raise _NoSeal
+  pos=cursor[1];cursor[1]+=1
+  children=[None]*size;keys=[None]*size if kind is dict else None
+  actual=0
+  if kind is dict:
+   for key,child in item.items():
+    if actual>=size or type(key) is not str:raise _NoSeal
+    cursor[0]+=1
+    if cursor[0]>plan[0]:raise _NoSeal
+    keys[actual]=key;children[actual]=child;actual+=1
+  else:
+   for child in item:
+    if actual>=size:raise _NoSeal
+    children[actual]=child;actual+=1
+  if actual!=size:raise _NoSeal
+  key_tuple=None if keys is None else tuple(keys);keys=None
+  child_tuple=tuple(children);children=None
+  rows[pos]=(item,key_tuple,child_tuple)
+  parents=ancestors+(item,)
+  for child in child_tuple:_fill_containers(child,depth+1,max_depth,parents,plan,rows,cursor)
+ elif kind is float:
+  if not math.isfinite(item):raise _NoSeal
+ elif not (kind is str or kind is int or kind is bool or kind is type(None)):raise _NoSeal
+
+def capture_containers(value,*,capacity=131072,max_nodes=16384,max_depth=16):
+ if type(capacity) is not int:return None
+ plan=container_dimensions(value,max_nodes=max_nodes,max_depth=max_depth)
+ if plan is None or plan[4]>capacity:return None
+ rows=[None]*plan[1];cursor=[0,0,0,256]
+ try:
+  _fill_containers(value,0,max_depth,(),plan,rows,cursor)
+  if tuple(cursor)!=(plan[0],plan[1],plan[2],plan[3]):return None
+ except (_NoSeal,RuntimeError):return None
+ return (value,tuple(rows)),plan[3],plan[4]
+
+def matches_containers(value,seal):
+ if type(seal) is not tuple or len(seal)!=2:return False
+ original,rows=seal
+ if value is not original or type(rows) is not tuple:return False
+ for item,keys,children in rows:
+  if keys is None:
+   if type(item) is not list or len(item)!=len(children) or not all(map(_original_is,item,children)):return False
+  elif (type(item) is not dict or len(item)!=len(children) or not all(map(_original_is,item,keys))
+    or not all(map(_original_is,item.values(),children))):return False
+ return True

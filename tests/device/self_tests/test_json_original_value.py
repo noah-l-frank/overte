@@ -211,4 +211,91 @@ class JsonAdmissionValuesTests(unittest.TestCase):
         self.assertEqual(canonical(owner.admission()),owner.admission_bytes())
 
 
+
+
+class JsonOriginalContainerTests(unittest.TestCase):
+    def test_every_original_edge_is_checked_without_foreign_equality(self):
+        from adapters.json_original_value import capture_containers, matches_containers
+        payload='actual historical payload '+str(721)
+        key='actual historical key '+str(812)
+        child=[payload,True,1,1.,-0.,None];value={key:child,'tail':{'same':True}}
+        seal,_,_=capture_containers(value)
+        self.assertTrue(matches_containers(value,seal))
+        self.assertIs(seal[1][0][2][0],child)
+        self.assertIs(seal[1][1][2][0],payload)
+        for replacement in (payload.encode().decode(),False,1.,0.):
+            child[0]=replacement
+            self.assertFalse(matches_containers(value,seal))
+        child[0]=payload;self.assertTrue(matches_containers(value,seal))
+        value[key]=list(child);self.assertFalse(matches_containers(value,seal))
+        value[key]=child
+        other=key.encode().decode();self.assertIsNot(key,other)
+        value.pop(key);value[other]=child
+        self.assertFalse(matches_containers(value,seal))
+        calls=[]
+        class Foreign(str):
+            __hash__=str.__hash__
+            def __eq__(self,other):calls.append('eq');return True
+        child[0]=Foreign(payload)
+        self.assertFalse(matches_containers(value,seal));self.assertEqual([],calls)
+
+    def test_original_cycles_bounds_and_foreign_types_refuse_admission(self):
+        from adapters.json_original_value import capture_containers,container_dimensions,matches_containers
+        for value in (float('nan'),float('inf'),{1:'bad'},(1,),b'bytes'):
+            self.assertIsNone(capture_containers(value))
+        cycle=[];cycle.append(cycle);self.assertIsNone(capture_containers(cycle))
+        for value in ({'a':-0.0},{'\ud800':'\udfff'},10**1000):
+            seal,_,_=capture_containers(value);self.assertTrue(matches_containers(value,seal))
+        shared=['old'];value={'one':shared,'two':shared}
+        seal,_,_=capture_containers(value);self.assertTrue(matches_containers(value,seal))
+        self.assertIsNone(capture_containers(value,max_depth=0))
+        self.assertIsNone(capture_containers(value,max_nodes=2))
+        calls=[]
+        class EqualType(type):
+            def __eq__(self,other):calls.append('eq');return True
+        class Foreign(str,metaclass=EqualType):pass
+        self.assertIsNone(container_dimensions({'key':Foreign('value')}))
+        self.assertEqual([],calls)
+
+    def test_small_and_branched_construction_stays_within_preheld_bytes(self):
+        import tracemalloc
+        from adapters.json_original_value import capture_containers,container_dimensions,matches_containers
+        values=[{'rows':[{'name':'existing payload '+str(n),'nested':[n,1.]} for n in range(300)]}]
+        values.extend({'name':'held before construction '+str(n)} for n in range(64))
+        plans=[container_dimensions(value) for value in values]
+        results=[None]*len(values)
+        tracemalloc.start()
+        try:
+            for index,value in enumerate(values):
+                results[index]=capture_containers(value,capacity=plans[index][4])
+            live,peak=tracemalloc.get_traced_memory()
+        finally:tracemalloc.stop()
+        self.assertTrue(all(result is not None for result in results))
+        resident=sum(result[1] for result in results)
+        self.assertLessEqual(live,resident)
+        self.assertLessEqual(peak,resident+max(plan[4]-plan[3] for plan in plans))
+        for value,plan,result in zip(values,plans,results):
+            self.assertEqual(plan[3:],result[1:])
+            self.assertTrue(matches_containers(value,result[0]))
+            self.assertIsNone(capture_containers(value,capacity=plan[4]-1))
+        tracemalloc.start()
+        try:
+            self.assertTrue(matches_containers(values[0],results[0][0]))
+            _,peak=tracemalloc.get_traced_memory()
+        finally:tracemalloc.stop()
+        self.assertLessEqual(peak,2048)
+
+
+class JsonOriginalContainerCatalogTests(unittest.TestCase):
+    make=JsonOriginalCatalogTests.make
+    def test_equal_nested_container_replacement_is_sticky_before_new_file_read(self):
+        owner=self.make(True);owner.freeze_expected_values();row=next(iter(owner.rows.values()))
+        original=row['expected']['small'];row['expected']['small']=list(original)
+        with patch.object(os,'pread',wraps=os.pread) as reads:
+            with self.assertRaises(NativeUIError):owner.verify_all()
+        self.assertEqual(0,reads.call_count);self.assertTrue(owner.failed)
+        row['expected']['small']=original
+        with self.assertRaises(NativeUIError):owner.verify_all()
+
+
 if __name__=='__main__':unittest.main()
