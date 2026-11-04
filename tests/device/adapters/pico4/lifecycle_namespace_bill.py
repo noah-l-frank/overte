@@ -44,7 +44,7 @@ WORKER='lifecycle-original-source-worker.py'
 
 def canonical_size(value,limit=MAX_RAW):
     """Exact ASCII-canonical JSON length without constructing the whole DTO."""
-    active=set()
+    active=set();scalar_ids={id(int),id(float),id(bool),id(type(None))}
     def text(value):
         size=2+len(value)+value.count('"')+value.count('\\')
         for match in re.finditer(r'[\x00-\x1f\x7f-\U0010ffff]',value):
@@ -53,7 +53,7 @@ def canonical_size(value,limit=MAX_RAW):
     def count(item):
         kind=type(item)
         if kind is str:result=text(item)
-        elif kind in (dict,list):
+        elif kind is dict or kind is list:
             need(id(item) not in active);active.add(id(item))
             if kind is dict:
                 need(all(type(key) is str for key in item))
@@ -61,7 +61,7 @@ def canonical_size(value,limit=MAX_RAW):
             else:result=2+max(0,len(item)-1)+sum(count(child) for child in item)
             active.remove(id(item))
         else:
-            need(kind in (int,float,bool,type(None)));result=len(canonical(item))
+            need(id(kind) in scalar_ids);result=len(canonical(item))
         need(result<=limit);return result
     return count(value)
 

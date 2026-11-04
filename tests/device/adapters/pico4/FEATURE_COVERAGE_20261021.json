@@ -2440,5 +2440,15 @@
     "affectedSeconds": 8.171,
     "affectedLoadedSources": 180,
     "scope": "Actual deceptive metaclass list/dict/scalar aliases now refuse by exact builtin type identity before foreign equality/iteration/encoding; nested aliases and key subclasses likewise refuse. Ordinary valid JSON hashes and persisted formats unchanged. Host metadata admission only, no native/device/full-feature qualification."
+  },
+  "sharedStrictCanonicalSizing": {
+    "selector": "strict-json-size",
+    "rootCases": 5,
+    "rootSeconds": 0.069,
+    "rootLoadedSources": 56,
+    "affectedCases": 25,
+    "affectedSeconds": 21.43,
+    "affectedLoadedSources": 300,
+    "scope": "Actual deceptive container/scalar type aliases refuse before foreign equality/iteration/encoding in the shared exact canonical sizing walker. Legitimate escaping/non-BMP/surrogate/scalar byte lengths, exact/one-byte-short limits and cycle/nonfinite refusal verified. Lifecycle capacity/packed memo and Snapshot numeric scopes pass; original wire formats/limits unchanged, no native/device/whole-feature qualification."
   }
 }

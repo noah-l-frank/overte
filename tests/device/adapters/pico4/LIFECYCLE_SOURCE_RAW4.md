@@ -151,4 +151,11 @@ an arbitrary prefix as a complete NativeWire1 response is not permitted.
 
 ## Shared storage and explicit Background5 continuation
 
+The shared canonical-size walker now admits exact builtin types by identity.
+A deceptive metaclass previously made a list subclass count as a normal list;
+it now refuses before foreign equality, iteration or encoding. Five focused
+alias/escaping/limit/cycle checks and 25 affected capacity/memo cases pass.
+Valid canonical byte extents, original limits and stored formats remain
+unchanged; these are host-only checks and supply no complete Lifecycle proof.
+
 The [Pending3/Background5 storage packet](LIFECYCLE_PENDING3_STORAGE.md) records the new private same-bank source paths, actual graph retirement and numerical capacity counters. The current born-host continuation remains RED at the unchanged 1500 ms source-age fence before Pending preparation. Earlier evidence retains its own source epoch; no complete action or capability is promoted.
