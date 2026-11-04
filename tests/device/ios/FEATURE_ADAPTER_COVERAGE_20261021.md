@@ -12,6 +12,12 @@ input/observation/cleanup coordinators. Native compilation is unverified and
 devices are untested. Host results do not represent product acceptance,
 installation, build or laboratory execution.
 
+The [scoped Graphics native-prefix reader](EMOTE_ARCHIVE_ROUND.md#graphics-native-prefix-validation)
+also passes five pure counterexamples at its public module origin and a separate
+748-file historical cold/warm probe. It preserves all literal validation and
+original read membership; Emotes remains partial and the completed count stays
+five of fourteen.
+
 The [complete Create adapter](adapters/CREATE_FEATURE.md) joins all 21 ordinary
 steps to actual source/image/export owners, an independent actor, repeated paired
 quiet retirement and an inactive-run immutable final archive. The full runtime

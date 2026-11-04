@@ -5,6 +5,7 @@
 from copy import deepcopy
 from adapters.native_feature_observation import NativeFeatureObservation,need,validate
 from ios.adapters.login_source import nonce
+from adapters.pure_original_validation import without_result
 
 VERSION=1
 
@@ -35,6 +36,11 @@ def restore_native(reader,previous):
 
 
 def follow_native(before,after):
+    """Validate every original prefix; reuse only in an existing frozen read scope."""
+    return without_result(_follow_native,before,after)
+
+
+def _follow_native(before,after):
     """Pure original-source prefix validation, including every present history."""
     for packet in (before,after):
         need(type(packet) is dict and nonce(packet.get('requestId')))

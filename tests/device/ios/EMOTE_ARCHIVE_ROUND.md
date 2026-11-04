@@ -1,5 +1,28 @@
 # Scoped original Emote archive validation
 
+## Graphics native-prefix validation
+
+`graphics_history.follow_native` now uses the existing pure original-validation
+scope, matching the Emote native-prefix reader. Its complete literal body is
+unchanged. Without an explicitly inventory-guarded scope, every call executes
+that body. Within the scope, only successful validation of identical typed
+arguments can be reused; changed histories, unsupported types and failed
+inventories cannot borrow a success. No measured result or live guard is cached,
+no clock is renewed, and the memo expires with the existing scope.
+
+The five cases in `test_emote_graphics_prefix_pure_scope.py` pass both against
+the candidate and its actual public module origin, including genuine body-call
+counts, scope isolation and failed-inventory counterexamples. A separate retained
+748-file historical probe completes its unchanged cold/warm reads with equal
+418-path read membership and unchanged original bytes, metadata and lock inodes.
+Its measured times are 84.655 and 0.589 seconds, including profiler overhead.
+The preceding cold read stopped at its original ninety-second alarm, so an
+exact speed ratio and the cause of the old whole-run timeout remain unknown.
+Neither result establishes live acquisition, a complete Emote journey, native
+compilation or device qualification. All existing deadlines remain unchanged.
+
+## Earlier archive composition
+
 An actual retained multi-cut host run exposed repeated decoding of the same
 native, rendered, keyed, pointer and animation histories. The run was interrupted
 for diagnosis, with no pass claimed. Both original directories were retained
