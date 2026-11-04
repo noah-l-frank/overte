@@ -158,3 +158,15 @@ The v13 packet passes 787 explicit common host checks, including six original
 QML/fixture checks and new ignored-bake, broken-bundle, disabled-Delete,
 file-retirement/error and unintended-upload counterexamples. No compiler,
 backend, installation or device was launched.
+
+
+Pico's private Prefix3 factory accepts an explicit cold `receipt_layout=1`.
+The default remains layout 0. Layout 1 adds `assetsRawReceiptLayoutVersion: 1`
+to the original scope and stores each raw receipt as a six-element JSON array:
+role tag, role, original read, original SHA-256, tail bundle, and optional wire
+view (nonce, byte count, SHA-256). Live and passive readers reconstruct the
+same strictly validated receipt. The original range files, physical identity,
+wire bytes, frame/byte limits and request clocks remain mandatory. This only
+reduces repeated control metadata; it supplies no feature success or device
+qualification. The normal native binding loader reads its fixed source path,
+so an import overlay alone cannot qualify this factory selection.

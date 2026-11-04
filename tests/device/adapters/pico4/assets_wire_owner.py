@@ -441,10 +441,13 @@ class AssetsWireOwner:
 
     def publish_view(self,role,body,nonce):
         p=self.identity();need(self.last_receipt is not None and self.last_receipt[0]==role)
-        index=self.last_receipt[1];row=p.state['rawReads'][index];need('wireView' not in row)
+        index=self.last_receipt[1];row=p.raw_record(index);need('wireView' not in row)
         view=dict(assetsWireViewVersion=1,nonce=nonce,bytes=len(body),sha256=hashlib.sha256(body).hexdigest())
         raw=p.raw_archive.literal(row['rawOriginal']);need(body_view(raw,view)==body)
-        row['wireView']=view;p.save();p.bill()
+        row['wireView']=view
+        from adapters.pico4.assets_raw_archive import pack_receipt
+        p.state['rawReads'][index]=pack_receipt(row) if p.receipt_layout else row
+        p.save();p.bill()
         self.last_return=(role,index,body);self.consumed=False
 
     def read(self,role):

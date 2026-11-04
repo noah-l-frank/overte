@@ -23,7 +23,7 @@ from adapters.pico4.assets_cancel_owner import OwnedAssetsCancel
 from adapters.pico4.assets_inventory import original as inventory
 from adapters.pico4.assets_source import PicoAssetsSource
 from adapters.pico4.assets_uploads import PicoAssetsUploads
-from adapters.pico4.assets_raw_archive import AssetsRawArchive, compact, expanded
+from adapters.pico4.assets_raw_archive import AssetsRawArchive, compact, expanded, pack_receipt, unpack_receipt
 from adapters.pico4.assets_ui import project
 from adapters.pico4.navigation import validate_snapshot
 from adapters.script_journey.history import canonical, same, unpack, MAX_FRAMES, MAX_RAW
@@ -47,7 +47,7 @@ class PrefixFence(PhaseInputFence):
 
 class PicoAssetsPrefix:
     def __init__(self, path, binding, phases, source_lock, mappings, uploads,
-                 raw_ui, controls, create_controls, cancel_factory, guard, clock_ms,*,upload_factory=None):
+                 raw_ui, controls, create_controls, cancel_factory, guard, clock_ms,*,upload_factory=None,receipt_layout=0):
         need(type(phases) is PhaseFixtureReader and phases.area == 'assets'
              and type(source_lock) is ScriptSourceLock
              and type(mappings) is PicoAssetsSource and not mappings.is_download and not mappings.is_resolve
@@ -56,6 +56,8 @@ class PicoAssetsPrefix:
              and (upload_factory is None or callable(upload_factory)))
         need(not mappings.history and mappings.pending is None and mappings.intent is None
              and not uploads.history and uploads.pending is None and uploads.intent is None)
+        need(type(receipt_layout) is int and receipt_layout in (0,1) and (receipt_layout==0 or upload_factory is not None))
+        self.receipt_layout=self.original_receipt_layout=receipt_layout
         self.store = PrivateFeatureState(path)
         self.phases, self.lock = phases, source_lock
         self.original_phase_client = phases.client
@@ -73,6 +75,7 @@ class PicoAssetsPrefix:
                           binding=deepcopy(self.binding), runId=self.run, fixtureUrl=self.url)
         if self.version==3:self.scope.update(assetsWireOriginalLayoutVersion=1,startedMonotonic=phases.monotonic(),startedEpochMs=phases.epoch_ms(),
             producerHostProcessIdentity=host_identity())
+        if self.receipt_layout:self.scope['assetsRawReceiptLayoutVersion']=1
         self.parent, self.disk, self.stamp = parent_node(self.store), None, None
         self.control_candidate=self.original_control_candidate=None
         self.history = ChatSourceChunks(self.store, self.scope)
@@ -113,6 +116,8 @@ class PicoAssetsPrefix:
         return self
 
     def scope_identity(self):
+        need(type(self.receipt_layout) is int and self.receipt_layout is self.original_receipt_layout
+            and self.receipt_layout in (0,1) and self.scope.get('assetsRawReceiptLayoutVersion',0)==self.receipt_layout)
         need(parent_node(self.store) == self.parent
              and self.phases.run == self.run and self.phases.area == 'assets'
              and self.phases.fixture_url == self.url and self.phases.client is self.original_phase_client
@@ -599,11 +604,12 @@ class PicoAssetsPrefix:
     def raw_record(self,index):
         self.bound()
         need(integer(index,0,len(self.disk['rawReads'])-1))
-        return deepcopy(self.disk['rawReads'][index])
+        value=self.disk['rawReads'][index]
+        return unpack_receipt(value) if self.receipt_layout else deepcopy(value)
 
     def raw_receipt(self,row,receipts=None):
         index=len(self.state['rawReads'])
-        self.state['rawReads'].append(row)
+        self.state['rawReads'].append(pack_receipt(row) if self.receipt_layout else row)
         if receipts is not None:receipts.append(index)
         self.raw_archive.clear_intent()
         self.save()

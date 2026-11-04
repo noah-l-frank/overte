@@ -13,7 +13,7 @@ from adapters.chat_journey.source_chunks import ChatSourceChunks
 from adapters.native_fd_owner import OriginalDescriptor, require_directory
 from adapters.native_feature_observation import exact, integer, need,number
 from adapters.normal_feature_state import PrivateFeatureState, context
-from adapters.pico4.assets_raw_archive import PART_BYTES, MAX_LITERAL, expanded
+from adapters.pico4.assets_raw_archive import PART_BYTES, MAX_LITERAL, expanded, unpack_receipt
 from adapters.script_journey.history import canonical, MAX_FRAMES, MAX_RAW
 
 BASE_SCOPE = {'assetsPrefixVersion', 'contractVersion', 'binding', 'runId', 'fixtureUrl'}
@@ -36,6 +36,9 @@ class AssetsPrefixOriginals:
         self.version = value['assetsPrefixVersion']
         scope_fields = BASE_SCOPE | ({'assetsRawOriginalLayoutVersion'} if self.version >= 2 else set())
         if self.version==3:scope_fields|={'startedMonotonic','startedEpochMs','producerHostProcessIdentity'}
+        self.receipt_layout=value.get('assetsRawReceiptLayoutVersion',0)
+        need(type(self.receipt_layout) is int and self.receipt_layout in (0,1) and (not self.receipt_layout or self.version==3))
+        if self.receipt_layout:scope_fields|={'assetsRawReceiptLayoutVersion'}
         wire_format='assetsWireOriginalLayoutVersion' in value
         if wire_format:
             need(self.version==3 and value.get('assetsRawOriginalLayoutVersion')==2
@@ -104,7 +107,8 @@ class AssetsPrefixOriginals:
                 need(actual.get('commandId')==record['commandId'] and actual.get('operation')=='stage'
                     and hashlib.sha256(canonical(actual)).hexdigest()==record['commandSha256'])
         raw_bytes = 0
-        for row in value.get('rawReads',[]):
+        for stored_row in value.get('rawReads',[]):
+            row=unpack_receipt(stored_row) if self.receipt_layout else stored_row
             if self.ranges is not None:
                 from adapters.pico4.assets_raw_ranges import compact_reference
                 compact_reference(row['rawOriginal'])
@@ -169,7 +173,8 @@ class AssetsPrefixOriginals:
         self.verify()
         if self.version==1:row=self.bundle(index)
         else:
-            need(integer(index,0,len(self.value['rawReads'])-1));row=deepcopy(self.value['rawReads'][index])
+            need(integer(index,0,len(self.value['rawReads'])-1));stored_row=self.value['rawReads'][index]
+            row=unpack_receipt(stored_row) if self.receipt_layout else deepcopy(stored_row)
         tag = 'role' if 'role' in row else 'childSource'
         roles=('mappings', 'uploads', 'files', 'ui')
         if self.version==3:roles+=('backend','download','ui-observation','ui-status')

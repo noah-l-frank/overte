@@ -61,7 +61,8 @@ finally:os.close(fd)
 
 
 class AssetsUploadModel(AssetsPrefixModel):
-    def __init__(self,case,path,normal,*,binary_transport=False,canonical_prefix=False):
+    def __init__(self,case,path,normal,*,binary_transport=False,canonical_prefix=False,receipt_layout=0):
+        if type(receipt_layout) is not int or receipt_layout not in (0,1) or (receipt_layout and not canonical_prefix):raise ValueError('Exact cold receipt layout required')
         super().__init__(case,path,normal,manual_owner=False)
         self.real_time_start=time.monotonic();self.origin=time.time_ns()//1000000
         self.all_browsers=[];self.leases={};self.review=False;self.destination=False;self.review_index=0;self.destination_text=''
@@ -103,7 +104,7 @@ class AssetsUploadModel(AssetsPrefixModel):
                 try:
                     if getattr(case,'trace_factory',False):sys.settrace(traced)
                     self.owner=self.adapter._assets_prefix(self.native.target,self.run,self.url,self.phase,
-                        source_lock=self.lock,backend=self.backend)
+                        source_lock=self.lock,backend=self.backend,receipt_layout=receipt_layout)
                 except BaseException:
                     (self.root/'original-factory-failure.txt').write_text(traceback.format_exc());raise
                 finally:

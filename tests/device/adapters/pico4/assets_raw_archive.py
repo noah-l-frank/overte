@@ -34,6 +34,36 @@ def compact(reference):
         parts=[[part['bytes'], part['sha256'], part['physical']] for part in reference['parts']])
 
 
+def pack_receipt(row):
+    """Lossless Layout1 metadata only; actual literal/range bytes stay original."""
+    need(type(row) is dict)
+    tag='role' if 'role' in row else 'childSource'
+    need(set(row)=={tag,'rawOriginal'}|({'wireView'} if 'wireView' in row else set()))
+    role=row[tag]
+    need(type(role) is str and role in ('mappings','uploads','files','ui','backend','download','ui-observation','ui-status'))
+    from adapters.pico4.assets_raw_ranges import compact_reference
+    ref=compact_reference(row['rawOriginal'])
+    view=None
+    if 'wireView' in row:
+        v=row['wireView'];need(type(v) is dict and set(v)=={'assetsWireViewVersion','nonce','bytes','sha256'}
+            and type(v['assetsWireViewVersion']) is int and v['assetsWireViewVersion']==1
+            and type(v['nonce']) is str and re.fullmatch('[0-9a-f]{32}',v['nonce'])
+            and integer(v['bytes'],0,MAX_LITERAL) and type(v['sha256']) is str and re.fullmatch('[0-9a-f]{64}',v['sha256']))
+        view=[v['nonce'],v['bytes'],v['sha256']]
+    return [0 if tag=='role' else 1,role,ref['read'],ref['sha256'],ref['tailBundle'],view]
+
+
+def unpack_receipt(value):
+    need(type(value) is list and len(value)==6 and type(value[0]) is int and value[0] in (0,1))
+    row={('role' if value[0]==0 else 'childSource'):value[1],
+        'rawOriginal':dict(assetsRawCompactVersion=2,read=value[2],sha256=value[3],tailBundle=value[4])}
+    if value[5] is not None:
+        v=value[5];need(type(v) is list and len(v)==3)
+        row['wireView']=dict(assetsWireViewVersion=1,nonce=v[0],bytes=v[1],sha256=v[2])
+    pack_receipt(row)  # Validate every reconstructed field before it can be used.
+    return row
+
+
 def expanded(value, name):
     if type(value) is dict and value.get('assetsRawCompactVersion')==2:
         from adapters.pico4.assets_raw_ranges import compact_reference

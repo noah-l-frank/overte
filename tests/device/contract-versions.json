@@ -233,6 +233,7 @@
     "pico-assets-raw-read": {"current": 1, "reads": [1]},
     "pico-assets-raw-literal": {"current": 2, "reads": [1, 2]},
     "pico-assets-raw-compact": {"current": 2, "reads": [1, 2]},
+    "pico-assets-raw-receipt-layout": {"current": 1, "reads": [1]},
     "pico-assets-wire-original-layout": {"current": 1, "reads": [1]},
     "native-pico-assets-bake-originals": {"current": 2, "reads": [2]},
     "pico-assets-raw-wire-tail": {"current": 1, "reads": [1]},

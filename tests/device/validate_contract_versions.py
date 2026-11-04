@@ -313,6 +313,7 @@ REQUIRED = {
     "pico-assets-raw-read": 1,
     "pico-assets-raw-literal": 2,
     "pico-assets-raw-compact": 2,
+    "pico-assets-raw-receipt-layout": 1,
     "pico-assets-wire-original-layout": 1,
     "native-pico-assets-bake-originals": 2,
     "pico-assets-raw-wire-tail": 1,

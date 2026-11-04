@@ -610,10 +610,11 @@ def create_adapter(args, base_class):
             return False
 
         @_private
-        def _assets_prefix(self,target,run,fixture_url,phase,*,source_lock,backend=None):
+        def _assets_prefix(self,target,run,fixture_url,phase,*,source_lock,backend=None,receipt_layout=0):
             from adapters.pico4.assets_prefix import PicoAssetsPrefix
             from feature_journeys.phase_fixture import PhaseFixtureReader
             _need(type(phase) is PhaseFixtureReader and phase.run==run and phase.area=='assets' and phase.fixture_url==fixture_url)
+            _need(type(receipt_layout) is int and receipt_layout in (0,1) and (receipt_layout==0 or backend is not None))
             lock=self._script_journey()._lock(target,source_lock);lock.assert_held()
             upload_factory=None
             if backend is not None:
@@ -635,7 +636,7 @@ def create_adapter(args, base_class):
                 lambda intent,**options:self._assets_controls(target,intent,**options),
                 lambda intent,**options:self._assets_create_controls(target,intent,**options),
                 lambda **options:self._assets_cancel_owner(target,run,fixture_url,phase,source_lock=lock,stage=1,**options),
-                native.guard,native.clock_ms,upload_factory=upload_factory)
+                native.guard,native.clock_ms,upload_factory=upload_factory,receipt_layout=receipt_layout)
             if backend is not None:parent.bind_wire(self,target)
             return parent
 

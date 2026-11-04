@@ -56,12 +56,12 @@ class AssetsPrefix3FactoryTests(unittest.TestCase):
                 model.adapter._assets_prefix(model.native.target,model.run,model.url,model.phase,source_lock=lock,backend=backend)
         source.assert_not_called();self.assertFalse(model.inputs)
 
-    def fresh_model(self):
+    def fresh_model(self,**model_options):
         self.normal.native.identity='123:314159'
         native=patch.object(self.normal.native,'require_process_identity',
             side_effect=lambda identity:self.assertEqual('123:314159',identity))
         native.start();self.addCleanup(native.stop)
-        return AssetsUploadModel(self,self.root,self.normal,binary_transport=True,canonical_prefix=True)
+        return AssetsUploadModel(self,self.root,self.normal,binary_transport=True,canonical_prefix=True,**model_options)
 
     def test_actual_baseline_preserves_upload_capture_once_and_three_original_sdk_returns(self):
         model=self.fresh_model();owner=model.owner;model.activate('baseline')
@@ -94,6 +94,38 @@ class AssetsPrefix3FactoryTests(unittest.TestCase):
         reader._raw_reader=lambda:calls.append('foreign hook')
         with self.assertRaises(NativeUIError):reader.original()
         self.assertFalse(calls);self.assertIsNone(reader._seen_raw)
+
+    def test_explicit_compact_layout_uses_actual_factory_and_passive_originals(self):
+        from adapters.pico4.assets_prefix_originals import AssetsPrefixOriginals
+        model=self.fresh_model(receipt_layout=1);owner=model.owner
+        self.assertEqual(1,owner.receipt_layout);self.assertEqual(1,owner.scope['assetsRawReceiptLayoutVersion'])
+        model.activate('baseline');owner.observe()
+        self.assertEqual(3,len(model.sdk_calls));self.assertFalse(model.inputs)
+        self.assertTrue(all(type(row) is list for row in owner.disk['rawReads']))
+        with owner.lock.held():
+            expected=owner.uploads.history[0]['raw'].encode()
+            self.assertEqual(expected,owner.literal(1))
+            reader=AssetsPrefixOriginals(owner.store.path);self.addCleanup(reader.close_host)
+            self.assertEqual(1,reader.receipt_layout);self.assertEqual(expected,reader.literal(1))
+            self.assertTrue(reader.close_host())
+
+    def test_changed_compact_hash_cannot_replace_original_literal(self):
+        model=self.fresh_model(receipt_layout=1);owner=model.owner
+        model.activate('baseline');owner.observe();calls=len(model.sdk_calls)
+        with owner.lock.held():
+            owner.state['rawReads'][0][3]='f'*64;owner.save()
+            with self.assertRaises(NativeUIError):owner.literal(0)
+        self.assertEqual(calls,len(model.sdk_calls));self.assertFalse(model.inputs)
+
+    def test_wrong_receipt_policy_refuses_before_factory_runtime(self):
+        model=AssetsPrefixModel(self,self.root,self.normal,manual_owner=False)
+        for policy in (True,-1,2,'1'):
+            with patch.object(model.adapter,'_script_runtime',side_effect=AssertionError('No runtime before receipt policy')) as source:
+                with self.assertRaises(ValueError):
+                    model.adapter._assets_prefix(model.native.target,model.run,model.url,model.phase,
+                        source_lock=model.lock,receipt_layout=policy)
+            source.assert_not_called()
+        self.assertFalse(model.inputs);self.assertFalse(model.calls)
 
     def current_control(self):
         model=self.fresh_model();model.activate('baseline');model.owner.observe();return model,model.owner
@@ -171,3 +203,41 @@ class AssetsPrefix3FactoryTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class AssetsRawReceiptCodecTests(unittest.TestCase):
+    def test_all_roles_views_and_tail_references_roundtrip_without_aliases(self):
+        from adapters.pico4.assets_raw_archive import pack_receipt,unpack_receipt
+        rows=[]
+        for index in range(256):
+            role=('mappings','uploads','files','ui','backend','download','ui-observation','ui-status')[index%8]
+            tag='role' if index%2 else 'childSource'
+            row={tag:role,'rawOriginal':dict(assetsRawCompactVersion=2,read=index,sha256='a'*64,tailBundle=index if index%3 else None)}
+            if index%4:row['wireView']=dict(assetsWireViewVersion=1,nonce='b'*32,bytes=index,sha256='c'*64)
+            rows.append(row)
+        packed=[pack_receipt(row) for row in rows]
+        self.assertEqual(rows,[unpack_receipt(row) for row in packed])
+        self.assertLess(len(canonical(packed)),len(canonical(rows))-30000)
+        decoded=unpack_receipt(packed[1]);decoded['wireView']['bytes']=999
+        self.assertEqual(1,packed[1][5][1])
+        stored=pack_receipt(decoded);decoded['wireView']['bytes']=1000
+        self.assertEqual(999,stored[5][1])
+
+    def test_invalid_codes_types_and_reference_fields_refuse(self):
+        from adapters.pico4.assets_raw_archive import unpack_receipt
+        valid=[0,'mappings',0,'a'*64,None,None]
+        for index,value in ((0,True),(0,2),(1,'other'),(2,True),(2,-1),(3,'g'*64),(4,True),(5,[])):
+            row=deepcopy(valid);row[index]=value
+            with self.assertRaises(NativeUIError):unpack_receipt(row)
+        for value in (tuple(valid),valid[:-1],valid+[None]):
+            with self.assertRaises(NativeUIError):unpack_receipt(value)
+
+    def test_wire_view_fields_and_exact_scalars_are_preserved(self):
+        from adapters.pico4.assets_raw_archive import pack_receipt,unpack_receipt
+        valid=[1,'ui-status',2,'b'*64,3,['c'*32,100,'d'*64]]
+        self.assertEqual(valid,pack_receipt(unpack_receipt(valid)))
+        for index,value in ((0,'c'*31),(1,True),(1,-1),(2,'d'*63)):
+            row=deepcopy(valid);row[5][index]=value
+            with self.assertRaises(NativeUIError):unpack_receipt(row)
+        row=unpack_receipt(valid);row['foreign']=True
+        with self.assertRaises(NativeUIError):pack_receipt(row)
