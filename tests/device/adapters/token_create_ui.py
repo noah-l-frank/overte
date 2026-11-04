@@ -43,7 +43,8 @@ def choice(identifier):return identifier in {'create.host','create.import-host',
 
 
 def ascii_text(value):
-    need(type(value) is str and len(value)<=4096 and all(32<=ord(ch)<=126 for ch in value))
+    need(type(value) is str and len(value)<=4096 and str.isascii(value)
+         and (not value or str.isprintable(value)))
     return value
 
 

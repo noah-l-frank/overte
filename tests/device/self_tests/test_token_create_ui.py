@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from adapters.token_create_ui import TokenCreateUI, metadata, snapshot, same_reference
+from adapters.token_create_ui import TokenCreateUI, metadata, snapshot, same_reference, ascii_text
 from adapters.normal_create import NormalCreate
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_script_manager import NormalScriptManager
@@ -225,6 +225,36 @@ class TokenCreateTests(unittest.TestCase):
             setattr(self.io,key,old)
         self.native.clock=2;self.ui.capture();self.native.clock=1
         with self.assertRaises(NativeUIError):self.ui.capture()
+
+    def test_ascii_text_preserves_exact_type_printable_range_and_limit(self):
+        for value in ('', ''.join(chr(code) for code in range(32,127)),
+                      ' '*4096, '~'*4096, '\\'*4096, '"'*4096):
+            with self.subTest(valid_length=len(value)):
+                self.assertIs(value,ascii_text(value))
+        for code in range(128):
+            value=chr(code)
+            with self.subTest(ascii=code):
+                if 32<=code<=126:self.assertIs(value,ascii_text(value))
+                else:
+                    with self.assertRaises(NativeUIError):ascii_text(value)
+        invalid=['x'*4097, 'x'*4095+'\x00', '\x7f'+'x'*4095,
+                 '\x80', '\x85', '\xa0', '\u200d', '\u2028', '\ud800', '\udfff', '\U0001f600',
+                 None, True, 123, b'ASCII', [], {}]
+        for value in invalid:
+            with self.subTest(invalid_type=type(value).__name__):
+                with self.assertRaises(NativeUIError):ascii_text(value)
+        callbacks=[]
+        class ForeignText(str):
+            def __len__(self):callbacks.append('len');raise AssertionError('Foreign length')
+            def __iter__(self):callbacks.append('iter');raise AssertionError('Foreign iterator')
+            def isascii(self):callbacks.append('isascii');raise AssertionError('Foreign ASCII')
+            def isprintable(self):callbacks.append('isprintable');raise AssertionError('Foreign print')
+        class EqualType(type):
+            def __eq__(self,other):callbacks.append('eq');return True
+        class EqualText(str,metaclass=EqualType):pass
+        for value in (ForeignText('valid ASCII'),EqualText('valid ASCII')):
+            with self.assertRaises(NativeUIError):ascii_text(value)
+        self.assertEqual([],callbacks)
 
     def test_strict_metadata_rejects_missing_unknown_nil_and_false_types(self):
         self.open();value=self.ui.capture();page=next(r for r in value['controls'] if r['id']=='create.page')

@@ -201,3 +201,26 @@ The final34-case owning selection passes27.939 seconds with229 loaded sources
 unchanged. This includes the two new late-reservation counters and existing
 canonical input, child ownership, literal capacity, passive history, OFD and
 uncertain-CAS cases. Native additions remain uncompiled and devices untested.
+
+## Printable ASCII validation cost
+
+The shared Create control parser now uses the built-in ASCII and printable
+string checks after its original exact-type and 4096-character checks. Empty
+strings, printable ASCII 32 through 126, returned object identity and refusal
+errors are unchanged. No encoded payload is allocated. Source ages, input
+delivery, schemas and resource limits are unchanged.
+
+On the retained synthetic 262143-byte Assets UI response, the isolated method
+over 210 actual strings improves from 10.324 ms to 0.458 ms median. This is a
+method comparison, not an upload or whole-journey result. All 114 original
+files retain their bytes and complete physical identities. Pure comparison
+covers 16748 accepted/rejected inputs with identical results and error arguments.
+The existing Create controls and actual default Pico Assets carrier pass 17
+owning cases in 6.453 seconds with 247 loaded source files unchanged. The new
+edge case includes forbidden controls, Unicode, string subclasses and deceptive
+metaclass equality without invoking foreign callbacks.
+
+The earlier large-UI input-reference diagnostic still failed its original
+1.5-second source-age check after input and before receipt completion. That
+private mode has not been requalified by this shared parser improvement.
+Complete Assets qualification remains open.
