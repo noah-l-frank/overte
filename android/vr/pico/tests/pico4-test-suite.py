@@ -33,6 +33,7 @@ def test(name: str, category: str, *command: str, requires: tuple[str, ...] = ()
 PYTHON = sys.executable
 TESTS = (
     test("snapshot-constructor-originals", "interaction", PYTHON, "device/test_snapshot_constructor_originals.py"),
+    test("strict-json-digest", "infrastructure", PYTHON, "device/test_strict_json_digest.py"),
     test("loaded-chunk-codec", "infrastructure", PYTHON, "device/test_loaded_chunk_codec.py"),
     test("suite-runner", "infrastructure", PYTHON, "pico4-test-suite-self-test.py"),
     test("coverage-matrix", "infrastructure", PYTHON, "pico4-coverage-test.py"),

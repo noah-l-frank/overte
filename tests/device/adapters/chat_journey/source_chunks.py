@@ -25,16 +25,19 @@ def json_digest(value):
     keys. A digest hit must not bypass the original closed DTO validators.
     This changes no persisted source/manifest format or ordinary digest.
     """
+    # Type membership must use identity: a container subclass can define a
+    # metaclass equality operator which claims to be dict/list/a scalar type.
+    scalar_ids={id(str),id(int),id(float),id(bool),id(type(None))}
     pending=[value];seen=set()
     while pending:
         item=pending.pop();kind=type(item)
-        if kind in (dict,list):
+        if kind is dict or kind is list:
             if id(item) in seen:continue
             seen.add(id(item))
             if kind is dict:
                 need(all(type(key) is str for key in item));pending.extend(item.values())
             else:pending.extend(item)
-        else:need(kind in (str,int,float,bool,type(None)))
+        else:need(id(kind) in scalar_ids)
     # The ordinary canonical encoder still checks finite values and cycles.
     return digest(value)
 

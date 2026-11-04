@@ -2430,5 +2430,15 @@
         "devicesTested": false
       }
     }
-  ]
+  ],
+  "sharedStrictJsonAdmission": {
+    "selector": "strict-json-digest",
+    "rootCases": 5,
+    "rootSeconds": 0.043,
+    "rootLoadedSources": 29,
+    "affectedCases": 22,
+    "affectedSeconds": 8.171,
+    "affectedLoadedSources": 180,
+    "scope": "Actual deceptive metaclass list/dict/scalar aliases now refuse by exact builtin type identity before foreign equality/iteration/encoding; nested aliases and key subclasses likewise refuse. Ordinary valid JSON hashes and persisted formats unchanged. Host metadata admission only, no native/device/full-feature qualification."
+  }
 }

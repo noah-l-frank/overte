@@ -46,3 +46,12 @@ the final seal CAS. Initial/Open and actual cache retirement owners execute.
 The remaining 24 input rows and native/V8/widget/network/clock producers are
 explicit seams; these tests do not qualify those 24 product effects or a full
 external journey. Physical originals are retained on failure.
+
+The shared `json_digest` checks exact builtin type identities. Equality-based
+type membership previously accepted a list subclass whose metaclass claimed
+equality with `list`, producing the plain list's digest. Such aliases now refuse
+before foreign equality, iteration or canonical encoding. Nested aliases and
+non-string/subclass keys are covered; ordinary JSON hashes, repeated references,
+nonfinite/cycle refusal and persisted formats remain unchanged. Five focused
+counters and 22 affected Browser-history/Chat-source-seal cases pass on the host.
+These checks grant no native, device or whole-journey qualification.
