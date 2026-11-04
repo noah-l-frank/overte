@@ -4151,3 +4151,11 @@ construction: final-quiet host gaps1.223/1.295/1.362s exceed original1s continui
 The suppressed exact inner guard is unknown. This is progress within Lifecycle,
 not a complete feature or a reason to relax clocks. See
 [LIFECYCLE_QUIET_STEP5.md](LIFECYCLE_QUIET_STEP5.md).
+
+
+The born-host Browser diagnostic now gives Common its own original actual
+Parent clock before constructing child/sources/input. Clock/sleep reads no
+longer perform unrelated coordinator state validation; product operations and
+Native source clocks/freshness/whole predicates remain. Fifteen affected cases
+pass; changed coordinator qualification remains separate. See
+[BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

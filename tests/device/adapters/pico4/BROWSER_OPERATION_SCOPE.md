@@ -374,3 +374,26 @@ focused actual-loop/admission/lock cases pass4.778s/47 stable. Whole remains ope
 
 The combined25-case scheduler, phase, admission and separate-process normal
 Open/Close/quiet/return scope passes17.307s/256 stable with original120s.
+
+
+## Parent clock in the born-host diagnostic
+
+Common now creates its OWN original actual Parent host clock before child,
+source or input construction, using the existing OriginalHostModel. This
+matches ordinary Journey's local monotonic/epoch/sleep ownership. Native/Actor
+producers keep their original child host clock and unchanged capture stamps;
+no current source clock or earlier packet is retimed.
+
+The previous diagnostic routed every Common clock/sleep through a coordinator
+request. That also ran actual coordinator control/file validation, whose growing
+history was unrelated to reading time. Pure image/evidence budget checks could
+therefore incur extra product-owner work. Current local Parent reads/sleeps
+still consume actual wall/monotonic time, validate Parent birth and retain all
+1.5s source,500ms quiet,20s checkpoint and120s whole predicates. Product calls
+still pass their original coordinator/Actor/source guards; no ordinary input or
+source acquisition is bypassed.
+
+Fifteen existing actual-host clock, receipt and input-phase cases pass5.570s/212
+stable loaded sources. This verifies the reused clock and affected source rules;
+the changed real coordinator still needs its separate integration result. The
+previous RED96.630s normalstep24 and negative cleanup/Common record stay intact.

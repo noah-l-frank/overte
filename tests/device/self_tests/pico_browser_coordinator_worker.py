@@ -195,6 +195,11 @@ def child():
 
 def parent():
     before=sources();retained_temporaries()
+    # Common owns its actual Parent host clock, as the ordinary production
+    # Journey does. Clock reads/sleeps are not coordinator product operations.
+    # Select it before constructing the child, sources or first input.
+    from self_tests.pico_lifecycle_host_model import OriginalHostModel
+    parent_clock=OriginalHostModel()
     from adapters.pico4.browser_common_export import JourneyConsumptionExport
     from feature_journeys.engine import Journey
     from feature_journeys.evidence import read_private_artifact
@@ -241,7 +246,7 @@ def parent():
         journey=Journey('tablet-web',ready['run'],ready['url'],invoke=call,witness=client.observe,
             activate=client.activate,read_artifact=lambda name:read_private_artifact(artifacts,name),
             image_policy=dict(screen=policy),continuity=lambda *_args:None,
-            monotonic=lambda:call('host'),epoch_ms=lambda:call('epoch'),sleep=lambda seconds:call('sleep',seconds),
+            monotonic=parent_clock.now,epoch_ms=parent_clock.epoch,sleep=parent_clock.sleep,
             report=reports.append,after_cleanup_baseline=export.callback,input_context=input_context,
             poll_work_inclusive=True)
         export.attach(journey);journey.execute()

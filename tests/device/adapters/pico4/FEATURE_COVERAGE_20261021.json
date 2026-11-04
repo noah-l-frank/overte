@@ -1349,6 +1349,21 @@
         "affectedCases": 25,
         "affectedSeconds": 17.307,
         "affectedLoadedSources": 256
+      },
+      "parentLocalHostClockPrerequisite": {
+        "selector": "browser-host-clock",
+        "affectedCases": 15,
+        "affectedSeconds": 5.57,
+        "affectedLoadedSources": 212,
+        "scope": "Diagnostic Common owns original actual Parent host clock before child/sources/input, reusing OriginalHostModel. Removes remote clock/sleep coordinator control/file work; producer clocks/stamps and all currentness/quiet/checkpoint/whole predicates unchanged. Actual product operations still guarded. Existing clock/receipt/input-phase cases pass; actual changed coordinator awaits separate result.",
+        "historicalClockRpcCalls": {
+          "host": 4528,
+          "epoch": 1784,
+          "sleep": 1196
+        },
+        "wholeQualified": false,
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     },
     {
