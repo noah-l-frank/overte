@@ -6,7 +6,6 @@ Only repeated JSON/codec expansion is omitted under its original complete bill.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
-import errno
 import hashlib
 import os
 import re
@@ -18,6 +17,7 @@ from adapters.chat_journey.archive_file import signature
 from adapters.chat_journey.source_chunks import json_digest
 from adapters.host_process_identity import host_identity
 from adapters.native_fd_owner import OriginalDescriptor,require_directory
+from adapters.pico4.lifecycle_descriptor_close import pin as pin_close,close_original
 from adapters.native_feature_observation import need,integer
 from adapters.pico4.lifecycle_namespace_bill import canonical_size
 from adapters.script_journey.history import MAX_RAW
@@ -42,6 +42,8 @@ class LifecycleCapacityPass:
         self.proof=self._original_proof=None;self.pending=self._original_pending=None
         self.active=self._original_active=None;self.failed=self.closed=False
         self._pending_rows=self._original_pending_rows=();self._pending_state=self._original_pending_state=None
+        self.close_proof=self._original_close_proof=pin_close()
+        self.close_procedure=self._original_close_procedure=(close_original,close_original.__code__)
         self.full_audits=self.reuses=0
         self.literal_costs=self._original_literal_costs=();self.literal_pending=self._original_literal_pending=()
         from adapters.pico4 import lifecycle_namespace_bill as module
@@ -169,13 +171,11 @@ class LifecycleCapacityPass:
         self.active=self._original_active=owner
 
     def close_pair(self,owner):
-        need(self.active is self._original_active is owner and type(owner) is OriginalDescriptor)
-        owner.require(owner.fd);fd,anchor=owner.fd,owner.anchor
-        need(owner.close() is True and owner.closed is True and owner.fd==owner.anchor==-1)
-        for number in (fd,anchor):
-            try:os.fstat(number)
-            except OSError as error:need(error.errno==errno.EBADF)
-            else:need(False)
+        need(self.active is self._original_active is owner and type(owner) is OriginalDescriptor
+            and self.close_proof is self._original_close_proof
+            and self.close_procedure is self._original_close_procedure
+            and close_original is self.close_procedure[0] and close_original.__code__ is self.close_procedure[1])
+        close_original(owner,self.close_proof)
         self.active=self._original_active=None
 
     def same_files(self):

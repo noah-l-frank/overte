@@ -36,7 +36,7 @@ class LifecycleBackgroundOwnerTests(unittest.TestCase):
             else:
                 # Native LifecycleBackgroundHistory::append acquires the UI
                 # source BEFORE sampling its enclosing frame clock.
-                self.native.ui.send(dict(commandId='1'*32,runId=RUN));packet=self.native.ui.value
+                packet=self.native.ui.observe(dict(commandId='1'*32,runId=RUN))
                 self.history.epoch=self.native.epoch();self.history.host=self.native.clock;base_frame(cause)
             row=next(item for item in packet['source']['editors'] if item['id']==self.chat.state['originalId'])
             keyboard=packet['source']['keyboard'];result=self.history.frames[-1]

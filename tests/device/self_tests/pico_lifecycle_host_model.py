@@ -57,18 +57,25 @@ class HostUi(SharedWeakUi2):
     def _send(self,request):
         self.commands.append(deepcopy(request))
         if self.ignore:return
+        self.value=self.observe(request)
+    def observe(self,request):
+        # Native internal UI providers return a map. Only public SDK send
+        # publishes the reply mailbox; a real model timer cannot rewrite it.
+        with self.context.gui_lock:return self._observe(request)
+    def _observe(self,request):
         self.context.guard();self.sequence+=1;k=keyboard(self.raised);k['sequence']=self.sequence
         selected=[row['id'] for row in self.rows if row['current']]
-        self.value=dict(lifecycleUiVersion=2 if request.get('schemaVersion',1)==2 else 1,
+        value=dict(lifecycleUiVersion=2 if request.get('schemaVersion',1)==2 else 1,
             commandId=request['commandId'],runId=request['runId'],instance='c'*32,sequence=self.sequence,
             processId=self.context.pid,capturedEpochMs=self.context.epoch(),source=dict(complete=True,
                 tabletShown=self.shown,onHomeScreen=self.home,current=selected[0] if selected else '',editors=deepcopy(self.rows),keyboard=k))
-        if self.value['lifecycleUiVersion']==2:
-            for row,observed in zip(self.rows,self.value['source']['editors']):
+        if value['lifecycleUiVersion']==2:
+            for row,observed in zip(self.rows,value['source']['editors']):
                 token=self.token(row);live=all(row[name] for name in ('fieldAlive','windowAlive','contextAlive'))
                 observed['fieldBinding']=dict(lifecycleFieldBindingVersion=1,uiFieldId=observed['fieldId'],
                     pendingFieldToken=token,weakBirth=token,status='linked' if live else 'retired' if token else 'unobserved')
-        if self.mutate:self.mutate(self.value)
+        if self.mutate:self.mutate(value)
+        return value
     def source(self):
         return PicoLifecycleSource(self.send,self.read,self.context.epoch,lambda:self.alive,self.context.pid,
             monotonic=self.context.now,sleep=self.context.sleep,field_bindings=True)

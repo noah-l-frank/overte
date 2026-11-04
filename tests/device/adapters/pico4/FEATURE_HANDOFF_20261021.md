@@ -4010,3 +4010,13 @@ clock/guard reentry and all six premature UI input entries issue no input or
 getter. Malformed/timeout originals remain retained. Native single-transaction
 producer, whole-budget composition, later actions and complete retirement stay
 open. Catalogue406 adds one group; complete areas remain3/14, devices0.
+
+
+Lifecycle warm metadata and original descriptor close follow-up keeps all wire
+versions and limits unchanged. Root independently passed the disjoint signature8,
+mailbox2 and close8 cases in16.895s with166 loaded sources unchanged; the affected
+current component groups contain50 cases. The born normal flow remains RED at
+the original1500ms fence before Pending3 preparation. This is source-partial
+work, with no new complete capability. See
+[LIFECYCLE_PENDING3_STORAGE.md](LIFECYCLE_PENDING3_STORAGE.md) for exact scope,
+actual FD reuse, model boundaries and retained failure evidence.

@@ -133,5 +133,6 @@ class LifecycleCapacityPassTests(unittest.TestCase):
             if self.helper.active is owner:seen.append(owner);return True
             return original(owner)
         with patch.object(OriginalDescriptor,'close',fake),self.assertRaises(NativeUIError):self.source.capture(RUN)
-        self.assertTrue(seen);self.assertIs(self.helper.active,seen[0]);self.assertFalse(self.bank.close_host())
-        self.assertEqual(1,len(self.native.commands));seen[0].require(seen[0].fd)
+        self.assertEqual([],seen);active=self.helper.active;self.assertIsNotNone(active)
+        self.assertFalse(self.bank.close_host())
+        self.assertEqual(1,len(self.native.commands));active.require(active.fd)

@@ -2428,6 +2428,21 @@
         "knownRedDiagnostics": "Explicit non-test-prefixed pico_lifecycle_pending3_diagnostic.py only; ordinary discovery selects28 green unique cases.",
         "nativeCompiled": false,
         "devicesTested": false
+      },
+      "warmMetadataAndOriginalClosePrerequisite": {
+        "selectors": {
+          "lifecycle-state5-signature": 8,
+          "lifecycle-host-mailbox": 2,
+          "lifecycle-descriptor-close": 8
+        },
+        "rootCases": 18,
+        "rootSeconds": 16.895,
+        "rootLoadedSources": 166,
+        "affectedCurrentCases": 50,
+        "scope": "Optional bounded original-result signatures, actual original FD-close proof without post-close numeric-slot adoption, and declared GUI timer/public mailbox separation. Original wire formats, byte/part limits, clocks and source predicates unchanged.",
+        "currentWhole": "RED21.888s/169 stable: original Background.fresh1500ms before Pending preparation; original one-second quiet gaps exceeded. No full Pending3, Source8 or independent Actor qualification.",
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     }
   ],

@@ -6,7 +6,6 @@ not qualify Pending3, another owner, product effects or a new current verdict.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from dataclasses import dataclass
-import errno
 import hashlib
 import os
 import stat
@@ -15,6 +14,7 @@ from adapters.chat_journey.archive_file import signature
 from adapters.chat_journey.source_chunks import json_digest
 from adapters.host_process_identity import host_identity
 from adapters.native_fd_owner import OriginalDescriptor,require_directory
+from adapters.pico4.lifecycle_descriptor_close import pin as pin_close,close_original
 from adapters.native_feature_observation import need,integer
 from adapters.pico4.lifecycle_namespace_bill import canonical_size
 from adapters.script_journey.history import canonical,unpack,MAX_RAW
@@ -37,6 +37,8 @@ class DataPin:
 class LifecyclePendingReturnPins:
     """Same actual writer/gate only; never a filename-based authority grant."""
     def __init__(self,gate):
+        self.close_proof=self._original_close_proof=pin_close()
+        self.close_procedure=self._original_close_procedure=(close_original,close_original.__code__)
         self.gate=gate;self.entries=[];self.partial=self._original_partial=[];self._partial_seal=self._original_partial_seal=();self._close_receipt=self._original_close_receipt=None;self.failed=False;self.prepared=False;self.closed=False
         self._entries=self._original_entries=None;self._fixed=self._original_fixed=None
         self.reserve_bytes=0;self._reserve_seal=None;self.namespace_pin=None
@@ -211,20 +213,16 @@ class LifecyclePendingReturnPins:
             and all(current is saved for current,saved in zip(self.partial,self._partial_seal)))
         if not result:self._fail()
         terminals=[];self._closing_pairs=terminals
-        # Every successful terminal record observes real absence immediately
-        # after closing the ORIGINAL kernel pair. A bool/receipt cannot replace
-        # actual alias validation or certify a live/recycled foreign slot.
+        # Exact live alias validation plus the pinned close implementation
+        # observes both successful original close syscalls. Later numeric FD
+        # reuse is foreign; this holder neither touches nor claims its absence.
         for owner in self._partial_seal:
             try:
                 need(type(owner.node) is tuple and len(owner.node)==2 and all(type(value) is int for value in owner.node))
-                owner.require(owner.fd);descriptor,anchor,node=owner.fd,owner.anchor,owner.node
-                terminals.append((owner,descriptor,anchor,node))
-                need(owner.close() is True and owner.closed is True and owner.lost is False
-                    and type(owner.fd) is type(owner.anchor) is int and owner.fd==owner.anchor==-1)
-                for number in (descriptor,anchor):
-                    try:os.fstat(number)
-                    except OSError as error:need(error.errno==errno.EBADF)
-                    else:need(False)
+                need(self.close_proof is self._original_close_proof
+                    and self.close_procedure is self._original_close_procedure
+                    and close_original is self.close_procedure[0] and close_original.__code__ is self.close_procedure[1])
+                terminals.append(close_original(owner,self.close_proof))
             except BaseException:result=False
         if result:
             self.closed=True
