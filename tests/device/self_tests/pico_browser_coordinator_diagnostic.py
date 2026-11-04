@@ -107,4 +107,75 @@ class BrowserPollReturnTests(unittest.TestCase):
         self.assertIs(code,Journey.poll_original_current.__code__)
 
 
+class BrowserTemporaryRetentionTests(unittest.TestCase):
+    def test_gc_context_failure_and_actual_interpreter_exit_keep_owned_diagnostic_originals(self):
+        with tempfile.TemporaryDirectory(prefix='browser-diagnostic-retention-') as temporary:
+            root=Path(temporary)
+            code='''from pathlib import Path
+import gc,json,tempfile
+from self_tests import pico_browser_coordinator_worker as worker
+worker.retained_temporaries()
+paths={}
+value=tempfile.TemporaryDirectory(prefix='gc-')
+paths['gc']=value.name
+(Path(value.name)/'marker').write_bytes(b'actual owned diagnostic bytes')
+del value;gc.collect()
+try:
+    with tempfile.TemporaryDirectory(prefix='context-') as value:
+        paths['context']=value
+        (Path(value)/'marker').write_bytes(b'actual owned diagnostic bytes')
+        raise RuntimeError('Original diagnostic unwind')
+except RuntimeError:pass
+value=tempfile.TemporaryDirectory(prefix='exit-')
+paths['exit']=value.name
+(Path(value.name)/'marker').write_bytes(b'actual owned diagnostic bytes')
+(worker.ROOT/'paths.json').write_text(json.dumps(paths))
+'''
+            p=subprocess.Popen([sys.executable,'-c',code],stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                env=dict(os.environ,OVT_BROWSER_COORDINATOR_ROOT=str(root),PYTHONDONTWRITEBYTECODE='1'))
+            stdout,stderr=p.communicate(timeout=10)
+            self.assertEqual(0,p.returncode,stderr.decode());self.assertEqual(b'',stdout)
+            self.assertFalse(Path('/proc',str(p.pid)).exists())
+            paths=json.loads((root/'paths.json').read_text());self.assertEqual({'gc','context','exit'},set(paths))
+            for value in paths.values():
+                self.assertEqual(root,Path(value).parent)
+                self.assertEqual(b'actual owned diagnostic bytes',(Path(value)/'marker').read_bytes())
+            self.assertFalse(Path('/proc',str(p.pid)).exists())
+
+
+class BrowserRetirementDiagnosticTests(unittest.TestCase):
+    def fixture(self):
+        from self_tests import test_pico_browser_capture_retirement as sources
+        value=sources.PicoBrowserCaptureRetirementTests('runTest');value.setUp()
+        self.addCleanup(value.doCleanups);value.baseline();return value
+
+    def test_selected_original_methods_and_cadence_are_observed_without_extra_input(self):
+        from self_tests.pico_browser_retirement_diagnostic import RetirementCosts
+        source=self.fixture();before=len(source.f.target.command_log)
+        with RetirementCosts() as costs:value=source.f.primary.retire_original_captures(source.f.actor)
+        self.assertTrue(value['complete']);self.assertIsNone(costs.tool)
+        report=costs.report();self.assertEqual([],report['unreturnedSelectedFrames'])
+        self.assertTrue(report['cadence']);self.assertTrue(all(0<row['hostSeconds']<=.5 for row in report['cadence']))
+        self.assertGreater(report['costs']['ChatArchiveCatalog.verify_all']['calls'],0)
+        self.assertEqual(before,len(source.f.target.command_log))
+
+    def test_actual_original_overlong_cadence_remains_refused_and_is_recorded(self):
+        from unittest.mock import patch
+        from adapters.normal_ui import NativeUIError
+        from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetirement
+        from self_tests.pico_browser_retirement_diagnostic import RetirementCosts
+        source=self.fixture();append=PicoBrowserCaptureRetirement.append
+        def slow(owner,row,*args,**kwargs):
+            value=append(owner,row,*args,**kwargs)
+            if row['kind']=='absence-window':source.f.clock.sleep(.55)
+            return value
+        with RetirementCosts() as costs,patch.object(PicoBrowserCaptureRetirement,'append',slow):
+            with self.assertRaises(NativeUIError):source.f.primary.retire_original_captures(source.f.actor)
+        self.assertIsNone(costs.tool);self.assertTrue(any(row['hostSeconds']>.5 for row in costs.report()['cadence']))
+        owner=source.f.primary.capture_retirement;self.assertTrue(owner.failed);self.assertFalse(owner.completed)
+        before=len(source.batches)
+        with self.assertRaises(NativeUIError):owner.run()
+        self.assertEqual(before,len(source.batches))
+
+
 if __name__=='__main__':unittest.main()

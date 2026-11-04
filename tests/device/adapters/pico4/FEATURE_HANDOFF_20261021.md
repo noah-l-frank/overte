@@ -37,6 +37,16 @@ not whole or device qualification. See the
 [exact memo scope](BROWSER_OPERATION_SCOPE.md#one-owned-png-decode-during-stereo-retirement).
 The catalog now contains440 groups; source-complete areas remain3/14.
 
+The changed PNG-memo whole completes all26 acts, all28 Common phases and actual
+Actor return, then refuses the original500ms final capture cadence at93.750s.
+Primary/peer-currentness and nonempty fact contradictions are all zero. Its
+failed child unwind let temporary finalizers delete the original directories;
+this is NOT a retained original-file inventory. Diagnostic-only construction-time
+retention, unconditional final source inventory and selected final-capture costs
+are now covered by3 passing cases8.607s/182 stable sources. See the
+[exact retention correction](BROWSER_OPERATION_SCOPE.md#finalization-diagnostics-and-temporary-source-retention).
+Final host release and complete Browser qualification remain open.
+
 The 2026-11-02 continuation adds the private
 [World consumption readout](WORLD_CURRENT_CONSUMPTION_READOUT.md), with17
 no-build owning cases and original pre-send/outer-exit time fences. Its native

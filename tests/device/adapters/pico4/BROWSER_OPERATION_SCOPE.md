@@ -492,3 +492,38 @@ still run, now11.280ms inclusive; the single measured acquisition is426ms versus
 483ms previously. These are separate fresh component executions with declared
 producers, not a whole-run speedup prediction. No full qualification is inferred.
 Selector browser-png-memo is host-only; catalog440.
+
+The changed whole completes all26 normal acts, all28 Common phases and actual
+Actor return with zero Primary/peer-currentness or nonempty peer-fact refusals
+among1645 selected return events. It remains RED93.750s in finalize at the
+original500ms consecutive capture-retirement clock guard. Parent191/Actor177
+source SHA/eight stats are stable; all2325 repository Python files are unchanged
+at terminal before edits. No final host release or complete adapter is claimed.
+
+## Finalization diagnostics and temporary-source retention
+
+The93.750s failed child unwind skipped fixture cleanup. Its TemporaryDirectory
+weakref/atexit removers then deleted the artifact, state and model directories;
+only14 top-level diagnostic files survive. Runtime checks and source manifests
+remain historical evidence, but this scope has NO retained original-file
+inventory. Prior finalization failures without a child-after manifest must not
+be described as retained original-byte closure or retrospectively adopted.
+
+An actual disposable child reproduces GC deletion with the old retention
+helper. The diagnostic now detaches each temporary's automatic remover at its
+construction, before original source creation. Explicit cleanup, GC and actual
+interpreter exit retain task-owned diagnostic data. Child service/fixture/source
+finalization is in nested finally blocks, so a failed original owner unwind
+cannot skip the final loaded-source inventory. No product cleanup/retirement
+guard, failed resource ownership or process result is converted into success.
+
+Finalization additionally observes only seven selected original method code
+objects, using local PY_START/PY_RETURN events. One original run cadence line
+records already acquired host/native deltas; it calls no clock/source and changes
+no predicate or timestamp. Method timings use the diagnostic performance clock
+and include their declared monitoring overhead. Unreturned selected frames are
+reported explicitly; no incomplete span is presented as measured whole cost.
+Three cases pass8.607s/182 stable sources: actual GC/context-failure/child-exit
+retention, successful existing original capture retirement, and a genuine550ms
+round that still refuses without retry while its failing delta is recorded.
+These explicit diagnostics remain outside default green catalog groups.

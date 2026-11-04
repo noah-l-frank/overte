@@ -48,6 +48,11 @@ def finish_sources(before, name):
 def retained_temporaries():
     original = tempfile.TemporaryDirectory
     class Retained(original):
+        def __init__(self,*args,**kwargs):
+            super().__init__(*args,**kwargs)
+            # Failure can bypass the fixture's explicit cleanup. Disable the
+            # original weakref/atexit remover BEFORE any source is created.
+            self._finalizer.detach()
         def cleanup(self): self._finalizer.detach()
     tempfile.TemporaryDirectory = Retained
     tempfile.tempdir = str(ROOT)
@@ -160,7 +165,14 @@ def child():
                     deadlineMonotonic=min(time.monotonic()+60,whole['deadlineMonotonic'],
                         whole['deadlineMonotonic'] if current_budget is None else current_budget['deadlineMonotonic']))
                 with owner.public_context(call):result=owner.invoke(operation,arguments)
-            elif operation in ('consume','actor.return','finalize','input.begin','input.end'):result=owner.dispatch(request(operation,arguments))
+            elif operation=='finalize':
+                from self_tests.pico_browser_retirement_diagnostic import RetirementCosts
+                costs=RetirementCosts()
+                try:
+                    with costs:result=owner.dispatch(request(operation,arguments))
+                finally:
+                    (ROOT/'capture-retirement-costs.json').write_text(json.dumps(costs.report()))
+            elif operation in ('consume','actor.return','input.begin','input.end'):result=owner.dispatch(request(operation,arguments))
             elif operation=='close':owner.close_host();result=True
             elif operation=='epoch':result=f.clock.epoch()
             elif operation=='host':result=f.clock.now()
@@ -173,24 +185,30 @@ def child():
         (ROOT/'child-failure.txt').write_text(traceback.format_exc())
         emit(dict(error=error,where=None if owner is None else owner.state['pending']))
     finally:
-        if owner is not None:
-            owner.unwind()
-            if owner.worker is not None:
-                if owner.worker.poll() is None:
-                    # Test shutdown only: the original known owned process is
-                    # terminated without claiming product/feature retirement.
-                    owner.worker_owner.guard();owner.worker.terminate()
-                owner.worker.wait(timeout=10);owner.collect()
-                for pipe in owner.worker_pipes:pipe.close()
-                for held in owner.worker_pins:
-                    if not held.owner.closed:held.close()
-                if owner.worker_owner is not None:owner.worker_owner.close()
-            if owner.origin is not None:owner.origin.close()
-            owner.file.close_host()
-            (ROOT/'owner-outcome.json').write_text(json.dumps(dict(error=error,phase=owner.state['phase'],
-                pending=owner.state['pending'],calls=len(owner.state['calls']),actorExit=None if owner.worker is None else owner.worker.returncode,
-                commonComplete=owner.common.complete,commonFailed=owner.common.failed)))
-        service.close();h.doCleanups();finish_sources(before,'child')
+        try:
+            if owner is not None:
+                owner.unwind()
+                if owner.worker is not None:
+                    if owner.worker.poll() is None:
+                        # Test shutdown only: the original known owned process is
+                        # terminated without claiming product/feature retirement.
+                        owner.worker_owner.guard();owner.worker.terminate()
+                    owner.worker.wait(timeout=10);owner.collect()
+                    for pipe in owner.worker_pipes:pipe.close()
+                    for held in owner.worker_pins:
+                        if not held.owner.closed:held.close()
+                    if owner.worker_owner is not None:owner.worker_owner.close()
+                if owner.origin is not None:owner.origin.close()
+                owner.file.close_host()
+                (ROOT/'owner-outcome.json').write_text(json.dumps(dict(error=error,phase=owner.state['phase'],
+                    pending=owner.state['pending'],calls=len(owner.state['calls']),actorExit=None if owner.worker is None else owner.worker.returncode,
+                    commonComplete=owner.common.complete,commonFailed=owner.common.failed)))
+        finally:
+            try:
+                service.close()
+            finally:
+                try:h.doCleanups()
+                finally:finish_sources(before,'child')
 
 
 def parent():
