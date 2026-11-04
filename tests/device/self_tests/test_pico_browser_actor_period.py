@@ -8,6 +8,7 @@ Real elapsed work and sleeps demonstrate the scheduler's sampling interval.
 import os
 from pathlib import Path
 import tempfile
+import threading
 import time
 from types import SimpleNamespace
 import unittest
@@ -57,6 +58,36 @@ class BrowserActorPeriodTests(unittest.TestCase):
         deltas=[b-a for a,b in zip(self.samples,self.samples[1:])]
         self.assertEqual(2,len(deltas));self.assertTrue(all(0<delta<=.5 for delta in deltas),deltas)
         self.assertTrue(all(.05<=delay<.15 for delay in self.sleeps),self.sleeps)
+
+    def test_expensive_explicit_publication_leaves_primary_ipc_handoff_time_before_reclaiming_source_lock(self):
+        journey,config,admission,sleep=self.setup_loop(work=.45)
+        with self.assertRaises(ModelComplete):run(journey,config,sleep=sleep,admission=admission)
+        self.assertEqual([.075,.075],self.sleeps)
+
+    def test_fast_explicit_publication_keeps_original_work_inclusive_period(self):
+        journey,config,admission,sleep=self.setup_loop(work=.01)
+        with self.assertRaises(ModelComplete):run(journey,config,sleep=sleep,admission=admission)
+        self.assertTrue(all(.35<=delay<=.4 for delay in self.sleeps),self.sleeps)
+        self.assertTrue(all(.35<=b-a<=.5 for a,b in zip(self.samples,self.samples[1:])),self.samples)
+
+    def test_actual_original_lock_order_for_declared_primary_arrival_distinguishes_one_poll_from_handoff_yield(self):
+        for delay,expected in ((.025,['actor','primary']),(.075,['primary','actor'])):
+            with self.subTest(delay=delay),tempfile.TemporaryDirectory(prefix='browser-handoff-model-') as name:
+                root=Path(name);root.chmod(0o700)
+                actor=ScriptSourceLock(root/'sources.lock');primary=ScriptSourceLock(root/'sources.lock')
+                start=threading.Event();order=[];failures=[]
+                def waiting():
+                    try:
+                        start.wait(1);time.sleep(.040)
+                        with primary.held():order.append('primary');time.sleep(.10)
+                    except BaseException as error:failures.append(error)
+                worker=threading.Thread(target=waiting);worker.start()
+                try:
+                    with actor.held():pass
+                    start.set();time.sleep(delay)
+                    with actor.held():order.append('actor');time.sleep(.14)
+                finally:worker.join(2)
+                self.assertFalse(worker.is_alive());self.assertEqual([],failures);self.assertEqual(expected,order)
 
     def test_legacy_actor_four_keeps_original_fixed_sleep(self):
         journey,config,admission,sleep=self.setup_loop(version=4,work=.01)

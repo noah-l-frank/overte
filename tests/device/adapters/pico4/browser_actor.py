@@ -68,7 +68,9 @@ def run(journey,config,*,monotonic=time.monotonic,sleep=time.sleep,admission=Non
         bound()
         # Actor6 samples at 400ms including actual publication work, inside
         # the unchanged 500ms quiet-window ceiling and source-frame cap.
-        # Yield at least one lock-poll interval to an actual waiting Primary.
-        # Preserve the legacy fixed sleep for earlier observer profiles.
-        delay=.25 if admission is None else max(.025,.4-(previous-iteration_started))
+        # Leave the measured peer-to-Primary IPC handoff room after expensive
+        # publications; reclaiming after one25ms lock poll starves that reader.
+        # Faster work still uses the remaining400ms inclusive sample period.
+        # Original500ms quiet/current source checks and legacy sleep remain.
+        delay=.25 if admission is None else max(.075,.4-(previous-iteration_started))
         sleep(delay)

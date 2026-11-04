@@ -1336,6 +1336,19 @@
         "currentWhole": "Before this fixture correction RED22.791s: Actor NavigationArrival failed on firstOpen, Parent20s peer wait expires; cleanup refuses dead actualActor. Exact suppressed inner pose guard not persisted, so no assertion that the isolated model defect is the whole failure cause. Parent161/child266/actor167 source SHA8 stable.",
         "nativeCompiled": false,
         "devicesTested": false
+      },
+      "primaryHandoffYieldPrerequisite": {
+        "selector": "browser-actor-period",
+        "rootCases": 6,
+        "rootSeconds": 4.778,
+        "rootLoadedSources": 47,
+        "scope": "Explicit Actor6 floor75ms preserves400ms work-inclusive period for faster work and legacyActor4 fixed250ms. Original source1.5/quiet500/whole120 unchanged, Common peer poll25ms unchanged. Actual original OS locks and declared40ms RPC arrival demonstrate preemption order; expensive/faster/legacy/deadline cases pass. No native timing prediction.",
+        "currentWhole": "Causal-probe run RED14.045 at currentlatestpeer1.5 after normalOpen; negativecleanup/Commoncomplete. Actual Actor reclaims4.1849 afterrelease4.1581, Primaryrequest4.1880 waits.5281 thenreads.4661. Parent161/child268 stable; ActorSIGTERM has no loaded-aftermanifest and later superset includes2 declared post-whole WIP files. No Actorloaded/fullfeature qualification.",
+        "nativeCompiled": false,
+        "devicesTested": false,
+        "affectedCases": 25,
+        "affectedSeconds": 17.307,
+        "affectedLoadedSources": 256
       }
     },
     {

@@ -4119,3 +4119,11 @@ the old ordering defect;18 current Navigation/Browser cases pass. No original
 packet is retimed and no production validator changes. The prior RED22.791s
 Actor pose refusal remains separate whole evidence; see
 [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+Explicit Browser Actor6 leaves75ms for actual Primary IPC handoff after expensive
+publications while retaining400ms inclusive pacing for faster work and all
+original freshness/quiet/whole limits. Real original lock contention and six
+focused timing cases pass. Prior RED14.045s selected-peer aging and actual
+negative cleanup/Common completion are retained; no complete capability follows.
+See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).

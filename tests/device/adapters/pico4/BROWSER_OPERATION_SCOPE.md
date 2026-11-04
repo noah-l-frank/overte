@@ -144,7 +144,7 @@ condition remains visible above.
 
 ## Actor6 pacing and original pending return, 2026-11-03
 
-Actor6 schedules400ms periods including publication work, with at least25ms
+The initial Actor6 schedule used400ms periods including publication work, with at least25ms
 for a waiting Primary lock poll. Legacy observers keep their250ms sleep. No
 500ms quiet,512 source-frame or120s whole limit is increased. Actual prior
 runs exposed both SourceLock starvation and512 retained history entries after
@@ -348,3 +348,29 @@ packet is retimed or original validator relaxed. Two focused cases pass0.292s/11
 stable before a test-name clarification; the exact current18-case Navigation and
 born-host Browser component scope passes5.182s/207 stable. These are adapter/model
 proofs, not Native or full-coordinator qualification.
+
+
+## Primary handoff after expensive Actor publication
+
+The causal-probe diagnostic is retained RED14.045s at the unchanged latest-peer
+1.5s check after normal Open. Negative cleanup and Common consumption complete.
+Parent161/child268 source pins are stable. Actor is terminated by original test
+shutdown, so no after-exit loaded-Actor manifest exists for this scope. A later
+full-Python superset check follows the next deliberate two-file Actor WIP and
+is explicitly not an unchanged-Actor inventory.
+
+Original lock intervals identify an actual scheduling issue: Actor releases
+at4.1581s and reclaims at4.1849s; Primary requests at4.1880s, then waits0.5281s
+and spends another0.4661s acquiring its sample. This ages the selected original
+peer. The independent real-clock dispatch and input-phase fixes stay intact.
+
+Explicit Actor6 now yields at least75ms after its iteration. Faster work still
+uses the remaining400ms inclusive period; legacy Actor4 keeps250ms. Common
+peer polling stays25ms. Original500ms quiet,1.5s source and120s whole bounds
+still refuse violations. An actual ScriptSourceLock experiment with declared
+40ms IPC arrival reproduces Actor-first under25ms and Primary-first under75ms.
+The timing producer remains a model; this does not predict physical IPC. Six
+focused actual-loop/admission/lock cases pass4.778s/47 stable. Whole remains open.
+
+The combined25-case scheduler, phase, admission and separate-process normal
+Open/Close/quiet/return scope passes17.307s/256 stable with original120s.
