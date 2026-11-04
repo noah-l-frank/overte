@@ -650,3 +650,50 @@ That standalone owner is never adopted as an old warm source owner, and no
 Native/SDK/input/retirement/archive operation runs. These method results predict
 neither a whole speedup nor a successful500ms final capture cadence. The latest
 whole above predates this runtime change; full qualification remains open.
+
+
+## Fresh historical admission-value comparison
+
+The original-values public coordinator completes all26 normal acts, all28 Common
+phases and actual independent Actor return, then remains RED98.771s/98.809s
+outer. Final capture quiet still refuses the unchanged500ms cadence: the host
+gap is615.126ms and83 native gaps are614--615ms. Parent193/child276/Actor179
+loaded-source SHA/eight-stat originals and all2329 repository Python originals
+remain unchanged at terminal before edits;1060 originals remain retained.
+No final host release or public canonical/router qualification follows.
+
+Capture admission now optionally replaces repeated pure catalog/owner/proofs/
+scope JSON serialization with a complete fresh walk of exact builtin types,
+container shapes, key order and original scalar/key references. The original
+immutable canonical admission bytes are returned only after that walk and the
+unchanged immutable PNG proof. Original catalog/cache ownership remains bound;
+a mismatch or active-seal eviction is sticky and cannot reseal or fall back.
+Every physical full-byte/OFD/eight-stat/
+parent/namespace check before send, after answer and after actual outer-lock exit
+remains. No native answer, current source verdict or timestamp is cached.
+
+The seal's resident charge, construction peak and fresh wrapper headers fit only
+within canonical storage actually freed by the same original catalog cache.
+There is no additional quota or borrowed role budget. Insufficient credit or an
+unsupported value keeps the original full serialization path. The existing
+source1.5s, quiet500ms/3s, checkpoint20s, whole120s and capacity limits remain.
+
+The focused original-value/archive-context group passes38 cases in0.442s with127
+loaded sources unchanged. The existing capture-retirement, separate Common/Actor
+and original-retirement diagnostic group passes22 cases in76.956s with252 loaded
+sources unchanged, including genuine550ms cadence refusal. These are separate
+components; the changed public coordinator has not run yet. No compiler or device
+is used. Feature7 remains partial.
+
+Run the two groups sequentially with retained original fixtures and source pins:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests/device:tests/device/self_tests:android/vr/pico/tests/device python3 -m unittest self_tests.test_json_original_value self_tests.test_pico_browser_archive_context
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests/device:tests/device/self_tests:android/vr/pico/tests/device python3 -m unittest self_tests.test_pico_browser_capture_retirement self_tests.test_pico_browser_remote_consumption self_tests.pico_browser_coordinator_diagnostic.BrowserRetirementDiagnosticTests
+```
+
+Both terminal snapshots also retain every one of2329 initial repository Python
+SHA/eight-stat originals unchanged before the next edit. Repository validation
+passes the documentation, documentation-contracts, source-layout and
+project-coverage suites; contract-version coherence;20 Pico coverage cases
+(440 catalog groups); feature inventory synchronization; and `git diff --check`.

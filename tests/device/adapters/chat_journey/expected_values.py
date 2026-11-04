@@ -77,3 +77,13 @@ class CatalogExpectedValues:
             remainingCanonicalBytes=self.canonical_bytes,residentSealMetadata=self.metadata,
             releasedCanonicalCredit=self.original_bytes-self.canonical_bytes-self.metadata,
             originalTemporaryWorkspace=self.original_workspace,constructionHighwater=self.construction_highwater)
+
+
+    def auxiliary_credit(self,temporary):
+        need(not self.failed and type(temporary) is int and temporary>=0)
+        return self.original_bytes-self.canonical_bytes-self.metadata-temporary
+
+    def retain_auxiliary(self,resident,peak,temporary):
+        need(type(resident) is int and type(peak) is int and 0<resident<=peak
+            and peak<=self.auxiliary_credit(temporary))
+        self.metadata+=resident

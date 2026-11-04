@@ -6,6 +6,8 @@ journals or grant a whole feature/host-close receipt.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import copy,deepcopy
+from adapters.json_original_value import capture as capture_json,matches_original_refs,scratch_bound
+from adapters.chat_journey.expected_values import CatalogExpectedValues
 import hashlib
 import json
 import math
@@ -45,6 +47,8 @@ class PicoBrowserCaptureRetirement:
         self.copying_catalog=False;self.catalog_rows=self._sealed_catalog_rows=None
         self.indexed_rows=self._sealed_indexed_rows=None
         self._inventory=self._sealed_inventory=None
+        self._admission_values=self._sealed_admission_values=None
+        self._admission_wrapper_bytes=0
 
     def initialize_pngs(self):
         self._png_bytes=self._sealed_png_bytes=b'[]'
@@ -187,12 +191,49 @@ class PicoBrowserCaptureRetirement:
             catalog=[dict(label=label,path=str(row['store'].path),stamp=row['stamp'],sha256=row['sha256'])
                 for label,row in self.catalog.rows.items()])
 
+    def admission_values(self):
+        return dict(catalog=[dict(label=label,path=str(row['store'].path),stamp=row['stamp'],sha256=row['sha256'])
+            for label,row in self.catalog.rows.items()],owner=self.owner,proofs=self.proofs,scope=self.scope)
+
+    def freeze_admission_values(self):
+        need(self._admission_values is self._sealed_admission_values is None
+            and self.admitted is self._sealed_admitted and type(self.admitted) is bytes)
+        # Only ephemeral list/dict headers are new: all payload scalars and
+        # actual stamp lists already belong to the same original warm owner.
+        temporary=256*len(self.catalog.rows)+65536
+        cache=self.catalog.value_cache
+        need(cache is self.catalog._original_value_cache and type(cache) is CatalogExpectedValues and cache.catalog is self.catalog)
+        credit=cache.auxiliary_credit(temporary)
+        if credit<scratch_bound(16):return
+        value=self.admission_values()
+        result=capture_json(value,capacity=credit,max_nodes=65536,max_depth=16)
+        if result is None:return
+        seal,resident,peak=result
+        need(matches_original_refs(value,seal))
+        self.catalog.value_cache.retain_auxiliary(resident,peak,temporary)
+        self._admission_wrapper_bytes=temporary
+        self._admission_values=self._sealed_admission_values=seal
+
     def admission_bytes(self):
         # Exactly canonical(admission()), retaining every original image
-        # field. Only PNG metadata is already immutable canonical JSON. Live
-        # scope/owner/proofs/catalogue fields still receive their full current
-        # serialization; no physical or target observation is cached here.
+        # field. After optional admission, every other original metadata field
+        # receives a fresh strict reference/value walk instead of serialization.
+        # No physical or target observation is cached here.
         self.immutable_pngs()
+        if self._admission_values is not None or self._sealed_admission_values is not None:
+            try:
+                need(not self.failed and self._admission_values is self._sealed_admission_values
+                    and self.admitted is self._sealed_admitted
+                    and self._admission_wrapper_bytes==256*len(self.catalog.rows)+65536
+                    and self.catalog.value_cache is self.catalog._original_value_cache
+                    and type(self.catalog.value_cache) is CatalogExpectedValues
+                    and self.catalog.value_cache.catalog is self.catalog
+                    and self.catalog.value_cache.auxiliary_credit(self._admission_wrapper_bytes)>=0
+                    and matches_original_refs(self.admission_values(),self._admission_values))
+                return self.admitted
+            except BaseException:
+                self.failed=True
+                raise
         catalog=[dict(label=label,path=str(row['store'].path),stamp=row['stamp'],sha256=row['sha256'])
             for label,row in self.catalog.rows.items()]
         return (b'{"catalog":'+canonical(catalog)+b',"owner":'+canonical(self.owner)
@@ -309,6 +350,7 @@ class PicoBrowserCaptureRetirement:
             for label,row in self.catalog.rows.items())
         self.freeze_inventory()
         self.catalog.freeze_expected_values()
+        self.freeze_admission_values()
         with self.primary.lock.held():
             self.originals();self.chunks=ChatSourceChunks(self.store,self.scope);self.chunks.inventory(0)
             self.write('admitting',[])

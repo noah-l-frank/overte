@@ -153,4 +153,62 @@ class JsonOriginalCatalogTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):owner.verify_all()
 
 
+class JsonAdmissionValuesTests(unittest.TestCase):
+    """Pure historical admission fields over actual already-owned file rows."""
+    make=JsonOriginalCatalogTests.make
+    def capture_owner(self,*,small=False):
+        from adapters.pico4.browser_capture_retirement import PicoBrowserCaptureRetirement
+        catalog=self.make(True)
+        if small:
+            # A separate actual tiny source has insufficient released credit;
+            # normal canonical admission remains available without a new quota.
+            self.assertTrue(catalog.close_host())
+            temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
+            catalog=ChatArchiveCatalog(hold_files=False,closed_file_windows=True)
+            self.addCleanup(catalog.close_host)
+            store=PrivateFeatureState(Path(temp.name)/'tiny.json');store.write({'value':1},None)
+            catalog.add('primary/tiny.json',store,store.read())
+        owner=PicoBrowserCaptureRetirement.__new__(PicoBrowserCaptureRetirement)
+        owner.catalog=catalog;owner.scope={'runId':'a'*32};owner.owner={'ownerToken':'b'*32}
+        owner.proofs=[{'original':[True,None,{'source':'actual old value'}]}]
+        owner.initialize_pngs();owner._admission_values=owner._sealed_admission_values=None
+        owner._admission_wrapper_bytes=0;owner.failed=False
+        owner.admitted=owner._sealed_admitted=owner.admission_bytes()
+        catalog.freeze_expected_values();return owner
+
+    def test_admission_reuses_only_original_bytes_after_fresh_complete_metadata_walk(self):
+        from adapters.script_journey.history import canonical
+        owner=self.capture_owner();original=owner.admitted;before=owner.catalog.value_cache.metadata
+        owner.freeze_admission_values()
+        self.assertIsNotNone(owner._admission_values)
+        self.assertGreater(owner.catalog.value_cache.metadata,before)
+        self.assertGreaterEqual(owner.catalog.value_cache.auxiliary_credit(owner._admission_wrapper_bytes),0)
+        self.assertIs(original,owner.admission_bytes())
+        self.assertEqual(canonical(owner.admission()),owner.admission_bytes())
+
+    def test_changed_original_metadata_is_sticky_instead_of_resealing(self):
+        owner=self.capture_owner();owner.freeze_admission_values()
+        self.assertIsNotNone(owner._admission_values)
+        owner.proofs[0]['original'][2]['source']='different'
+        with self.assertRaises(NativeUIError):owner.admission_bytes()
+        self.assertTrue(owner.failed)
+        owner.proofs[0]['original'][2]['source']='actual old value'
+        with self.assertRaises(NativeUIError):owner.admission_bytes()
+
+    def test_active_seal_eviction_is_sticky_instead_of_canonical_fallback(self):
+        owner=self.capture_owner();owner.freeze_admission_values()
+        original=owner._admission_values;self.assertIsNotNone(original)
+        owner._admission_values=None
+        with self.assertRaises(NativeUIError):owner.admission_bytes()
+        self.assertTrue(owner.failed)
+        owner._admission_values=original
+        with self.assertRaises(NativeUIError):owner.admission_bytes()
+
+    def test_insufficient_released_metadata_credit_keeps_original_serialization(self):
+        from adapters.script_journey.history import canonical
+        owner=self.capture_owner(small=True);owner.freeze_admission_values()
+        self.assertIsNone(owner._admission_values)
+        self.assertEqual(canonical(owner.admission()),owner.admission_bytes())
+
+
 if __name__=='__main__':unittest.main()

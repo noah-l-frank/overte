@@ -4226,3 +4226,14 @@ source/CAS/physical work within its existing200ms period;14 source/cadence and
 3 separate-process cases pass. Original freshness/quiet/whole guards remain;
 no complete Browser/host-release/device capability is claimed. See
 [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+Browser admission metadata now uses a complete fresh original-reference walk
+within actually released canonical-storage credit; original immutable admission
+bytes are reused only after the walk and unchanged PNG proof.38 focused and22
+affected cases pass with127/252 loaded-source originals unchanged. All physical
+byte/OFD/eight-stat/namespace windows and time/capacity guards remain. The latest
+pre-change public coordinator remains RED98.771s/98.809s outer after all26 acts,
+all28 Common phases and actual Actor return: final capture cadence615.126ms
+exceeds the unchanged500ms guard. No changed whole run, final release or public
+feature qualification is claimed. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
