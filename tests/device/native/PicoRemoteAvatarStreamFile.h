@@ -54,6 +54,24 @@ public:
         if (!require()) { return false; }
         ::close(_fd);::close(_anchor);_fd=_anchor=-1;return true;
     }
+    struct CheckedCloseResult {
+        int original{-1},anchor{-1},originalReturn{-2},anchorReturn{-2},originalErrno{0},anchorErrno{0};
+        bool admitted{false},alreadyClosed{false};
+    };
+    // Explicit opt-in for an ALREADY-ADMITTED pair. Legacy close unchanged.
+    bool closeChecked(CheckedCloseResult& result) {
+        if(_lost) {return false;} // Never overwrite/retry first uncertain state.
+        result={};result.original=_fd;result.anchor=_anchor;
+        if(_fd<0 && _anchor<0) {result.alreadyClosed=true;return true;}
+        if(!require()) {_lost=true;return false;}
+        result.admitted=true;
+        errno=0;result.originalReturn=::close(_fd);result.originalErrno=errno;
+        if(result.originalReturn!=0) {_lost=true;return false;}
+        _fd=-1; // Only an actual success advances this descriptor state.
+        errno=0;result.anchorReturn=::close(_anchor);result.anchorErrno=errno;
+        if(result.anchorReturn!=0) {_lost=true;return false;}
+        _anchor=-1;return true;
+    }
     int fd() const { return _fd; }
     ~PicoStreamDescriptor() { close(); }
 private:

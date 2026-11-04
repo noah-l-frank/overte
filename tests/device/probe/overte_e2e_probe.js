@@ -2089,6 +2089,25 @@
             Test.saveObject(snapshotOriginals, "feature-snapshot-script-originals.json");
             return;
         }
+        if (command && command.action === "feature-pico-audio-observation-bundle") {
+            var audioBundleValid=command.schemaVersion === 1
+                && objectKeysMatch(command,["schemaVersion","action","commandId","runId","nativeNonce","settingsNonce"]);
+            var audioBundleKeys=["commandId","runId","nativeNonce","settingsNonce"];
+            for(var audioBundleAt=0;audioBundleAt<audioBundleKeys.length;audioBundleAt++) {
+                var audioBundleValue=command[audioBundleKeys[audioBundleAt]];
+                if(typeof audioBundleValue!=="string" || !/^[0-9a-f]{32}$/.test(audioBundleValue))audioBundleValid=false;
+            }
+            if(command.nativeNonce===command.settingsNonce || command.nativeNonce===command.commandId
+                    || command.settingsNonce===command.commandId)audioBundleValid=false;
+            var audioBundleOriginal={};
+            try {
+                if(audioBundleValid && typeof Test.featurePicoAudioObservationBundle==="function") {
+                    var audioBundleActual=Test.featurePicoAudioObservationBundle(command);
+                    if(audioBundleActual && audioBundleActual.commandId===command.commandId)audioBundleOriginal=audioBundleActual;
+                }
+            } catch(_audioBundleUnknown) {}
+            Test.saveObject(audioBundleOriginal,"feature-pico-audio-observation-bundle.json");return;
+        }
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)

@@ -250,3 +250,25 @@ unqualified.
 The optional cold cleanup budget and original process/source handoff are
 documented in [the internal cleanup join](AUDIO_CLEANUP_JOIN.md). They preserve
 the default Actor path and do not enable complete public Audio capability.
+
+
+### Original observation bundle (internal version 1)
+
+The dedicated Pico E2E API can acquire the original native Audio snapshot,
+original owner-thread settings and the existing UI observation file in one
+readonly command. Its original request clock includes dispatch, source calls,
+file guards and both checked descriptor closes. Inner nonces are once-issued;
+pending native reads retain the same request and never replay a normal input.
+The host validator preserves each source clock, provenance and history and
+rejects cross-source mute/cycle disagreement. Seven host/Node boundary tests
+cover missing, stale, foreign, malformed and contradictory packets.
+
+This protocol is not yet selected by the PC Actor or the canonical factory.
+Before selecting it, the caller must book its additional 4 MiB native declaration
+and host parse/retained work in the existing aggregate family before IO, retain
+the actual returned wire durably, and include the final guards in original ages.
+The declaration is not an admission token. Shared descriptor checked-close was
+compiled and exercised with an exact-class Linux carrier/path shim in five
+owned processes, including actual kernel EINTR refusals. Qt/Pico compilation,
+target kernel support, full Common composition and acoustic/device evidence
+remain unverified. No complete Audio capability is advertised.

@@ -562,6 +562,7 @@ REQUIRED = {
     "pico-audio-normal-recipe": 2,
     "recorded-preview-pc-provider": 1,
     "pico-audio-page-observation": 1,
+    "pico-audio-observation-bundle": 1,
     "pico-audio-settings-observation": 2,
     "pico-lifecycle-drive-observation": 1,
     "pico-lifecycle-gesture-observation": 1,

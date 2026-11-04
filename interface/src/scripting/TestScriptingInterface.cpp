@@ -32,6 +32,7 @@
 #include "../../../tests/device/native/FeatureLifecycle.h"
 #include "../../../tests/device/native/AvatarResourceIdentity.h"
 #include "../../../tests/device/native/AudioSettingsObservation.h"
+#include "../../../tests/device/native/PicoAudioObservationBundle.h"
 #include "../../../tests/device/native/LifecycleDriveObservation.h"
 #include "../../../tests/device/native/LifecycleGestureObservation.h"
 #include "../../../tests/device/native/ChatViewObservation.h"
@@ -1807,6 +1808,38 @@ QVariantMap TestScriptingInterface::featurePicoSnapshotCancel(const QVariantMap&
         {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",result.value("source")},{"jobs",result.value("jobs")}};
 #else
     Q_UNUSED(command) return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::featurePicoAudioObservationBundle(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE) && defined(Q_OS_LINUX)
+    using Bundle=overte::e2e::PicoAudioObservationBundle;
+    const auto request=overte::e2e::PicoAudioBundleRequest::original(command);
+    if(!request || !request->fresh() || !_featureAudioSettingsQueue)return {};
+    const auto queue=_featureAudioSettingsQueue;
+    if(QThread::currentThread()!=thread()) {
+        const auto value=queue->read("dispatch",this,[command](QObject* original) {
+            return overte::e2e::AudioSettingsPart{static_cast<TestScriptingInterface*>(original)->featurePicoAudioObservationBundle(command),{}};
+        }).values;
+        return request->fresh() ? value : QVariantMap();
+    }
+    if(_featureAudioBundleFailure || _testResultsLocation.isEmpty() || !_featureLifecycle
+            || _featureLifecycle->snapshot().isEmpty() || !qApp || !qApp->isHMDMode()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::previewDirectory(_testResultsLocation)
+            || !queue->settled(overte::e2e::AudioSettingsQueue::dispatching(this) ? "dispatch" : QString()))return {};
+    try {
+        if(!_featureAudioBundle)_featureAudioBundle=std::make_shared<Bundle>();
+        const auto result=_featureAudioBundle->sample(request,_testResultsLocation,
+            [this](const QString& nonce) {return featureNativeObservation(nonce);},
+            [this](const QVariantMap& original) {return featureAudioSettingsObservation(original);});
+        return request->fresh() ? result : QVariantMap();
+    } catch(...) {
+        if(!_featureAudioBundleFailure)_featureAudioBundleFailure=std::current_exception();
+        if(_featureAudioBundle)_featureAudioBundle->poison(_featureAudioBundleFailure);
+        return {};
+    }
+#else
+    Q_UNUSED(command);return {};
 #endif
 }
 

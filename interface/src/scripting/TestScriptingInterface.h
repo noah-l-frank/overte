@@ -23,8 +23,10 @@
 #include <memory>
 #include <atomic>
 #include <mutex>
+#include <exception>
 namespace overte::e2e { class ChatViewObservation; class ChatProfileOwner; class CreateEntityLifetimes; class CreateModelResources; class AudioSettingsObservation; class AudioSettingsQueue; }
 namespace overte::e2e { class ChatPeerPosition; }
+namespace overte::e2e { class PicoAudioObservationBundle; }
 namespace overte::e2e { class PicoRemoteAvatarObservation; struct PicoRemoteAvatarRequest; }
 namespace overte::e2e { class PicoRemoteAvatarStream; struct PicoRemoteAvatarStreamRequest; struct PicoRemoteAvatarStreamWindow; }
 namespace overte::e2e { class PicoEmoteSourceArena; class PicoEmoteSourceWidgets; struct PicoEmoteSourceTransactionRequest; }
@@ -185,6 +187,7 @@ public slots:
     Q_INVOKABLE int featurePicoPendingReadVersion();
     Q_INVOKABLE QVariantMap featureLifecycleDriveObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAudioSettingsObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePicoAudioObservationBundle(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureSnapshotCaptureOriginals(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureSnapshotScriptOriginals(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureSnapshotSettingsOriginals(const QVariantMap& command);
@@ -298,6 +301,10 @@ private:
     std::shared_ptr<overte::e2e::ChatProfileOwner> _featureChatProfile;
     std::shared_ptr<overte::e2e::AudioSettingsObservation> _featureAudioSettings;
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureAudioSettingsQueue;
+#if defined(ANDROID_APP_PICO_INTERFACE) && defined(Q_OS_LINUX)
+    std::shared_ptr<overte::e2e::PicoAudioObservationBundle> _featureAudioBundle;
+    std::exception_ptr _featureAudioBundleFailure;
+#endif
     std::shared_ptr<overte::e2e::AudioSettingsQueue> _featureSnapshotQueue;
     QSet<QString> _featureSnapshotUploadQueries;
     quint64 _featureSnapshotUploadSequence{0};
