@@ -13,6 +13,11 @@ namespace gpu {
 class FeatureSnapshotProvenance {
 public:
     static bool enabled();
+    static bool sceneEnabled();
+    // The same recorded frame carries these observed render-entry inputs.
+    static void entityInput(QVariantMap& frame,const QVariantMap& actual,bool returned);
+    static void consumedScene(const QVariantMap& frame,quint32 index,bool mono);
+    static QVariantMap sceneOriginal();
     class Scope {
     public:
         Scope(const QVariantMap& frame,quint32 index,bool mono);

@@ -31,17 +31,16 @@ def command(value):
     return value
 
 
-def frame(value, pid, epoch):
+def recorded_frame(value, pid, epoch, *, version, extra):
     exact(value, {'snapshotFrameProvenanceVersion', 'frameInstance', 'frameIndex', 'processId',
         'pipeline', 'recordedEpochMs', 'transformSlot', 'viewport', 'worldFromCamera',
-        'camera', 'backend', 'readback', 'callbackEpochMs'})
-    need(type(value['snapshotFrameProvenanceVersion']) is int and value['snapshotFrameProvenanceVersion'] == 1
+        'camera', 'backend'} | extra)
+    need(type(value['snapshotFrameProvenanceVersion']) is int and value['snapshotFrameProvenanceVersion'] == version
         and value['processId'] == pid and integer(value['processId'], 1)
         and value['pipeline'] == 'forward-primary-mono' and value['backend'] == 'opengl')
     snapshot_captures.identity(value['frameInstance'])
     need(integer(value['frameIndex'], 1, 2**32 - 1) and integer(value['transformSlot'], 0, 2**32 - 1)
-        and integer(value['recordedEpochMs'], 1, epoch)
-        and integer(value['callbackEpochMs'], value['recordedEpochMs'], epoch))
+        and integer(value['recordedEpochMs'], 1, epoch))
     viewport = value['viewport']
     need(type(viewport) is list and len(viewport) == 4
         and all(integer(n, 0, 8192) for n in viewport[:2])
@@ -58,6 +57,18 @@ def frame(value, pid, epoch):
                 [2*(x*y+z*w), 1-2*(x*x+z*z), 2*(y*z-x*w)],
                 [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x*x+y*y)]]
     need(all(abs(matrix[row*4+col] - rotation[row][col]) < 1e-5 for row in range(3) for col in range(3)))
+    return value
+
+
+def frame(value, pid, epoch):
+    version=value.get('snapshotFrameProvenanceVersion')
+    need(type(version) is int and version in (1,2))
+    extra={'readback','callbackEpochMs'} | ({'scene'} if version==2 else set())
+    recorded_frame(value,pid,epoch,version=version,extra=extra)
+    need(integer(value['callbackEpochMs'],value['recordedEpochMs'],epoch))
+    if version==2:
+        from ios.adapters.snapshot_scene import scene
+        scene(value['scene'])
     read = value['readback']
     exact(read, {'sourceExtent', 'rectBottomLeft', 'imageExtent', 'pixelFormat', 'pixelSha256', 'readEpochMs'})
     for key in ('sourceExtent', 'imageExtent'):

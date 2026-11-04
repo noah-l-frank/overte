@@ -69,7 +69,7 @@ void GenerateDeferredFrameTransform::run(const render::RenderContextPointer& ren
         // This is the main view / projection transform that will be reused later on
         batch.saveViewProjectionTransform(_transformSlot);
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
-        if (gpu::FeatureSnapshotProvenance::enabled() && args->_takingSnapshot && args->_mirrorDepth==0
+        if (gpu::FeatureSnapshotProvenance::enabled() && (args->_takingSnapshot || gpu::FeatureSnapshotProvenance::sceneEnabled()) && args->_mirrorDepth==0
                 && args->_renderMode==RenderArgs::DEFAULT_RENDER_MODE && args->_renderMethod==RenderArgs::FORWARD
                 && !args->isStereo()) {
             // These are the SAME actual matrix locals just handed to the
@@ -79,6 +79,7 @@ void GenerateDeferredFrameTransform::run(const render::RenderContextPointer& ren
             for (int row=0;row<4;++row) {for (int column=0;column<4;++column) {
                 projection.append(projMat[column][row]);worldFromCamera.append(viewMatrix[column][row]);
             }}
+            const bool repeatedScene=gpu::FeatureSnapshotProvenance::sceneEnabled() && !args->_featureSnapshotProvenance.isEmpty();
             args->_featureSnapshotProvenance={{"snapshotFrameProvenanceVersion",1},
                 {"frameInstance",QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')},
                 {"processId",QCoreApplication::applicationPid()},{"pipeline","forward-primary-mono"},
@@ -91,6 +92,11 @@ void GenerateDeferredFrameTransform::run(const render::RenderContextPointer& ren
                     {"projection",projection},{"fieldOfViewDegrees",view.getFieldOfView()},
                     {"aspectRatio",view.getAspectRatio()},{"nearClip",view.getNearClip()},
                     {"farClip",view.getFarClip()},{"perspective",view.isPerspective()}}}};
+            if (gpu::FeatureSnapshotProvenance::sceneEnabled()) {
+                args->_featureSnapshotProvenance["snapshotFrameProvenanceVersion"]=2;
+                args->_featureSnapshotProvenance["scene"]=QVariantMap{{"snapshotRenderedSceneVersion",1},
+                    {"profile","entity-render-entry-v1"},{"complete",!repeatedScene},{"entities",QVariantList{}}};
+            }
         }
 #endif
 

@@ -9,6 +9,24 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "ios-snapshot-canonical-scene-order": 1,
+    "ios-snapshot-native-scene-frame": 1,
+    "ios-snapshot-native-scene-original": 1,
+    "ios-snapshot-scene": 1,
+    "ios-snapshot-scene-acquisition": 1,
+    "ios-snapshot-scene-capture-order": 1,
+    "ios-snapshot-scene-capture-order-result": 1,
+    "ios-snapshot-scene-packet": 1,
+    "ios-snapshot-scene-rendered-review": 1,
+    "ios-snapshot-scene-witness-original": 1,
+    "ios-snapshot-scene-witness-owner": 1,
+    "snapshot-frame-provenance": 2,
+    "snapshot-rendered-scene": 1,
+    "snapshot-scene-actor-published-original": 1,
+    "snapshot-scene-public": 1,
+    "snapshot-scene-publication-original": 1,
+    "snapshot-scene-sample": 1,
+
     "asset-model-bundle-input-proof": 1,
     "assets-episode-selection": 1,
     "assets-page-birth-ownership": 1,

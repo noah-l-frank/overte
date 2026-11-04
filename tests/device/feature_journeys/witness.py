@@ -43,8 +43,10 @@ def projection(area, value):
 
 class Journal:
     """Bounded in-memory coordinator; persistence is private runner evidence only."""
-    def __init__(self, clock=None):
+    def __init__(self, clock=None, *, snapshot_scene_samples=False):
         self.clock = clock or (lambda: time.time() * 1000)
+        if type(snapshot_scene_samples)is not bool:raise ValueError('Explicit Snapshot scene sample opt-in required')
+        self.snapshot_scene_samples=snapshot_scene_samples
         self.runs = {}
         self.phase_instance = secrets.token_hex(16)
         self.phase_sequence = 0
@@ -104,10 +106,15 @@ class Journal:
             captured = number(value['capturedEpochMs'], 1)
             if not row['activeEpochMs'] <= captured <= self.clock() + 250 or self.clock() - captured > 1500:
                 raise ValueError('Actor sample is stale or from the future')
-            expected_keys = WITNESS_KEYS[row['area']]
-            exact(value['facts'], expected_keys, 'independently measured facts')
-            combined = {**SCENARIOS[row['area']]['baseline'], **value['facts']}
-            state(row['area'], combined, run)
+            if row['area']=='snapshots'and self.snapshot_scene_samples:
+                from .snapshot_scene_samples import facts
+                facts(value['facts'],captured=captured)
+                if seq!=value['facts']['witnessIndex']:raise ValueError('Scene sample sequence must retain its real witness index')
+            else:
+                expected_keys = WITNESS_KEYS[row['area']]
+                exact(value['facts'], expected_keys, 'independently measured facts')
+                combined = {**SCENARIOS[row['area']]['baseline'], **value['facts']}
+                state(row['area'], combined, run)
             row['sequence'] += 1
             row['entries'].append(dict(copy.deepcopy(value), sequence=row['sequence'], receivedEpochMs=self.clock()))
             row['entries'] = row['entries'][-512:]

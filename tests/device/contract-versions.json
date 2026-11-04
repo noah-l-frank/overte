@@ -5052,6 +5052,12 @@
         1
       ]
     },
+    "ios-snapshot-canonical-scene-order": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
     "ios-snapshot-capture-control": {
       "current": 1,
       "reads": [
@@ -5545,6 +5551,18 @@
         1
       ]
     },
+    "ios-snapshot-native-scene-frame": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-native-scene-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
     "ios-snapshot-native-work-frame": {
       "current": 1,
       "reads": [
@@ -5795,6 +5813,54 @@
       ]
     },
     "ios-snapshot-saved-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-scene": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-scene-acquisition": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-scene-capture-order": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-scene-capture-order-result": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-scene-packet": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-scene-rendered-review": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-scene-witness-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "ios-snapshot-scene-witness-owner": {
       "current": 1,
       "reads": [
         1
@@ -8475,6 +8541,13 @@
         1
       ]
     },
+    "snapshot-frame-provenance": {
+      "current": 2,
+      "reads": [
+        1,
+        2
+      ]
+    },
     "snapshot-frontend-branch": {
       "current": 1,
       "reads": [
@@ -8567,6 +8640,12 @@
         1
       ]
     },
+    "snapshot-rendered-scene": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
     "snapshot-resume-native-inputs-frame": {
       "current": 1,
       "reads": [
@@ -8604,6 +8683,30 @@
       ]
     },
     "snapshot-review-pixels": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-scene-actor-published-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-scene-public": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-scene-publication-original": {
+      "current": 1,
+      "reads": [
+        1
+      ]
+    },
+    "snapshot-scene-sample": {
       "current": 1,
       "reads": [
         1

@@ -193,6 +193,9 @@ protected:
     const EntityItemPointer _entity;
 
     QUuid _entityID;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QString _featureSnapshotRendererInstance;
+#endif
 
 signals:
     void requestRenderUpdate();

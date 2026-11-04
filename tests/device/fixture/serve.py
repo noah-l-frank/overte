@@ -897,6 +897,15 @@ class FixtureState:
             try:validate_ios_source(command)
             except (ValueError,RuntimeError):raise ValueError("invalid iOS snapshot source request") from None
             valid=True
+        elif action in {"feature-ios-snapshot-provenance", "feature-ios-snapshot-scene"}:
+            sys.path.insert(0,str(ROOT.parent))
+            if action == "feature-ios-snapshot-provenance":
+                from ios.adapters.snapshot_provenance import command as validate_ios_source
+            else:
+                from ios.adapters.snapshot_scene import command as validate_ios_source
+            try:validate_ios_source(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid iOS snapshot original scene/provenance request") from None
+            valid=True
         elif action == "feature-ios-avatar-scripts":
             sys.path.insert(0,str(ROOT.parent))
             from ios.adapters.avatar_scripts import command as validate_ios_source

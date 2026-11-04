@@ -12,6 +12,9 @@
 
 
 #include "RenderableEntityItem.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <gpu/FeatureSnapshotProvenance.h>
+#endif
 
 #include <glm/gtx/transform.hpp>
 #include <ObjectMotionState.h>
@@ -425,7 +428,32 @@ void EntityRenderer::render(RenderArgs* args) {
             }
         }
 #endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        const bool observeSnapshotScene=gpu::FeatureSnapshotProvenance::sceneEnabled()
+            && args->_mirrorDepth==0 && args->_renderMode==RenderArgs::DEFAULT_RENDER_MODE
+            && args->_renderMethod==RenderArgs::FORWARD && !args->isStereo();
+        auto sceneInput=[&]() -> QVariantMap {
+            QVariantMap row;
+            withReadLock([&] {
+                QVariantList model,rendered;
+                const auto modelMatrix=_modelTransform.getMatrix(),renderMatrix=_renderTransform.getMatrix();
+                for (int r=0;r<4;++r) {for (int c=0;c<4;++c) {model.append(modelMatrix[c][r]);rendered.append(renderMatrix[c][r]);}}
+                const auto& corner=_bound.getCorner();const auto& dimensions=_bound.getDimensions();
+                row={{"entityId",_entityID.toString(QUuid::WithoutBraces)},
+                    {"rendererInstance",_featureSnapshotRendererInstance},{"renderItemId",static_cast<qulonglong>(_renderItemID)},
+                    {"modelTransform",model},{"renderTransform",rendered},
+                    {"worldBounds",QVariantList{corner.x,corner.y,corner.z,dimensions.x,dimensions.y,dimensions.z}}};
+            });return row;
+        };
+        if (observeSnapshotScene) {
+            if (_featureSnapshotRendererInstance.isEmpty()) {_featureSnapshotRendererInstance=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');}
+            gpu::FeatureSnapshotProvenance::entityInput(args->_featureSnapshotProvenance,sceneInput(),false);
+        }
+#endif
         doRender(args);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (observeSnapshotScene) {gpu::FeatureSnapshotProvenance::entityInput(args->_featureSnapshotProvenance,sceneInput(),true);}
+#endif
     }
 }
 

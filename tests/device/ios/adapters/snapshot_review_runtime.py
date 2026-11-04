@@ -31,3 +31,27 @@ class IOSSnapshotReviewRuntime(IOSSnapshotPageRuntime):
                 page.store.path.parent,page.binding,run,'primary',0,source['client'],clock,guard,
                 source_lock=page.lock,epoch_ms=epoch_ms,monotonic=monotonic)
             yield SnapshotCaptureReviewOwner(page,capture,images,monotonic=monotonic)
+
+    @contextmanager
+    def scene_actor_owner(self,selector,run,client,index,*,epoch_ms=lambda:int(time.time()*1000),monotonic=time.monotonic):
+        """Optional independent Actor source; no normal Snapshot input or launch.
+
+        The caller supplies a separate already admitted runtime/selector. The
+        typed join subsequently rejects a shared target, directory or lock.
+        """
+        from adapters.script_feature.lock import ScriptSourceLock
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        from ios.adapters.snapshot_scene_witness import SnapshotSceneWitnessOwner
+        lock=ScriptSourceLock(self.state_path(selector).with_name('script-feature-sources.lock'))
+        with lock.held():
+            source=self._sources(selector)
+            phase=PhaseFixtureReader(client,run,'snapshots',epoch_ms=epoch_ms,monotonic=monotonic)
+            owner=SnapshotSceneWitnessOwner(PrivateFeatureState(lock.path.with_name('ios-snapshot-actor-scene-witness-'+format(index,'04d')+'.json')),
+                lock,source['binding'],run,index,phase.fixture_url,phase=phase,feature=source['observer'],native=source['clock_source'],
+                guard=source['check'],epoch_ms=epoch_ms,monotonic=monotonic)
+            yield owner
+
+    @staticmethod
+    def joined_scene_review(review,provenance,actor,actor_original):
+        from ios.adapters.snapshot_scene_review_join import SnapshotSceneReviewJoin
+        return SnapshotSceneReviewJoin(review,provenance,actor,actor_original).proof()

@@ -545,7 +545,9 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,emote_resources=None,avatar_social_provider=None,adapter_token=None,snapshot_upload_provider=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,emote_resources=None,avatar_social_provider=None,adapter_token=None,snapshot_upload_provider=None,snapshot_scene_samples=False):
+    if type(snapshot_scene_samples)is not bool or browser_peer_of is not None and snapshot_scene_samples:
+        raise ValueError('Snapshot scene samples require explicit primary fixture ownership')
     if adapter_token is not None and (type(adapter_token) is not str or not 32<=len(adapter_token)<=256
             or not adapter_token.isascii() or any(not 33<=ord(c)<=126 for c in adapter_token)
             or adapter_token in (reader_token,actor_token)):
@@ -592,7 +594,7 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token
     server.adapter_token=adapter_token
-    server.journal = Journal() if browser_peer_of is None else browser_peer_of.journal
+    server.journal = Journal(snapshot_scene_samples=snapshot_scene_samples) if browser_peer_of is None else browser_peer_of.journal
     server.avatar_control_handoffs={}
     server.phase_retirements=PhaseRetirementJournal(server.journal) if browser_peer_of is None else browser_peer_of.phase_retirements
     server.browser_resources = BrowserResources() if browser_peer_of is None else browser_peer_of.browser_resources
@@ -605,6 +607,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--private-config', type=Path)
+    parser.add_argument('--snapshot-scene-samples',action='store_true',help='Explicit independent scene-original samples; not Snapshot UI facts')
     args = parser.parse_args()
     count = check()
     if args.check:
@@ -641,7 +644,7 @@ def main():
         graphics=GraphicsResources(config['graphicsProvider']['fixtureUrl'])
     with ExitStack() as owned:
         server=owned.enter_context(make_server(config['readerToken'],config['actorToken'],(config['host'],config['port']),
-            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken')))
+            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken'),snapshot_scene_samples=args.snapshot_scene_samples))
         peer=None;worker=None
         if 'browserPeer' in config:
             exact(config['browserPeer'],{'host','port'},'private second browser listener')

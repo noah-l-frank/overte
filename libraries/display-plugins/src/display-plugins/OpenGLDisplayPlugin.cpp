@@ -1000,6 +1000,9 @@ void OpenGLDisplayPlugin::present(const std::shared_ptr<RefreshRateController>& 
             compositeLayers();
         }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        gpu::FeatureSnapshotProvenance::consumedScene(_currentFrame->featureSnapshotProvenance,_currentFrame->frameIndex,!isHmd());
+#endif
         { // If we have any snapshots this frame, handle them
             PROFILE_RANGE_EX(render, "snapshotOperators", 0xffff00ff, frameId)
             while (!_currentFrame->snapshotOperators.empty()) {

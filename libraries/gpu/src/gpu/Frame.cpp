@@ -44,6 +44,50 @@ void Frame::preRender() {
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QMutex>
+#include <QMutexLocker>
+
+
+namespace {
+QMutex snapshotSceneMutex;
+QVariantMap snapshotSceneLatest;
+}
+bool FeatureSnapshotProvenance::sceneEnabled() {
+    return enabled() && QCoreApplication::arguments().contains("--testSnapshotSceneInputs");
+}
+void FeatureSnapshotProvenance::entityInput(QVariantMap& frame,const QVariantMap& actual,bool returned) {
+    if (!sceneEnabled() || frame.isEmpty()) {return;}
+    auto scene=frame.value("scene").toMap();
+    if (!scene.value("complete").toBool()) {return;}
+    auto rows=scene.value("entities").toList();int found=-1;
+    for (int i=0;i<rows.size();++i) {if (rows[i].toMap().value("entityId")==actual.value("entityId")) {found=i;break;}}
+    if (found<0) {
+        if (returned || rows.size()>=256) {scene["complete"]=false;frame["scene"]=scene;return;}
+        auto row=actual;row["entered"]=0;row["returned"]=0;rows.append(row);found=rows.size()-1;
+    }
+    auto row=rows[found].toMap(),inputs=row;inputs.remove("entered");inputs.remove("returned");
+    if (inputs!=actual || (returned && row.value("entered").toInt()<=row.value("returned").toInt())) {
+        scene["complete"]=false;
+    } else {const QString key=returned ? "returned" : "entered";row[key]=row.value(key).toInt()+1;rows[found]=row;}
+    scene["entities"]=rows;frame["scene"]=scene;
+}
+void FeatureSnapshotProvenance::consumedScene(const QVariantMap& original,quint32 index,bool mono) {
+    if (!sceneEnabled() || !mono || original.value("frameIndex").toULongLong()!=index
+            || original.value("processId").toLongLong()!=QCoreApplication::applicationPid()) {return;}
+    auto value=original;const auto scene=value.value("scene").toMap();
+    if (scene.isEmpty()) {return;}
+    // Copy at the actual execute/composite consumer. Re-presenting the same
+    // frame keeps its original timestamp; a query cannot make it fresh again.
+    QMutexLocker lock(&snapshotSceneMutex);
+    if (snapshotSceneLatest.value("frameInstance")==value.value("frameInstance")) {return;}
+    value.remove("readback");value.remove("callbackEpochMs");
+    value["backend"]="opengl";value["consumedEpochMs"]=QDateTime::currentMSecsSinceEpoch();
+    snapshotSceneLatest=value;
+}
+QVariantMap FeatureSnapshotProvenance::sceneOriginal() {
+    if (!sceneEnabled()) {return {};}
+    QMutexLocker lock(&snapshotSceneMutex);return snapshotSceneLatest;
+}
 
 bool FeatureSnapshotProvenance::enabled() {
     const auto args=QCoreApplication::arguments();
