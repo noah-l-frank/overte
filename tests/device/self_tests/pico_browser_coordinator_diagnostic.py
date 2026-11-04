@@ -107,6 +107,60 @@ class BrowserPollReturnTests(unittest.TestCase):
         self.assertIs(code,Journey.poll_original_current.__code__)
 
 
+class BrowserOriginalFailureDiagnosticTests(unittest.TestCase):
+    """Original rejected values only, with no live source or clock owner."""
+    def helper(self,root):
+        from unittest.mock import patch
+        with patch.dict(os.environ,OVT_BROWSER_COORDINATOR_ROOT=str(root)):
+            from self_tests.pico_browser_coordinator_worker import retain_original_failure
+        return retain_original_failure
+
+    def invalid_quiet(self,value):
+        from adapters.pico4.browser_quiet import validate
+        validate(value,'a'*32,'http://controlled.invalid/','b'*32,31,retired=True)
+
+    def test_complete_original_rejected_value_is_retained_without_changing_it(self):
+        from copy import deepcopy
+        from adapters.normal_ui import NativeUIError
+        with tempfile.TemporaryDirectory(prefix='browser-original-failure-') as temporary:
+            root=Path(temporary);record=self.helper(root)
+            value=dict(browserQuietVersion=1,frames=[],complete=False);before=deepcopy(value)
+            errors=[]
+            try:self.invalid_quiet(value)
+            except NativeUIError as error:errors.append(error)
+            self.assertEqual(1,len(errors));self.assertTrue(record(root,errors[0]))
+            self.assertEqual(before,value)
+            self.assertEqual(value,json.loads((root/'primary-rejected-quiet-diagnostic.json').read_text()))
+            self.assertIn('NativeUIError',(root/'original-lock-failure.txt').read_text())
+
+    def test_unavailable_or_existing_diagnostic_cannot_mask_original_or_replace_old_bytes(self):
+        from adapters.normal_ui import NativeUIError
+        with tempfile.TemporaryDirectory(prefix='browser-original-failure-') as temporary:
+            root=Path(temporary);record=self.helper(root)
+            for target in (root/'unavailable-parent',root):
+                with self.subTest(unavailable=target!=root):
+                    old=b'first owned failure original'
+                    if target==root:(root/'primary-rejected-quiet-diagnostic.json').write_bytes(old)
+                    errors=[];results=[]
+                    def original_failure():
+                        try:self.invalid_quiet(dict(browserQuietVersion=1,frames=[],complete=False))
+                        except NativeUIError as error:
+                            errors.append(error);results.append(record(target,error));raise
+                    with self.assertRaises(NativeUIError) as raised:original_failure()
+                    self.assertIs(errors[0],raised.exception);self.assertEqual([False],results)
+                    if target==root:self.assertEqual(old,(root/'primary-rejected-quiet-diagnostic.json').read_bytes())
+                    else:self.assertFalse(target.exists())
+
+    def test_unrelated_original_failure_has_traceback_without_invented_quiet_value(self):
+        with tempfile.TemporaryDirectory(prefix='browser-original-failure-') as temporary:
+            root=Path(temporary);record=self.helper(root);errors=[]
+            try:raise ValueError('Original unrelated failure')
+            except ValueError as error:errors.append(error)
+            self.assertFalse(record(root,errors[0]))
+            self.assertFalse((root/'primary-rejected-quiet-diagnostic.json').exists())
+            self.assertIn('Original unrelated failure',(root/'original-lock-failure.txt').read_text())
+
+
 class BrowserTemporaryRetentionTests(unittest.TestCase):
     def test_gc_context_failure_and_actual_interpreter_exit_keep_owned_diagnostic_originals(self):
         with tempfile.TemporaryDirectory(prefix='browser-diagnostic-retention-') as temporary:

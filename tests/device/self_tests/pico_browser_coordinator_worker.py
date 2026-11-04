@@ -45,6 +45,31 @@ def finish_sources(before, name):
     assert not changed
 
 
+def retain_original_failure(root,error):
+    """Failure-only diagnostics; IO/encoding failure never replaces the error."""
+    try:
+        import traceback
+        with (root/'original-lock-failure.txt').open('a') as stream:
+            stream.write(''.join(traceback.format_exception(error)))
+    except BaseException:
+        pass
+    try:
+        trace=error.__traceback__
+        while trace is not None:
+            frame=trace.tb_frame
+            if frame.f_code.co_filename.endswith('/pico4/browser_quiet.py') and frame.f_code.co_name=='validate':
+                # Original rejected locals only: never supplied to a provider,
+                # source/clock callback, predicate or retirement owner.
+                raw=json.dumps(frame.f_locals['value'],allow_nan=False)
+                with (root/'primary-rejected-quiet-diagnostic.json').open('x') as stream:
+                    stream.write(raw)
+                return True
+            trace=trace.tb_next
+    except BaseException:
+        pass
+    return False
+
+
 def retained_temporaries():
     original = tempfile.TemporaryDirectory
     class Retained(original):
@@ -87,10 +112,8 @@ def child():
         with held(lock):
             acquired=time.monotonic()
             try:yield
-            except BaseException:
-                import traceback
-                with (ROOT/'original-lock-failure.txt').open('a') as stream:
-                    stream.write(traceback.format_exc())
+            except BaseException as error:
+                retain_original_failure(ROOT,error)
                 raise
             finally:
                 with (ROOT/'actual-source-lock-intervals.jsonl').open('a') as stream:

@@ -947,3 +947,51 @@ All four selected project checks, contract versions,20 Pico coverage cases/440
 groups, feature inventory synchronization and whitespace checks pass. No changed
 whole result or complete Browser capability is implied by these component
 checks. The current source-complete count remains3/14 and devices are untested.
+
+
+## Earlier Common quiet refusal before archive acquisition
+
+The one changed whole at `bbb9cd8699` is RED86.387s earlier in the actual
+Common cleanup-restored-baseline observation. Primary original browser/Qt/Java
+quiet rejects its adjacent500ms predicate; archive125ms preparation is never reached.
+The saved7-frame Primary quiet has already observed464.6--499.275ms host gaps.
+Its rejected eighth row is not durable because validation fails before role
+assignment/write/history completion. No missing row or timestamp is reconstructed.
+
+The complete2329-file initial repository Python SHA/eight-stat superset and
+actual Parent193/Child270 manifests match at terminal before edits. Actor's
+after-manifest is unavailable: failed unwind terminates its still-live process
+with exit-15. Its exact loaded-set proof is not inferred from the14-file outer
+wrapper. All954 retained files have two matching full inventories and no
+recorded worker remains. Actual originals/audit remain under
+`/tmp/pico-index-archive-reuse125-whole-20261104-01-xmeq0ldk/` and
+`~/.local/state/overte-pico-resume-integration-20261102-24qkewqw/browser-archive-reuse-20261104/whole-01-terminal/`.
+
+Only the explicitly enabled Pico work-inclusive Common wait now yields10ms
+rather than25ms after source/peer/evidence work has consumed the250ms nominal
+poll period. Fast work still waits the exact remaining period; other callers
+keep fixed250ms polling. The independent Actor still receives a real yield.
+Original500ms/3s quiet, source freshness, phase/deadline predicates, current
+peer checks, all clock reads/anchors and whole120s remain unchanged.
+
+A failure-only Primary diagnostic retains the complete original rejected quiet
+DTO directly from the existing validation traceback. It performs no success-
+path work, clock/source call, observation or predicate change. Diagnostic IO or
+encoding failure cannot replace the original exception; an existing diagnostic
+is retained. These diagnostic copies never enter a provider or retirement owner.
+
+
+The focused Common scheduling, original peer, genuine quiet and failure-recorder
+group passes21 cases in0.218s with106 loaded sources unchanged. It preserves the
+fast residual150ms wait, saturated10ms yield, original3s quiet, frozen-native/
+600ms-gap refusals, current peer freshness and checkpoint expiry. Recorder
+counterexamples preserve the original exception and any earlier file when
+capture IO fails, and never invent quiet values for unrelated failures.
+
+The affected shared Journey/session/module/export/peer selection passes123 cases
+in98.164s with100 loaded sources unchanged. The all14 boundary-model journey
+case is shared test logic, not14 source-complete Pico areas. Both full2329-file
+initial Python SHA/eight-stat supersets match at terminal. All four selected
+project checks, contract versions,20 Pico coverage cases/440 groups, feature
+inventory and whitespace checks pass. A changed whole result is still separate;
+source-complete areas remain3/14 and devices remain untested.

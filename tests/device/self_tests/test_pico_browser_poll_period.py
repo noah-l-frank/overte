@@ -42,8 +42,8 @@ class BrowserPollPeriodTests(unittest.TestCase):
 
     def test_slow_actual_source_work_is_included_and_independent_peer_checks_remain_required(self):
         self.setup_wait();self.wait(kinds=('peer',))
-        self.assertEqual([.025,.025],self.sleeps);self.assertEqual(3,len(self.reads))
-        self.assertAlmostEqual(.95,self.boundary.clock)
+        self.assertEqual([.01,.01],self.sleeps);self.assertEqual(3,len(self.reads))
+        self.assertAlmostEqual(.92,self.boundary.clock)
         self.assertTrue(all(row['witness'] for row in self.journey.samples))
         self.assertGreaterEqual(self.journey.phases[-1]['stableSeconds'],.5)
 

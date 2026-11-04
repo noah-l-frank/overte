@@ -498,7 +498,7 @@ class Journey:
             # peer, image and clock work consumes this original polling period.
             # Keep a real yield to the independently owned actor; no quiet
             # window, checkpoint deadline or source predicate is renewed.
-            delay=max(.025,.25-(poll_finished-poll_started)) if work_inclusive else .25
+            delay=max(.01,.25-(poll_finished-poll_started)) if work_inclusive else .25
             self.sleep(delay)
         raise AssertionError('Common ' + self.area + ' ' + label + ': ' + last_problem)
 
