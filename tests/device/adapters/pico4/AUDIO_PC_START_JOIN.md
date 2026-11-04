@@ -222,3 +222,27 @@ cursor/no-replay behavior. The default transport remains unchanged. This is a
 prerequisite only: the complete Audio cleanup owner, cold global-budget/source
 composition, new independent roles and physical acoustic evidence remain open.
 No additional complete feature capability is advertised.
+
+
+## Actual immutable index bodies and compatible live pins
+
+Each confirmed range-index page now keeps its actual canonical bytes from the
+original paired-descriptor file read. The live `page_pins` entry still exposes
+the original dictionary/physical-signature shape consumed by Assets and
+Lifecycle; it aliases the exact working dictionary. A separate immutable byte
+body replaces the former second mutable dictionary copy.
+
+Every verification freshly hashes those original bytes, compares the protected
+root's index SHA, freshly serializes the live page and checks its exact identity
+and complete current physical signature. Original raw-prefix, OFD, namespace,
+clock and global admission checks remain. This is an immutable source body,
+not a cached verification verdict. The on-disk versions and literal references
+are unchanged.
+
+Four additional owning cases cover exact two-page original-byte/typed-literal
+roundtrips, a boolean alias in the live index, equal-byte index-file replacement
+and simultaneous live/pin-body corruption against the protected root SHA. The
+three disjoint selectors now cover52 cases. Targeted compatibility also exercises
+Lifecycle pending-body ranges, held return pins and100 Assets literals. These
+checks qualify host logic; complete Audio, physical acoustics and devices remain
+unqualified.

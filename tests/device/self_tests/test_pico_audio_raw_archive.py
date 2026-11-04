@@ -2,6 +2,8 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from pathlib import Path
+from copy import deepcopy
+import gc
 import hashlib
 import os
 import random
@@ -12,6 +14,7 @@ from adapters.native_feature_observation import need
 from adapters.normal_ui import NativeUIError
 from adapters.pico4.audio_raw_archive import AudioRawArchive,PART,MAX_LITERAL
 from adapters.script_journey.lock import ScriptSourceLock
+from adapters.script_journey.history import canonical
 
 
 class AudioRawArchiveTests(unittest.TestCase):
@@ -139,5 +142,53 @@ class AudioRawArchiveTests(unittest.TestCase):
             except BaseException:os._exit(0)
             os._exit(1)
         _,status=os.waitpid(pid,0);self.assertEqual(0,os.waitstatus_to_exitcode(status));self.assertEqual(b'original',self.raw.part_path(0).read_bytes())
+
+    def test_actual_two_index_pages_keep_exact_original_bytes_and_typed_literal_roundtrip(self):
+        values=[b'actual\x00bytes',None,'unicode: \u00e4 \U0001f30d']*11
+        refs=[self.acquire(value,256) for value in values]
+        self.assertEqual(2,len(self.raw.page_pins))
+        for index,(value,pin) in self.raw.page_pins.items():
+            body=self.raw.page_bodies[index]
+            self.assertIs(value,self.raw.pages[index])
+            self.assertIs(type(body),bytes)
+            self.assertEqual(self.raw.page_store(index).path.read_bytes(),body+b'\n')
+            self.assertEqual(canonical(self.raw.pages[index]),body)
+        self.assertEqual(values,[self.raw.literal(ref) for ref in refs])
+        self.assertEqual([],self.raw.state['pending']);self.assertEqual(33,self.raw.state['reads'])
+
+    def test_actual_bool_alias_in_live_index_refuses_before_next_admission(self):
+        self.acquire(b'original',64)
+        original=self.raw.page_bodies[0];_value,pin=self.raw.page_pins[0]
+        self.raw.pages[0]['receipts'][0]['read']=False
+        reads=self.raw.state['reads'];calls=[]
+        failure=None
+        try:
+            self.raw.reserve('pc',dict(action='never-getter'),64);calls.append(True)
+        except NativeUIError as error:failure=(error,error.__traceback__)
+        self.assertIsNotNone(failure);gc.collect()
+        self.assertIs(original,self.raw.page_bodies[0]);self.assertEqual(pin,self.raw.page_pins[0][1])
+        self.assertIsNotNone(failure[1]);self.assertEqual([],calls);self.assertEqual(reads,self.raw.state['reads'])
+        self.assertTrue(self.raw.failed)
+
+    def test_actual_same_byte_index_new_inode_refuses_without_reacquisition(self):
+        self.acquire(b'original',64)
+        path=self.raw.page_store(0).path;old=path.stat();body=path.read_bytes()
+        retained=path.with_name('owned-original-index.bin');path.rename(retained)
+        path.write_bytes(body);path.chmod(old.st_mode & 0o777)
+        reads=self.raw.state['reads']
+        self.assertNotEqual(old.st_ino,path.stat().st_ino)
+        with self.assertRaises(NativeUIError):self.raw.reserve('pc',dict(action='never-getter'),64)
+        self.assertEqual(reads,self.raw.state['reads']);self.assertEqual(body,retained.read_bytes())
+        self.assertEqual(body[:-1],self.raw.page_bodies[0]);self.assertTrue(self.raw.failed)
+
+    def test_actual_both_live_and_pin_payload_change_cannot_rewrite_protected_root_sha(self):
+        self.acquire(b'original',64);body=self.raw.page_bodies[0];_value,pin=self.raw.page_pins[0]
+        changed=deepcopy(self.raw.pages[0]);changed['receipts'][0]['read']=False
+        self.raw.pages[0]=changed;self.raw.page_pins[0]=(changed,pin)
+        self.raw.page_bodies[0]=canonical(changed)
+        reads=self.raw.state['reads']
+        self.assertNotEqual(body,self.raw.page_bodies[0])
+        with self.assertRaises(NativeUIError):self.raw.reserve('pc',dict(action='never-getter'),64)
+        self.assertEqual(reads,self.raw.state['reads']);self.assertTrue(self.raw.failed)
 
 if __name__=='__main__':unittest.main()

@@ -77,7 +77,7 @@ class AudioRawArchive:
         self.host=host_identity();self.path=self.store.path;self.directory=OriginalDescriptor(self.path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         self.original_directory=self.directory;self.failed=False;self.stopped=False;self.writer=None;self.open_data=b'';self.uncertain=[]
         self.unconfirmed_returns={};self.issued_reservations={}
-        self.closed={};self.pages={};self.page_pins={};self.disk=self.pin=None
+        self.closed={};self.pages={};self.page_pins={};self.page_bodies={};self.disk=self.pin=None
         self.state=dict(reads=0,pending=[],parts=[],pages=[])
         with self.lock.held():
             need(self.store.read() is None and not list(self.path.parent.glob(self.path.name+'.*')))
@@ -131,11 +131,17 @@ class AudioRawArchive:
                 raw=os.pread(self.writer.fd,PART+1,0);self.writer.require(self.writer.fd)
                 need(raw==self.open_data and len(raw)==row['bytes'] and sha(raw)==row['sha256']
                     and signature(os.fstat(self.writer.fd))==row['physical'])
-        expected_pages=[dict(page=index,sha256=json_digest(value),physical=pin) for index,(value,pin) in sorted(self.page_pins.items())]
+        # The confirmed original index body is immutable actual file bytes.
+        # Rehash it freshly; serialize each live index once per verification.
+        need(type(self.page_bodies) is dict and set(self.page_bodies)==set(self.page_pins)
+            and all(type(body) is bytes and 0<len(body)<PART for body in self.page_bodies.values()))
+        expected_pages=[dict(page=index,sha256=sha(self.page_bodies[index]),physical=pin)
+            for index,(_value,pin) in sorted(self.page_pins.items())]
         need(self.state['pages']==expected_pages)
         for index,(value,pin) in self.page_pins.items():
             path=self.page_store(index).path;names.add(path.name)
-            need(signature(path.lstat())==pin and json_digest(value)==json_digest(self.pages[index]))
+            need(value is self.pages[index] and signature(path.lstat())==pin
+                and sha(self.page_bodies[index])==json_digest(value))
         actual=set()
         with os.scandir(self.path.parent) as entries:
             for index,entry in enumerate(entries):
@@ -266,8 +272,11 @@ class AudioRawArchive:
                 old=deepcopy(self.pages.get(page));new=deepcopy(old) if old is not None else dict(audioRawRangeIndexVersion=VERSION,scopeSha256=self.scope_sha,page=page,receipts=[None]*PAGE)
                 need(new['receipts'][position] is None);new['receipts'][position]=record
                 need(len(canonical(new))+1<=PART);store.write(new,old)
-                actual,unused,pin=file_state(store);need(actual==new);self.pages[page]=deepcopy(new);self.page_pins[page]=(deepcopy(new),pin)
-                self.state['pages']=[dict(page=index,sha256=json_digest(value),physical=stamp) for index,(value,stamp) in sorted(self.page_pins.items())];self.state['pending'].remove(token);self.save();self.verify();self.unconfirmed_returns.pop(token['read']);self.issued_reservations.pop(token['read'])
+                actual,original,pin=file_state(store);need(actual==new and original==canonical(new)+b'\n')
+                self.pages[page]=deepcopy(new)
+                self.page_pins[page]=(self.pages[page],pin)
+                self.page_bodies[page]=original[:-1]
+                self.state['pages']=[dict(page=index,sha256=sha(self.page_bodies[index]),physical=stamp) for index,(_value,stamp) in sorted(self.page_pins.items())];self.state['pending'].remove(token);self.save();self.verify();self.unconfirmed_returns.pop(token['read']);self.issued_reservations.pop(token['read'])
                 return dict(audioRawRangeVersion=VERSION,scopeSha256=self.scope_sha,read=token['read'],sha256=record['sha256'])
         except BaseException:self.failed=True;raise
 

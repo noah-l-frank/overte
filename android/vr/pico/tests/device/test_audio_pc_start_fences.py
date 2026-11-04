@@ -10,6 +10,10 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 
 CASE_NAMES=(
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_actual_two_index_pages_keep_exact_original_bytes_and_typed_literal_roundtrip',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_actual_bool_alias_in_live_index_refuses_before_next_admission',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_actual_same_byte_index_new_inode_refuses_without_reacquisition',
+    'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_actual_both_live_and_pin_payload_change_cannot_rewrite_protected_root_sha',
     'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_passive_unknown_index_version_cannot_qualify_a_sealed_literal',
     'self_tests.test_pico_audio_raw_archive.AudioRawArchiveTests.test_passive_literal_reference_cannot_alias_read_zero_with_boolean',
     'self_tests.test_pico_audio_pc_start.AudioPCSourceTests.test_actual_kernel_birth_and_current_route_are_required_for_capturing',
