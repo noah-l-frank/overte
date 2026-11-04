@@ -28,6 +28,25 @@ pins its configuration, actual original Parent PID/start/boot and the same
 unrenewable host budget before candidate/source admission. Older Actor formats
 retain their original semantics.
 
+The Browser session creates `pico-browser-operation-archive` exclusively with
+mode0700 beneath the Common artifact root. It holds original descriptor aliases
+for both directories and checks their current canonical paths before each
+component call. Preexisting directories, files and symlinks are refused without
+dispatch. Common artifacts such as `scene-ready.json` remain in the unchanged
+parent root; stdio originals retain their separate strict, complete namespace,
+byte limits, durable receipts and original host-close checks. No existing
+archive or orphan is adopted or removed.
+
+A cold host-model prefix now executes the actual shared module, Browser session,
+original Android CLI and candidate/Browser factories through successful Common
+scene preparation and Actor launch, reaching the first public browser
+observation request. The
+declared SDK supplies only existing synthetic candidate/native data; the CLI,
+binding, owner and validators are original. This exposed and fixed the former
+collision between Common files and the exclusive stdio archive root. The prefix
+still refuses the next unsupported native source operation. It does not qualify
+the complete public journey or any device behavior.
+
 ## Original common return
 
 Only the actual Journey cleanup callback exports its exact lexical JSON and

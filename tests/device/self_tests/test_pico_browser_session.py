@@ -56,7 +56,8 @@ class BrowserSessionTests(unittest.TestCase):
         class Context:
             def __enter__(self): fixture.events.append('enter'); return fixture.owner
             def __exit__(self, kind, value, traceback): fixture.exits.append(kind); return False
-        self.session = SimpleNamespace(operation_host=lambda artifacts:Context())
+        self.archive_paths=[]
+        self.session = SimpleNamespace(operation_host=lambda artifacts:(self.archive_paths.append(artifacts) or Context()))
         self.client = SimpleNamespace(run=RUN, url=self.url.rsplit('/runs/', 1)[0],
             close=lambda:self.events.append('fixture.close'))
         now = time.monotonic()
@@ -129,6 +130,63 @@ class BrowserSessionTests(unittest.TestCase):
         finally:
             # The name changed; close only the original descriptor pair.
             self.assertTrue(scope.config_pin.owner.close())
+
+    def test_common_files_coexist_with_the_strict_original_stdio_archive(self):
+        from adapters.pico4.operation_archive import OperationArchive
+        scope=self.scope()
+        with self.assertRaisesRegex(RuntimeError,'Declared prefix stop'):
+            with scope:
+                self.assertEqual([self.root/'pico-browser-operation-archive'],self.archive_paths)
+                self.assertEqual(0o700,scope.archive_path.stat().st_mode & 0o777)
+                archive=OperationArchive(scope.archive_path,dict(declaredPrefix=True))
+                try:
+                    (self.root/'scene-ready.json').write_bytes(b'actual Common artifact')
+                    archive.guard();scope.call('actor.return')
+                    (scope.archive_path/'orphan.bin').write_bytes(b'unadmitted original')
+                    with self.assertRaises(ValueError):archive.guard()
+                    (scope.archive_path/'orphan.bin').unlink()
+                finally:archive.close()
+                raise RuntimeError('Declared prefix stop')
+        self.assertEqual(['enter','begin','actor.return'],self.events)
+        self.assertTrue(scope.artifact_parent.closed and scope.archive_directory.closed)
+
+    def test_preexisting_archive_directory_file_or_symlink_is_never_adopted(self):
+        for kind in ('directory','file','symlink'):
+            with self.subTest(kind=kind):
+                scope=self.scope();path=scope.archive_path
+                if kind=='directory':path.mkdir(mode=0o700)
+                elif kind=='file':path.write_bytes(b'original orphan')
+                else:path.symlink_to(self.root,target_is_directory=True)
+                try:
+                    with self.assertRaises(FileExistsError):scope.__enter__()
+                    self.assertEqual([],self.events);self.assertEqual([],self.archive_paths)
+                    self.assertTrue(scope.artifact_parent.closed and scope.config_pin.owner.closed)
+                finally:
+                    if kind=='directory':path.rmdir()
+                    else:path.unlink()
+
+    def test_replaced_archive_or_parent_is_refused_before_another_dispatch(self):
+        for kind in ('archive','parent'):
+            with self.subTest(kind=kind):
+                artifacts=self.root/('common-artifacts-'+kind);artifacts.mkdir(mode=0o700)
+                scope=PicoBrowserSession(self.session,artifacts,RUN,self.url,self.config.path,self.whole)
+                scope.__enter__();before=list(self.events)
+                path=scope.archive_path if kind=='archive' else artifacts
+                retained=path.with_name(path.name+'-retained')
+                path.rename(retained);path.mkdir(mode=0o700)
+                try:
+                    with self.assertRaises(NativeUIError):scope.call('actor.return')
+                    self.assertEqual(before,self.events)
+                    self.assertFalse(scope.close_local())
+                    self.assertFalse(scope.archive_directory.closed)
+                finally:
+                    path.rmdir();retained.rename(path)
+                    self.assertTrue(scope.export.close_host())
+                    for owner in (scope.config_pin.owner,scope.archive_directory,scope.artifact_parent):
+                        if not owner.closed:self.assertTrue(owner.close())
+                    UNRESOLVED[:]=[owner for owner in UNRESOLVED if owner is not scope]
+                    scope.archive_path.rmdir()
+                    self.events.clear();self.archive_paths.clear()
 
     def test_expired_budget_opens_no_configuration_or_cli_handles(self):
         now = time.monotonic(); self.whole.update(startedMonotonic=now-2, deadlineMonotonic=now-1)

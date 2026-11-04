@@ -6,6 +6,7 @@ process. Only private execution/Actor/consumption coordination crosses stdio.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import os
 from pathlib import Path
 import uuid
 from urllib.parse import urlsplit
@@ -14,6 +15,7 @@ from adapter_operation_host import PinnedFile, pico_command
 from adapters.chat_journey.source_chunks import json_digest
 from adapters.native_feature_observation import exact, need
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.native_fd_owner import OriginalDescriptor, require_directory
 from adapters.pico4.browser_common_export import JourneyConsumptionExport
 from adapters.pico4.browser_execution_budget import BrowserExecutionBudget
 from adapters.pico4.browser_source import fixture
@@ -31,6 +33,9 @@ class PicoBrowserSession:
         self.owner = self._owner = self.export = self._export = None
         self.fixture_close_started = False; self.finalize_started = False; self.result = None
         self.pin_complete=False;self.entered=False;self.failed=False
+        self.archive_path = self._archive_path = self.artifacts/'pico-browser-operation-archive'
+        self.artifact_parent = self._artifact_parent = None
+        self.archive_directory = self._archive_directory = None
         self.nonce = uuid.uuid4().hex
         self.config_pin = self._config_pin = object.__new__(PinnedFile)
         self.scope = self._scope = (session, self.artifacts, run, fixture_url,
@@ -60,10 +65,16 @@ class PicoBrowserSession:
                 and self.whole is self._whole and self.context is self._context
                 and self.owner is self._owner and self.export is self._export
                 and self.session is self.scope[0] and self.whole is self.scope[5]
+                and self.archive_path is self._archive_path
+                and self.archive_path == self.artifacts/'pico-browser-operation-archive'
+                and self.artifact_parent is self._artifact_parent
+                and self.archive_directory is self._archive_directory
                 and (self.artifacts, self.run, self.url, self.configuration, self.nonce)
                     == (self.scope[1], self.scope[2], self.scope[3], self.scope[4], self.scope[6])
                 and self.config_sha is self._config_sha and json_digest(self.config) == self.config_sha)
             self.whole.check(); self.config_pin.check()
+            if self.artifact_parent is not None:require_directory(self.artifact_parent,self.artifacts)
+            if self.archive_directory is not None:require_directory(self.archive_directory,self.archive_path)
             if self.owner is not None: self.owner.guard()
         except BaseException:
             self.failed = True
@@ -76,8 +87,17 @@ class PicoBrowserSession:
 
     def __enter__(self):
         self.bound()
-        self.context = self._context = self.session.operation_host(self.artifacts)
         try:
+            flags=os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC
+            self.artifact_parent=self._artifact_parent=OriginalDescriptor(self.artifacts,flags)
+            require_directory(self.artifact_parent,self.artifacts)
+            # The Common module writes its own artifacts beside this exclusive
+            # stdio namespace. A preexisting directory is never adopted.
+            self.archive_path.mkdir(mode=0o700)
+            require_directory(self.artifact_parent,self.artifacts)
+            self.archive_directory=self._archive_directory=OriginalDescriptor(self.archive_path,flags)
+            require_directory(self.archive_directory,self.archive_path)
+            self.context = self._context = self.session.operation_host(self.archive_path)
             self.owner = self._owner = self.context.__enter__();self.entered=True
             self.call('begin', dict(artifactRoot=str(self.artifacts),
                 foreignFixtureUrl=self.config['foreignFixtureUrl'], nonce=self.nonce))
@@ -140,7 +160,10 @@ class PicoBrowserSession:
         return False
 
     def close_local(self):
-        if (self.config_pin is not self._config_pin or self.export is not self._export):
+        if (self.config_pin is not self._config_pin or self.export is not self._export
+                or self.archive_path is not self._archive_path
+                or self.artifact_parent is not self._artifact_parent
+                or self.archive_directory is not self._archive_directory):
             self.failed = True
             if not any(owner is self for owner in UNRESOLVED): UNRESOLVED.append(self)
             return False
@@ -152,6 +175,10 @@ class PicoBrowserSession:
             if self.pin_complete:results.append(self.config_pin.close())
             elif hasattr(self.config_pin,'owner'):results.append(self.config_pin.owner.close())
         except Exception:results.append(False)
+        for owner,path in ((self.archive_directory,self.archive_path),(self.artifact_parent,self.artifacts)):
+            if owner is not None and not owner.closed:
+                try:require_directory(owner,path);results.append(owner.close())
+                except Exception:results.append(False)
         complete=all(results)
         if not complete and not any(owner is self for owner in UNRESOLVED):UNRESOLVED.append(self)
         return complete
