@@ -113,6 +113,14 @@ The prior failed501ms run remains a failure. Android/native/UI/media values
 remain explicit models; this diagnostic does not qualify hardware or a public
 adapter. Serialized accounting is not a universal Python/Qt/native heap proof.
 
+A later composition inserted the read-only second cleanup before the same
+Common window. Its first run failed inside `PicoAudioPages.capture()` after
+444 raw reservations; the original inner cause was hidden by source-lock
+normalization. An unchanged diagnostic run then passed with8 authenticated
+HTTP pairs,3.196s quiet and483 raw reservations. The earlier failure remains
+unexplained and retained. This mixed campaign is not a reliability fix or a
+fully qualified end-to-end run.
+
 The actual role credential is authenticated, but the diagnostic Actor shares
 its host process. Independent Actor process isolation, full Common execution,
 physical microphone/speaker evidence, complete export/resource/host retirement
