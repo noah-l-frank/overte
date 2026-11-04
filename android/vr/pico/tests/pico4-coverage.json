@@ -14,6 +14,6 @@
     {"id": "serverless-world-loading", "risk": "critical", "tests": ["world-state", "serverless-fixtures", "navigation-lookup-close", "navigation-bookmark-restart", "navigation-normal-prefix", "navigation-environment-originals", "navigation-transit-prefix", "navigation-missing-prefix", "navigation-dismissal-prefix", "navigation-bookmark-prefix", "navigation-restart-prefix", "navigation-restart-exit", "navigation-generation-prefix", "navigation-generation-frames", "navigation-generation-frame-fences", "navigation-generation-restoration", "navigation-generation-restoration-recovery", "navigation-generation-restoration-ownership"]},
     {"id": "unattended-device-tooling", "risk": "medium", "tests": ["unattended-runner", "device-lock", "microphone-runner", "feature-observation", "normal-scripts", "script-feature-journey", "script-feature-engine"]},
     {"id": "power-and-performance-analysis", "risk": "medium", "tests": ["power-analyzer", "avatar-hotpath", "shadergen-jobs"]},
-    {"id": "suite-infrastructure", "risk": "high", "tests": ["strict-json-size", "strict-json-digest", "loaded-chunk-codec", "suite-runner", "coverage-matrix", "shell-syntax"]}
+    {"id": "suite-infrastructure", "risk": "high", "tests": ["canonical-scalar-size", "strict-json-size", "strict-json-digest", "loaded-chunk-codec", "suite-runner", "coverage-matrix", "shell-syntax"]}
   ]
 }

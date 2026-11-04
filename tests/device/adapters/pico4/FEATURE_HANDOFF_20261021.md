@@ -4088,3 +4088,10 @@ current independent original. All contradictions remain effective; current
 Four focused and40 affected cases pass. The retained12.409s first-Open refusal
 and successful negative cleanup remain historical whole evidence; no new full
 capability is advertised. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+Shared canonical sizing now counts exact builtin finite scalar representations
+without creating a JSON encoder for every number. Nine focused and25 affected
+cases pass, preserving exact byte budgets, type/escaping/cycle checks and original
+nonfinite rejection. A retained-graph method comparison measured0.413s to0.254s;
+this is not a whole-owner or Native/device timing qualification.

@@ -2579,6 +2579,18 @@
     "affectedCases": 25,
     "affectedSeconds": 21.43,
     "affectedLoadedSources": 300,
-    "scope": "Actual deceptive container/scalar type aliases refuse before foreign equality/iteration/encoding in the shared exact canonical sizing walker. Legitimate escaping/non-BMP/surrogate/scalar byte lengths, exact/one-byte-short limits and cycle/nonfinite refusal verified. Lifecycle capacity/packed memo and Snapshot numeric scopes pass; original wire formats/limits unchanged, no native/device/whole-feature qualification."
+    "scope": "Actual deceptive container/scalar type aliases refuse before foreign equality/iteration/encoding in the shared exact canonical sizing walker. Legitimate escaping/non-BMP/surrogate/scalar byte lengths, exact/one-byte-short limits and cycle/nonfinite refusal verified. Lifecycle capacity/packed memo and Snapshot numeric scopes pass; original wire formats/limits unchanged, no native/device/whole-feature qualification.",
+    "finiteScalarWork": {
+      "selector": "canonical-scalar-size",
+      "focusedCases": 9,
+      "focusedSeconds": 0.17,
+      "focusedLoadedSources": 57,
+      "affectedCases": 25,
+      "affectedSeconds": 27.462,
+      "affectedLoadedSources": 301,
+      "methodMedianBeforeSeconds": 0.412928,
+      "methodMedianAfterSeconds": 0.254087,
+      "scope": "Exact builtin finite numeric representations and fixed bool/null lengths remove per-scalar JSON encoder construction. More than 4000 deterministic IEEE samples, integer boundaries, exact/one-byte-short budgets and original nonfinite rejection verified. Existing escaping, type, cycle, integer-conversion and quota guards unchanged. Retained-graph method comparison only; no whole-owner/native/device performance claim."
+    }
   }
 }

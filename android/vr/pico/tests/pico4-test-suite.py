@@ -39,6 +39,7 @@ TESTS = (
     test("browser-host-clock", "interaction", PYTHON, "device/test_browser_host_clock.py"),
     test("browser-poll-period", "interaction", PYTHON, "device/test_browser_poll_period.py"),
     test("strict-json-size", "infrastructure", PYTHON, "device/test_strict_json_size.py"),
+    test("canonical-scalar-size", "infrastructure", PYTHON, "device/test_canonical_scalar_size.py"),
     test("strict-json-digest", "infrastructure", PYTHON, "device/test_strict_json_digest.py"),
     test("loaded-chunk-codec", "infrastructure", PYTHON, "device/test_loaded_chunk_codec.py"),
     test("suite-runner", "infrastructure", PYTHON, "pico4-test-suite-self-test.py"),

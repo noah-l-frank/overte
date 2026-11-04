@@ -61,7 +61,16 @@ def canonical_size(value,limit=MAX_RAW):
             else:result=2+max(0,len(item)-1)+sum(count(child) for child in item)
             active.remove(id(item))
         else:
-            need(id(kind) in scalar_ids);result=len(canonical(item))
+            need(id(kind) in scalar_ids)
+            if kind is bool:result=4 if item else 5
+            elif kind is type(None):result=4
+            else:
+                # The canonical encoder uses these exact builtin numeric
+                # representations. Avoid a complete JSON encoder per scalar;
+                # keep its original nonfinite rejection and integer limits.
+                literal=repr(item)
+                if kind is float and literal in ('nan','inf','-inf'):result=len(canonical(item))
+                else:result=len(literal)
         need(result<=limit);return result
     return count(value)
 
