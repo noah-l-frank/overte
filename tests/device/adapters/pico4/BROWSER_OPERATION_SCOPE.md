@@ -995,3 +995,53 @@ initial Python SHA/eight-stat supersets match at terminal. All four selected
 project checks, contract versions,20 Pico coverage cases/440 groups, feature
 inventory and whitespace checks pass. A changed whole result is still separate;
 source-complete areas remain3/14 and devices remain untested.
+
+
+## Current descriptor ownership without a duplicate anchor inode stat
+
+The one changed whole at `437bb50f01` reaches Common completion and actual
+Actor return, then remains RED98.751s in capture quiet: original host gap
+509.498ms and83 native gaps510--512ms. The120s whole limit is unexpired;
+archive125ms preparation is not reached. All2329 initial Python pins and actual
+Parent193/Child276/Actor179 manifests match at terminal. All1048 retained files
+have two matching full SHA/eight-stat inventories; no recorded worker remains.
+Originals and audit remain under
+`/tmp/pico-index-common-yield10-whole-20261104-01-e46v0fn_/` and
+`~/.local/state/overte-pico-resume-integration-20261102-24qkewqw/browser-common-yield10-20261104/whole-01-terminal/`.
+
+The next [original-OFD change](../NATIVE_FD_OWNER.md) retains a fresh descriptor
+stat of its expected node and the complete current kernel alias query. Only a
+separate anchor inode stat, already implied by successful same-OFD identity,
+is removed. No byte, permission, full stamp, path, namespace, parent, query,
+source/currentness, clock or limit check is removed or cached. The helper makes
+no stronger atomicity claim than before.
+
+A private comparison uses independent copied-source interpreters and906 newly
+copied local catalog files; no failed warm Source/flow/retirement owner is
+adopted. Nine complete actual fresh file passes give medians72.110ms before
+and63.637ms after. Both retain631 seals,703864B metadata and4712372B released
+credit. Real kernel alias/self queries return1; independent same-inode and
+cross-file queries return0. Four actual recycled-half cases and a missing-anchor
+error refuse in both. All new owners close, all949 historical inputs and the
+full2329-file repository Python superset remain unchanged. Copied/loaded source
+pins and exact runner/results remain under
+`~/.local/state/overte-pico-resume-integration-20261102-24qkewqw/browser-ofd-single-stat-4ixgsw8e/`.
+This measured method saving does not predict a whole pass or qualify a device.
+
+
+Focused native-OFD/JSON/catalog/index/unlink/directory/context verification
+passes105 cases in3.597s with134 loaded sources unchanged. A test-only closed-
+anchor counter then recognizes both legitimate kernel rejection forms (mismatch
+or EBADF); its11 cases pass0.003s with4 loaded sources unchanged. Runtime bytes
+are identical across these test epochs. The complete Browser capture/remote/
+original-retirement group passes22 cases in74.427s with252 loaded sources
+unchanged. Archive/host/process/directory verification passes20 cases in48.259s
+with250 loaded sources unchanged, including real paired process handles,
+foreign/same-byte replacement, unknown landed moves and actual host closure.
+
+Every initial2329-file repository Python SHA/eight-stat superset is verified
+unchanged at its terminal before later edits. All four selected project checks,
+contract versions,20 Pico coverage cases/440 groups, feature inventory and
+whitespace checks pass. These component results and the private method saving
+still do not establish a changed whole pass, complete Browser capability or
+device acceptance; source-complete areas remain3/14.

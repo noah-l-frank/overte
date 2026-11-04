@@ -38,8 +38,10 @@ class OriginalDescriptor:
         try:
             need(not self.closed and not self.lost and type(descriptor) is int and descriptor==self.fd
                 and self.fd>=0 and self.anchor>=0 and self.fd!=self.anchor)
-            info=os.fstat(descriptor);anchor=os.fstat(self.anchor)
-            need((info.st_dev,info.st_ino)==(anchor.st_dev,anchor.st_ino)==self.node
+            info=os.fstat(descriptor)
+            # The current kernel query proves both handles name the same OFD;
+            # its inode is already checked by this fresh descriptor stat.
+            need((info.st_dev,info.st_ino)==self.node
                 and fcntl.fcntl(descriptor,QUERY,self.anchor)==1)
         except BaseException:
             self.lost=True;raise

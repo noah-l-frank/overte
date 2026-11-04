@@ -26,6 +26,79 @@ class OriginalDescriptorTests(unittest.TestCase):
             with self.assertRaises(OSError):os.fstat(fd)
 
     @unittest.skipUnless(module.QUERY is not None,'Original Linux OFD query is unavailable')
+    def test_current_kernel_query_distinguishes_alias_from_independent_same_inode_and_cross_file(self):
+        owner=OriginalDescriptor(self.path,os.O_RDONLY|os.O_CLOEXEC);self.addCleanup(owner.close)
+        foreign_path=self.root/'other-original';foreign_path.write_bytes(b'other owned original')
+        same=os.open(self.path,os.O_RDONLY|os.O_CLOEXEC);different=os.open(foreign_path,os.O_RDONLY|os.O_CLOEXEC)
+        try:
+            self.assertEqual(1,module.fcntl.fcntl(owner.fd,module.QUERY,owner.anchor))
+            self.assertEqual(1,module.fcntl.fcntl(owner.fd,module.QUERY,owner.fd))
+            self.assertEqual(os.fstat(owner.fd).st_ino,os.fstat(same).st_ino)
+            self.assertEqual(0,module.fcntl.fcntl(owner.fd,module.QUERY,same))
+            self.assertEqual(0,module.fcntl.fcntl(owner.fd,module.QUERY,different))
+            owner.require(owner.fd);self.assertFalse(owner.lost)
+        finally:os.close(same);os.close(different)
+
+    @unittest.skipUnless(module.QUERY is not None,'Original Linux OFD query is unavailable')
+    def test_closed_anchor_query_error_latches_loss_without_closing_original_descriptor(self):
+        owner=OriginalDescriptor(self.path,os.O_RDONLY|os.O_CLOEXEC);descriptor,anchor=owner.fd,owner.anchor
+        os.close(anchor)
+        try:
+            with self.assertRaises((OSError,NativeUIError)) as caught:owner.require(descriptor)
+            if isinstance(caught.exception,OSError):self.assertEqual(errno.EBADF,caught.exception.errno)
+            self.assertTrue(owner.lost);self.assertFalse(owner.close())
+            self.assertEqual(owner.node,(os.fstat(descriptor).st_dev,os.fstat(descriptor).st_ino))
+        finally:os.close(descriptor)
+
+    @unittest.skipUnless(module.QUERY is not None,'Original Linux OFD query is unavailable')
+    def test_cross_file_replacement_of_either_half_remains_foreign_and_sticky(self):
+        foreign_path=self.root/'foreign-original';foreign_path.write_bytes(b'foreign original')
+        for replace_anchor in (False,True):
+            with self.subTest(anchor=replace_anchor):
+                owner=OriginalDescriptor(self.path,os.O_RDONLY|os.O_CLOEXEC);descriptor,anchor=owner.fd,owner.anchor
+                foreign=os.open(foreign_path,os.O_RDONLY|os.O_CLOEXEC)
+                try:
+                    owner.require(descriptor)
+                    os.dup2(foreign,anchor if replace_anchor else descriptor)
+                    self.assertEqual(0,module.fcntl.fcntl(descriptor,module.QUERY,anchor))
+                    with self.assertRaises(NativeUIError):owner.require(descriptor)
+                    self.assertTrue(owner.lost);self.assertFalse(owner.close())
+                    self.assertEqual(b'foreign original',os.pread(foreign,32,0))
+                    os.fstat(descriptor);os.fstat(anchor)
+                finally:os.close(foreign);os.close(descriptor);os.close(anchor)
+
+    @unittest.skipUnless(module.QUERY is not None,'Original Linux OFD query is unavailable')
+    def test_actual_kernel_query_error_after_admission_never_closes_or_readopts_pair(self):
+        owner=OriginalDescriptor(self.path,os.O_RDONLY|os.O_CLOEXEC);descriptor,anchor=owner.fd,owner.anchor
+        try:
+            # Only ordinary command data changes; the real kernel call returns
+            # EINVAL. No syscall/function or class is substituted here.
+            with patch.object(module,'QUERY',0x7fffffff):
+                with self.assertRaises(OSError) as caught:owner.require(descriptor)
+            self.assertEqual(errno.EINVAL,caught.exception.errno)
+            self.assertTrue(owner.lost);self.assertFalse(owner.close())
+            self.assertEqual(1,module.fcntl.fcntl(descriptor,module.QUERY,anchor))
+            os.fstat(descriptor);os.fstat(anchor)
+        finally:os.close(descriptor);os.close(anchor)
+
+    @unittest.skipUnless(module.QUERY is not None,'Original Linux OFD query is unavailable')
+    def test_aliased_pair_still_requires_the_current_expected_node_and_exact_descriptor(self):
+        foreign_path=self.root/'other-node';foreign_path.write_bytes(b'other node')
+        for wrong_node in (False,True):
+            with self.subTest(node=wrong_node):
+                owner=OriginalDescriptor(self.path,os.O_RDONLY|os.O_CLOEXEC);descriptor,anchor=owner.fd,owner.anchor
+                old=owner.node
+                try:
+                    self.assertEqual(1,module.fcntl.fcntl(descriptor,module.QUERY,anchor))
+                    if wrong_node:
+                        info=foreign_path.stat();owner.node=(info.st_dev,info.st_ino)
+                    with self.assertRaises(NativeUIError):owner.require(descriptor if wrong_node else anchor)
+                    owner.node=old
+                    self.assertTrue(owner.lost);self.assertFalse(owner.close())
+                    os.fstat(descriptor);os.fstat(anchor)
+                finally:os.close(descriptor);os.close(anchor)
+
+    @unittest.skipUnless(module.QUERY is not None,'Original Linux OFD query is unavailable')
     def test_recycled_descriptor_or_anchor_of_same_original_inode_is_never_closed(self):
         for replace_anchor in (False,True):
             for path,flags in ((self.path,os.O_RDONLY|os.O_CLOEXEC),(self.root,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)):
