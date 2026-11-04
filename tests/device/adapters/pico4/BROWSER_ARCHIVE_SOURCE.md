@@ -120,3 +120,16 @@ No whole case is repeated merely for this comparison optimization. The prior
 whole timeout, its 1069 complete source copies/18 manifests and 198 confirmed
 unlinks remain retained. Further actual retirement cost, final archive,
 host closure and complete public coordinator remain open.
+
+
+## Earlier pre-intent acquisition within the same hard policy
+
+Browser now selects125ms reuse on the existing shared unlink fence; Chat and
+other callers keep the default250ms. If either original host or native clock
+has reached125ms, preparation acquires a genuinely new complete source before
+the next durable intent. This reserves time for the original copy, namespace,
+phase query, unlink and final guards. The old proof is not retimed. Pending
+intents retain exactly their original proof, cursors and hard250ms window,
+even after125ms; expiry/failure cannot acquire another source or retry an unlink.
+The maximum remains16 uses and original acquisition/final freshness remains1.5s.
+All current byte/OFD/eight-stat/parent/namespace/permission checks stay active.

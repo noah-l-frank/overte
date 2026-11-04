@@ -74,6 +74,87 @@ class ChatArchiveUnlinkFenceTests(unittest.TestCase):
         requests=[row['requestId'] for row in self.phases];self.assertEqual(len(requests),len(set(requests)))
         self.assertGreaterEqual(len(requests),17+5);self.assertTrue(archive.complete)
 
+    def reserved_fence(self,reuse_ms=125):
+        from adapters.original_source_unlink_fence import OriginalSourceUnlinkFence
+        return OriginalSourceUnlinkFence(self.guard,now=lambda:self.host,clock_ms=lambda:self.epoch,
+            source_sequence=lambda proof:proof['compiledChat']['after']['sequence'],reuse_ms=reuse_ms)
+
+    def test_default_window_reuse_keeps_existing_two_hundred_ms_authority(self):
+        self.assertEqual(250,self.fence.reuse_ms)
+        token=self.fence.prepare();self.fence.check(token);self.fence.complete(token)
+        self.host+=.2;self.epoch+=200
+        token=self.fence.prepare()
+        self.assertEqual(1,self.acquisitions);self.assertEqual(2,token['windowUse'])
+        self.fence.check(token);self.fence.complete(token)
+
+    def test_reserved_reuse_acquires_actual_new_source_before_next_intent_on_either_clock(self):
+        for native in (False,True):
+            with self.subTest(native=native):
+                self.setUp();fence=self.reserved_fence()
+                token=fence.prepare();fence.check(token);fence.complete(token)
+                first=token['sourceSequence']
+                if native:self.epoch+=126
+                else:self.host+=.126
+                token=fence.prepare()
+                self.assertEqual(2,self.acquisitions);self.assertEqual(1,token['windowUse'])
+                self.assertGreater(token['sourceSequence'],first)
+                fence.check(token);fence.complete(token)
+
+    def test_reserved_reuse_still_limits_sixteen_unlinks_when_both_clocks_are_frozen(self):
+        fence=self.reserved_fence()
+        for index in range(17):
+            token=fence.prepare()
+            self.assertEqual(index%16+1,token['windowUse'])
+            fence.check(token);fence.complete(token)
+        self.assertEqual(2,self.acquisitions);self.assertEqual(1,fence.uses)
+
+    def test_reserved_reuse_keeps_full_hard_window_for_original_pending_token(self):
+        fence=self.reserved_fence();token=fence.prepare();original=deepcopy(token)
+        self.host+=.2;self.epoch+=200
+        fence.check(token);fence.complete(token)
+        self.assertEqual(1,self.acquisitions);self.assertEqual(original,token)
+        self.assertEqual(1,fence.uses);self.assertIsNone(fence.pending)
+
+    def test_reserved_reuse_cannot_reacquire_a_pending_or_expired_original(self):
+        for expired in (False,True):
+            for native in (False,True):
+                with self.subTest(expired=expired,native=native):
+                    self.setUp();fence=self.reserved_fence();token=fence.prepare()
+                    delay=251 if expired else 126
+                    if native:self.epoch+=delay
+                    else:self.host+=delay/1000
+                    with self.assertRaises(NativeUIError):
+                        if expired:fence.check(token)
+                        else:fence.prepare()
+                    self.assertEqual(1,self.acquisitions);self.assertEqual(token,fence.pending)
+                    self.assertTrue(fence.failed)
+                    with self.assertRaises(NativeUIError):fence.prepare()
+                    self.assertEqual(1,self.acquisitions)
+
+    def test_reserved_reuse_does_not_restart_original_acquisition_freshness(self):
+        capture=self.capture
+        def slow(_guard,original=None):
+            result=capture(original)
+            if original is None:self.epoch+=1400;self.host+=1.4
+            return result
+        fence=self.reserved_fence()
+        with patch.object(ChatArchiveReleaseSource,'__call__',slow):token=fence.prepare()
+        self.host+=.126;self.epoch+=126
+        with self.assertRaises(NativeUIError):fence.check(token)
+        self.assertEqual(1,self.acquisitions);self.assertEqual(token,fence.pending)
+        self.assertTrue(fence.failed)
+
+    def test_reuse_reservation_rejects_invalid_or_changed_policy_without_source_query(self):
+        for invalid in (0,251,True,125.,None):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(NativeUIError):self.reserved_fence(invalid)
+        self.assertEqual(0,self.acquisitions)
+        fence=self.reserved_fence();fence.reuse_ms=250
+        with self.assertRaises(NativeUIError):fence.prepare()
+        self.assertTrue(fence.failed);self.assertEqual(0,self.acquisitions)
+        fence.reuse_ms=125
+        with self.assertRaises(NativeUIError):fence.prepare()
+
     def test_slow_final_unlink_cas_with_either_frozen_clock_refuses_without_source_refresh_or_unlink(self):
         for native in (False,True):
             with self.subTest(native=native):

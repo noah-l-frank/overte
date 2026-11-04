@@ -21,3 +21,14 @@ These include original clock jumps, phase/reader changes, physical replacement,
 mutable cache rejection and copy/manifest/inventory changes. This is shared
 mechanical reuse for the next Browser archive transaction, not its completed
 feature or host closure.
+
+
+Callers may select a stricter integer `reuse_ms` threshold from1 through250ms;
+the default remains250ms. Preparation acquires a new original source before the
+next durable intent when either original host or native clock reaches that
+threshold, or after16 uses. The selected threshold is pinned. It does not
+shorten or renew a pending token's original hard250ms window, replace its source
+proof/cursors, restart acquisition freshness or allow refresh after failure.
+Chat keeps the unchanged default. Browser selects125ms to reserve time for the
+next complete unlink and its final original guards. Token shape, source1.5s
+freshness, hard250ms window and maximum16 uses remain unchanged.

@@ -206,4 +206,4 @@ class PicoBrowserArchiveUnlinkFence(OriginalSourceUnlinkFence):
     def __init__(self,guard):
         need(type(guard) is PicoBrowserArchiveReleaseSource and not guard.failed)
         super().__init__(guard,now=lambda:guard.flow.monotonic(),clock_ms=lambda:guard.flow.source.epoch_ms(),
-            source_sequence=lambda proof:proof['frame']['objectsAfter']['sequence'])
+            source_sequence=lambda proof:proof['frame']['objectsAfter']['sequence'],reuse_ms=125)

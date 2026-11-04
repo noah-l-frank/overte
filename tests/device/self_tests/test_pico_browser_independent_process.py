@@ -348,6 +348,7 @@ class PicoBrowserIndependentProcessTests(unittest.TestCase):
         capture=f.primary.remote_capture_retirement;paths=[row['store'].path for row in capture.catalog.rows.values()]
         pngs={row['value']['name']:(f.artifacts/row['value']['name']).read_bytes() for row in capture.pngs}
         result=f.primary.archive_retired_sources();plan=f.primary.evidence_archive
+        self.assertEqual(125,plan.fence.reuse_ms)
         self.assertTrue(plan.completed);self.assertEqual(result,plan.receipt())
         self.assertFalse(result['commonSequenceSucceeded']);self.assertFalse(result['hostReleased'])
         self.assertTrue(all(not path.exists() for path in paths));self.assertTrue(plan.directory.exists())

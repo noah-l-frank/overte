@@ -123,6 +123,7 @@ class BrowserArchivePngWindowTests(unittest.TestCase):
         captures=PicoBrowserCaptureRetirement.__new__(PicoBrowserCaptureRetirement)
         captures.admitted=captures.reader=captures.previous=None;captures.initialize_pngs()
         captures._admission_values=captures._sealed_admission_values=None
+        captures._admission_wrapper_bytes=0
         for row in rows:captures.append_png(row)
         self.plan.root=self.root;self.plan.primary=primary;self.plan.captures=captures
         self.plan.metadata=dict(pngsSha256=json_digest(rows),pngCount=len(rows))

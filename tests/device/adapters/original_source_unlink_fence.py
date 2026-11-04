@@ -24,9 +24,13 @@ class OriginalSourceUnlinkFence:
     Only prepare() before that intent may acquire a new source. Any failure
     retains the original pending token and makes this warm fence unusable.
     """
-    def __init__(self,guard,*,now,clock_ms,source_sequence):
-        need(callable(guard) and all(callable(value) for value in (now,clock_ms,source_sequence)))
+    def __init__(self,guard,*,now,clock_ms,source_sequence,reuse_ms=250):
+        need(callable(guard) and all(callable(value) for value in (now,clock_ms,source_sequence))
+            and type(reuse_ms) is int and 1<=reuse_ms<=250)
         self.guard,self.now,self.clock_ms,self.source_sequence=guard,now,clock_ms,source_sequence
+        # A stricter reuse threshold reserves work time before the next intent.
+        # It never changes the original hard250ms window after an intent.
+        self.reuse_ms=self._reuse_ms=reuse_ms
         self.proof=None;self.snapshot=None;self.started=self.epoch=None
         self.uses=0;self.pending=None;self.failed=False
 
@@ -41,9 +45,11 @@ class OriginalSourceUnlinkFence:
 
     def prepare(self):
         try:
-            need(not self.failed and self.pending is None)
+            need(not self.failed and self.pending is None and type(self.reuse_ms) is int
+                and self.reuse_ms==self._reuse_ms and 1<=self.reuse_ms<=250)
             now,epoch,ended=self.clocks()
-            expired=self.proof is None or self.uses>=16 or now-self.started>=.250 or epoch-self.epoch>=250
+            expired=(self.proof is None or self.uses>=16
+                or now-self.started>=self.reuse_ms/1000 or epoch-self.epoch>=self.reuse_ms)
             if expired:
                 self.proof=deepcopy(self.guard());self.guard.final(self.proof)
                 self.snapshot=self.guard.cursors();self.started,self.epoch,_ended=self.clocks();self.uses=0

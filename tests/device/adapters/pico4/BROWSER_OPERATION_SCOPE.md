@@ -894,3 +894,56 @@ repository Python SHA/eight-stat supersets also remain unchanged. The selected
 four project checks, contract versions,20 Pico coverage cases/440 groups,
 feature inventory and whitespace checks pass. These are host verification;
 a changed whole result remains separate from this scheduler commit.
+
+
+## Capture quiet complete; next archive-window boundary
+
+The one changed whole at `06aac4716f` completes all26 normal acts,28 Common
+phases, actual independent Actor6 return and the complete final capture quiet.
+All7 consecutive original host gaps are481.072--493.500ms and all83 original
+native clocks advance480--494ms, spanning more than3s. It remains RED110.729s
+later in archive retirement: a third reused token passes its pre-unlink checks,
+then fails the unchanged250ms final window. The120s deadline is unexpired.
+
+All950 original source copies/manifests are retained. The original state-domain
+move retires867 namespace entries;935 catalog positions are confirmed in the
+ledger, followed by one still-issued unlink whose original path is absent.
+Its outcome remains unresolved despite a retained immutable copy. No failed
+owner is resumed and no source/input/unlink is resent. The final source clocks,
+remaining retirement, host release and complete Browser capability stay open.
+
+Before any new edit, all2329 initial repository Python SHA/eight-stat originals
+and actual Parent193/Child281/Actor179 manifests match. All1981 retained files
+have two matching complete terminal inventories; no recorded worker remains.
+The failed originals remain under
+`/tmp/pico-index-capture-yield10-whole-20261104-01-w6ul1mjv/`; the audit is under
+`~/.local/state/overte-pico-resume-integration-20261102-24qkewqw/browser-direct-admission-20261104/yield10-whole-01-terminal/`.
+
+The next bounded change selects125ms Browser reuse before intent while leaving
+the shared default250ms, original hard250ms window,16-use maximum,1.5s source
+freshness and120s whole deadline unchanged. It obtains a genuinely new source,
+with a new original sequence, rather than renewing an old proof or an unknown
+pending token. Both clocks independently trigger the earlier acquisition.
+
+
+The shared unlink/index/directory selection passes39 cases in1.241s with78
+loaded sources unchanged, including both independently frozen clocks, unchanged
+default200ms reuse, the16-use maximum, pending200ms authority,251ms refusal,
+original1.5s acquisition age and sticky invalid/pending policy. Six actual
+independent Browser source cases pass41.138s with246 loaded sources unchanged.
+
+The affected29-case selection passes all5 actual archive/host/directory cases
+and23 context cases, then reports one stale metadata-only fixture error in
+56.255s with265 loaded sources unchanged. That fixture constructed a capture
+owner with `__new__` but omitted production initialization's zero admission
+charge. Only the fixture is corrected; the same runtime then passes all24
+context cases in0.425s with126 loaded sources unchanged. These are separate
+epochs, not one green29-case run. Its exact failed fixture bytes,1682 retained
+originals and full2329-file terminal source manifest remain preserved. Focused
+and source initial2329-file supersets match that pre-edit terminal epoch; the
+corrected-context initial2329-file superset matches its own terminal epoch.
+
+All four selected project checks, contract versions,20 Pico coverage cases/440
+groups, feature inventory synchronization and whitespace checks pass. No changed
+whole result or complete Browser capability is implied by these component
+checks. The current source-complete count remains3/14 and devices are untested.
