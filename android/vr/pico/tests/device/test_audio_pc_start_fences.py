@@ -10,6 +10,10 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 
 CASE_NAMES=(
+    'self_tests.test_pico_audio_cleanup_binding.CanonicalCleanupBinding.test_actual_canonical_factory_attaches_original_cold_budget_and_coordinator_before_io',
+    'self_tests.test_pico_audio_cleanup_binding.CanonicalCleanupBinding.test_invalid_optional_budget_type_and_wrong_run_refuse_before_pc_or_input',
+    'self_tests.test_pico_audio_cleanup_binding.CanonicalCleanupBinding.test_foreign_budget_lock_refuses_without_actor_or_coordinator_adoption',
+    'self_tests.test_pico_audio_cleanup_binding.CanonicalCleanupBinding.test_existing_family_file_keeps_partial_actor_and_first_failure_without_retry',
     'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_default_none_actor_still_observes_original_owner',
     'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_selected_budget_is_registered_in_original_raw_family_before_source_io',
     'self_tests.test_pico_audio_cleanup.AudioCleanupTests.test_unprepared_common_factory_refuses_before_credit_or_getter',

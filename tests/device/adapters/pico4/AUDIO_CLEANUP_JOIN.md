@@ -13,6 +13,17 @@ Its prospective constructor, source metadata, decode, process and Common work
 stay ADDITIVE in the existing512-entry/16MiB family. Selection is not permission
 to release any earlier roots, pending returns, artifacts or another role's work.
 
+The internal canonical PC factory accepts an optional `cleanup_budget`. Its
+exact type, original run and source lock are checked before recipe/PC work;
+its binding must match before constructing the independent readers. The
+original budget retains the admitted partial Actor and the first constructor
+error/traceback. It retains the actual coordinator before its constructor IO.
+A failed budget refuses reuse before another PC RPC or normal input.
+
+Four factory cases exercise this path through the actual canonical loader,
+including a real conflicting family file, early foreign run/type/lock refusal
+and successful ownership. These are host model checks, with no device claim.
+
 The irreversible old-acquisition fence requires the actual completed14-action
 recipe, recorder retirement, settled futures and quiet source originals.
 Subsequent old observation/input dispatch refuses before its next CAS/getter.

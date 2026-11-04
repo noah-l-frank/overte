@@ -58,6 +58,8 @@ class AudioCleanupBudget1:
         self.lock=source_lock;self.raw=raw;self.value=deepcopy(value)
         self.sha=hashlib.sha256(raw).hexdigest();self.actor=None;self.recipe=None
         self.failed=False;self.closed=False
+        self.factory_hold=self._original_factory_hold=None
+        self.factory_failure=None
         self._original_lock=source_lock;self._original_raw=raw
         self._original_sha=self.sha
         self.prospective=PROSPECTIVE_BYTES
@@ -109,6 +111,9 @@ class AudioCleanupBudget1:
              and type(self.preserve_other_decode) is bool and self.preserve_other_decode is self._original_preserve_other_decode
              and self.decode_seal_metadata==self._original_decode_seal_metadata
              and type(self.decode_seal_metadata) is int and self.decode_seal_metadata in (0,262144)
+             and self.factory_hold is self._original_factory_hold
+             and (self.factory_hold is None or type(self.factory_hold) is tuple and len(self.factory_hold)==3
+                  and self.factory_hold[1] is self.recipe and self.factory_hold[2] is self.actor)
              and type(self.failed) is bool
              and type(self.row_slots) is int and 0<=self.row_slots<=512
              and type(self.decode_hold) is int and 0<=self.decode_hold<=MAX_RAW

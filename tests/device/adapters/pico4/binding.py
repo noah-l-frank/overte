@@ -2236,7 +2236,7 @@ def create_adapter(args, base_class):
                 lambda owned:facade._graphics_lifecycle_status(target,owned),monotonic=phase_source.monotonic)
 
         @_private
-        def _audio_pc_start_coordinator(self,target,run,primary_phase,actor_phase,peer_configuration,*,source_lock=None):
+        def _audio_pc_start_coordinator(self,target,run,primary_phase,actor_phase,peer_configuration,*,source_lock=None,cleanup_budget=None):
             from adapters.feature_fixture_access import AdapterFixtureClient
             from feature_journeys.phase_fixture import PhaseFixtureReader
             from adapters.pico4.audio_peer import PicoAudioPeer,configuration
@@ -2247,9 +2247,17 @@ def create_adapter(args, base_class):
                 and primary_phase.fixture_url==actor_phase.fixture_url
                 and not isinstance(actor_phase.client,AdapterFixtureClient)
                 and actor_phase.client.token!=primary_phase.client.token)
+            if cleanup_budget is not None:
+                from adapters.pico4.audio_cleanup_profile import AudioCleanupBudget1
+                _need(type(cleanup_budget) is AudioCleanupBudget1)
+                cleanup_budget.guard()
+                _need(not cleanup_budget.failed and cleanup_budget.actor is None and cleanup_budget.recipe is None
+                    and cleanup_budget.factory_hold is None and cleanup_budget.value['runId']==run)
             config=configuration(peer_configuration)
             source_lock=self._script_journey()._lock(target,source_lock)
+            if cleanup_budget is not None:_need(cleanup_budget.lock is source_lock)
             recipe=self._audio_recipe(target,run,primary_phase,source_lock=source_lock)
+            if cleanup_budget is not None:_need(cleanup_budget.value['binding']==recipe.binding)
             identity=recipe.binding['processIdentity'];installed=self._installation(target)
             def guard():
                 self.require_same_process(target,identity,'owned Audio PC source')
@@ -2259,9 +2267,26 @@ def create_adapter(args, base_class):
             settings=self._audio_settings_source(target,source_lock=source_lock)
             pages=self._audio_pages_source(target,source_lock=source_lock)
             _need(recipe.lock is source_lock and native.pid==settings.pid==pages.pid==int(identity.split(':')[0]))
-            actor=PicoAudioPCActor(recipe,actor_phase,lambda:PicoAudioPeer(config,None,guard),
-                native,settings,pages,recipe.os_status,monotonic=native.monotonic,sleep=native.sleep)
-            return PicoAudioPCStartCoordinator(recipe,actor)
+            try:
+                actor=PicoAudioPCActor(recipe,actor_phase,lambda:PicoAudioPeer(config,None,guard),
+                    native,settings,pages,recipe.os_status,monotonic=native.monotonic,sleep=native.sleep,
+                    cleanup_budget=cleanup_budget)
+            except BaseException as error:
+                if cleanup_budget is not None:
+                    cleanup_budget.failed=True
+                    if cleanup_budget.factory_failure is None:cleanup_budget.factory_failure=(error,error.__traceback__)
+                raise
+            if cleanup_budget is None:return PicoAudioPCStartCoordinator(recipe,actor)
+            # The original cold budget holds the actual partial coordinator
+            # before its IO constructor, independently of caller normalization.
+            coordinator=object.__new__(PicoAudioPCStartCoordinator)
+            cleanup_budget.factory_hold=cleanup_budget._original_factory_hold=(coordinator,recipe,actor)
+            try:PicoAudioPCStartCoordinator.__init__(coordinator,recipe,actor)
+            except BaseException as error:
+                cleanup_budget.failed=True
+                if cleanup_budget.factory_failure is None:cleanup_budget.factory_failure=(error,error.__traceback__)
+                raise
+            return coordinator
 
 
         @_private
