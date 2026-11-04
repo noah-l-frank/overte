@@ -19,6 +19,7 @@ from adapters.chat_journey.source_chunks import ChatSourceChunks,json_digest
 from adapters.chat_journey.archive_file import ClosedOriginalFile,signature
 from adapters.host_process_identity import host_identity
 from adapters.native_feature_observation import exact,integer,need,number
+from adapters.pico4.snapshot_settings_namespace import _managed_class_guard
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.pico4.lifecycle_process_file import LifecycleProcessFile
 from adapters.pico4.snapshot_settings_codec import SnapshotSettingsCodec,WIRE_LIMIT,CANONICAL_LIMIT
@@ -67,7 +68,7 @@ class SnapshotSettingsQueryOriginals:
             fixtureUrl=base.source.fixture_url,targetFingerprint=hashlib.sha256(target.encode()).hexdigest(),producerHostProcessIdentity=self.host)
         self.scope_bytes=self.original_scope_bytes=canonical(self.scope)
         self.file=self.original_file=object.__new__(LifecycleProcessFile)
-        self.codec=self.original_codec=None;self.namespace=None;self.reader=self.original_reader=None
+        self.codec=self.original_codec=None;self.namespace=self.original_namespace=None;self.reader=self.original_reader=None
         self.state=None;self.children=self.original_children=[];self.failed=False;self.acquired=None;self.context=self.original_context=None
         self.pending_reader=self.pending_real=None;self.actual_anchor=None;self.last_reference=None
         self.history=ChatSourceChunks(self.store,self.scope)
@@ -83,7 +84,7 @@ class SnapshotSettingsQueryOriginals:
             self.codec=self.original_codec=object.__new__(SnapshotSettingsCodec)
             SnapshotSettingsCodec.__init__(self.codec)
             from adapters.pico4.snapshot_settings_namespace import SnapshotSettingsNamespaceBill
-            self.namespace=object.__new__(SnapshotSettingsNamespaceBill)
+            self.namespace=self.original_namespace=object.__new__(SnapshotSettingsNamespaceBill)
             SnapshotSettingsNamespaceBill.__init__(self.namespace,self)
             self._write(dict(self.state,stage='ready',codec=self.codec.public_profile()))
         except BaseException:self.poison();raise
@@ -93,6 +94,11 @@ class SnapshotSettingsQueryOriginals:
         if not any(owner is self for owner in UNRESOLVED):UNRESOLVED.append(self)
 
     def resource(self):
+        _managed_class_guard()
+        # The callback-free capacity phase precedes any actual endpoint read.
+        # Acquired bytes still enter retain.acquired before this admission.
+        need(self.namespace is self.original_namespace)
+        if self.namespace is not None:need(self.namespace.decoding is False)
         need(self.host==host_identity() and self.thread==threading.get_ident()
             and self.real_clock is self.original_real_clock and self.path is self.original_path
             and self.target is self.original_target and type(self.target) is str

@@ -110,7 +110,7 @@ class SnapshotSettingsNumericCostsTests(unittest.TestCase):
         self.no_next_query(model,lease,lambda:setattr(lease.raw,'acquired',retained))
         gc.collect();self.assertIs(lease.raw.acquired,retained);self.assertIn(lease.raw,UNRESOLVED)
 
-    def test_interrupted_actual_new_entry_keeps_pending_and_original_raw_owner(self):
+    def test_foreign_numeric_completion_refuses_before_callback_and_keeps_original_raw_owner(self):
         model,lease,namespace=self.prepared();costs=namespace.costs;finish=costs.finish;attempts=[]
         original=deepcopy(lease.raw.state);wire=model.outputs[0]
         def interrupted(ticket,delta,largest):
@@ -118,7 +118,7 @@ class SnapshotSettingsNumericCostsTests(unittest.TestCase):
         with patch.object(costs,'finish',side_effect=interrupted):
             calls=len(model.sdk_calls);native=model.sequence
             with self.assertRaises(NativeUIError):lease.observe()
-        self.assertTrue(attempts);self.assertIs(costs.pending,attempts[0])
+        self.assertEqual([],attempts);self.assertIsNone(costs.pending);self.assertTrue(namespace.failed)
         self.assertEqual(calls,len(model.sdk_calls));self.assertEqual(native,model.sequence)
         self.assertTrue(lease.raw.failed);self.assertFalse(lease.raw.close_host());self.assertIn(lease.raw,UNRESOLVED)
         with lease.lock.held():

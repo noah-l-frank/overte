@@ -198,6 +198,8 @@ TESTS = (
     test("snapshot-save-owner", "interaction", PYTHON, "device/test_snapshot_save_owner.py", "SnapshotSaveFlowTests.test_normal_cancel_still_save_independent_provider_png_and_current_original_quiet"),
     test("snapshot-save-fences", "interaction", PYTHON, "device/test_snapshot_save_owner.py", "SnapshotSaveAdmissionTests", "SnapshotSaveEnvelopeTests", "SnapshotSaveFenceTests", "SnapshotSaveFactoryTests", "SnapshotSaveOriginalsTests", "SnapshotSavePreparationRecoveryTests", "SnapshotSaveAcquisitionTests", "SnapshotOriginalFrameMemoTests", "SnapshotSavePublicationTests", "SnapshotSyntheticAnalyzerTests", "SnapshotSystemSourceTests"),
     test("browser-input-history", "interaction", PYTHON, "device/test_browser_input_history.py"),
+    test("snapshot-settings-decoded-groups", "interaction", PYTHON, "device/test_snapshot_settings_decoded_groups.py"),
+    test("snapshot-settings-decoded-admission", "interaction", PYTHON, "device/test_snapshot_settings_decoded_groups_admission.py"),
     test("snapshot-settings-numeric-costs", "interaction", PYTHON, "device/test_snapshot_settings_numeric_costs.py"),
     test("snapshot-settings-scope2", "interaction", PYTHON, "device/test_snapshot_settings_scope2.py", "SnapshotSettingsScope2Tests"),
     test("snapshot-settings-scope2-fences", "interaction", PYTHON, "device/test_snapshot_settings_scope2.py", "SnapshotSettingsScope2FenceTests"),

@@ -108,3 +108,33 @@ native lease must retain its own exact pre-input originals, original Manager
 weak binding/Handle registrations/cache flags and typed restore/CAS authority.
 It must not initialize a baseline, borrow Avatar key authority, treat ordinary
 UI defaults as exact raw restoration, or reinterpret historical Scope2 data.
+
+
+## Bounded current decode groups
+
+The current namespace plans128KiB simultaneous DTO/row groups from actual input
+byte extents. Individual64KiB records, the original global512parts/16MiB, full
+decode credit, expanded/largest contributions and all original clocks remain.
+Every original has a fresh complete byte/OFD8 window; every group has original
+code/class/default/codec guards. Contributions stay provisional until the final
+COMPLETE whole-input byte/OFD8 and namespace footer. Early files changed during
+later reads and actual late-group mutation both refuse without another SDK call
+or descriptor retirement. No persistent decoded DTO/current verdict is cached.
+
+The disjoint18 guard/ownership and3 declared Host400 admission/mutation cases
+pass in23.137s/238 and21.438s/239 stable loaded sources. Affected Numeric8 plus
+Scope2 sixteen pass24/46.314s/251; old Source1 reader/baseline/close pass
+21/34.892s/208. Total66 cases retain all loaded SHA/eight-field source pins and
+original120s watchdogs. Compiled-native classes were excluded. The numeric test
+now expects a substituted completion function to refuse BEFORE its callback;
+its old interrupted-callback expectation is retained in earlier evidence.
+
+The Host400 stress corpus actually fits414parts and15477875 bytes including the
+unchanged2097152 reservation. It supplies no Native/effect/Actor fact. A separate
+complete historical-method comparison over411 retained originals and identical
+declared graph costs improves1.35395s to1.21417s (three cold passes per algorithm).
+This grants no live known-owner/phase/host authority or real1.5s timing proof.
+The earlier83.255s Closed refusal before the third send remains current whole
+evidence. Full-batch/256KiB admission refusals,128KiB duplicate-footer no-gain,
+and foreign-JSON/class-descriptor failures remain separately retained. No wire
+format, Binder, Native endpoint, restoration claim or capability is changed.

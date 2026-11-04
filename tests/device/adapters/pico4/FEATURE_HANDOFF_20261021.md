@@ -4071,3 +4071,12 @@ cannot qualify baseline/peer/quiet success; unknown results are not retried.
 Three focused and27 affected cases pass. This fixes the concrete startup
 dependency of the retained RED21.529s run without raising clocks or source
 limits. See [BROWSER_OPERATION_SCOPE.md](BROWSER_OPERATION_SCOPE.md).
+
+
+Snapshot Source2 uses bounded128KiB current decode groups with complete fresh
+original-byte/OFD windows and a final whole-input footer. All66 repository
+guard/admission/affected-default cases pass. The historical complete-method
+comparison saves about140ms; it does not predict live1.5s success. Original
+512/16MiB bounds, Source1 behavior, wire formats and Native endpoints are kept;
+Closed83.255s remains RED and restoration remains unqualified. See
+[SNAPSHOT_SETTINGS_SCOPE2.md](SNAPSHOT_SETTINGS_SCOPE2.md).

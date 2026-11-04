@@ -10,6 +10,7 @@ import hashlib
 import secrets
 
 from adapters.native_feature_observation import decode,integer,need,number
+from adapters.pico4.snapshot_settings_namespace import _managed_class_guard
 from adapters.pico4.snapshot_originals import nonce
 from adapters.pico4.snapshot_settings_originals import PicoSnapshotSettingsOriginals,validate,accept,ACTION,LIMIT
 from adapters.pico4.snapshot_settings_query_originals import SnapshotSettingsQueryOriginals
@@ -53,7 +54,9 @@ class PicoSnapshotSettingsScope2Reader(PicoSnapshotSettingsOriginals):
         self.previous=deepcopy(value)
 
     def capture(self,run):
-        need(nonce(run) and self.active is False and self.raw is self.original_raw and self.lock is self.raw.lock);self.active=True
+        _managed_class_guard()
+        need(nonce(run) and self.active is False and self.raw is self.original_raw and self.lock is self.raw.lock
+            and self.raw.namespace is self.raw.original_namespace and self.raw.namespace.decoding is False);self.active=True
         try:
             with self.lock.held():
                 from adapters.pico4.snapshot_settings_scope2_baseline import PicoSnapshotSettingsScope2Baseline

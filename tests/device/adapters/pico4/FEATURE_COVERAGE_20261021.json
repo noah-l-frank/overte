@@ -1923,6 +1923,41 @@
         "rootAffectedCases": 24,
         "rootSeconds": 28.498,
         "rootLoadedSources": 251
+      },
+      "decodedSettingsGroupsPrerequisite": {
+        "selectors": {
+          "snapshot-settings-decoded-groups": 18,
+          "snapshot-settings-decoded-admission": 3
+        },
+        "repositoryCases": 66,
+        "repositoryGroups": [
+          {
+            "cases": 18,
+            "seconds": 23.137,
+            "loadedSources": 238
+          },
+          {
+            "cases": 3,
+            "seconds": 21.438,
+            "loadedSources": 239
+          },
+          {
+            "cases": 24,
+            "seconds": 46.314,
+            "loadedSources": 251
+          },
+          {
+            "cases": 21,
+            "seconds": 34.892,
+            "loadedSources": 208
+          }
+        ],
+        "scope": "Actual current full input byte/OFD8 windows and final complete whole-input footer; bounded128KiB simultaneous DTO/row groups with unchanged global512/16MiB and decode credit. Per-group code/class/default/codec guards; historical contributions provisional until final footer. No SDK/provider/input inside pure calculation.",
+        "storageStress": "Declared Host400 corpus ADMITTED414parts,total15477875 including original2097152 reservation; not Native/Actor facts.",
+        "historicalMethod": "Same411 retained Closed originals, identical declared historical graph, full algorithms: baseline1.35395s to1.21417s median across3 cold passes each; no live owner/phase/1.5s proof.",
+        "currentWhole": "Existing Closed83.255s RED at original1.5s before third send. No unchanged retry or capability promotion.",
+        "nativeCompiled": false,
+        "devicesTested": false
       }
     },
     {
