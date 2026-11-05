@@ -1,0 +1,73 @@
+{
+  "formatVersion": 1,
+  "area": "create",
+  "baseCommit": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "status": "unintegrated-source-backup; adapter development paused",
+  "snapshotOnly": true,
+  "sourceRoots": [
+    "pico-create-cli-final-20261103-p79i5ziu",
+    "pico-create-cli-native-v1-verified-20261103-cgww55g8",
+    "pico-create-operation-host-paused-20261103-1nults5c",
+    "pico-create-operation-host-plan-20261103-e5vzlvos"
+  ],
+  "entries": [
+    {
+      "source": "pico-create-cli-native-v1-verified-20261103-cgww55g8/run.py",
+      "sha256": "b7e17790026c373728add8641cc1ac5feae666a127b84d12003d1582070311c7",
+      "bytes": 1714,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_create_backup_20261105/pico-create-cli-native-v1-verified-20261103-cgww55g8/run.py"
+    },
+    {
+      "source": "pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/adapter_operation_host.py",
+      "sha256": "bc98d6676ae3c6f3c32063026b91e162300a70ff422c8d49e0e8f788a9fc2695",
+      "bytes": 12520,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/adapter_operation_host.py"
+    },
+    {
+      "source": "pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/adapters/pico4/operation_archive.py",
+      "sha256": "6afaaa5f7961f98c6d0748ed2ecebf907fd47bdd960e5d80382fc5a36733edda",
+      "bytes": 4818,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/adapters/pico4/operation_archive.py"
+    },
+    {
+      "source": "pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/adapters/pico4/operation_host.py",
+      "sha256": "9efbdc32889eb136ca210358b8e4d4ccbed49f3e0b25e7df02e2849b3b3bbd0f",
+      "bytes": 4626,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/adapters/pico4/operation_host.py"
+    },
+    {
+      "source": "pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/adapters/pico4/operation_protocol.py",
+      "sha256": "763ccee29aba1dff97ba97de5504ce97c8dfecead42378a4d2e38ca9fa333181",
+      "bytes": 3845,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/operation_protocol.py"
+    },
+    {
+      "source": "pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/self_tests/pico_operation_host_worker.py",
+      "sha256": "878afb9b1285f1fe670b140d265f31905e61fdbaa3abc7142c03e710b252d7e8",
+      "bytes": 3093,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/self_tests/pico_operation_host_worker.py"
+    },
+    {
+      "source": "pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/self_tests/test_pico_operation_host.py",
+      "sha256": "b7a19c8a5015198df887bb9e5f96e224393d467154a217882c0e6929ccbc8d08",
+      "bytes": 8051,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/self_tests/test_pico_operation_host.py"
+    },
+    {
+      "source": "pico-create-operation-host-plan-20261103-e5vzlvos/PLAN.md",
+      "sha256": "0d5c69b3f6820eb27e3e525916605f39e1a6feec1d03fc2e893eee9f4771e7af",
+      "bytes": 9376,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-plan-20261103-e5vzlvos/PLAN.md"
+    }
+  ],
+  "patchSha256": "ce990f5e5d16ca3017e19ec58ce28fe9e3412b419b9dcd47ac1d3e5287bb497c",
+  "excluded": "Execution originals, generated credentials/certificates/configuration, mirrors, binary artifacts, logs and runtime directories are not source changes and are excluded."
+}

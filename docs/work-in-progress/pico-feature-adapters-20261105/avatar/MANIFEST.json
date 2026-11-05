@@ -1,0 +1,46 @@
+{
+  "purpose": "Source-publication backup only; development remains paused",
+  "baseCommit": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "hostPacketManifestSha256": "1c23072c8b5d21675b5390db2d515a2a6756da885f0164cf520f8485c0896d69",
+  "nativePacketManifestSha256": "50c7fd971dad3c82a61164ffa66446da3b2b7066235fb4c06a20784269725039",
+  "hostAfterimages": 33,
+  "nativeAfterimages": 40,
+  "combinedUniqueAfterimages": 57,
+  "combinedChangedFiles": 56,
+  "sourceSupportFiles": 45,
+  "sourceSecretInspection": {
+    "privateKeyCertificateAndKnownCredentialFormats": "no matches",
+    "assignmentLiteralReview": "runtime-variable code, header names, fixture labels; no actual secret found"
+  },
+  "staticPatchChecks": {
+    "host-checkpoint4.patch": {
+      "staticPatchCheckExit": 0
+    },
+    "native7-complete.patch": {
+      "staticPatchCheckExit": 0
+    },
+    "all-pending-combined.patch": {
+      "staticPatchCheckExit": 0
+    },
+    "source-support.patch": {
+      "staticPatchCheckExit": 0
+    }
+  },
+  "runtimeOriginalsIncluded": false,
+  "generatedCredentialsIncluded": false,
+  "testsRunForExport": 0,
+  "buildsRunForExport": 0,
+  "repoMutations": 0,
+  "unintegrated": true,
+  "portableHostTestsRun": false,
+  "nativeComplete": false,
+  "sourceReady": false,
+  "files": {
+    "COVERAGE.json": "62feb1aaf12e680eb1a2d114222a2052221fbebb2c78644c979ce86f0971f572",
+    "README.md": "aa93f6f8fef5e618b0fc72a56f696e1b343bb3780400abf4177f839379427805",
+    "all-pending-combined.patch": "d94c0235476046e65c392ff7898e732acb4de8f8a90f3a3e05aa3e93d8b7d15b",
+    "host-checkpoint4.patch": "e7fb3458e2eb0d68808ba244040c19311016ca798791a4689ae816cff8388ecc",
+    "native7-complete.patch": "02e3767b53239413e51b447776064c14caa10a23ab611f5b2dc1b9b3c90cc8b4",
+    "source-support.patch": "15eee8f5d2addc57dbb758e4bdf89aee22780c270553458e44482c5e922069f4"
+  }
+}

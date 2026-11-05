@@ -1,0 +1,43 @@
+{
+  "allGeneratedCredentialsAndRuntimeDataExcluded": true,
+  "artifacts": {
+    "README.md": {
+      "bytes": 6354,
+      "sha256": "7b8c472b852f4f23d1a2985ae3a6b819ca7e99fd61c0da982a73f1be9870925e"
+    },
+    "manifest.json": {
+      "bytes": 56477,
+      "sha256": "e7fa5993ceda283d9a3da03de33d8d5b27fe6fcd9e493e480655d2e64dcce4e6"
+    },
+    "runtime-vs-24772.source-only.patch": {
+      "bytes": 191675,
+      "sha256": "1a9daed82c69eeb6eacaa44dbea284f885fdf04193d4657f539339d26b842f77"
+    },
+    "source-only.patch": {
+      "bytes": 1388465,
+      "sha256": "a4bd5399571a7f3c69f070c75fcfc2043f93d63438e0cf5a4dd661e4aca43ba5"
+    }
+  },
+  "baseCommit": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "developmentPaused": true,
+  "patchParsingOnly": {
+    "archivalEntries": 138,
+    "pendingRuntimeEntries": 17
+  },
+  "pythonAstParsedWithoutExecution": 127,
+  "remoteWrites": false,
+  "repoEdits": false,
+  "schemaVersion": 1,
+  "sourceBackupOnly": true,
+  "sourceByteMismatches": 0,
+  "sourceFiles": 138,
+  "sourceOriginalByteComparisons": 138,
+  "sourceTypes": {
+    ".js": 2,
+    ".json": 2,
+    ".md": 7,
+    ".py": 127
+  },
+  "staticRecognizableSecretMatches": 0,
+  "testBuildOrDeviceRuns": false
+}

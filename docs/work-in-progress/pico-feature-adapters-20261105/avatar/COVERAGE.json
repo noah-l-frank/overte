@@ -1,0 +1,1294 @@
+{
+  "baseCommit": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "hostAfterimages": 33,
+  "nativeAfterimages": 40,
+  "combinedUniqueAfterimages": 57,
+  "sourceSupportFiles": 45,
+  "patches": {
+    "host-checkpoint4.patch": [
+      {
+        "path": "android/vr/pico/tests/device/test_people2_same_raw.py",
+        "baseSha256": null,
+        "sourceSha256": "5742b0b1e4f6c2501f757a4ec439233187ce40b13998ad8f19e23ca8372429c5",
+        "changedFromBase": true
+      },
+      {
+        "path": "android/vr/pico/tests/pico4-test-suite.py",
+        "baseSha256": "ad8f8660ac2d5278fe0493e245f2a42b2f46b53e1d90b0df336967fcf4dc3b24",
+        "sourceSha256": "f6096de066d028dd1f08ca2135eb0e5dd62504ab20e7bcc705a189c72aa41b44",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/resources/qml/hifi/Pal.qml",
+        "baseSha256": "2dfb83e9bfd920053068643169d377e6b3d618326395e19d204ac657940857c8",
+        "sourceSha256": "c9ef3e564677564bd16f1fddf36bbb9e826ca46cee271e60145360edebe038cc",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/resources/qml/hifi/RootHttpRequest.qml",
+        "baseSha256": "e1ab55d13e10de4ba8950abb40f20ac26a4f91b2e1126d681552bbce7e10b292",
+        "sourceSha256": "c883b035ef00410940bc304240019ec8c453ed8a4bc723c123a0d57e7c933a2f",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/resources/qml/hifi/models/PSFListModel.qml",
+        "baseSha256": "b990946a23d1703c209d59bed2f214071b5480385a53a17610d50dec545a9ae6",
+        "sourceSha256": "fa88e02b05269464299b3b05c891e5aa9f28757ea2bdad6a6c27c6645086f3b3",
+        "changedFromBase": true
+      },
+      {
+        "path": "scripts/system/request-service.js",
+        "baseSha256": "87472e45948255ab717448b46c6c2f860ee51e16abab969ec996ba8c40b8c1dd",
+        "sourceSha256": "bc87c6ed143f3062934b4b8c095e594e76f81a65faecc46303ccf05ba13dd5dd",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/AVATAR_PEOPLE_SAME_RAW_HOST.md",
+        "baseSha256": null,
+        "sourceSha256": "42b97fa3bf6a8d9221381c30b18ef74f53f83f00822b8b7ff54539638b2c13bb",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_parent.py",
+        "baseSha256": "0fd05da5d638f5d64f0a3c22cfd61b3253ee6f93e05ab26a4c3ff51a871608c6",
+        "sourceSha256": "e1318a9aef40b50d4c51425088de0bf25c06e5da36d46a8908113a4752941486",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_effect.py",
+        "baseSha256": null,
+        "sourceSha256": "36d23ec12825d52356d78e1f9f99423106cb8d9a405fa0ed73e2b2737cd6ea35",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_family.py",
+        "baseSha256": null,
+        "sourceSha256": "8cfc5749105c613b0cff0ce0a8ed32028f9b0b29448adc9d2c50a750d4111194",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_reader.py",
+        "baseSha256": null,
+        "sourceSha256": "02b314be33a73d18faaee4d8b49105af1d12ec961ad74d5bd421e4deb977d19a",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_sdk.py",
+        "baseSha256": null,
+        "sourceSha256": "f3e1d07ef1be7bfc824d24a255a5c8ed0486b9af616661ebe32257677fcb256a",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_transport.py",
+        "baseSha256": null,
+        "sourceSha256": "4a31499afe6d2983fbcd3371e2c8dcb24ab40d923852d97d7a6f4146639f225e",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_writer.py",
+        "baseSha256": null,
+        "sourceSha256": "f1ec82e2954fba0aa92ce3fc4a13ed87784d02b654957bb223821bf42404a57b",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people_ui.py",
+        "baseSha256": "c6347e46fbec7d3fe9bd3dd30a1d065abfb8e0bc46357cc8e1b816ec8bf1b10d",
+        "sourceSha256": "a16e43d63cdffd77afac5dce3572d6d0a51da122d0aefdd4a00b8b06a648ead3",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/binding.py",
+        "baseSha256": "961294dc7987655f7cbdbbcdf1ca625c917d41639e18caee7a0c130437906a05",
+        "sourceSha256": "29f6de64cbfdd043d27223cb0500fe2940a6ff652fb47bb7021f230e6cd9a952",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/operation_host.py",
+        "baseSha256": "5f3931e256b6d85202cb40990ac72582e49ffcded8f0bbd292a93fc4a42b270a",
+        "sourceSha256": "4e2c5ac02eefad3e2509030c3ea15dd405d1489f32aeb9e5907275f00851c483",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/contract-versions.json",
+        "baseSha256": "a97fe691d715094be0d1699212e96d0b99c8384c01144953b381b96f45a1cf4c",
+        "sourceSha256": "b366ec24444254f5813fee6fb7de916a745498eaabcc551f64f59470053f0f4e",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/feature_journeys/avatar_people2_host_model.py",
+        "baseSha256": null,
+        "sourceSha256": "17258738da3d148db26969846d1f1e491e6c7a2cee66d634208508da30042b8a",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/feature_journeys/avatar_people2_witness.py",
+        "baseSha256": null,
+        "sourceSha256": "cd22a3a29552b7aabdcb332906a198b0a43721ae7ef70af5f0ab67f1102b935c",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/feature_journeys/avatar_people_service.py",
+        "baseSha256": null,
+        "sourceSha256": "058ebc828ce26fa332dd5903deb261a875ff062f32869ac4da2c167a433f8570",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/feature_journeys/server.py",
+        "baseSha256": "d1133c2068526e03ed71f46312abcf08077be97e09ae7178f208551a0f856b30",
+        "sourceSha256": "c5a7ebf35e63fcfa1dd1a69e531be0e32720bc6f80d9b5f719100ca73dae3103",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/run_control_plane_tests.py",
+        "baseSha256": "46478088ea2d11d7766f3ded76553549ef6814d848a7286c3049cba19e3deec1",
+        "sourceSha256": "1cb53cde971fe299d8ca6f60961c288cd74ea6596f565c009bcf208482e21356",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_contacts_fixture.py",
+        "baseSha256": null,
+        "sourceSha256": "04ec9cf8c37139328d3cfb8488be33d8c7abde1e0215db68b478718d024d86e8",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_pipe_fixture.py",
+        "baseSha256": null,
+        "sourceSha256": "aef70360c6f31fcecf5d7a3e2bdba561863c7ec1c69e083088ae051a0d3dfec6",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_protocol_host.js",
+        "baseSha256": null,
+        "sourceSha256": "69e594af702efed37e9f3f7c6d12e26d77f47720ddc276999f923b6395b0f960",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_qml.js",
+        "baseSha256": null,
+        "sourceSha256": "a5f11cd06ae752fe9f121b37ea76af0f7b1df00316988dd5d30f50ffef037e1c",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_rest_fixture.py",
+        "baseSha256": null,
+        "sourceSha256": "418d1322b1e1cce31211b83ecef8a95244bd139211564b61bcf41e87d1d56283",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_source_fixture.py",
+        "baseSha256": null,
+        "sourceSha256": "571d2e5695f3add3df7123211f471697d00acc8f52927b49461c027e8e2f97bf",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_widget_fixture.py",
+        "baseSha256": null,
+        "sourceSha256": "a45f6bbc8224f33c722d228350914bf34fdac8cf257f2a1aceeaee859afab728",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_world.js",
+        "baseSha256": null,
+        "sourceSha256": "579301bd2d82895021540525d71689debc76f4c311a6327bd5b675fd0d0d7215",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/test_pico_people2_same_raw.py",
+        "baseSha256": null,
+        "sourceSha256": "e980514228c7e2b8328ca638cdf70e8c9f5f96e9bcdbfe73b48bc92408fa0ee7",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/validate_contract_versions.py",
+        "baseSha256": "851b93ba4cd10fb66f55af832dfce54ca1f47db4a31b19da15688c8786c9f322",
+        "sourceSha256": "8dc92d2e8b3399d70ad5ff66e907d2142f26f6f6bc8f30298518b20c7432b20f",
+        "changedFromBase": true
+      }
+    ],
+    "native7-complete.patch": [
+      {
+        "path": "android/vr/pico/apps/picoInterface/src/debug/java/org/overte/pico/E2eLauncherActivity.java",
+        "baseSha256": "4190340515e41aa9a3f275b9a30618b1088f5487ef0ed5f2b059e656eb934a53",
+        "sourceSha256": "ccc97ba9544b2f69fe88afa08bc3e2a87991b8d085452bf9a464f7ac35f74086",
+        "changedFromBase": true
+      },
+      {
+        "path": "android/vr/pico/apps/picoInterface/src/debug/java/org/overte/pico/PeopleSource2Launch.java",
+        "baseSha256": null,
+        "sourceSha256": "787d4330e0f9f7697d6dbbc15023c8e0d216832a902b01b6d4f6e4ac0d9d80e4",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/resources/qml/hifi/Pal.qml",
+        "baseSha256": "2dfb83e9bfd920053068643169d377e6b3d618326395e19d204ac657940857c8",
+        "sourceSha256": "c9ef3e564677564bd16f1fddf36bbb9e826ca46cee271e60145360edebe038cc",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/resources/qml/hifi/RootHttpRequest.qml",
+        "baseSha256": "e1ab55d13e10de4ba8950abb40f20ac26a4f91b2e1126d681552bbce7e10b292",
+        "sourceSha256": "c883b035ef00410940bc304240019ec8c453ed8a4bc723c123a0d57e7c933a2f",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/resources/qml/hifi/models/PSFListModel.qml",
+        "baseSha256": "b990946a23d1703c209d59bed2f214071b5480385a53a17610d50dec545a9ae6",
+        "sourceSha256": "fa88e02b05269464299b3b05c891e5aa9f28757ea2bdad6a6c27c6645086f3b3",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/Application.cpp",
+        "baseSha256": "f8eff7515a31d2dd2419c54de2277f4155dd18bb290c9ffc4b53515bbbaf003e",
+        "sourceSha256": "f28171c698719806b762c1788b8f6fc60895b654deddd5b8e88a438b2e559d76",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/Application_Setup.cpp",
+        "baseSha256": "c82d6ceddac594c01d56cf67b806d901364b299e806d29dba1cfddd743bc23b1",
+        "sourceSha256": "ad70496d71684ca681d609f718353355015fc9e09d615f43bfa8bd81c887a4fe",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/main.cpp",
+        "baseSha256": "2b3e87305ac5d248be90ce126201e88dddf0159a9cf08a27dff1f40ed264e1ea",
+        "sourceSha256": "8a6b143b0bd72cfe2e4ed88d1d4eb2736e2631ad27c821ae7be1bd6d06d35fc8",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/scripting/AccountServicesScriptingInterface.cpp",
+        "baseSha256": "1faca0cbacf671ee0911d512f68479801ce254aecb852a2baeb557e913f81019",
+        "sourceSha256": "8e5bac51e5807a1a363f5fc8e16954ba7d4e4cbc84bd9539088e735a6e14cb8a",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/scripting/AccountServicesScriptingInterface.h",
+        "baseSha256": "08b335bf4425d00963fa337b633a076c353420e629c65513ec37c4bec529fb4e",
+        "sourceSha256": "2a8af1b46f11c647bae44d1dd8eb8c252e9f785bcc27fea35f1584c158641df7",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/scripting/TestScriptingInterface.cpp",
+        "baseSha256": "139d68f72509ef051168f32c4f352f45088cdae61617b178db7dc1f7ca5ae3d2",
+        "sourceSha256": "04e3133dfe3578321e63886ebbe39e00806dbc138e0895757a307aab825ceaf8",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/scripting/TestScriptingInterface.h",
+        "baseSha256": "9194cbc8c3a6e7669f1a116d6ab636595291c560e3396c95c7d3db36c47c35d1",
+        "sourceSha256": "f8fc9a6d4930dd4107cc3979c6ebfc35e9872af74f60a967d4ac8957530b75f9",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/networking/src/AccountManager.cpp",
+        "baseSha256": "392846c23c3434b176e44d04a2e2087741e6c927944d356ca5f33a45b655abe9",
+        "sourceSha256": "b58438f39ad9910ec79ca3a07c2f42558419161bf9e6937342ce9fb71656499e",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/networking/src/AccountManager.h",
+        "baseSha256": "28c37b71a4ff126ac8b3caae0732baa1771e1f8869a95a4874df300c69e5df65",
+        "sourceSha256": "1770abddfed9f87bfefaf1381d5a0381ae9069bbbd0f1a96592597ac4a27e672",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/networking/src/PicoPeopleSource.cpp",
+        "baseSha256": null,
+        "sourceSha256": "aa4ea9c36ecadb52fffebdb440066731449837a335d6c88fe8cb3d4ee1563887",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/networking/src/PicoPeopleSource.h",
+        "baseSha256": null,
+        "sourceSha256": "f4b79b39a02fcc821e8f79fac3e15731692dde8baedb13476930a5f4dd3b6c4b",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/script-engine/src/XMLHttpRequestClass.cpp",
+        "baseSha256": "174399cb36c3d59d53427d67d740a0bca651f21fc188999c9fc1b68ffad5c9b6",
+        "sourceSha256": "7168a18f3fdd5c602a8c8123344713170feb36955aee48ebafae61ecf974582a",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/script-engine/src/XMLHttpRequestClass.h",
+        "baseSha256": "c568a69ef3f4c6ab116e0fa11409e2c13fe137a863115f6bd81889fe0a5b11ff",
+        "sourceSha256": "a8f77d186bcc3d599d4232343f450b1d737594341a9b6c4cc6a151a5901984de",
+        "changedFromBase": true
+      },
+      {
+        "path": "scripts/system/request-service.js",
+        "baseSha256": "87472e45948255ab717448b46c6c2f860ee51e16abab969ec996ba8c40b8c1dd",
+        "sourceSha256": "bc87c6ed143f3062934b4b8c095e594e76f81a65faecc46303ccf05ba13dd5dd",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_parent.py",
+        "baseSha256": "0fd05da5d638f5d64f0a3c22cfd61b3253ee6f93e05ab26a4c3ff51a871608c6",
+        "sourceSha256": "e1318a9aef40b50d4c51425088de0bf25c06e5da36d46a8908113a4752941486",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_effect.py",
+        "baseSha256": null,
+        "sourceSha256": "36d23ec12825d52356d78e1f9f99423106cb8d9a405fa0ed73e2b2737cd6ea35",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_family.py",
+        "baseSha256": null,
+        "sourceSha256": "8cfc5749105c613b0cff0ce0a8ed32028f9b0b29448adc9d2c50a750d4111194",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_reader.py",
+        "baseSha256": null,
+        "sourceSha256": "02b314be33a73d18faaee4d8b49105af1d12ec961ad74d5bd421e4deb977d19a",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_sdk.py",
+        "baseSha256": null,
+        "sourceSha256": "f3e1d07ef1be7bfc824d24a255a5c8ed0486b9af616661ebe32257677fcb256a",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_transport.py",
+        "baseSha256": null,
+        "sourceSha256": "4a31499afe6d2983fbcd3371e2c8dcb24ab40d923852d97d7a6f4146639f225e",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_writer.py",
+        "baseSha256": null,
+        "sourceSha256": "f1ec82e2954fba0aa92ce3fc4a13ed87784d02b654957bb223821bf42404a57b",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people_ui.py",
+        "baseSha256": "c6347e46fbec7d3fe9bd3dd30a1d065abfb8e0bc46357cc8e1b816ec8bf1b10d",
+        "sourceSha256": "a16e43d63cdffd77afac5dce3572d6d0a51da122d0aefdd4a00b8b06a648ead3",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/binding.py",
+        "baseSha256": "961294dc7987655f7cbdbbcdf1ca625c917d41639e18caee7a0c130437906a05",
+        "sourceSha256": "29f6de64cbfdd043d27223cb0500fe2940a6ff652fb47bb7021f230e6cd9a952",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/operation_host.py",
+        "baseSha256": "5f3931e256b6d85202cb40990ac72582e49ffcded8f0bbd292a93fc4a42b270a",
+        "sourceSha256": "4e2c5ac02eefad3e2509030c3ea15dd405d1489f32aeb9e5907275f00851c483",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/feature_journeys/avatar_people2_host_model.py",
+        "baseSha256": null,
+        "sourceSha256": "17258738da3d148db26969846d1f1e491e6c7a2cee66d634208508da30042b8a",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/feature_journeys/avatar_people2_witness.py",
+        "baseSha256": null,
+        "sourceSha256": "cd22a3a29552b7aabdcb332906a198b0a43721ae7ef70af5f0ab67f1102b935c",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/NormalAvatarPeopleControls.h",
+        "baseSha256": "2e1f539cbbb32d0e806c6d58aeeb0ad745015c9766ff188e8fe170afcccf136f",
+        "sourceSha256": "e3939098856f8170b027402e11c0f68db627d08209c17ddaa7dfe9a6c5d5726d",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/NormalControlUi.h",
+        "baseSha256": "29a810e3b2700fe3760e83e51dad06e0ca9e30e72bd763c30e483d5d54574bce",
+        "sourceSha256": "45b120e206055cfdbe335e83388aebbc08d01e9ddf8787e813a8c3e1ac534b27",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/PicoEmoteCaptureFile.h",
+        "baseSha256": "13dadeda0dcd1421f80b998858782b9be3df243d159510e37f939cd47cd5a1ea",
+        "sourceSha256": "9230f1bed5a9bed3332c155dfd7b4b6cccd6d24bf5c8b903deef3cca360e8906",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/PicoPeopleEndpoint.h",
+        "baseSha256": null,
+        "sourceSha256": "536a891cd00eb6c8424b3827e74b7189811f26e735a976eee34a446661633c57",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/PicoPeopleOriginals.h",
+        "baseSha256": null,
+        "sourceSha256": "2029aa0904b2d116519962ed7d210d16844d968a0d450d7aac00abb54ef01259",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/PicoPeopleStateWire.h",
+        "baseSha256": null,
+        "sourceSha256": "425eca0bb4f3646f5bb723480e77fecf01d6e7f8d5cf98ab474ad590500a1520",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/PicoRemoteAvatarStreamFile.h",
+        "baseSha256": "66b02c26f411ab0d2facb04a3b61dac8bd36e232ffbe91d57be634977cf25282",
+        "sourceSha256": "66b02c26f411ab0d2facb04a3b61dac8bd36e232ffbe91d57be634977cf25282",
+        "changedFromBase": false
+      },
+      {
+        "path": "tests/device/native/TabletHttpObservation.h",
+        "baseSha256": "21a88a0b624c4e9c18d3208e927d77b992513d6cc5c92cad28d32a08a2794078",
+        "sourceSha256": "ee315251a648f10d9000bbd47ddb378023c9986b10631cecd34d6abf10b2b065",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/probe/overte_e2e_probe.js",
+        "baseSha256": "e2ad23bb215ff00e7383dd9d56c9ccb2a2682c36644bedbf80c3e328179c5822",
+        "sourceSha256": "c3430e3078e7692b943757195b53d1ca19c310abdf82884d7bd9e4aff9c84071",
+        "changedFromBase": true
+      }
+    ],
+    "all-pending-combined.patch": [
+      {
+        "path": "android/vr/pico/apps/picoInterface/src/debug/java/org/overte/pico/E2eLauncherActivity.java",
+        "baseSha256": "4190340515e41aa9a3f275b9a30618b1088f5487ef0ed5f2b059e656eb934a53",
+        "sourceSha256": "ccc97ba9544b2f69fe88afa08bc3e2a87991b8d085452bf9a464f7ac35f74086",
+        "changedFromBase": true
+      },
+      {
+        "path": "android/vr/pico/apps/picoInterface/src/debug/java/org/overte/pico/PeopleSource2Launch.java",
+        "baseSha256": null,
+        "sourceSha256": "787d4330e0f9f7697d6dbbc15023c8e0d216832a902b01b6d4f6e4ac0d9d80e4",
+        "changedFromBase": true
+      },
+      {
+        "path": "android/vr/pico/tests/device/test_people2_same_raw.py",
+        "baseSha256": null,
+        "sourceSha256": "5742b0b1e4f6c2501f757a4ec439233187ce40b13998ad8f19e23ca8372429c5",
+        "changedFromBase": true
+      },
+      {
+        "path": "android/vr/pico/tests/pico4-test-suite.py",
+        "baseSha256": "ad8f8660ac2d5278fe0493e245f2a42b2f46b53e1d90b0df336967fcf4dc3b24",
+        "sourceSha256": "f6096de066d028dd1f08ca2135eb0e5dd62504ab20e7bcc705a189c72aa41b44",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/resources/qml/hifi/Pal.qml",
+        "baseSha256": "2dfb83e9bfd920053068643169d377e6b3d618326395e19d204ac657940857c8",
+        "sourceSha256": "c9ef3e564677564bd16f1fddf36bbb9e826ca46cee271e60145360edebe038cc",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/resources/qml/hifi/RootHttpRequest.qml",
+        "baseSha256": "e1ab55d13e10de4ba8950abb40f20ac26a4f91b2e1126d681552bbce7e10b292",
+        "sourceSha256": "c883b035ef00410940bc304240019ec8c453ed8a4bc723c123a0d57e7c933a2f",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/resources/qml/hifi/models/PSFListModel.qml",
+        "baseSha256": "b990946a23d1703c209d59bed2f214071b5480385a53a17610d50dec545a9ae6",
+        "sourceSha256": "fa88e02b05269464299b3b05c891e5aa9f28757ea2bdad6a6c27c6645086f3b3",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/Application.cpp",
+        "baseSha256": "f8eff7515a31d2dd2419c54de2277f4155dd18bb290c9ffc4b53515bbbaf003e",
+        "sourceSha256": "f28171c698719806b762c1788b8f6fc60895b654deddd5b8e88a438b2e559d76",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/Application_Setup.cpp",
+        "baseSha256": "c82d6ceddac594c01d56cf67b806d901364b299e806d29dba1cfddd743bc23b1",
+        "sourceSha256": "ad70496d71684ca681d609f718353355015fc9e09d615f43bfa8bd81c887a4fe",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/main.cpp",
+        "baseSha256": "2b3e87305ac5d248be90ce126201e88dddf0159a9cf08a27dff1f40ed264e1ea",
+        "sourceSha256": "8a6b143b0bd72cfe2e4ed88d1d4eb2736e2631ad27c821ae7be1bd6d06d35fc8",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/scripting/AccountServicesScriptingInterface.cpp",
+        "baseSha256": "1faca0cbacf671ee0911d512f68479801ce254aecb852a2baeb557e913f81019",
+        "sourceSha256": "8e5bac51e5807a1a363f5fc8e16954ba7d4e4cbc84bd9539088e735a6e14cb8a",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/scripting/AccountServicesScriptingInterface.h",
+        "baseSha256": "08b335bf4425d00963fa337b633a076c353420e629c65513ec37c4bec529fb4e",
+        "sourceSha256": "2a8af1b46f11c647bae44d1dd8eb8c252e9f785bcc27fea35f1584c158641df7",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/scripting/TestScriptingInterface.cpp",
+        "baseSha256": "139d68f72509ef051168f32c4f352f45088cdae61617b178db7dc1f7ca5ae3d2",
+        "sourceSha256": "04e3133dfe3578321e63886ebbe39e00806dbc138e0895757a307aab825ceaf8",
+        "changedFromBase": true
+      },
+      {
+        "path": "interface/src/scripting/TestScriptingInterface.h",
+        "baseSha256": "9194cbc8c3a6e7669f1a116d6ab636595291c560e3396c95c7d3db36c47c35d1",
+        "sourceSha256": "f8fc9a6d4930dd4107cc3979c6ebfc35e9872af74f60a967d4ac8957530b75f9",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/networking/src/AccountManager.cpp",
+        "baseSha256": "392846c23c3434b176e44d04a2e2087741e6c927944d356ca5f33a45b655abe9",
+        "sourceSha256": "b58438f39ad9910ec79ca3a07c2f42558419161bf9e6937342ce9fb71656499e",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/networking/src/AccountManager.h",
+        "baseSha256": "28c37b71a4ff126ac8b3caae0732baa1771e1f8869a95a4874df300c69e5df65",
+        "sourceSha256": "1770abddfed9f87bfefaf1381d5a0381ae9069bbbd0f1a96592597ac4a27e672",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/networking/src/PicoPeopleSource.cpp",
+        "baseSha256": null,
+        "sourceSha256": "aa4ea9c36ecadb52fffebdb440066731449837a335d6c88fe8cb3d4ee1563887",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/networking/src/PicoPeopleSource.h",
+        "baseSha256": null,
+        "sourceSha256": "f4b79b39a02fcc821e8f79fac3e15731692dde8baedb13476930a5f4dd3b6c4b",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/script-engine/src/XMLHttpRequestClass.cpp",
+        "baseSha256": "174399cb36c3d59d53427d67d740a0bca651f21fc188999c9fc1b68ffad5c9b6",
+        "sourceSha256": "7168a18f3fdd5c602a8c8123344713170feb36955aee48ebafae61ecf974582a",
+        "changedFromBase": true
+      },
+      {
+        "path": "libraries/script-engine/src/XMLHttpRequestClass.h",
+        "baseSha256": "c568a69ef3f4c6ab116e0fa11409e2c13fe137a863115f6bd81889fe0a5b11ff",
+        "sourceSha256": "a8f77d186bcc3d599d4232343f450b1d737594341a9b6c4cc6a151a5901984de",
+        "changedFromBase": true
+      },
+      {
+        "path": "scripts/system/request-service.js",
+        "baseSha256": "87472e45948255ab717448b46c6c2f860ee51e16abab969ec996ba8c40b8c1dd",
+        "sourceSha256": "bc87c6ed143f3062934b4b8c095e594e76f81a65faecc46303ccf05ba13dd5dd",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/AVATAR_PEOPLE_SAME_RAW_HOST.md",
+        "baseSha256": null,
+        "sourceSha256": "42b97fa3bf6a8d9221381c30b18ef74f53f83f00822b8b7ff54539638b2c13bb",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_parent.py",
+        "baseSha256": "0fd05da5d638f5d64f0a3c22cfd61b3253ee6f93e05ab26a4c3ff51a871608c6",
+        "sourceSha256": "e1318a9aef40b50d4c51425088de0bf25c06e5da36d46a8908113a4752941486",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_effect.py",
+        "baseSha256": null,
+        "sourceSha256": "36d23ec12825d52356d78e1f9f99423106cb8d9a405fa0ed73e2b2737cd6ea35",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_family.py",
+        "baseSha256": null,
+        "sourceSha256": "8cfc5749105c613b0cff0ce0a8ed32028f9b0b29448adc9d2c50a750d4111194",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_reader.py",
+        "baseSha256": null,
+        "sourceSha256": "02b314be33a73d18faaee4d8b49105af1d12ec961ad74d5bd421e4deb977d19a",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_sdk.py",
+        "baseSha256": null,
+        "sourceSha256": "f3e1d07ef1be7bfc824d24a255a5c8ed0486b9af616661ebe32257677fcb256a",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_transport.py",
+        "baseSha256": null,
+        "sourceSha256": "4a31499afe6d2983fbcd3371e2c8dcb24ab40d923852d97d7a6f4146639f225e",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people2_writer.py",
+        "baseSha256": null,
+        "sourceSha256": "f1ec82e2954fba0aa92ce3fc4a13ed87784d02b654957bb223821bf42404a57b",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/avatar_people_ui.py",
+        "baseSha256": "c6347e46fbec7d3fe9bd3dd30a1d065abfb8e0bc46357cc8e1b816ec8bf1b10d",
+        "sourceSha256": "a16e43d63cdffd77afac5dce3572d6d0a51da122d0aefdd4a00b8b06a648ead3",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/binding.py",
+        "baseSha256": "961294dc7987655f7cbdbbcdf1ca625c917d41639e18caee7a0c130437906a05",
+        "sourceSha256": "29f6de64cbfdd043d27223cb0500fe2940a6ff652fb47bb7021f230e6cd9a952",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/adapters/pico4/operation_host.py",
+        "baseSha256": "5f3931e256b6d85202cb40990ac72582e49ffcded8f0bbd292a93fc4a42b270a",
+        "sourceSha256": "4e2c5ac02eefad3e2509030c3ea15dd405d1489f32aeb9e5907275f00851c483",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/contract-versions.json",
+        "baseSha256": "a97fe691d715094be0d1699212e96d0b99c8384c01144953b381b96f45a1cf4c",
+        "sourceSha256": "b366ec24444254f5813fee6fb7de916a745498eaabcc551f64f59470053f0f4e",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/feature_journeys/avatar_people2_host_model.py",
+        "baseSha256": null,
+        "sourceSha256": "17258738da3d148db26969846d1f1e491e6c7a2cee66d634208508da30042b8a",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/feature_journeys/avatar_people2_witness.py",
+        "baseSha256": null,
+        "sourceSha256": "cd22a3a29552b7aabdcb332906a198b0a43721ae7ef70af5f0ab67f1102b935c",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/feature_journeys/avatar_people_service.py",
+        "baseSha256": null,
+        "sourceSha256": "058ebc828ce26fa332dd5903deb261a875ff062f32869ac4da2c167a433f8570",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/feature_journeys/server.py",
+        "baseSha256": "d1133c2068526e03ed71f46312abcf08077be97e09ae7178f208551a0f856b30",
+        "sourceSha256": "c5a7ebf35e63fcfa1dd1a69e531be0e32720bc6f80d9b5f719100ca73dae3103",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/NormalAvatarPeopleControls.h",
+        "baseSha256": "2e1f539cbbb32d0e806c6d58aeeb0ad745015c9766ff188e8fe170afcccf136f",
+        "sourceSha256": "e3939098856f8170b027402e11c0f68db627d08209c17ddaa7dfe9a6c5d5726d",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/NormalControlUi.h",
+        "baseSha256": "29a810e3b2700fe3760e83e51dad06e0ca9e30e72bd763c30e483d5d54574bce",
+        "sourceSha256": "45b120e206055cfdbe335e83388aebbc08d01e9ddf8787e813a8c3e1ac534b27",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/PicoEmoteCaptureFile.h",
+        "baseSha256": "13dadeda0dcd1421f80b998858782b9be3df243d159510e37f939cd47cd5a1ea",
+        "sourceSha256": "9230f1bed5a9bed3332c155dfd7b4b6cccd6d24bf5c8b903deef3cca360e8906",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/PicoPeopleEndpoint.h",
+        "baseSha256": null,
+        "sourceSha256": "536a891cd00eb6c8424b3827e74b7189811f26e735a976eee34a446661633c57",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/PicoPeopleOriginals.h",
+        "baseSha256": null,
+        "sourceSha256": "2029aa0904b2d116519962ed7d210d16844d968a0d450d7aac00abb54ef01259",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/PicoPeopleStateWire.h",
+        "baseSha256": null,
+        "sourceSha256": "425eca0bb4f3646f5bb723480e77fecf01d6e7f8d5cf98ab474ad590500a1520",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/native/PicoRemoteAvatarStreamFile.h",
+        "baseSha256": "66b02c26f411ab0d2facb04a3b61dac8bd36e232ffbe91d57be634977cf25282",
+        "sourceSha256": "66b02c26f411ab0d2facb04a3b61dac8bd36e232ffbe91d57be634977cf25282",
+        "changedFromBase": false
+      },
+      {
+        "path": "tests/device/native/TabletHttpObservation.h",
+        "baseSha256": "21a88a0b624c4e9c18d3208e927d77b992513d6cc5c92cad28d32a08a2794078",
+        "sourceSha256": "ee315251a648f10d9000bbd47ddb378023c9986b10631cecd34d6abf10b2b065",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/probe/overte_e2e_probe.js",
+        "baseSha256": "e2ad23bb215ff00e7383dd9d56c9ccb2a2682c36644bedbf80c3e328179c5822",
+        "sourceSha256": "c3430e3078e7692b943757195b53d1ca19c310abdf82884d7bd9e4aff9c84071",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/run_control_plane_tests.py",
+        "baseSha256": "46478088ea2d11d7766f3ded76553549ef6814d848a7286c3049cba19e3deec1",
+        "sourceSha256": "1cb53cde971fe299d8ca6f60961c288cd74ea6596f565c009bcf208482e21356",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_contacts_fixture.py",
+        "baseSha256": null,
+        "sourceSha256": "04ec9cf8c37139328d3cfb8488be33d8c7abde1e0215db68b478718d024d86e8",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_pipe_fixture.py",
+        "baseSha256": null,
+        "sourceSha256": "aef70360c6f31fcecf5d7a3e2bdba561863c7ec1c69e083088ae051a0d3dfec6",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_protocol_host.js",
+        "baseSha256": null,
+        "sourceSha256": "69e594af702efed37e9f3f7c6d12e26d77f47720ddc276999f923b6395b0f960",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_qml.js",
+        "baseSha256": null,
+        "sourceSha256": "a5f11cd06ae752fe9f121b37ea76af0f7b1df00316988dd5d30f50ffef037e1c",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_rest_fixture.py",
+        "baseSha256": null,
+        "sourceSha256": "418d1322b1e1cce31211b83ecef8a95244bd139211564b61bcf41e87d1d56283",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_source_fixture.py",
+        "baseSha256": null,
+        "sourceSha256": "571d2e5695f3add3df7123211f471697d00acc8f52927b49461c027e8e2f97bf",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_widget_fixture.py",
+        "baseSha256": null,
+        "sourceSha256": "a45f6bbc8224f33c722d228350914bf34fdac8cf257f2a1aceeaee859afab728",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/pico_people2_world.js",
+        "baseSha256": null,
+        "sourceSha256": "579301bd2d82895021540525d71689debc76f4c311a6327bd5b675fd0d0d7215",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/self_tests/test_pico_people2_same_raw.py",
+        "baseSha256": null,
+        "sourceSha256": "e980514228c7e2b8328ca638cdf70e8c9f5f96e9bcdbfe73b48bc92408fa0ee7",
+        "changedFromBase": true
+      },
+      {
+        "path": "tests/device/validate_contract_versions.py",
+        "baseSha256": "851b93ba4cd10fb66f55af832dfce54ca1f47db4a31b19da15688c8786c9f322",
+        "sourceSha256": "8dc92d2e8b3399d70ad5ff66e907d2142f26f6f6bc8f30298518b20c7432b20f",
+        "changedFromBase": true
+      }
+    ],
+    "source-support.patch": [
+      {
+        "path": "source-support/contacts-hostbridge3/contacts_host_flow.py",
+        "baseSha256": null,
+        "sourceSha256": "7955466a1aebebd9d4a29c121223bcbedab9304b292e612d4182cbc1d08a051b",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/contacts-hostbridge3/owned_entry.py",
+        "baseSha256": null,
+        "sourceSha256": "88e6cddcf43ea5e4c5cf7e8483cff95ed89ea5c010445cfc27cf298dc46279f9",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/contacts-hostbridge3/pal_accept_remove.py",
+        "baseSha256": null,
+        "sourceSha256": "995d559023f44209b31bf0e9017c8aa24959d1729bee3b354404b551ab8dd41f",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/contacts-hostbridge3/pal_fixture.js",
+        "baseSha256": null,
+        "sourceSha256": "69e594af702efed37e9f3f7c6d12e26d77f47720ddc276999f923b6395b0f960",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/contacts-hostbridge3/people-world.js",
+        "baseSha256": null,
+        "sourceSha256": "d63edb8313cd5920506cf7c4ffd69dc8aad8ee7458544f96b06637b6a05f01df",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/contacts-hostbridge3/pipe_scope.py",
+        "baseSha256": null,
+        "sourceSha256": "b84bf5203d8249e45dba2e24b4a952988035a52c89e1202ebf982aa834fbc383",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/contacts-hostbridge3/qml_people_runtime.js",
+        "baseSha256": null,
+        "sourceSha256": "e3b623fe8ab69a6991cc24655bc1844a0cba36336551ae1fd712b58928c00f3d",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/contacts-hostbridge3/selection_realm_contracts.js",
+        "baseSha256": null,
+        "sourceSha256": "749d6ed535effae851d6511ce2807c23ddb923b79d5315ec784aa804d5b85f93",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/business_counter.py",
+        "baseSha256": null,
+        "sourceSha256": "90f253d2aa64e3f6ea40969600a438c9805e2733bc146f6821388e513bf45aad",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/contacts_host_flow.py",
+        "baseSha256": null,
+        "sourceSha256": "1bc59826686dba9828a6e61c8fdfc8f35b31bd66b02216507b43fa94f3c3b0aa",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/declared_widget.py",
+        "baseSha256": null,
+        "sourceSha256": "a45f6bbc8224f33c722d228350914bf34fdac8cf257f2a1aceeaee859afab728",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/first_rest_selectors.py",
+        "baseSha256": null,
+        "sourceSha256": "d0159e7d17cead8a69096454efafead2ce38496c8a0fc455dd713ce95e462ef9",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/owned_entry.py",
+        "baseSha256": null,
+        "sourceSha256": "7ba1af696d596b143e67b410edc9a5000986e2a2b77f74fd3082fc2d1a4ab48e",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/pal_fixture.js",
+        "baseSha256": null,
+        "sourceSha256": "69e594af702efed37e9f3f7c6d12e26d77f47720ddc276999f923b6395b0f960",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/people-world.js",
+        "baseSha256": null,
+        "sourceSha256": "d63edb8313cd5920506cf7c4ffd69dc8aad8ee7458544f96b06637b6a05f01df",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/pipe_scope.py",
+        "baseSha256": null,
+        "sourceSha256": "afc0c76a0bdc5f771d0a36955d56669d1adbcad9adfcff15d94cf52db038c9a7",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/qml_people_runtime.js",
+        "baseSha256": null,
+        "sourceSha256": "307857fff914623400b65d5200f009b1d79da5dacb62eed48179a21159386553",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/shared_contacts.py",
+        "baseSha256": null,
+        "sourceSha256": "5911b7e155a1cc892a01fed882c53830687f488d50cfb6c378ca260805ddadcb",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-business-counter6/source_exchange.py",
+        "baseSha256": null,
+        "sourceSha256": "571d2e5695f3add3df7123211f471697d00acc8f52927b49461c027e8e2f97bf",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-host-lexical/people2_host_reader.py",
+        "baseSha256": null,
+        "sourceSha256": "6225c87baa772c822c8c93d46427401ef7fe5ebbfdce33039d470db45c85484c",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-host-lexical/people2_host_sdk.py",
+        "baseSha256": null,
+        "sourceSha256": "d3f1f59cf88c55c193e722752e13ad8f7519060820b6552e592bb97f3111880b",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-host-lexical/people2_host_transport.py",
+        "baseSha256": null,
+        "sourceSha256": "78181caba4870282219cd7f47598203918ca3d424e094df6db10fa72ca9ade63",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-host-lexical/same_raw_normal.py",
+        "baseSha256": null,
+        "sourceSha256": "c72c2a14036ab305214df4ba0770823b1bffc67fd7bd0e911470a7198c4c2493",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-model-producer2/auth_origin_contracts.py",
+        "baseSha256": null,
+        "sourceSha256": "7a61106b5badb3adf47185c1f68df12d573b556155a65e18e5166a3890e6346f",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-model-producer2/auth_origin_normal.py",
+        "baseSha256": null,
+        "sourceSha256": "ee591dbbe506584e5aee3c351b06c2feb0715a9601b456c6f19f95093cd99c30",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-model-producer2/contracts10.py",
+        "baseSha256": null,
+        "sourceSha256": "a2016caec17579bc087bbf265f2d0b3d217c181bd6c957b01b1be1c0eed6312b",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-model-producer2/current_account_contracts.py",
+        "baseSha256": null,
+        "sourceSha256": "533470ead138803ed8dc2b8b7b33cecbf30b49bc86cde6db2b9d3cfcaed326f2",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-model-producer2/current_account_normal.py",
+        "baseSha256": null,
+        "sourceSha256": "8abcb263559b7cf4f23a374bdd878e4d8b44962ed1366a4b5b7a762bfdc78d18",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-model-producer2/model_contracts.py",
+        "baseSha256": null,
+        "sourceSha256": "6bed3dc374c00846eed7aa57be8040f739b6ddf30b00476197482a17ad9ded23",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-model-producer2/model_qml_functions.js",
+        "baseSha256": null,
+        "sourceSha256": "2b0f2f4d4cfd0796602ab44291a5a75113d2a13a6077a75966f31b15a9b61051",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-model-producer2/reply_url_contracts.py",
+        "baseSha256": null,
+        "sourceSha256": "f4f83de0de75b459f2f619c10753096e294d8db359be450bc1568a9420321a85",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-model-producer2/reply_url_normal.py",
+        "baseSha256": null,
+        "sourceSha256": "da5fa2288f93827d9bf8205006048ed53a703a4a9bf675c73dd9ed50db7019b0",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-model-producer2/source_wire_object.cpp",
+        "baseSha256": null,
+        "sourceSha256": "a5fa5f5cc0198fc2b303ea361a2049344579a47fefe13e4b2d675a162d21501f",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-parent-row-join-counter2/owned_parent_birth_entry.py",
+        "baseSha256": null,
+        "sourceSha256": "dd4e4b494f0cd7d4bb240b0f38e004c36520a096aea00899ca5df971b2ecc5d9",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-parent-row-join-counter2/parent_birth_normal.py",
+        "baseSha256": null,
+        "sourceSha256": "c570ac98cfc4c62e5326bf6389c32c6f189ea83f473d376af40f200037a40d80",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-ui-writer-counter3/declared_sdk.py",
+        "baseSha256": null,
+        "sourceSha256": "d46b42ebfe3bf4887b53222bddebf4710d8e7dfd90f39b6f436e91edc6edbba9",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-ui-writer-counter3/model_payload.py",
+        "baseSha256": null,
+        "sourceSha256": "ece2d711512833338a6ec960aed996371a483b750ee7c63bfba012cacd41e410",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-ui-writer-counter3/owned_entry.py",
+        "baseSha256": null,
+        "sourceSha256": "a9926c991404693925fbdb873032ee43549bd20acc65c31fec713d085920cf33",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/native2-ui-writer-counter3/row_counter.py",
+        "baseSha256": null,
+        "sourceSha256": "cb81eb9cd80458763996c4ae12f8d3c686c74032c28dbbca8e03a5abb72cb3c5",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/pal9-semantic/owned_entry.py",
+        "baseSha256": null,
+        "sourceSha256": "9f1348e7ff4aa9d614fbb0f71a24adf1aee497018626af71add910ab9c4bb126",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/pal9-semantic/pal_fixture.js",
+        "baseSha256": null,
+        "sourceSha256": "c6708c66ba92efb035b0ec667fc0c2491ff8c754422bae7bb2a42e38a930c6ec",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/pal9-semantic/pal_semantic_faults.py",
+        "baseSha256": null,
+        "sourceSha256": "e6e9dfca94b2bc8b1d6ff51b5bfc981fc536dfbc3b42e4eb75eede3754e97442",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/pal9-semantic/people-world.js",
+        "baseSha256": null,
+        "sourceSha256": "9d92c30be0a09dcb2b87b0a0e717956b5429e3bc2dc558a8c471c032c29f34f8",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/pal9-semantic/pipe_scope.py",
+        "baseSha256": null,
+        "sourceSha256": "5370317ca206015bcc3067c0b83066243cf8a0e423ba2f06d0a0c9832f7519cd",
+        "changedFromBase": true
+      },
+      {
+        "path": "source-support/shader-enum-generation/CMakeLists.txt",
+        "baseSha256": null,
+        "sourceSha256": "cfd63581d20c30fd6d8872a41f3e5c32a28d971eb5c7b2bf26543a00233a68e4",
+        "changedFromBase": true
+      }
+    ]
+  },
+  "supportOrigins": {
+    "source-support/native2-business-counter6/business_counter.py": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "business_counter.py",
+      "sourceSha256": "90f253d2aa64e3f6ea40969600a438c9805e2733bc146f6821388e513bf45aad"
+    },
+    "source-support/native2-business-counter6/contacts_host_flow.py": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "contacts_host_flow.py",
+      "sourceSha256": "1bc59826686dba9828a6e61c8fdfc8f35b31bd66b02216507b43fa94f3c3b0aa"
+    },
+    "source-support/native2-business-counter6/declared_widget.py": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "declared_widget.py",
+      "sourceSha256": "a45f6bbc8224f33c722d228350914bf34fdac8cf257f2a1aceeaee859afab728"
+    },
+    "source-support/native2-business-counter6/first_rest_selectors.py": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "first_rest_selectors.py",
+      "sourceSha256": "d0159e7d17cead8a69096454efafead2ce38496c8a0fc455dd713ce95e462ef9"
+    },
+    "source-support/native2-business-counter6/owned_entry.py": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "owned_entry.py",
+      "sourceSha256": "7ba1af696d596b143e67b410edc9a5000986e2a2b77f74fd3082fc2d1a4ab48e"
+    },
+    "source-support/native2-business-counter6/pal_fixture.js": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "pal_fixture.js",
+      "sourceSha256": "69e594af702efed37e9f3f7c6d12e26d77f47720ddc276999f923b6395b0f960"
+    },
+    "source-support/native2-business-counter6/people-world.js": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "people-world.js",
+      "sourceSha256": "d63edb8313cd5920506cf7c4ffd69dc8aad8ee7458544f96b06637b6a05f01df"
+    },
+    "source-support/native2-business-counter6/pipe_scope.py": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "pipe_scope.py",
+      "sourceSha256": "afc0c76a0bdc5f771d0a36955d56669d1adbcad9adfcff15d94cf52db038c9a7"
+    },
+    "source-support/native2-business-counter6/qml_people_runtime.js": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "qml_people_runtime.js",
+      "sourceSha256": "307857fff914623400b65d5200f009b1d79da5dacb62eed48179a21159386553"
+    },
+    "source-support/native2-business-counter6/shared_contacts.py": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "shared_contacts.py",
+      "sourceSha256": "5911b7e155a1cc892a01fed882c53830687f488d50cfb6c378ca260805ddadcb"
+    },
+    "source-support/native2-business-counter6/source_exchange.py": {
+      "packet": "pico-feature3-native2-business-counter6-private-20261105",
+      "sourceFile": "source_exchange.py",
+      "sourceSha256": "571d2e5695f3add3df7123211f471697d00acc8f52927b49461c027e8e2f97bf"
+    },
+    "source-support/native2-ui-writer-counter3/declared_sdk.py": {
+      "packet": "pico-feature3-native2-ui-writer-counter3-private-20261105",
+      "sourceFile": "declared_sdk.py",
+      "sourceSha256": "d46b42ebfe3bf4887b53222bddebf4710d8e7dfd90f39b6f436e91edc6edbba9"
+    },
+    "source-support/native2-ui-writer-counter3/model_payload.py": {
+      "packet": "pico-feature3-native2-ui-writer-counter3-private-20261105",
+      "sourceFile": "model_payload.py",
+      "sourceSha256": "ece2d711512833338a6ec960aed996371a483b750ee7c63bfba012cacd41e410"
+    },
+    "source-support/native2-ui-writer-counter3/owned_entry.py": {
+      "packet": "pico-feature3-native2-ui-writer-counter3-private-20261105",
+      "sourceFile": "owned_entry.py",
+      "sourceSha256": "a9926c991404693925fbdb873032ee43549bd20acc65c31fec713d085920cf33"
+    },
+    "source-support/native2-ui-writer-counter3/row_counter.py": {
+      "packet": "pico-feature3-native2-ui-writer-counter3-private-20261105",
+      "sourceFile": "row_counter.py",
+      "sourceSha256": "cb81eb9cd80458763996c4ae12f8d3c686c74032c28dbbca8e03a5abb72cb3c5"
+    },
+    "source-support/native2-parent-row-join-counter2/owned_parent_birth_entry.py": {
+      "packet": "pico-feature3-native2-parent-row-join-counter2-private-20261105",
+      "sourceFile": "owned_parent_birth_entry.py",
+      "sourceSha256": "dd4e4b494f0cd7d4bb240b0f38e004c36520a096aea00899ca5df971b2ecc5d9"
+    },
+    "source-support/native2-parent-row-join-counter2/parent_birth_normal.py": {
+      "packet": "pico-feature3-native2-parent-row-join-counter2-private-20261105",
+      "sourceFile": "parent_birth_normal.py",
+      "sourceSha256": "c570ac98cfc4c62e5326bf6389c32c6f189ea83f473d376af40f200037a40d80"
+    },
+    "source-support/native2-model-producer2/auth_origin_contracts.py": {
+      "packet": "pico-feature3-native2-model-producer2-private-20261105",
+      "sourceFile": "auth_origin_contracts.py",
+      "sourceSha256": "7a61106b5badb3adf47185c1f68df12d573b556155a65e18e5166a3890e6346f"
+    },
+    "source-support/native2-model-producer2/auth_origin_normal.py": {
+      "packet": "pico-feature3-native2-model-producer2-private-20261105",
+      "sourceFile": "auth_origin_normal.py",
+      "sourceSha256": "ee591dbbe506584e5aee3c351b06c2feb0715a9601b456c6f19f95093cd99c30"
+    },
+    "source-support/native2-model-producer2/contracts10.py": {
+      "packet": "pico-feature3-native2-model-producer2-private-20261105",
+      "sourceFile": "contracts10.py",
+      "sourceSha256": "a2016caec17579bc087bbf265f2d0b3d217c181bd6c957b01b1be1c0eed6312b"
+    },
+    "source-support/native2-model-producer2/current_account_contracts.py": {
+      "packet": "pico-feature3-native2-model-producer2-private-20261105",
+      "sourceFile": "current_account_contracts.py",
+      "sourceSha256": "533470ead138803ed8dc2b8b7b33cecbf30b49bc86cde6db2b9d3cfcaed326f2"
+    },
+    "source-support/native2-model-producer2/current_account_normal.py": {
+      "packet": "pico-feature3-native2-model-producer2-private-20261105",
+      "sourceFile": "current_account_normal.py",
+      "sourceSha256": "8abcb263559b7cf4f23a374bdd878e4d8b44962ed1366a4b5b7a762bfdc78d18"
+    },
+    "source-support/native2-model-producer2/model_contracts.py": {
+      "packet": "pico-feature3-native2-model-producer2-private-20261105",
+      "sourceFile": "model_contracts.py",
+      "sourceSha256": "6bed3dc374c00846eed7aa57be8040f739b6ddf30b00476197482a17ad9ded23"
+    },
+    "source-support/native2-model-producer2/model_qml_functions.js": {
+      "packet": "pico-feature3-native2-model-producer2-private-20261105",
+      "sourceFile": "model_qml_functions.js",
+      "sourceSha256": "2b0f2f4d4cfd0796602ab44291a5a75113d2a13a6077a75966f31b15a9b61051"
+    },
+    "source-support/native2-model-producer2/reply_url_contracts.py": {
+      "packet": "pico-feature3-native2-model-producer2-private-20261105",
+      "sourceFile": "reply_url_contracts.py",
+      "sourceSha256": "f4f83de0de75b459f2f619c10753096e294d8db359be450bc1568a9420321a85"
+    },
+    "source-support/native2-model-producer2/reply_url_normal.py": {
+      "packet": "pico-feature3-native2-model-producer2-private-20261105",
+      "sourceFile": "reply_url_normal.py",
+      "sourceSha256": "da5fa2288f93827d9bf8205006048ed53a703a4a9bf675c73dd9ed50db7019b0"
+    },
+    "source-support/native2-model-producer2/source_wire_object.cpp": {
+      "packet": "pico-feature3-native2-model-producer2-private-20261105",
+      "sourceFile": "source_wire_object.cpp",
+      "sourceSha256": "a5fa5f5cc0198fc2b303ea361a2049344579a47fefe13e4b2d675a162d21501f"
+    },
+    "source-support/contacts-hostbridge3/contacts_host_flow.py": {
+      "packet": "pico-feature3-contacts-hostbridge3-private-20261105",
+      "sourceFile": "contacts_host_flow.py",
+      "sourceSha256": "7955466a1aebebd9d4a29c121223bcbedab9304b292e612d4182cbc1d08a051b"
+    },
+    "source-support/contacts-hostbridge3/owned_entry.py": {
+      "packet": "pico-feature3-contacts-hostbridge3-private-20261105",
+      "sourceFile": "owned_entry.py",
+      "sourceSha256": "88e6cddcf43ea5e4c5cf7e8483cff95ed89ea5c010445cfc27cf298dc46279f9"
+    },
+    "source-support/contacts-hostbridge3/pal_accept_remove.py": {
+      "packet": "pico-feature3-contacts-hostbridge3-private-20261105",
+      "sourceFile": "pal_accept_remove.py",
+      "sourceSha256": "995d559023f44209b31bf0e9017c8aa24959d1729bee3b354404b551ab8dd41f"
+    },
+    "source-support/contacts-hostbridge3/pal_fixture.js": {
+      "packet": "pico-feature3-contacts-hostbridge3-private-20261105",
+      "sourceFile": "pal_fixture.js",
+      "sourceSha256": "69e594af702efed37e9f3f7c6d12e26d77f47720ddc276999f923b6395b0f960"
+    },
+    "source-support/contacts-hostbridge3/people-world.js": {
+      "packet": "pico-feature3-contacts-hostbridge3-private-20261105",
+      "sourceFile": "people-world.js",
+      "sourceSha256": "d63edb8313cd5920506cf7c4ffd69dc8aad8ee7458544f96b06637b6a05f01df"
+    },
+    "source-support/contacts-hostbridge3/pipe_scope.py": {
+      "packet": "pico-feature3-contacts-hostbridge3-private-20261105",
+      "sourceFile": "pipe_scope.py",
+      "sourceSha256": "b84bf5203d8249e45dba2e24b4a952988035a52c89e1202ebf982aa834fbc383"
+    },
+    "source-support/contacts-hostbridge3/qml_people_runtime.js": {
+      "packet": "pico-feature3-contacts-hostbridge3-private-20261105",
+      "sourceFile": "qml_people_runtime.js",
+      "sourceSha256": "e3b623fe8ab69a6991cc24655bc1844a0cba36336551ae1fd712b58928c00f3d"
+    },
+    "source-support/contacts-hostbridge3/selection_realm_contracts.js": {
+      "packet": "pico-feature3-contacts-hostbridge3-private-20261105",
+      "sourceFile": "selection_realm_contracts.js",
+      "sourceSha256": "749d6ed535effae851d6511ce2807c23ddb923b79d5315ec784aa804d5b85f93"
+    },
+    "source-support/pal9-semantic/owned_entry.py": {
+      "packet": "pico-feature3-pal9-semantic-private-20261104",
+      "sourceFile": "owned_entry.py",
+      "sourceSha256": "9f1348e7ff4aa9d614fbb0f71a24adf1aee497018626af71add910ab9c4bb126"
+    },
+    "source-support/pal9-semantic/pal_fixture.js": {
+      "packet": "pico-feature3-pal9-semantic-private-20261104",
+      "sourceFile": "pal_fixture.js",
+      "sourceSha256": "c6708c66ba92efb035b0ec667fc0c2491ff8c754422bae7bb2a42e38a930c6ec"
+    },
+    "source-support/pal9-semantic/pal_semantic_faults.py": {
+      "packet": "pico-feature3-pal9-semantic-private-20261104",
+      "sourceFile": "pal_semantic_faults.py",
+      "sourceSha256": "e6e9dfca94b2bc8b1d6ff51b5bfc981fc536dfbc3b42e4eb75eede3754e97442"
+    },
+    "source-support/pal9-semantic/people-world.js": {
+      "packet": "pico-feature3-pal9-semantic-private-20261104",
+      "sourceFile": "people-world.js",
+      "sourceSha256": "9d92c30be0a09dcb2b87b0a0e717956b5429e3bc2dc558a8c471c032c29f34f8"
+    },
+    "source-support/pal9-semantic/pipe_scope.py": {
+      "packet": "pico-feature3-pal9-semantic-private-20261104",
+      "sourceFile": "pipe_scope.py",
+      "sourceSha256": "5370317ca206015bcc3067c0b83066243cf8a0e423ba2f06d0a0c9832f7519cd"
+    },
+    "source-support/native2-host-lexical/people2_host_reader.py": {
+      "packet": "pico-feature3-native2-host-lexical-private-20261104",
+      "sourceFile": "people2_host_reader.py",
+      "sourceSha256": "6225c87baa772c822c8c93d46427401ef7fe5ebbfdce33039d470db45c85484c"
+    },
+    "source-support/native2-host-lexical/people2_host_sdk.py": {
+      "packet": "pico-feature3-native2-host-lexical-private-20261104",
+      "sourceFile": "people2_host_sdk.py",
+      "sourceSha256": "d3f1f59cf88c55c193e722752e13ad8f7519060820b6552e592bb97f3111880b"
+    },
+    "source-support/native2-host-lexical/people2_host_transport.py": {
+      "packet": "pico-feature3-native2-host-lexical-private-20261104",
+      "sourceFile": "people2_host_transport.py",
+      "sourceSha256": "78181caba4870282219cd7f47598203918ca3d424e094df6db10fa72ca9ade63"
+    },
+    "source-support/native2-host-lexical/same_raw_normal.py": {
+      "packet": "pico-feature3-native2-host-lexical-private-20261104",
+      "sourceFile": "same_raw_normal.py",
+      "sourceSha256": "c72c2a14036ab305214df4ba0770823b1bffc67fd7bd0e911470a7198c4c2493"
+    },
+    "source-support/shader-enum-generation/CMakeLists.txt": {
+      "packet": "pico-feature3-shader-enum-generation-private-20261105",
+      "sourceFile": "CMakeLists.txt",
+      "sourceSha256": "cfd63581d20c30fd6d8872a41f3e5c32a28d971eb5c7b2bf26543a00233a68e4"
+    }
+  }
+}

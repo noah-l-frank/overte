@@ -1,0 +1,2303 @@
+{
+  "formatVersion": 1,
+  "area": "world-web",
+  "baseCommit": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "status": "unintegrated-source-backup; adapter development paused",
+  "snapshotOnly": true,
+  "sourceRoots": [
+    "pico-world-web-unicode-audit-20261104-Y7hm6Y"
+  ],
+  "entries": [
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/CURRENT_IME_INTERFACE_PROPOSAL.md",
+      "sha256": "3b13fcc560ec55c91ba702c43597dd9e6845d148063ccd767118b0d6d1a0d529",
+      "bytes": 5183,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/CURRENT_IME_INTERFACE_PROPOSAL.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/FEATURE6_CHECKPOINT_20261105.md",
+      "sha256": "ffa7a5d2c6ced5aa55a1f2b707ad4ac61a1a2f6e1dc18082c1195760213d0071",
+      "bytes": 3409,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/FEATURE6_CHECKPOINT_20261105.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/FIRST_CENSUS_SELECTOR_PLAN.md",
+      "sha256": "77dc126b0d99001be1ba199e93200e3909ea23117ab51267159b1f0fbf735fe0",
+      "bytes": 4776,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/FIRST_CENSUS_SELECTOR_PLAN.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/FLOW_AND_NEXT_PACKET.md",
+      "sha256": "93e52e46b0a82b3e667b5c75a693fecebb2622cfb70947f454b490b4b90a1719",
+      "bytes": 8013,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/FLOW_AND_NEXT_PACKET.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/FOCUS_COMPOUND_COPY_TABLE.md",
+      "sha256": "a5586e82fc636680b408dbf1e3507097406ebab99d7305aac5645ea29d985bf0",
+      "bytes": 6329,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/FOCUS_COMPOUND_COPY_TABLE.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/HOST_MODEL_SOURCE_BOUND.md",
+      "sha256": "81d1ba04e188d16aa3784dce85e14a79b4384276ff5cd7922e9ee9fa46ed81a9",
+      "bytes": 3629,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/HOST_MODEL_SOURCE_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/IME_TYPED_COPY_CENSUS_DRAFT.md",
+      "sha256": "0da8e120e02386744e07f946476126f08906ac282179cdb278ff22da9f45d76a",
+      "bytes": 5317,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/IME_TYPED_COPY_CENSUS_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/NATIVE_CURRENT_IME_NEXT_DELTA.md",
+      "sha256": "f13aa4c6461b19147896100e3c4ac33d080cfd4e0d2114ac10ea5b42393a0dc0",
+      "bytes": 5559,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/NATIVE_CURRENT_IME_NEXT_DELTA.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/NATIVE_IME_FILE_JOIN_REVIEW.md",
+      "sha256": "4afb758020a5cb841100c942740f6dc90df338ce244b37d32415c7019a51e5a2",
+      "bytes": 5120,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/NATIVE_IME_FILE_JOIN_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/NEXT_CURRENT_DOCUMENT_STAGE.md",
+      "sha256": "fdab4b5fde8669ca0b245045a3cace10ff1f0bc8ef9aa35c2ae04214d5ea3c2b",
+      "bytes": 5846,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/NEXT_CURRENT_DOCUMENT_STAGE.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/NEXT_FOCUS_IME_VERTICAL.md",
+      "sha256": "5a42732528fe2f82bb7366faa18e16fb5c584c26126a3da649e3c3d0509ff4c3",
+      "bytes": 7008,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/NEXT_FOCUS_IME_VERTICAL.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/PICO_RETAINED_RESUME_POLICY.md",
+      "sha256": "c9e069bdc9f87cce9c949811913551f461ad4bd0870ee76a21ca9eeacec963c0",
+      "bytes": 6304,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/PICO_RETAINED_RESUME_POLICY.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/POSITIVE_HOST_STAGE_TABLE_DRAFT.md",
+      "sha256": "fad912809ec03b465127bafae59663b84fbf1e6d95ffd1371afe6ecd0959200b",
+      "bytes": 9001,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/POSITIVE_HOST_STAGE_TABLE_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/POSITIVE_STAGE_API_REVIEW.md",
+      "sha256": "4e68c47c61ef4f065813a6e4c51c441e8cf2201ec13caee5441fb3bf62bed5df",
+      "bytes": 5666,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/POSITIVE_STAGE_API_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/ROOT_BILL_API_REVIEW.md",
+      "sha256": "f45ad7b3aa38f6bf97389dec4cd9c265ad31e230439bbfaf53a249e3273bd4fa",
+      "bytes": 10157,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/ROOT_BILL_API_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/TYPED_PARENT_AND_RESOURCE_PLAN.md",
+      "sha256": "f52b267c8e8fd8a07a7a3d8ecc44d7dc3cc494af4c4330707d59e3d8eb96272b",
+      "bytes": 7531,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/TYPED_PARENT_AND_RESOURCE_PLAN.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/run_private_port.py",
+      "sha256": "1fa5970c686623ceb031c15aaca74dea0a59dd553bfb5179c7a4bd937e12608a",
+      "bytes": 3290,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/run_private_port.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-port-numeric1/run.py",
+      "sha256": "4cde30475a1661536297bb7477d8020f32fc9183c1fcd866f78ddabbeb76ce49",
+      "bytes": 3417,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-port-numeric1/run.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/REVIEW.md",
+      "sha256": "2a963f1aeaa1464159eb4a0cca8bbe43e5dc58440856ff83feaebae7105894cb",
+      "bytes": 2703,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/packet.diff",
+      "sha256": "85d676660e843adcca3486327491f26f7af8c7f46dbaae5a0ec7e6229012f725",
+      "bytes": 75784,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/packet.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/ATTEMPT_ANCHOR_FIX.md",
+      "sha256": "dac3c6620046879f7f2f7ac2caabc5a1c92ee97d4af84bc4c27cfe76900a8684",
+      "bytes": 754,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/ATTEMPT_ANCHOR_FIX.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/CLOSED_LITERAL_BOUND.md",
+      "sha256": "3091592e76c1d0f76c36ab36fc9cf6a7d719e84257fd8f01b3b38e5e890b817f",
+      "bytes": 5199,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/CLOSED_LITERAL_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/CONSUMPTION_METADATA_STACK.md",
+      "sha256": "6fa2d9935ec30e4b01a194b603e50bbd6f8a8eb7c36b01ab1538d3193eb98eff",
+      "bytes": 3770,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/CONSUMPTION_METADATA_STACK.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/IME_NOEFFECT_GATE.md",
+      "sha256": "d1960887e8e0e393053aa7434b8b62280f72bba2fcf711e7bcbd434fbaefffc2",
+      "bytes": 691,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/IME_NOEFFECT_GATE.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SERIAL_WINDOW_PROOF.md",
+      "sha256": "f7fbe486f4c6f8507d26a8f1f1ed070908d330713856172a6c1af302cf06bdc9",
+      "bytes": 1863,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SERIAL_WINDOW_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SOURCE_COPY_SUBSET_PROOF.md",
+      "sha256": "008d3d01fcc16c053170062ef0cc7c0ce55b27f452687abb4ad37689c406e8ef",
+      "bytes": 3407,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SOURCE_COPY_SUBSET_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md",
+      "sha256": "53eebbb9e238bc560866bd2d511b53758caf4951b831e17ecdeb5ff408ae985c",
+      "bytes": 3394,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/IMPLEMENTATION_NOT_RUN.md",
+      "sha256": "b03c881b024c65867e298528ce841d7ff12e8d9c047905aaaafdf533c67ebab1",
+      "bytes": 104,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/IMPLEMENTATION_NOT_RUN.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/run_controller.py",
+      "sha256": "745c1a5e4c3df22c3dcb46e9fd11dfce2bfc545f25009bebb42150760d7bfca0",
+      "bytes": 14293,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/run_controller.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/runtime.diff",
+      "sha256": "5b60f060666ef132d3eb5305027ffa9522a38c605695fc274cb7e860d6a4e3c5",
+      "bytes": 35219,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_controller_join.py",
+      "sha256": "1e3138d548de4e38cfdb3996bce659b6b60011157092c808ac7968fee483f1ac",
+      "bytes": 4726,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_controller_join.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py",
+      "sha256": "e913793098b55bc7efdf06e7dd89708fe1a8342202e6d7dda05f5fb20b7e5d2a",
+      "bytes": 11062,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/world_product_dom_worker.js",
+      "sha256": "410fe9a11f859c9a9a2b6de8f69a08653723140b6e358a5fafced4e1f45d7f56",
+      "bytes": 5785,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/BOUND_REVIEW_DRAFT.md",
+      "sha256": "53eebbb9e238bc560866bd2d511b53758caf4951b831e17ecdeb5ff408ae985c",
+      "bytes": 3394,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/NORMAL_ROUTE_AUDIT.md",
+      "sha256": "f7efe1fa344f81730308ed42ead3d5ca750465e4952d783d5187d467d8b5efa3",
+      "bytes": 2441,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/NORMAL_ROUTE_AUDIT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/PHASE_WORK_BOUND.md",
+      "sha256": "f4599cf71f03f12610345dcfb975fedf3b598616f92edda77d49c0d27e8f3759",
+      "bytes": 1951,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/PHASE_WORK_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/run_controller.py",
+      "sha256": "c541c890dec14158144f34dad5d97bf32442052780d2a9bc1f498542d637c88c",
+      "bytes": 14380,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/run_controller.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/runtime.diff",
+      "sha256": "e139e9bdf132f98e8bc8547bf7cb90aa158eff5e22dc67697d1ee5532f490753",
+      "bytes": 35765,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/test_controller_join.py",
+      "sha256": "1e3138d548de4e38cfdb3996bce659b6b60011157092c808ac7968fee483f1ac",
+      "bytes": 4726,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_controller_join.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/test_dom_component.py",
+      "sha256": "e913793098b55bc7efdf06e7dd89708fe1a8342202e6d7dda05f5fb20b7e5d2a",
+      "bytes": 11062,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/world_product_dom_worker.js",
+      "sha256": "410fe9a11f859c9a9a2b6de8f69a08653723140b6e358a5fafced4e1f45d7f56",
+      "bytes": 5785,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8c/BOUND_REVIEW_DRAFT.md",
+      "sha256": "53eebbb9e238bc560866bd2d511b53758caf4951b831e17ecdeb5ff408ae985c",
+      "bytes": 3394,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8c/NORMAL_ROUTE_AUDIT.md",
+      "sha256": "f7efe1fa344f81730308ed42ead3d5ca750465e4952d783d5187d467d8b5efa3",
+      "bytes": 2441,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/NORMAL_ROUTE_AUDIT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8c/PHASE_WORK_BOUND.md",
+      "sha256": "f4599cf71f03f12610345dcfb975fedf3b598616f92edda77d49c0d27e8f3759",
+      "bytes": 1951,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/PHASE_WORK_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8c/run_controller.py",
+      "sha256": "41feec328dbc13cd3233600ae5cf1baa387a18167061a316c1d2d38fe6d5412c",
+      "bytes": 14380,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8c/run_controller.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8c/runtime.diff",
+      "sha256": "fbc8a1137e41ed67facaa45fd80faa251e1c27eae6aca7b1f4d136d6daa27f47",
+      "bytes": 35765,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8c/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8c/test_controller_join.py",
+      "sha256": "1e3138d548de4e38cfdb3996bce659b6b60011157092c808ac7968fee483f1ac",
+      "bytes": 4726,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_controller_join.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8c/test_dom_component.py",
+      "sha256": "e913793098b55bc7efdf06e7dd89708fe1a8342202e6d7dda05f5fb20b7e5d2a",
+      "bytes": 11062,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8c/world_product_dom_worker.js",
+      "sha256": "410fe9a11f859c9a9a2b6de8f69a08653723140b6e358a5fafced4e1f45d7f56",
+      "bytes": 5785,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/BOUND_REVIEW_DRAFT.md",
+      "sha256": "53eebbb9e238bc560866bd2d511b53758caf4951b831e17ecdeb5ff408ae985c",
+      "bytes": 3394,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/NORMAL_ROUTE_AUDIT.md",
+      "sha256": "f7efe1fa344f81730308ed42ead3d5ca750465e4952d783d5187d467d8b5efa3",
+      "bytes": 2441,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/NORMAL_ROUTE_AUDIT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/PHASE_WORK_BOUND.md",
+      "sha256": "f4599cf71f03f12610345dcfb975fedf3b598616f92edda77d49c0d27e8f3759",
+      "bytes": 1951,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/PHASE_WORK_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/SERIAL_WINDOW_PROOF.md",
+      "sha256": "f7fbe486f4c6f8507d26a8f1f1ed070908d330713856172a6c1af302cf06bdc9",
+      "bytes": 1863,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SERIAL_WINDOW_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/run_controller.py",
+      "sha256": "ebf4b3e3134c747e39d2e7b950e2c77e1cc96ca49873c115a9c48f7c5116063b",
+      "bytes": 14380,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/run_controller.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/runtime.diff",
+      "sha256": "ebecfd83b06b64239a44a58076ac8da2ad5f66ede0e8816829a42fa8f8f418c3",
+      "bytes": 35942,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/test_controller_join.py",
+      "sha256": "bb735bb2772d442782582aa90772ccd72475b9090b3c620e30ec7fb64220923f",
+      "bytes": 4917,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/test_controller_join.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/test_dom_component.py",
+      "sha256": "e913793098b55bc7efdf06e7dd89708fe1a8342202e6d7dda05f5fb20b7e5d2a",
+      "bytes": 11062,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/world_product_dom_worker.js",
+      "sha256": "410fe9a11f859c9a9a2b6de8f69a08653723140b6e358a5fafced4e1f45d7f56",
+      "bytes": 5785,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/ATTEMPT_ANCHOR_FIX.md",
+      "sha256": "dac3c6620046879f7f2f7ac2caabc5a1c92ee97d4af84bc4c27cfe76900a8684",
+      "bytes": 754,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/ATTEMPT_ANCHOR_FIX.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/BOUND_REVIEW_DRAFT.md",
+      "sha256": "53eebbb9e238bc560866bd2d511b53758caf4951b831e17ecdeb5ff408ae985c",
+      "bytes": 3394,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/NORMAL_ROUTE_AUDIT.md",
+      "sha256": "f7efe1fa344f81730308ed42ead3d5ca750465e4952d783d5187d467d8b5efa3",
+      "bytes": 2441,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/NORMAL_ROUTE_AUDIT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/PHASE_WORK_BOUND.md",
+      "sha256": "f4599cf71f03f12610345dcfb975fedf3b598616f92edda77d49c0d27e8f3759",
+      "bytes": 1951,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/PHASE_WORK_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/SERIAL_WINDOW_PROOF.md",
+      "sha256": "f7fbe486f4c6f8507d26a8f1f1ed070908d330713856172a6c1af302cf06bdc9",
+      "bytes": 1863,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SERIAL_WINDOW_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/run_controller.py",
+      "sha256": "56762de0693631a7f195779664f3805acdbe5f9a5b72eaf0dc1264a37956af61",
+      "bytes": 14380,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/run_controller.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/runtime.diff",
+      "sha256": "035980fa21770b469bd41313a8ca044fdb986ecd2eab67e80f12dbcb3b81495c",
+      "bytes": 36017,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/test_controller_join.py",
+      "sha256": "bb735bb2772d442782582aa90772ccd72475b9090b3c620e30ec7fb64220923f",
+      "bytes": 4917,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/test_controller_join.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/test_dom_component.py",
+      "sha256": "e913793098b55bc7efdf06e7dd89708fe1a8342202e6d7dda05f5fb20b7e5d2a",
+      "bytes": 11062,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8e/world_product_dom_worker.js",
+      "sha256": "410fe9a11f859c9a9a2b6de8f69a08653723140b6e358a5fafced4e1f45d7f56",
+      "bytes": 5785,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/ATTEMPT_ANCHOR_FIX.md",
+      "sha256": "dac3c6620046879f7f2f7ac2caabc5a1c92ee97d4af84bc4c27cfe76900a8684",
+      "bytes": 754,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/ATTEMPT_ANCHOR_FIX.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/BOUND_REVIEW_DRAFT.md",
+      "sha256": "53eebbb9e238bc560866bd2d511b53758caf4951b831e17ecdeb5ff408ae985c",
+      "bytes": 3394,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/NORMAL_ROUTE_AUDIT.md",
+      "sha256": "f7efe1fa344f81730308ed42ead3d5ca750465e4952d783d5187d467d8b5efa3",
+      "bytes": 2441,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/NORMAL_ROUTE_AUDIT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/PHASE_WORK_BOUND.md",
+      "sha256": "f4599cf71f03f12610345dcfb975fedf3b598616f92edda77d49c0d27e8f3759",
+      "bytes": 1951,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/PHASE_WORK_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/SERIAL_WINDOW_PROOF.md",
+      "sha256": "f7fbe486f4c6f8507d26a8f1f1ed070908d330713856172a6c1af302cf06bdc9",
+      "bytes": 1863,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SERIAL_WINDOW_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/SOURCE_COPY_SUBSET_PROOF.md",
+      "sha256": "008d3d01fcc16c053170062ef0cc7c0ce55b27f452687abb4ad37689c406e8ef",
+      "bytes": 3407,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SOURCE_COPY_SUBSET_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/run_controller.py",
+      "sha256": "9b2e4c0635b54320be0e0f12e2b7eeda6da9830c2a179c65b98c18f8e79b292b",
+      "bytes": 14380,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/run_controller.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/runtime.diff",
+      "sha256": "38667c0c63c6a6cfec8370ea5341319a31c62b5ff62281bbf76e3bfab9fa9bbf",
+      "bytes": 39037,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/test_controller_join.py",
+      "sha256": "bb735bb2772d442782582aa90772ccd72475b9090b3c620e30ec7fb64220923f",
+      "bytes": 4917,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8d/test_controller_join.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/test_dom_component.py",
+      "sha256": "e913793098b55bc7efdf06e7dd89708fe1a8342202e6d7dda05f5fb20b7e5d2a",
+      "bytes": 11062,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8f/world_product_dom_worker.js",
+      "sha256": "410fe9a11f859c9a9a2b6de8f69a08653723140b6e358a5fafced4e1f45d7f56",
+      "bytes": 5785,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/ATTEMPT_ANCHOR_FIX.md",
+      "sha256": "dac3c6620046879f7f2f7ac2caabc5a1c92ee97d4af84bc4c27cfe76900a8684",
+      "bytes": 754,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/ATTEMPT_ANCHOR_FIX.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/BOUND_REVIEW_DRAFT.md",
+      "sha256": "53eebbb9e238bc560866bd2d511b53758caf4951b831e17ecdeb5ff408ae985c",
+      "bytes": 3394,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/IME_NOEFFECT_GATE.md",
+      "sha256": "d1960887e8e0e393053aa7434b8b62280f72bba2fcf711e7bcbd434fbaefffc2",
+      "bytes": 691,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/IME_NOEFFECT_GATE.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/NORMAL_ROUTE_AUDIT.md",
+      "sha256": "f7efe1fa344f81730308ed42ead3d5ca750465e4952d783d5187d467d8b5efa3",
+      "bytes": 2441,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/NORMAL_ROUTE_AUDIT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/PHASE_WORK_BOUND.md",
+      "sha256": "f4599cf71f03f12610345dcfb975fedf3b598616f92edda77d49c0d27e8f3759",
+      "bytes": 1951,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/PHASE_WORK_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/SERIAL_WINDOW_PROOF.md",
+      "sha256": "f7fbe486f4c6f8507d26a8f1f1ed070908d330713856172a6c1af302cf06bdc9",
+      "bytes": 1863,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SERIAL_WINDOW_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/SOURCE_COPY_SUBSET_PROOF.md",
+      "sha256": "008d3d01fcc16c053170062ef0cc7c0ce55b27f452687abb4ad37689c406e8ef",
+      "bytes": 3407,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SOURCE_COPY_SUBSET_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/run_controller.py",
+      "sha256": "021fbaf9b70980da1aa1a3bcf150ab3876d4d984856e63f0e90935f7c7af0692",
+      "bytes": 14380,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/run_controller.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/runtime.diff",
+      "sha256": "e2c52b953e63e9b0bb385868086a5903893db5f2118d9a0c439cb866b7e9593f",
+      "bytes": 40373,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/test_controller_join.py",
+      "sha256": "76c323ea30f4ddd186a8bb54d257f1c3c5c530aa1d282f1105dac4d71a8d1896",
+      "bytes": 5362,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/test_controller_join.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/test_dom_component.py",
+      "sha256": "e913793098b55bc7efdf06e7dd89708fe1a8342202e6d7dda05f5fb20b7e5d2a",
+      "bytes": 11062,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/world_product_dom_worker.js",
+      "sha256": "410fe9a11f859c9a9a2b6de8f69a08653723140b6e358a5fafced4e1f45d7f56",
+      "bytes": 5785,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/ATTEMPT_ANCHOR_FIX.md",
+      "sha256": "dac3c6620046879f7f2f7ac2caabc5a1c92ee97d4af84bc4c27cfe76900a8684",
+      "bytes": 754,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/ATTEMPT_ANCHOR_FIX.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/BOUND_REVIEW_DRAFT.md",
+      "sha256": "53eebbb9e238bc560866bd2d511b53758caf4951b831e17ecdeb5ff408ae985c",
+      "bytes": 3394,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/CLOSED_LITERAL_BOUND.md",
+      "sha256": "d036309a2144034633d4e23f36e7aca890fda39de38df88cf9d1894d1c6967d7",
+      "bytes": 4517,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/CLOSED_LITERAL_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/IME_NOEFFECT_GATE.md",
+      "sha256": "d1960887e8e0e393053aa7434b8b62280f72bba2fcf711e7bcbd434fbaefffc2",
+      "bytes": 691,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/IME_NOEFFECT_GATE.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/NORMAL_ROUTE_AUDIT.md",
+      "sha256": "f7efe1fa344f81730308ed42ead3d5ca750465e4952d783d5187d467d8b5efa3",
+      "bytes": 2441,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/NORMAL_ROUTE_AUDIT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/PHASE_WORK_BOUND.md",
+      "sha256": "f4599cf71f03f12610345dcfb975fedf3b598616f92edda77d49c0d27e8f3759",
+      "bytes": 1951,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/PHASE_WORK_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/SERIAL_WINDOW_PROOF.md",
+      "sha256": "f7fbe486f4c6f8507d26a8f1f1ed070908d330713856172a6c1af302cf06bdc9",
+      "bytes": 1863,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SERIAL_WINDOW_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/SOURCE_COPY_SUBSET_PROOF.md",
+      "sha256": "008d3d01fcc16c053170062ef0cc7c0ce55b27f452687abb4ad37689c406e8ef",
+      "bytes": 3407,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SOURCE_COPY_SUBSET_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/run_controller.py",
+      "sha256": "9863f60cfa313aec7ed25f2be02a10fd32e05286ffba302e466a8c66a7fd87fd",
+      "bytes": 14490,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/run_controller.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/runtime.diff",
+      "sha256": "258b16197f24f22186e889e6497c8a89ae418d2cdf9fc630d135124eba922ce3",
+      "bytes": 50969,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/test_controller_join.py",
+      "sha256": "76c323ea30f4ddd186a8bb54d257f1c3c5c530aa1d282f1105dac4d71a8d1896",
+      "bytes": 5362,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/test_controller_join.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/test_dom_component.py",
+      "sha256": "e913793098b55bc7efdf06e7dd89708fe1a8342202e6d7dda05f5fb20b7e5d2a",
+      "bytes": 11062,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8h/world_product_dom_worker.js",
+      "sha256": "410fe9a11f859c9a9a2b6de8f69a08653723140b6e358a5fafced4e1f45d7f56",
+      "bytes": 5785,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/ATTEMPT_ANCHOR_FIX.md",
+      "sha256": "dac3c6620046879f7f2f7ac2caabc5a1c92ee97d4af84bc4c27cfe76900a8684",
+      "bytes": 754,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/ATTEMPT_ANCHOR_FIX.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/BOUND_REVIEW_DRAFT.md",
+      "sha256": "53eebbb9e238bc560866bd2d511b53758caf4951b831e17ecdeb5ff408ae985c",
+      "bytes": 3394,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/CLOSED_LITERAL_BOUND.md",
+      "sha256": "3091592e76c1d0f76c36ab36fc9cf6a7d719e84257fd8f01b3b38e5e890b817f",
+      "bytes": 5199,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/CLOSED_LITERAL_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/IME_NOEFFECT_GATE.md",
+      "sha256": "d1960887e8e0e393053aa7434b8b62280f72bba2fcf711e7bcbd434fbaefffc2",
+      "bytes": 691,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/IME_NOEFFECT_GATE.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/NORMAL_ROUTE_AUDIT.md",
+      "sha256": "f7efe1fa344f81730308ed42ead3d5ca750465e4952d783d5187d467d8b5efa3",
+      "bytes": 2441,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/NORMAL_ROUTE_AUDIT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/PHASE_WORK_BOUND.md",
+      "sha256": "f4599cf71f03f12610345dcfb975fedf3b598616f92edda77d49c0d27e8f3759",
+      "bytes": 1951,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/PHASE_WORK_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/SERIAL_WINDOW_PROOF.md",
+      "sha256": "f7fbe486f4c6f8507d26a8f1f1ed070908d330713856172a6c1af302cf06bdc9",
+      "bytes": 1863,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SERIAL_WINDOW_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/SOURCE_COPY_SUBSET_PROOF.md",
+      "sha256": "008d3d01fcc16c053170062ef0cc7c0ce55b27f452687abb4ad37689c406e8ef",
+      "bytes": 3407,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SOURCE_COPY_SUBSET_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/run_controller.py",
+      "sha256": "18eb6c7402ba505e5619e03fec5a8d9fb7b7086af7d852d6b80af95f8ad15841",
+      "bytes": 14490,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/run_controller.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/run_format_pure.py",
+      "sha256": "1313ef8a22dd4832a4b6dd9811923206c8984f56049d89340a6202a9568f9df5",
+      "bytes": 2113,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/run_format_pure.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/runtime.diff",
+      "sha256": "f18c276bb15413ddb1fdb25e849a49251150e66f7aba59e7cec1c4e407c398b0",
+      "bytes": 52164,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/test_controller_join.py",
+      "sha256": "76c323ea30f4ddd186a8bb54d257f1c3c5c530aa1d282f1105dac4d71a8d1896",
+      "bytes": 5362,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/test_controller_join.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/test_document_format_bound.py",
+      "sha256": "edeaea3352447090d69ecde62032ab4b1318a3f727fe310e6da67b5c0eaba065",
+      "bytes": 3900,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/test_document_format_bound.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/test_dom_component.py",
+      "sha256": "e913793098b55bc7efdf06e7dd89708fe1a8342202e6d7dda05f5fb20b7e5d2a",
+      "bytes": 11062,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/world_product_dom_worker.js",
+      "sha256": "410fe9a11f859c9a9a2b6de8f69a08653723140b6e358a5fafced4e1f45d7f56",
+      "bytes": 5785,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/ATTEMPT_ANCHOR_FIX.md",
+      "sha256": "dac3c6620046879f7f2f7ac2caabc5a1c92ee97d4af84bc4c27cfe76900a8684",
+      "bytes": 754,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/ATTEMPT_ANCHOR_FIX.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/BOUND_REVIEW_DRAFT.md",
+      "sha256": "53eebbb9e238bc560866bd2d511b53758caf4951b831e17ecdeb5ff408ae985c",
+      "bytes": 3394,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/BOUND_REVIEW_DRAFT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/CLOSED_LITERAL_BOUND.md",
+      "sha256": "3091592e76c1d0f76c36ab36fc9cf6a7d719e84257fd8f01b3b38e5e890b817f",
+      "bytes": 5199,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/CLOSED_LITERAL_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/CONSUMPTION_METADATA_STACK.md",
+      "sha256": "6fa2d9935ec30e4b01a194b603e50bbd6f8a8eb7c36b01ab1538d3193eb98eff",
+      "bytes": 3770,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/CONSUMPTION_METADATA_STACK.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/IME_NOEFFECT_GATE.md",
+      "sha256": "d1960887e8e0e393053aa7434b8b62280f72bba2fcf711e7bcbd434fbaefffc2",
+      "bytes": 691,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/IME_NOEFFECT_GATE.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/NORMAL_ROUTE_AUDIT.md",
+      "sha256": "f7efe1fa344f81730308ed42ead3d5ca750465e4952d783d5187d467d8b5efa3",
+      "bytes": 2441,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/NORMAL_ROUTE_AUDIT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/PHASE_WORK_BOUND.md",
+      "sha256": "f4599cf71f03f12610345dcfb975fedf3b598616f92edda77d49c0d27e8f3759",
+      "bytes": 1951,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8b/PHASE_WORK_BOUND.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/SELF_REVIEW.md",
+      "sha256": "af9bed2555eb7e868a2e9fc4e04af5e8bb7c42e1db7ef6944554571932ceea36",
+      "bytes": 645,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/SELF_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/SERIAL_WINDOW_PROOF.md",
+      "sha256": "f7fbe486f4c6f8507d26a8f1f1ed070908d330713856172a6c1af302cf06bdc9",
+      "bytes": 1863,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SERIAL_WINDOW_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/SOURCE_COPY_SUBSET_PROOF.md",
+      "sha256": "008d3d01fcc16c053170062ef0cc7c0ce55b27f452687abb4ad37689c406e8ef",
+      "bytes": 3407,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/controller-repo-integration1/proofs/SOURCE_COPY_SUBSET_PROOF.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/run_controller.py",
+      "sha256": "a2674d6f709e1284525dbf2542785addd7a28aa755f8d456ee821b86786dc663",
+      "bytes": 14490,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/run_controller.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/run_format_pure.py",
+      "sha256": "1313ef8a22dd4832a4b6dd9811923206c8984f56049d89340a6202a9568f9df5",
+      "bytes": 2113,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/run_format_pure.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/runtime.diff",
+      "sha256": "5b734a00cc7996d2dd99541e3546c920aa92e90c1daf82a0907c75a27ada9023",
+      "bytes": 2243,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/test_controller_join.py",
+      "sha256": "76c323ea30f4ddd186a8bb54d257f1c3c5c530aa1d282f1105dac4d71a8d1896",
+      "bytes": 5362,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8g/test_controller_join.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/test_document_format_bound.py",
+      "sha256": "edeaea3352447090d69ecde62032ab4b1318a3f727fe310e6da67b5c0eaba065",
+      "bytes": 3900,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8i/test_document_format_bound.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/test_dom_component.py",
+      "sha256": "e913793098b55bc7efdf06e7dd89708fe1a8342202e6d7dda05f5fb20b7e5d2a",
+      "bytes": 11062,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-controller-stage8j/world_product_dom_worker.js",
+      "sha256": "410fe9a11f859c9a9a2b6de8f69a08653723140b6e358a5fafced4e1f45d7f56",
+      "bytes": 5785,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/adapters/pico4/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/RESOURCE_TABLE.md",
+      "sha256": "1ef55123c4b613aa0981bdb1322d11a16431a77fc28ac23c7ec86b5590188fa2",
+      "bytes": 4201,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/RESOURCE_TABLE.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/REVIEW.md",
+      "sha256": "a60908432aca65e328a66707aa6d71cac2d5850ab9ba1adbd6a138c5f70946d8",
+      "bytes": 3765,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/run_normal.py",
+      "sha256": "54b45a822e444868ceb73b55fc76f5e73e2a306cc971860e458e58a746dcec14",
+      "bytes": 13683,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/runtime.diff",
+      "sha256": "af59994a60a19ed30118b13918182faa3e42b6745c53c3f2db0c8abb1a8d2736",
+      "bytes": 84617,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/stage5c-product-dom.diff",
+      "sha256": "3a3eef5a78561ab71529c24a24ff23b48590a8ada6f41aba1e6f113e2135cb15",
+      "bytes": 27843,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/stage5c-product-dom.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/test_dom_component.py",
+      "sha256": "8ce4c6eb651957b34935adc2ff767bc1e553967dfadf79852a7dde838a461ac9",
+      "bytes": 10810,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/world_product_dom_worker.js",
+      "sha256": "c43a1daf834a106b270cf27cefd7a68b501334cb4c67de7e13c1e37a4d9ee589",
+      "bytes": 4544,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/POST_GUARD_SUCCESSOR.md",
+      "sha256": "c8c1bf6012dfa45e10813e000f46c65f18c63cc14ff98942c5d231e5830fd9cb",
+      "bytes": 1043,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/POST_GUARD_SUCCESSOR.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/RESOURCE_TABLE.md",
+      "sha256": "1ef55123c4b613aa0981bdb1322d11a16431a77fc28ac23c7ec86b5590188fa2",
+      "bytes": 4201,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/RESOURCE_TABLE.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/REVIEW.md",
+      "sha256": "a60908432aca65e328a66707aa6d71cac2d5850ab9ba1adbd6a138c5f70946d8",
+      "bytes": 3765,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/run_normal.py",
+      "sha256": "ee7156cc4ed8af3dd0c80e9dd09de811bd3b5e3d7763cd0c46693077474f6b20",
+      "bytes": 13684,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/runtime.diff",
+      "sha256": "491988b56252fa22e13931f9f30c8f7562e4f260e2d03bc92b255a66d476364d",
+      "bytes": 84860,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/stage5c-product-dom.diff",
+      "sha256": "3a3eef5a78561ab71529c24a24ff23b48590a8ada6f41aba1e6f113e2135cb15",
+      "bytes": 27843,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/stage5c-product-dom.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/stage6-post-guard.diff",
+      "sha256": "f404cadacdd1482a5b3f51a96445a026275b931221d5b9f6bc3921a2f682d88a",
+      "bytes": 2484,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/stage6-post-guard.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/test_dom_component.py",
+      "sha256": "8ce4c6eb651957b34935adc2ff767bc1e553967dfadf79852a7dde838a461ac9",
+      "bytes": 10810,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6b/world_product_dom_worker.js",
+      "sha256": "c43a1daf834a106b270cf27cefd7a68b501334cb4c67de7e13c1e37a4d9ee589",
+      "bytes": 4544,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage6/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/NATIVE_ROUTE_AUDIT.md",
+      "sha256": "fe44a2e32dc0710679f3c625bf3bdb94e89c795e9b46c7e15b2bf0409c97ef45",
+      "bytes": 2118,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/NATIVE_ROUTE_AUDIT.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/REVIEW.md",
+      "sha256": "9777176c211ce731acce2e273f9869fa5c0964a1994f6d709b561583ba1ed399",
+      "bytes": 2857,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/run_fault.py",
+      "sha256": "86edc7eeff3b33e04d90242f4e3e4806cdcb9f0499ad746e94c7ca82518ed0c7",
+      "bytes": 13967,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/run_fault.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/run_normal.py",
+      "sha256": "2a3aa54d907df47b11002034c85441ea46f317b3fe13134470e3c357651456cb",
+      "bytes": 13683,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/runtime.diff",
+      "sha256": "fb023f8de48bad8427b48704f07d9822a254cadcf3dd7128b2f073c2d0244ced",
+      "bytes": 85403,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/stage6b-dom-counters.diff",
+      "sha256": "2d87f49f445b52c4e2d1d5e586b466cb480f982f8899aa124f20ad66eeedc66d",
+      "bytes": 7036,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/stage6b-dom-counters.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/test_dom_component.py",
+      "sha256": "1fe416c2b2d7a667abe232906949d206bf811013d697f3d179a3b5507c3fd9f8",
+      "bytes": 10923,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/test_dom_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/test_dom_faults.py",
+      "sha256": "92f00e4f1768791d8472cf4922d3b886d3eac51e09f767206a5a423d1025167d",
+      "bytes": 4402,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/test_dom_faults.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/world_product_dom_worker.js",
+      "sha256": "275e706f43f851791f976ae213234beae0b8577510ce88572f0c68e1ac07d03a",
+      "bytes": 4665,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-dom-stage7/world_product_dom_worker.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/BOUND_REVIEW.md",
+      "sha256": "8a086d918078e6bc8d7c99c18f3f9652e23fdd29573a2820207f1d79106cf0f3",
+      "bytes": 11239,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/BOUND_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/REVIEW.md",
+      "sha256": "a91b6d0c66e4b8f46ff6e034ced5bcda9f1e5991af2dc04fbf306a4720b4f990",
+      "bytes": 1894,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/WORK_IN_PROGRESS.md",
+      "sha256": "cf176e81248854108deedd86fd85709c763a4eda6bbe6a7611f22c9d5ba93c88",
+      "bytes": 588,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/WORK_IN_PROGRESS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/run_normal.py",
+      "sha256": "9dffeaca8b4b8a0be877715a6c6a9baf7fa9450e0c0bd4d303632cdd92227303",
+      "bytes": 10943,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/runtime.diff",
+      "sha256": "6e6cd7b2e336801dd2b66b7a2260fabe5149adb1580c4daf2d29676e011e1603",
+      "bytes": 58319,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/test_ime_component.py",
+      "sha256": "080228b8405c04272ef70f8ffb7049a0eaac04b517c32428e57687a7da7ccc14",
+      "bytes": 8489,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/test_ime_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/BOUND_REVIEW.md",
+      "sha256": "8a086d918078e6bc8d7c99c18f3f9652e23fdd29573a2820207f1d79106cf0f3",
+      "bytes": 11239,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/BOUND_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/REVIEW.md",
+      "sha256": "a91b6d0c66e4b8f46ff6e034ced5bcda9f1e5991af2dc04fbf306a4720b4f990",
+      "bytes": 1894,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/RUNNER_SUCCESSOR.md",
+      "sha256": "6e087d5b9cd1ec068a4c11c0146886e072ac7cdad33df8f118ee751d8af5270d",
+      "bytes": 658,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/RUNNER_SUCCESSOR.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/WORK_IN_PROGRESS.md",
+      "sha256": "cf176e81248854108deedd86fd85709c763a4eda6bbe6a7611f22c9d5ba93c88",
+      "bytes": 588,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/WORK_IN_PROGRESS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/run_normal.py",
+      "sha256": "4d4808e2b31ad72d9b7f1a2bb6ecab9645e4848940c54c700e12825ad32b1f36",
+      "bytes": 11099,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/runtime.diff",
+      "sha256": "6e6cd7b2e336801dd2b66b7a2260fabe5149adb1580c4daf2d29676e011e1603",
+      "bytes": 58319,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/test_ime_component.py",
+      "sha256": "080228b8405c04272ef70f8ffb7049a0eaac04b517c32428e57687a7da7ccc14",
+      "bytes": 8489,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/test_ime_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/BOUND_REVIEW.md",
+      "sha256": "8a086d918078e6bc8d7c99c18f3f9652e23fdd29573a2820207f1d79106cf0f3",
+      "bytes": 11239,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/BOUND_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/REVIEW.md",
+      "sha256": "a91b6d0c66e4b8f46ff6e034ced5bcda9f1e5991af2dc04fbf306a4720b4f990",
+      "bytes": 1894,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/RUNNER_DIAGNOSTICS.md",
+      "sha256": "27ec7b087edc00fb758b489301addc5f74364cfa3ccd0f6130bc2caa9b8f7e79",
+      "bytes": 575,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/RUNNER_DIAGNOSTICS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/RUNNER_SUCCESSOR.md",
+      "sha256": "6e087d5b9cd1ec068a4c11c0146886e072ac7cdad33df8f118ee751d8af5270d",
+      "bytes": 658,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/RUNNER_SUCCESSOR.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/WORK_IN_PROGRESS.md",
+      "sha256": "cf176e81248854108deedd86fd85709c763a4eda6bbe6a7611f22c9d5ba93c88",
+      "bytes": 588,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/WORK_IN_PROGRESS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/run_normal.py",
+      "sha256": "a1b412b1600d3dbcbd0d2a2c94b0ce671739247e486f9d4362f0de4b6c4b8e0b",
+      "bytes": 11499,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/runtime.diff",
+      "sha256": "6e6cd7b2e336801dd2b66b7a2260fabe5149adb1580c4daf2d29676e011e1603",
+      "bytes": 58319,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/test_ime_component.py",
+      "sha256": "080228b8405c04272ef70f8ffb7049a0eaac04b517c32428e57687a7da7ccc14",
+      "bytes": 8489,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/test_ime_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/BOUND_REVIEW.md",
+      "sha256": "a7132870b0e16cb1f17637b8e6e6589cae3203a9e08eab3a45e66130e0530b93",
+      "bytes": 11609,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/BOUND_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/RAW_80P_REPARTITION.md",
+      "sha256": "b232b0adb979ffc7f9b0638ad227881dcca46924708e1e7ca761f47396e7238d",
+      "bytes": 4204,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/RAW_80P_REPARTITION.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/REVIEW.md",
+      "sha256": "a91b6d0c66e4b8f46ff6e034ced5bcda9f1e5991af2dc04fbf306a4720b4f990",
+      "bytes": 1894,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/RUNNER_DIAGNOSTICS.md",
+      "sha256": "27ec7b087edc00fb758b489301addc5f74364cfa3ccd0f6130bc2caa9b8f7e79",
+      "bytes": 575,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/RUNNER_DIAGNOSTICS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/RUNNER_SUCCESSOR.md",
+      "sha256": "6e087d5b9cd1ec068a4c11c0146886e072ac7cdad33df8f118ee751d8af5270d",
+      "bytes": 658,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/RUNNER_SUCCESSOR.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/WORK_IN_PROGRESS.md",
+      "sha256": "0f5923b7078ca36e1776baf9e0fe6a91faac99af1e5bf945d86ca0911f0c862a",
+      "bytes": 507,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/WORK_IN_PROGRESS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/run_normal.py",
+      "sha256": "309e0ce1b2d70ceceb576df02d4c1caf29eb8a201fc7ffc58bb34b18767dcd7b",
+      "bytes": 12440,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/runtime.diff",
+      "sha256": "4b5dbd841d09822ea5b71719942f8c58ef2ac80d53bf54fa7d2906baffaa6557",
+      "bytes": 60425,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/stage4c-successor.diff",
+      "sha256": "a12470ff67b3f10624f01155da47e8928e71d62e7f247ebe7f4b25bd401f7c00",
+      "bytes": 2195,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/stage4c-successor.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/test_ime_component.py",
+      "sha256": "080228b8405c04272ef70f8ffb7049a0eaac04b517c32428e57687a7da7ccc14",
+      "bytes": 8489,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/test_ime_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/BOUND_REVIEW.md",
+      "sha256": "a7132870b0e16cb1f17637b8e6e6589cae3203a9e08eab3a45e66130e0530b93",
+      "bytes": 11609,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/BOUND_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/DIAGNOSTIC_ONLY.md",
+      "sha256": "599c8c890ea48b8aa4f91e23b850c2902f0de7f383d43fcf92cdeebdc4366440",
+      "bytes": 674,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/DIAGNOSTIC_ONLY.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/RAW_80P_REPARTITION.md",
+      "sha256": "b232b0adb979ffc7f9b0638ad227881dcca46924708e1e7ca761f47396e7238d",
+      "bytes": 4204,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/RAW_80P_REPARTITION.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/REVIEW.md",
+      "sha256": "a91b6d0c66e4b8f46ff6e034ced5bcda9f1e5991af2dc04fbf306a4720b4f990",
+      "bytes": 1894,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/RUNNER_DIAGNOSTICS.md",
+      "sha256": "27ec7b087edc00fb758b489301addc5f74364cfa3ccd0f6130bc2caa9b8f7e79",
+      "bytes": 575,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/RUNNER_DIAGNOSTICS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/RUNNER_SUCCESSOR.md",
+      "sha256": "6e087d5b9cd1ec068a4c11c0146886e072ac7cdad33df8f118ee751d8af5270d",
+      "bytes": 658,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/RUNNER_SUCCESSOR.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/WORK_IN_PROGRESS.md",
+      "sha256": "0f5923b7078ca36e1776baf9e0fe6a91faac99af1e5bf945d86ca0911f0c862a",
+      "bytes": 507,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/WORK_IN_PROGRESS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/run_normal.py",
+      "sha256": "1c77611e02564e877184670474768ca1ec8afb08b278a142a0ce3f7cf68e5b07",
+      "bytes": 13004,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/runtime.diff",
+      "sha256": "4b5dbd841d09822ea5b71719942f8c58ef2ac80d53bf54fa7d2906baffaa6557",
+      "bytes": 60425,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/stage4c-successor.diff",
+      "sha256": "a12470ff67b3f10624f01155da47e8928e71d62e7f247ebe7f4b25bd401f7c00",
+      "bytes": 2195,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/stage4c-successor.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/test_ime_component.py",
+      "sha256": "080228b8405c04272ef70f8ffb7049a0eaac04b517c32428e57687a7da7ccc14",
+      "bytes": 8489,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4/test_ime_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/BOUND_REVIEW.md",
+      "sha256": "12f5b71639e7401cb6041247c69be29f2dff256bc5c886915dc17b817e96735d",
+      "bytes": 12132,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/BOUND_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/CURRENT_SOURCE_JOIN.md",
+      "sha256": "f31b804324e639311e26e983437cdac8b025a09fc0b241443831bdde36c72604",
+      "bytes": 1225,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/CURRENT_SOURCE_JOIN.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/DIAGNOSTIC_ONLY.md",
+      "sha256": "599c8c890ea48b8aa4f91e23b850c2902f0de7f383d43fcf92cdeebdc4366440",
+      "bytes": 674,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/DIAGNOSTIC_ONLY.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/ENTRY_RETURN_LIFETIME.md",
+      "sha256": "1f5bbb8d3f632a762c4ea1a02f8e7a64b76e234e169e4689a9d2372ec65f7297",
+      "bytes": 6071,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/ENTRY_RETURN_LIFETIME.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/RAW_80P_REPARTITION.md",
+      "sha256": "b232b0adb979ffc7f9b0638ad227881dcca46924708e1e7ca761f47396e7238d",
+      "bytes": 4204,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/RAW_80P_REPARTITION.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/REVIEW.md",
+      "sha256": "6958c437d254c479c2395f69c100e85b08ca9607e03f351fd18676f4ea9ee347",
+      "bytes": 1516,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/RUNNER_DIAGNOSTICS.md",
+      "sha256": "27ec7b087edc00fb758b489301addc5f74364cfa3ccd0f6130bc2caa9b8f7e79",
+      "bytes": 575,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/RUNNER_DIAGNOSTICS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/RUNNER_SUCCESSOR.md",
+      "sha256": "6e087d5b9cd1ec068a4c11c0146886e072ac7cdad33df8f118ee751d8af5270d",
+      "bytes": 658,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/RUNNER_SUCCESSOR.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/WORK_IN_PROGRESS.md",
+      "sha256": "52daa420eb862ec724cef31e87e41f723932283992a08ecb7c9d988a83bd9e2f",
+      "bytes": 598,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/WORK_IN_PROGRESS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/run_normal.py",
+      "sha256": "68ca25f707b241f936a9a295df0edb548dd1749be7bbea6f9050333b0db40a9b",
+      "bytes": 13383,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/runtime.diff",
+      "sha256": "cb675e94dce8ab8cfed08129a825e9cf36b6a547d918f0e02d3de184afe43503",
+      "bytes": 61979,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/stage4c-successor.diff",
+      "sha256": "a12470ff67b3f10624f01155da47e8928e71d62e7f247ebe7f4b25bd401f7c00",
+      "bytes": 2195,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/stage4c-successor.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/stage4e-entry-success.diff",
+      "sha256": "eb8e234eacd644f704ef227139f5352c156af1f7023baa55cf47b7bf358903f0",
+      "bytes": 3154,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/stage4e-entry-success.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/test_ime_component.py",
+      "sha256": "3d036806c1d9e72292e058ecf9f65865763a9c8902f61f4322511864a3c7450f",
+      "bytes": 8650,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/test_ime_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/BOUND_REVIEW.md",
+      "sha256": "5e1c2b94e8aaabfa2cc869b90032247229a4128b38e73ccfd6b381acd232fe46",
+      "bytes": 12466,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/BOUND_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/CURRENT_SOURCE_JOIN.md",
+      "sha256": "f31b804324e639311e26e983437cdac8b025a09fc0b241443831bdde36c72604",
+      "bytes": 1225,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/CURRENT_SOURCE_JOIN.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/DIAGNOSTIC_ONLY.md",
+      "sha256": "599c8c890ea48b8aa4f91e23b850c2902f0de7f383d43fcf92cdeebdc4366440",
+      "bytes": 674,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4e/DIAGNOSTIC_ONLY.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/ENTRY_RETURN_LIFETIME.md",
+      "sha256": "1f5bbb8d3f632a762c4ea1a02f8e7a64b76e234e169e4689a9d2372ec65f7297",
+      "bytes": 6071,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/ENTRY_RETURN_LIFETIME.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/IME_SOURCE_LOCK.md",
+      "sha256": "e963e59e63a145c58c34eee37cd5ae6f6ba1f47eb129c1157de59006655de050",
+      "bytes": 1678,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/IME_SOURCE_LOCK.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/RAW_80P_REPARTITION.md",
+      "sha256": "b232b0adb979ffc7f9b0638ad227881dcca46924708e1e7ca761f47396e7238d",
+      "bytes": 4204,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/RAW_80P_REPARTITION.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/REVIEW.md",
+      "sha256": "6958c437d254c479c2395f69c100e85b08ca9607e03f351fd18676f4ea9ee347",
+      "bytes": 1516,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/RUNNER_DIAGNOSTICS.md",
+      "sha256": "27ec7b087edc00fb758b489301addc5f74364cfa3ccd0f6130bc2caa9b8f7e79",
+      "bytes": 575,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4c/RUNNER_DIAGNOSTICS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/RUNNER_SUCCESSOR.md",
+      "sha256": "6e087d5b9cd1ec068a4c11c0146886e072ac7cdad33df8f118ee751d8af5270d",
+      "bytes": 658,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4b/RUNNER_SUCCESSOR.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/WORK_IN_PROGRESS.md",
+      "sha256": "433284920d518df8f6fd339e55b37270a56b2f681db2d5748041348fe1cf50db",
+      "bytes": 432,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/WORK_IN_PROGRESS.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/run_normal.py",
+      "sha256": "355d08878f3397e3d26c4bb66e06e74184e183c79b59aab142f2592a5b0c2855",
+      "bytes": 13383,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/runtime.diff",
+      "sha256": "880a27e5dfe0dbb140362759d7b2dd2ad98428c1f5511743ec4ce26d15ff2370",
+      "bytes": 62254,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/stage4c-successor.diff",
+      "sha256": "a12470ff67b3f10624f01155da47e8928e71d62e7f247ebe7f4b25bd401f7c00",
+      "bytes": 2195,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4d/stage4c-successor.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/stage4e-entry-success.diff",
+      "sha256": "eb8e234eacd644f704ef227139f5352c156af1f7023baa55cf47b7bf358903f0",
+      "bytes": 3154,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/stage4e-entry-success.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/stage4f-ime-lock.diff",
+      "sha256": "1150ecee47c53e926a0f9f547c46c664d6fd255f75cb2d8b63be10be7086ad40",
+      "bytes": 4063,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/stage4f-ime-lock.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4g/test_ime_component.py",
+      "sha256": "3d036806c1d9e72292e058ecf9f65865763a9c8902f61f4322511864a3c7450f",
+      "bytes": 8650,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage4f/test_ime_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/REVIEW.md",
+      "sha256": "0c1c45ee2540f0e546bb6adbf0346199dd5180354b3ed4b2ed217cd05996b8c8",
+      "bytes": 2909,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/run_normal.py",
+      "sha256": "98997dcbf2835fd3bbbed00cc0ee08aa56b6438b018078bce6b0f8a71a00a5f6",
+      "bytes": 13394,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/runtime.diff",
+      "sha256": "04cbd6a9cbe3b501e919dfbf4ef15c5a4618072f550e15232cbeba1a19c60594",
+      "bytes": 64256,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/stage4g-return-success.diff",
+      "sha256": "c4c32a700255c1e7fbced38d79223f3923ee46a0164f9dd67f95cb8dd439d11c",
+      "bytes": 7432,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/stage4g-return-success.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/test_ime_component.py",
+      "sha256": "000de46e9ea8e85788c2fac3b43859342b071898800962879596b0bfccd5f655",
+      "bytes": 9038,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/test_ime_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5b/REVIEW.md",
+      "sha256": "0c1c45ee2540f0e546bb6adbf0346199dd5180354b3ed4b2ed217cd05996b8c8",
+      "bytes": 2909,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5b/SOURCE_EPOCH.md",
+      "sha256": "7b898a76000701a6b5f30a003ce9dfd7ba466cc245b2cf3ead280ffb2705d66d",
+      "bytes": 428,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5b/SOURCE_EPOCH.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5b/run_normal.py",
+      "sha256": "f2c23bf158b0cea240fafa39e7adaa94ed6e50259bbf963d507a5a8cb85ba8b6",
+      "bytes": 13395,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5b/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5b/runtime.diff",
+      "sha256": "04cbd6a9cbe3b501e919dfbf4ef15c5a4618072f550e15232cbeba1a19c60594",
+      "bytes": 64256,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5b/stage4g-return-success.diff",
+      "sha256": "c4c32a700255c1e7fbced38d79223f3923ee46a0164f9dd67f95cb8dd439d11c",
+      "bytes": 7432,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/stage4g-return-success.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5b/test_ime_component.py",
+      "sha256": "000de46e9ea8e85788c2fac3b43859342b071898800962879596b0bfccd5f655",
+      "bytes": 9038,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5/test_ime_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/REVIEW.md",
+      "sha256": "4fd2baf8b9e4339c378bf6412a5537d3ed59725c101821fa67b057c15da3d031",
+      "bytes": 3586,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/run_normal.py",
+      "sha256": "a4fd148387ebf238d0d70f1c5b9027607ed040fa0474fc408a211a61c1d65d14",
+      "bytes": 13459,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/run_pure.py",
+      "sha256": "10d1b8b3aead4669a3aae325afbeea616fdfbf0d316ce7599dfdb0b1623b0640",
+      "bytes": 13476,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/run_pure.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/runtime.diff",
+      "sha256": "588c214494fe744a039d6e801822e1889637923f5a6c246f43f07c2314411c25",
+      "bytes": 67539,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/stage5b-string-extents.diff",
+      "sha256": "fa3a63c57148b64ec2ffb6240b4fb88e700a4f701b29b356984020eb55db91b3",
+      "bytes": 6150,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/stage5b-string-extents.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/test_ime_component.py",
+      "sha256": "5e8006e94b2aa94acc188db24afb624af88746c4e7fdf1483679cf3ba04da686",
+      "bytes": 9063,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/test_ime_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-ime-stage5c/test_live_strings.py",
+      "sha256": "71b360016d776e1628dfeaddfff5ff84852348f8e399e069687761a0b38eea54",
+      "bytes": 2646,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/self_tests/pico_world_live_strings_fixture.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage1/BOUND_REVIEW.md",
+      "sha256": "7cbfde0cd9126a8423e7c065f47af9900cfa79d63f0bbd2baf29fa92fe8cf97b",
+      "bytes": 4493,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage1/BOUND_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage1/run_work.py",
+      "sha256": "af957024d94063089aa36df86a6c3d27a63215afce552737615962e4a7aa9629",
+      "bytes": 3094,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage1/run_work.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage1/test_world_json_work.py",
+      "sha256": "3f6fa906027246f8c62170205513689f392a74e203d0b3f2a5c54d2e27cf4574",
+      "bytes": 7090,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage1/test_world_json_work.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage1/world_document_model.py",
+      "sha256": "806bb2268ac81f7db74c748af1b1c031d7fa7f67f3be4e3a84e9879c16aa617f",
+      "bytes": 6105,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage1/world_document_model.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage1/world_json_work.py",
+      "sha256": "ace070ed70c6687b446722d4dbc3c884b6ef5aeff612fdc38fc825d1b5a4e6c6",
+      "bytes": 7561,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage1/world_json_work.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/BOUND_REVIEW.md",
+      "sha256": "165bcd3850bbfcf3312a3b888758f0e7567ae3375337d4a92f78483c773178ba",
+      "bytes": 10981,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/BOUND_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/document-call-boundary-only.diff",
+      "sha256": "6af81c0937d7bec87d8e58c0a2732fd9a15bbc1dc95e99d340f2271c9e523e5e",
+      "bytes": 1676,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/document-call-boundary-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/parent-source-mode-only.diff",
+      "sha256": "2fb1a5c787097afee9e24541bbe6530572ae3269cbef2bb8467a887e3798aba3",
+      "bytes": 2958,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/parent-source-mode-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/run_positive.py",
+      "sha256": "72397ef21a01f13e2e920b172c149cdd5465c80ab890b105e4f871d9e4ceef0b",
+      "bytes": 8121,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/run_positive.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/test_positive_document.py",
+      "sha256": "ad8026557e0490ef8dbdd925594a9b93f561e9e9929d4a2ad2668b2527a25d60",
+      "bytes": 5827,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/test_positive_document.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/world-forwarding-only.diff",
+      "sha256": "48b3e2618c61f7e7d370581d942634860c773a605b161caa3e21838bd45ebdcb",
+      "bytes": 2726,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage2/world-forwarding-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/REVIEW.md",
+      "sha256": "09126e244a57b05546543c7cd83e1a5c8ba5349940fd7a9e0c074c582ef8b428",
+      "bytes": 6170,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/run_normal.py",
+      "sha256": "a2201bb0ae280bb1d38f9000a0fddc5bcff3edab02ea9bd0daebc9f7ecb82587",
+      "bytes": 8037,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/runtime.diff",
+      "sha256": "b44c8d4203d6f826e57309730025573bcaf450621f00c01c73dab1734fdcdd52",
+      "bytes": 21995,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/test_focus_component.py",
+      "sha256": "b15ed732a0e22376af5ead3f74210aa7da019d0607ca7c96b73f3c26d7bc63d4",
+      "bytes": 11210,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/test_focus_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3-fault-runners/run_fault.py",
+      "sha256": "e22e497061a8e6f4477f6f90189713d21b7d4e3d17b920d542f6e3f4b4fe1688",
+      "bytes": 8590,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3-fault-runners/run_fault.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3-fault-runners2/run_fault.py",
+      "sha256": "c19eeb0355eb36f53bd70d4c91912578b6d4956d0ea33cf32124e36a1214830e",
+      "bytes": 8906,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3-fault-runners2/run_fault.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3-fault-runners2/test_focus_faults.py",
+      "sha256": "f3892850a8a16fd34d81af1904a337cb0446acffddf1af56c4c488b66b8fd47e",
+      "bytes": 4763,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3-fault-runners2/test_focus_faults.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3b/REVIEW.md",
+      "sha256": "09126e244a57b05546543c7cd83e1a5c8ba5349940fd7a9e0c074c582ef8b428",
+      "bytes": 6170,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3b/run_normal.py",
+      "sha256": "4a8d7ee96c286fb1c78258767bc87dae26be6376f15403b3e34db94c8ed6f5ef",
+      "bytes": 8285,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3b/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3b/runtime.diff",
+      "sha256": "b44c8d4203d6f826e57309730025573bcaf450621f00c01c73dab1734fdcdd52",
+      "bytes": 21995,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/runtime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3b/test_focus_component.py",
+      "sha256": "b15ed732a0e22376af5ead3f74210aa7da019d0607ca7c96b73f3c26d7bc63d4",
+      "bytes": 11210,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/host-stage3/test_focus_component.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/REVIEW.md",
+      "sha256": "ecda5d4d3e76f1ff427b8ae455280f75a129ca091602352cc6e5be1948ecc226",
+      "bytes": 919,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/run_schema.py",
+      "sha256": "a2157e31db9d50d340d5d8939a3dadf8be7766d2508a14be3484212a957c35c2",
+      "bytes": 4300,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/run_schema.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/schema_unit.cpp",
+      "sha256": "db77c4c52babd3f76cd34bbebf86ed7fe7a590c3c6d61048afdabe98d124b1de",
+      "bytes": 3981,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/schema_unit.cpp"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/headers/PicoWorldCurrentDocumentBridge.h",
+      "sha256": "5ad72c172493f519ba22e349b480dc341bc01a6c60b73bd8c6fe2ff51fcc7652",
+      "bytes": 2171,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/native/PicoWorldCurrentDocumentBridge.h"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/headers/PicoWorldCurrentImeBridge.h",
+      "sha256": "2fc5bdbbb2b3284d2b65bac29be4735a7fabc466c2d736348a3be33e75afe60a",
+      "bytes": 3043,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/native/PicoWorldCurrentImeBridge.h"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/headers/PicoWorldCurrentInputBridge.h",
+      "sha256": "d119c581c890233078094f868180cd7bb8b2b00ad502ff60486db3fbef8ab69f",
+      "bytes": 1926,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/native/PicoWorldCurrentInputBridge.h"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/headers/WebDOMObservationBridge.h",
+      "sha256": "def890a6ef398df3be8dd5e7d74b78bffd90b0530326bb9e9951ffea12bb9fac",
+      "bytes": 1778,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/native/WebDOMObservationBridge.h"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-qt-schema1/headers/WebRuntimeBridge.h",
+      "sha256": "ed15559c1ad04057048f8bb0c91a51d8d1513f14fd6de2e6b18dd8f8b3974fc7",
+      "bytes": 1233,
+      "disposition": "already-in-base-tree",
+      "repositoryPath": "tests/device/native/WebRuntimeBridge.h"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-repo-integration3/REVIEW.md",
+      "sha256": "7ffd3e53b7ae4777feba6f0e3ab15b86944d06659734958647d1be78cb77867c",
+      "bytes": 3234,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-repo-integration3/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-repo-integration3/integration.diff",
+      "sha256": "e208e54d9965134b53711b2de712d78fe087d7230d706e7b2bdd9b754e0c2468",
+      "bytes": 55029,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime-repo-integration3/integration.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/REVIEW.md",
+      "sha256": "735aa0282b2acc30bca22cdf45c969ad73b77cf47cc777cf24652cdf3161be18",
+      "bytes": 4063,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/checks_runner.py",
+      "sha256": "9e58e799277487a28c8f141d4b9088a2f9370d4e51da1b95326cb438995f0745",
+      "bytes": 3934,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/checks_runner.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/native-ime.diff",
+      "sha256": "49cd319f577ce975d5a826915758bb4b63e7469de5d0988d03718b3ea730952c",
+      "bytes": 26554,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/native-ime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/test_probe_boundary.js",
+      "sha256": "7627c74b1b405f2a1313b4e2b932d87c6c950ae42c1dac39efe3003e7d035a86",
+      "bytes": 3324,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/test_probe_boundary.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/test_source_joins.py",
+      "sha256": "d1e65014bc0b429fe67a9784b20f9953a3f029912c68b8ddad8c082783a026c3",
+      "bytes": 4582,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/test_source_joins.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime2-current-d35/REVIEW.md",
+      "sha256": "11da1ca7d9662f95729bb3df397672ada85a5fe1c982e4cd0f381ad92b123040",
+      "bytes": 740,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime2-current-d35/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime2-current-d35/checks_runner.py",
+      "sha256": "533bde405bd0279dac755d53b3b6f69fd95b4ba02a8867c053323b4f12ff3d4f",
+      "bytes": 3946,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime2-current-d35/checks_runner.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime2-current-d35/native-ime.diff",
+      "sha256": "b8726dd101eee45def1950a6846ff86687c8ef6443cfa924476572d4ed1ce786",
+      "bytes": 26632,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime2-current-d35/native-ime.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime2-current-d35/test_probe_boundary.js",
+      "sha256": "7627c74b1b405f2a1313b4e2b932d87c6c950ae42c1dac39efe3003e7d035a86",
+      "bytes": 3324,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/test_probe_boundary.js"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime2-current-d35/test_source_joins.py",
+      "sha256": "d1e65014bc0b429fe67a9784b20f9953a3f029912c68b8ddad8c082783a026c3",
+      "bytes": 4582,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/native-ime1/test_source_joins.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/repo-integration1/SELF_REVIEW.md",
+      "sha256": "dc1dbf241051353bc7284192762ec0d487092a962d804b5ae77703df3958f0ad",
+      "bytes": 3569,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/repo-integration1/SELF_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/repo-integration1/integration.diff",
+      "sha256": "90a01b734a8650ae067092ac065c73d0faf864195fd9e5ee7230badb4217f90d",
+      "bytes": 118028,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/repo-integration1/integration.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/repo-integration2/REVIEW.md",
+      "sha256": "4a40381017f495de083e7d77f148e466a30b435aa720ef43367aba441ffd5464",
+      "bytes": 5322,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/repo-integration2/REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/repo-integration2/integration.diff",
+      "sha256": "7029eb7af4e6c1ac73b48baee8d864ecc3b3761e3a9db3d9b7369b201ffe99b3",
+      "bytes": 132007,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/repo-integration2/integration.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource1/PACKET_REVIEW.md",
+      "sha256": "27f086ca72204c735a8c3657c49bfe00cce48b7bbaa2c9f3fc8bc119ce2718e5",
+      "bytes": 3284,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource1/PACKET_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource1/afterimages.diff",
+      "sha256": "60e6fb6bcc68c55a1458c53978f391a5c5d55f4ebd6270955fc48144818f2749",
+      "bytes": 2887,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource1/afterimages.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource1/build_afterimages.py",
+      "sha256": "9657bf8ce84788e26ee94517a5fcc0e3dbce3bcab40f680d91ece3fa39c84ef7",
+      "bytes": 2517,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource1/build_afterimages.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource1/run_normal.py",
+      "sha256": "5d5612a45e1f2823755082eca86c21e2eb74bc4b78fbb1ab9457f4ad844c571d",
+      "bytes": 4926,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource1/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource1/test_world_root_resource.py",
+      "sha256": "eac70053058a970eea1beaf1945610bfc1aee6956ffcddbb9bccf5dbbb7cc79f",
+      "bytes": 5504,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource1/test_world_root_resource.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource2/run_normal.py",
+      "sha256": "a7c47268b7a92b48696469a84532a1c5aa8a5ff2f60694cbc432054ddbc94505",
+      "bytes": 5010,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource2/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource2/runner-only.diff",
+      "sha256": "012240e5fc63e303890a1e98c40913b81bcea49463621a1ab1fefa0ca996f5f2",
+      "bytes": 1877,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource2/runner-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/SELF_REVIEW.md",
+      "sha256": "c05fc93077172ed4c7d43a2165a352ca657055629d14d00ce7207bd948fc5f8a",
+      "bytes": 1458,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/SELF_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/afterimages.diff",
+      "sha256": "46e07ee6c205b082c74da30f8cb95aebc2f5457c6d63a40f3b6fd8bdf7db3772",
+      "bytes": 2887,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/afterimages.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/helper-only.diff",
+      "sha256": "af446474101f2e67b874b73ef6b8d696dc5c2c557f67acdf105c35cd419f986b",
+      "bytes": 670,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/helper-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/run_normal.py",
+      "sha256": "a399057ee362d6eee2257944b3fb9f8d44b91164d3092968362a5af2ee563f4f",
+      "bytes": 5010,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/test-data-only.diff",
+      "sha256": "45d5664afd2518819ec2e29a933963801b0b8c3648742bdcf8a15086722b3ad9",
+      "bytes": 1123,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/test-data-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/test_world_root_resource.py",
+      "sha256": "908cc8e8d24d4928ed5a5bd76ab1a7136b7a5bf96eeab142d0dfa6d91f5f1bc9",
+      "bytes": 5514,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/test_world_root_resource.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource4/SELF_REVIEW.md",
+      "sha256": "161bc64098bb28523f8c24edf5d7786502eda46f2300590acd033481b1702d95",
+      "bytes": 822,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource4/SELF_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource4/run_normal.py",
+      "sha256": "7c533240033763b4f1f0d835270fd6b1622f91ab5cc0d1f0ac971c8e5767b64c",
+      "bytes": 5037,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource4/run_normal.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource4/runner-only.diff",
+      "sha256": "7713c7c67c32349ba3fdb238698bd86f5c50fd07081c5feb3258d6cf968bb91c",
+      "bytes": 574,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource4/runner-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/FAULT_PROPOSAL.md",
+      "sha256": "f3a1058750ef24bf503006b90e0e91465d3f2e5f50e36da4032d20a0f9a3cf8f",
+      "bytes": 3704,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/FAULT_PROPOSAL.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/SELF_REVIEW.md",
+      "sha256": "219ed5009dc57333171425e31e91982ef504e71d0f32964dbdf126091688a261",
+      "bytes": 2070,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/SELF_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/helper-counter-only.diff",
+      "sha256": "5bcdcecfef45ef0af3275fd2a86c6667deb286b9addb91d76eccd8293d50922c",
+      "bytes": 2788,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/helper-counter-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/run_fault.py",
+      "sha256": "5afce68f7f899cc8a5987d829d0b1b9081db74679f9050f6dfb8667f058059ad",
+      "bytes": 5276,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/run_fault.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/runner-only.diff",
+      "sha256": "db95dc8cb5329b2caceb682431aafa8ca6868cfd10bed6b63c0534280e68c390",
+      "bytes": 3576,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/runner-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/test_resource_faults.py",
+      "sha256": "41154f8e8029499a200b590ae39f2806ca9eef7c8cb884194110a587c219b3aa",
+      "bytes": 7971,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/test_resource_faults.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource5/test_world_root_resource.py",
+      "sha256": "908cc8e8d24d4928ed5a5bd76ab1a7136b7a5bf96eeab142d0dfa6d91f5f1bc9",
+      "bytes": 5514,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/test_world_root_resource.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/SELF_REVIEW.md",
+      "sha256": "e29d7b7b5d8b0c352e07affa1edac16910206cc38d68420bc841184cc4eb2d1d",
+      "bytes": 1702,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/SELF_REVIEW.md"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/bound-forwarding-review-only.diff",
+      "sha256": "9ccd799a974180f9117742d6d9bedf3f5ad7b40609512b344e4a96c412694565",
+      "bytes": 909,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/bound-forwarding-review-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/helper-stage-only.diff",
+      "sha256": "fb52db7ba91a0dae7f84f9aaebb51a84fcfffcd845f8ce2fafe75b782fb63470",
+      "bytes": 1740,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/helper-stage-only.diff"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/run_absent.py",
+      "sha256": "803e92bd4ad99f4ed29da4107569533a49a7bb9f6e5dea05394ca7a0dcc57f6c",
+      "bytes": 5015,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/run_absent.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/test_absent_stage.py",
+      "sha256": "5ea99aedf9b6cad0c178203817971d9f5f9e04a55784d59109532e78e543d10e",
+      "bytes": 3833,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/test_absent_stage.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/test_world_root_resource.py",
+      "sha256": "908cc8e8d24d4928ed5a5bd76ab1a7136b7a5bf96eeab142d0dfa6d91f5f1bc9",
+      "bytes": 5514,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource3/test_world_root_resource.py"
+    },
+    {
+      "source": "pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/world-callsite-only.diff",
+      "sha256": "1609e97fccc0193a30ad05001948730acfaf2b61871efa0351b091d2d3612166",
+      "bytes": 1198,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_world_web_backup_20261105/pico-world-web-unicode-audit-20261104-Y7hm6Y/resource6/world-callsite-only.diff"
+    }
+  ],
+  "patchSha256": "ac7a1b36c0eb3aac8f29482dedc3f5d9473c2d1c3a2cd9702ed273ba7718942d",
+  "excluded": "Execution originals, generated credentials/certificates/configuration, mirrors, binary artifacts, logs and runtime directories are not source changes and are excluded."
+}

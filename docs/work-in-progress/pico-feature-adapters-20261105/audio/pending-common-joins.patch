@@ -1,0 +1,173 @@
+diff --git a/tests/device/adapters/pico4/audio_cleanup_common.py b/tests/device/adapters/pico4/audio_cleanup_common.py
+--- a/tests/device/adapters/pico4/audio_cleanup_common.py
++++ b/tests/device/adapters/pico4/audio_cleanup_common.py
+@@ -20,7 +20,7 @@
+     def __init__(self,owner):
+         self.owner=owner;self.budget=owner.budget
+         need(self.budget.common_owner is self and self.budget.common_credit==2*1048576)
+-        self.journey=None;self.callback=self.consume;self.invoke=self.observe;self.read_witness=self.witness
++        self.journey=None;self.normal_primary=None;self.normal_samples=0;self.primary_sequence_base=0;self.normal_receipt=None;self.callback=self.consume;self.invoke=self.observe;self.read_witness=self.witness
+         self.started=self.consumed=False
+         self.failed=False;self.failure=None;self.rows=[];self.pending_peer=None
+         self.first=self.previous=self.keys=None;self.first_host=self.previous_host=None
+@@ -54,13 +54,28 @@
+         if self.failure is None:self.failure=(error,error.__traceback__)
+         self.failed=True;self.owner.poison(error)
+ 
+-    def attach(self,journey):
++    def attach(self,journey,*,normal_primary=None):
+         need(type(journey) is Journey and journey.area=='audio'
+             and journey.run==self.owner.recipe.run and journey.url==self.owner.source.fixture_url
+             and journey.after_cleanup_baseline is self.callback
+             and journey.invoke is self.invoke and journey.witness is self.read_witness
+             and journey.audio_cleanup_poll_profile=='pico-audio-cleanup1'
+             and self.journey is None and not self.started)
++        if normal_primary is not None:
++            from adapters.pico4.audio_common_primary import AudioCommonPrimary1
++            from feature_journeys.scenarios import SCENARIOS
++            need(type(normal_primary) is AudioCommonPrimary1 and normal_primary.coordinator is self.owner.coordinator
++                and normal_primary.actor is self.owner.actor and normal_primary.source is self.owner.source
++                and len(journey.phases)==15 and len(self.owner.coordinator.state['completed'])==14
++                and self.owner.recipe.state['cursor']==14 and self.owner.coordinator.state['digitalRetired'])
++            for done,step in zip(self.owner.coordinator.state['completed'],SCENARIOS['audio']['steps']):
++                need(done['call']['verb']==step['verb'] and done['call']['inputs']==step['inputs'])
++            normal_primary.verify_consumed_prefix(journey.samples)
++            self.normal_primary=normal_primary;self.normal_samples=len(journey.samples)
++            self.primary_sequence_base=journey.sequence
++            self.normal_receipt=dict(audioCommonPrefixVersion=1,samples=self.normal_samples,
++                finalSequence=journey.sequence,primaryScopeSha256=normal_primary.scope_sha,
++                sourceReferences=deepcopy(normal_primary.state['value']['frames']))
+         self.journey=journey
+ 
+     def control(self):
+@@ -107,7 +122,7 @@
+         # small projected bytes cross its return. The old quiet work stays held.
+         value=json.loads(encoded)
+         frame=dict(schemaVersion=1,contractVersion=16,runId=self.owner.recipe.run,
+-            sequence=value['sequence'],capturedEpochMs=min(value['originalClocks']),
++            sequence=value['sequence']+(self.primary_sequence_base if sampler.role=='primary' else 0),capturedEpochMs=min(value['originalClocks']),
+             state=value['state'],artifacts=[],resources=[],lifecycle=value['lifecycle'])
+         result('feature.audio.observe',frame)
+         raw=canonical(frame);need(len(raw)<=2048)
+@@ -193,10 +208,13 @@
+                 sequenceSucceeded=j._cleanup_sequence_succeeded,commonPhase=j.phases[-1] if j.phases else None)
+             need(self.budget.common_owner is self and not self.failed and not self.consumed and self.started and self.pending_peer is None
+                 and type(raw) is bytes and raw is j.cleanup_consumption and j.cleanup_hook_started
+-                and len(raw)<=262144 and not j._cleanup_sequence_succeeded
++                and len(raw)<=262144 and (not j._cleanup_sequence_succeeded or self.normal_primary is not None)
+                 and self.complete and len(self.rows)==len(owner._quiet_tokens)
+-                and len(self.rows)==len(j.samples) and j.phases[-1]['stableSeconds']>=3)
+-            for sample,(primary_raw,peer_raw,_ref) in zip(j.samples,self.rows):
++                and len(self.rows)==len(j.samples)-self.normal_samples and j.phases[-1]['stableSeconds']>=3)
++            if self.normal_primary is not None:
++                self.normal_primary.verify_consumed_prefix(j.samples[:self.normal_samples])
++                need(self.normal_receipt['sourceReferences']==self.normal_primary.state['value']['frames'])
++            for sample,(primary_raw,peer_raw,_ref) in zip(j.samples[self.normal_samples:],self.rows):
+                 primary=json.loads(primary_raw);peer=json.loads(peer_raw)
+                 need(all(sample[key]==primary[key] for key in
+                     ('sequence','capturedEpochMs','state','resources','lifecycle'))
+@@ -217,6 +235,8 @@
+                 need(owner.actor.raws.literal(self.actor_context_reference)==self.actor_context)
+                 value['roleQuiet'].update(version=2,actorContext=self.actor_context_reference,
+                     actorCredentialSha256=owner.actor.raw_scope['actorCredentialSha256'],actorSequenceBase=self.actor_base)
++            if self.normal_primary is not None:
++                value['roleQuiet'].update(version=3,normalPrefix=deepcopy(self.normal_receipt))
+             owner.save(value);owner.guard()
+             fresh(min(self.previous),self.budget.new_samplers[0].native.clock_ms())
+             self.consumed=True
+diff --git a/tests/device/adapters/pico4/audio_common_primary.py b/tests/device/adapters/pico4/audio_common_primary.py
+--- a/tests/device/adapters/pico4/audio_common_primary.py
++++ b/tests/device/adapters/pico4/audio_common_primary.py
+@@ -15,9 +15,9 @@
+ from adapters.pico4.audio_settings_source import CLOCKS
+ from adapters.pico4.lifecycle_process_file import LifecycleProcessFile
+ from adapters.script_journey.history import canonical
+-from feature_journeys.contract import arguments,result
++from feature_journeys.contract import arguments,result,json_document
+ 
+-VERSION=1
++VERSION=2
+ 
+ 
+ class AudioCommonPrimary1:
+@@ -37,7 +37,7 @@
+                 self.actor.bound();need(self.store.read() is None)
+                 self.physical=object.__new__(LifecycleProcessFile)
+                 LifecycleProcessFile.__init__(self.physical,self.store)
+-                self.save(dict(sequence=0,last=None,pending=None))
++                self.save(dict(sequence=0,last=None,pending=None,frames=[]))
+         except BaseException as error:self.poison(error);raise
+ 
+     def poison(self,error):
+@@ -96,7 +96,13 @@
+                 # All original source bytes are already in the same raw bank.
+                 # This small sidecar stores references rather than extra Actor
+                 # history frames for the primary role's parsed snapshots.
+-                self.save(dict(sequence=sequence,last=last,pending=None))
++                proof=dict(audioCommonFrameVersion=1,frame=deepcopy(frame),ticket=ticket,
++                    activation=deepcopy(after['activations'][-1]),command=deepcopy(transport.last_command),
++                    bundle=deepcopy(transport.last_reference),epoch=current['envelope']['capturedEpochMs'])
++                token=self.actor.raws.reserve('audio-common-primary-frame',dict(sequence=sequence,ticket=ticket),16384)
++                reference=self.actor.raws.retain(token,canonical(proof).decode('utf-8'))
++                self.save(dict(sequence=sequence,last=last,pending=None,
++                    frames=[*self.state['value']['frames'],reference]))
+                 value=deepcopy(self.actor.state);value['pending']=None;self.actor._save(value)
+                 self.guard();self.actor.native.guard();self.actor.settings.guard();self.actor.pages.guard()
+                 fresh(captured,self.actor.native.clock_ms());need(0<=self.actor.monotonic()-started<=1.5)
+@@ -111,5 +117,56 @@
+         self.coordinator.act(call)
+         return result(operation,dict(performed=True))
+ 
++    def original_frame(self,reference):
++        """Historical source reconstruction uses only its ORIGINAL envelope epoch."""
++        proof=json_document(self.actor.raws.literal(reference))
++        need(type(proof) is dict and set(proof)=={'audioCommonFrameVersion','frame','ticket','activation','command','bundle','epoch'}
++            and type(proof['audioCommonFrameVersion']) is int and proof['audioCommonFrameVersion']==1)
++        frame=result('feature.audio.observe',proof['frame'])
++        source=validate(self.actor.raws.literal(proof['bundle']),proof['command'],
++            self.actor.native.pid,self.actor.pages.bridge,proof['epoch'])
++        captured=min(source['native']['requestedEpochMs'],source['native']['capturedEpochMs'],
++            source['settings']['capturedEpochMs'],source['pages']['picoAudioPages']['capturedEpochMs'],
++            *(source['settings']['source'][key] for key in CLOCKS))
++        resources=[]
++        if source['actual']['open']:resources.append('panel:audio')
++        if source['actual']['recording'] or source['actual']['preview']:resources.append('input:recorded-preview')
++        need(frame['runId']==self.source.run and proof['command']['runId']==self.source.run
++            and frame['capturedEpochMs']==captured and frame['artifacts']==[]
++            and json_digest(frame['state'])==json_digest(source['actual'])
++            and json_digest(frame['lifecycle'])==json_digest(source['native']['lifecycle'])
++            and frame['resources']==resources and proof['ticket']==proof['activation']['ticket'])
++        return proof
++
++    def verify_consumed_prefix(self,samples):
++        try:
++            need(type(samples) is list and samples and len(samples)<=512)
++            with self.actor.raw_lock.held():
++                self.actor.raw_identity();self.physical.guard()
++                need(not self.failed and self.store.read()==self.state and json_digest(self.scope)==self.scope_sha
++                    and len(self.state['value']['frames'])==len(samples))
++                self.actor.history.verify()
++                need(json_digest(self.actor.frames)==self.actor.frames_sha)
++                observations=[frame for frame in self.actor.frames if frame['kind']=='observation']
++                journals=[frame['journal'] for frame in self.actor.frames if frame['kind']=='publication-return']
++                for sample,reference in zip(samples,self.state['value']['frames']):
++                    proof=self.original_frame(reference);frame=proof['frame']
++                    need(sample['ticket']==proof['ticket']
++                        and all(json_digest(sample[key])==json_digest(frame[key])
++                            for key in ('sequence','capturedEpochMs','state','resources','lifecycle')))
++                    witness=sample['witness']
++                    if witness is None:
++                        need(proof['activation']['stimulus']['verb'] in ('baseline','open','close'));continue
++                    need(type(witness) is dict and integer(witness['actorSequence'],1,len(observations)))
++                    actor_frame=observations[witness['actorSequence']-1]
++                    from feature_journeys.witness import projection
++                    need(actor_frame['native']['requestId']!=proof['command']['nativeNonce']
++                        and witness['ticket']==proof['ticket']==actor_frame['after']['activations'][-1]['ticket']
++                        and witness['capturedEpochMs']==actor_frame['capturedEpochMs']
++                        and json_digest(witness['facts'])==json_digest(projection('audio',actor_frame['actual']))
++                        and any(any(json_digest(entry)==json_digest(witness) for entry in journal['entries']) for journal in journals))
++                self.physical.guard();return True
++        except BaseException as error:self.poison(error);raise
++
+     def close_host(self):
+         return self.physical is None or self.physical.close_host()

@@ -1,0 +1,16 @@
+diff --git a/tests/device/private_packets/pico_chat_source_backup_20261105/NATIVE_BULK_BOUNDARY.md b/tests/device/private_packets/pico_chat_source_backup_20261105/NATIVE_BULK_BOUNDARY.md
+new file mode 100644
+--- /dev/null
++++ b/tests/device/private_packets/pico_chat_source_backup_20261105/NATIVE_BULK_BOUNDARY.md
+@@ -0,0 +1,11 @@
++# Paused Chat native bulk boundary (source publication snapshot)
++
++No native bulk implementation was started before the user pause. The private Host carrier action `feature-pico-chat-source-bundle` remains absent from the real Pico probe and TestScriptingInterface. Source-complete remains3/14; device0 and public Chat disabled.
++
++The intended source-only join is the existing6 callbacks in their original order: featureScriptRoots(before nonce), featureScriptObservation(script nonce), featureScriptRoots(after nonce), featureChatObservation(run/inspect/chat nonce), featureChatViewObservation(run/view nonce), featureNativeObservation(native nonce). Actual existing sources are PathUtils defaultScriptsLocation, ScriptEngines locked source history, MessagesClient, actual OffscreenUi/Tablet/Pico Keyboard inventory and native lifecycle/animation/audio/account state. No expected state is an input. Original independent nonces, process/root/bookend checks and the first pre-queue1.5s budget must remain. Native animation pending may continue only under the same original request/time; completed leaf acquisitions must not replay.
++
++Concrete reusable current implementation references are tests/device/native/PicoAudioObservationBundle.h and TestScriptingInterface::featurePicoAudioObservationBundle plus the matching probe branch. Existing262144 byte leaf/outer Chat grammar and Host512/16MiB/1.5/5/20/120 limits remain. Exact native overlap/declaration needs review before any implementation; no extra heap/ABI qualification requirement is invented.
++
++Frozen Phone reference5e8ff8aa19571f5718b982dc47a165b8f22e0dc0 was read only for shared original Chat observation/history and Setting::Manager cleanup architecture. Its synthetic ChatNativeBoundary is a widget fixture, not a Pico producer. No Phone/iOS files are changed or exported here.
++
++No Native build, execution, device/ADB/service/Domain/dependency installation or test was performed for this native-bulk assignment. Full TSI translation-unit dependencies were not qualified. Development remains paused; this publication is only a source backup.

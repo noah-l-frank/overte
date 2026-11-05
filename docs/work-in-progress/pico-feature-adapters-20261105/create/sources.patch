@@ -1,0 +1,608 @@
+--- /dev/null
++++ b/tests/device/private_packets/pico_create_backup_20261105/pico-create-cli-native-v1-verified-20261103-cgww55g8/run.py
+@@ -0,0 +1,18 @@
++import sys,unittest,hashlib,json,pathlib,time,tempfile,os
++wt=pathlib.Path.cwd();sys.path[:0]=[str(wt/'android/vr/pico/tests/device'),str(wt/'tests/device')]
++import test_create_peer_source as target
++from adapters.pico4 import create_peer_actor
++original=target.CreatePeerSourceTests.setUp
++def retained_setup(test):
++ original(test);retained=[]
++ for callback,args,kwargs in test.primary._cleanups:
++  owner=getattr(callback,'__self__',None)
++  if isinstance(owner,tempfile.TemporaryDirectory) and pathlib.Path(owner.name).is_relative_to(pathlib.Path(os.environ['TMPDIR'])):owner._finalizer.detach()
++  else:retained.append((callback,args,kwargs))
++ test.primary._cleanups=retained
++target.CreatePeerSourceTests.setUp=retained_setup
++extra=[wt/'android/vr/pico/tests/device/create_peer_cli_host.py',wt/'android/vr/pico/tests/device/create_peer_originals_host.py']
++files=sorted({str(pathlib.Path(m.__file__).resolve()) for m in tuple(sys.modules.values()) if getattr(m,'__file__',None) and pathlib.Path(m.__file__).resolve().is_relative_to(wt) and pathlib.Path(m.__file__).is_file()}|{str(p) for p in extra})
++def hashes():return {p:hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in files}
++before=hashes();start=time.monotonic();suite=unittest.defaultTestLoader.loadTestsFromNames(sys.argv[1:],target) if sys.argv[1:] else unittest.defaultTestLoader.loadTestsFromTestCase(target.CreatePeerSourceTests)
++result=unittest.TextTestRunner(verbosity=2).run(suite);after=hashes();pathlib.Path(os.environ['TMPDIR'],'loaded-source.json').write_text(json.dumps(dict(before=before,after=after,unchanged=before==after,elapsed=time.monotonic()-start),indent=2));sys.exit(0 if result.wasSuccessful() and before==after else 1)
+--- /dev/null
++++ b/tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/adapter_operation_host.py
+@@ -0,0 +1,201 @@
++"""Explicit scoped client for one original Pico CLI process; never a daemon."""
++# Copyright 2026 Overte contributors.
++# SPDX-License-Identifier: Apache-2.0
++from contextlib import contextmanager
++from contextvars import ContextVar
++import errno
++import fcntl
++import hashlib
++import os
++from pathlib import Path
++import select
++import signal
++import stat
++import subprocess
++import sys
++import time
++import uuid
++
++from adapters.native_fd_owner import OriginalDescriptor
++from adapters.chat_journey.archive_file import signature
++from adapters.host_process_identity import host_identity
++from adapters.pico4.operation_host import process_identity
++from adapters.pico4.operation_protocol import (need,dto_bytes,decode,request,timeout_for,STRIPPED_ENV,REQUEST_LIMIT,RESPONSE_LIMIT,STDERR_LIMIT,PART_LIMIT)
++from adapters.pico4.operation_archive import OperationArchive
++
++ACTIVE=ContextVar('overte_pico_operation_host',default=None)
++UNCERTAIN=[]
++ENTRY=Path(__file__).resolve().parent/'adapters/android/adapter.py'
++
++
++class PinnedFile:
++    def __init__(self,path,limit):
++        self.path=Path(path);need(self.path.is_absolute() and self.path.resolve(strict=True)==self.path)
++        self.owner=OriginalDescriptor(self.path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC);info=os.fstat(self.owner.fd)
++        need(stat.S_ISREG(info.st_mode) and info.st_nlink==1 and not info.st_mode&0o022 and 0<info.st_size<=limit)
++        self.stamp=signature(info);self.raw=os.pread(self.owner.fd,limit+1,0);need(len(self.raw)==info.st_size);self.digest=hashlib.sha256(self.raw).hexdigest();self.check()
++    def check(self):
++        self.owner.require(self.owner.fd);need(signature(os.fstat(self.owner.fd))==signature(self.path.lstat())==self.stamp
++            and os.pread(self.owner.fd,len(self.raw)+1,0)==self.raw)
++        self.owner.require(self.owner.fd)
++    def close(self):self.check();return self.owner.close()
++
++
++class PipeOwner:
++    def __init__(self,stream):
++        self.stream=stream;self.fd=stream.fileno();self.anchor=fcntl.fcntl(self.fd,fcntl.F_DUPFD_CLOEXEC,0);self.node=signature(os.fstat(self.fd))[:2];self.lost=False
++        self.check();os.set_blocking(self.fd,False)
++    def check(self):
++        try:need(not self.lost and self.stream.fileno()==self.fd and signature(os.fstat(self.fd))[:2]==self.node and fcntl.fcntl(self.fd,fcntl.F_DUPFD_QUERY,self.anchor)==1)
++        except BaseException:self.lost=True;UNCERTAIN.append(self);raise
++    def close(self):
++        self.check();self.stream.close();os.close(self.anchor)
++
++
++def pico_command(manifest):
++    # This opt-in accepts the reviewed source-owned route only. Other adapters
++    # continue through adapter_client's ordinary one-operation subprocess.
++    from adapter_client import load_command
++    command=load_command(manifest)
++    need(len(command)>=5 and Path(command[0]).resolve(strict=True)==Path(sys.executable).resolve(strict=True)
++        and Path(command[1]).resolve(strict=True)==ENTRY.resolve(strict=True)
++        and command.count('--kind')==1 and command[command.index('--kind')+1]=='pico' and command.count('--native-binding')==1
++        and not any(part in {'invoke','cleanup','discover','describe','operation-host','--operation','--arguments','--target'} for part in command[2:]))
++    return command
++
++
++class PicoOperationHost:
++    def __init__(self,manifest,target,artifacts):
++        need(type(target) is str and 0<len(target)<=256 and all(33<=ord(c)<127 for c in target))
++        self.manifest=Path(manifest).absolute();self.target=target;self.artifacts=Path(artifacts)
++        self.host=host_identity();self.environment=dict(os.environ);self.cwd=os.getcwd()
++        self.child_environment={k:v for k,v in self.environment.items() if k not in STRIPPED_ENV}
++        self.failed=self.closed=False;self.process=None;self.pins=[];self.pipes=[];self.archive=None;self.count=0
++        self.process_identity=None;self.command=None;self.wait_status=None;self.last=time.monotonic()
++    def guard(self):
++        need(not self.failed and not self.closed and host_identity()==self.host and dict(os.environ)==self.environment and os.getcwd()==self.cwd)
++        for pin in self.pins:pin.check()
++        for pipe in self.pipes:pipe.check()
++        if self.process is not None:
++            need(process_identity(self.process.pid)==self.process_identity)
++            root=Path('/proc')/str(self.process.pid)
++            fields=(root/'stat').read_text().rsplit(')',1)[1].split();need(int(fields[1])==os.getpid())
++            need((root/'cmdline').read_bytes().split(b'\0')==[os.fsencode(item) for item in self.command]+[b''])
++            need(signature(os.stat(root/'exe'))==self.pins[1].stamp)
++    def remaining(self,deadline):
++        now=time.monotonic();need(self.last<=now<deadline);self.last=now;return min(.1,deadline-now)
++    def start(self,deadline):
++        need(self.process is None);self.archive=OperationArchive(self.artifacts)
++        self.pins.append(PinnedFile(self.manifest,65536));prefix=pico_command(self.manifest);need(self.pins[0].raw==self.manifest.read_bytes())
++        self.pins.extend([PinnedFile(Path(prefix[0]).resolve(strict=True),128*1024*1024),PinnedFile(Path(prefix[1]).resolve(strict=True),1024*1024)])
++        self.remaining(deadline);self.command=[*prefix,'operation-host','--target',self.target]
++        self.process=subprocess.Popen(self.command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=self.child_environment,cwd=self.cwd,bufsize=0)
++        self.process_identity=process_identity(self.process.pid)
++        self.pipes=[PipeOwner(self.process.stdin),PipeOwner(self.process.stdout),PipeOwner(self.process.stderr)]
++        # Exec can still be in progress after Popen returns. Only the same PID
++        # start/boot and direct parent may wait for its exact original program.
++        while True:
++            self.remaining(deadline)
++            try:self.guard();break
++            except (OSError,ValueError):
++                need(process_identity(self.process.pid)==self.process_identity)
++                time.sleep(min(.001,self.remaining(deadline)))
++    def invoke(self,manifest,target,operation,arguments=None):
++        started=time.monotonic();deadline=started+timeout_for(operation)
++        try:
++            self.guard();need(Path(manifest).absolute()==self.manifest and target==self.target)
++            fields=dict(picoOperationRequestVersion=1,requestId=uuid.uuid4().hex,operation=operation,arguments={} if arguments is None else arguments,deadlineMonotonic=deadline)
++            request(fields);raw=dto_bytes(fields,REQUEST_LIMIT)
++            if self.process is None:self.start(deadline)
++            self.guard();self.remaining(deadline)
++            self.archive.reserve(dict(requestId=fields['requestId'],operation=operation,startedMonotonic=started,deadlineMonotonic=deadline))
++            index=self.count;request_original=self.archive.put(f'request-{index:03d}.bin',raw)
++            incoming=bytearray();stderr=bytearray();response_parts=[];error_parts=[];sent=0;offset=0;error_offset=0;stderr_open=True
++            while True:
++                self.guard();interval=self.remaining(deadline)
++                readable,writable,_=select.select([self.pipes[1].fd]+([self.pipes[2].fd] if stderr_open else []),[] if sent==len(raw) else [self.pipes[0].fd],[],interval)
++                if writable:
++                    self.pipes[0].check();written=os.write(self.pipes[0].fd,raw[sent:sent+4096]);need(written>0);sent+=written
++                for descriptor in readable:
++                    output=descriptor==self.pipes[1].fd;pipe=self.pipes[1 if output else 2];pipe.check()
++                    body=incoming if output else stderr;limit=RESPONSE_LIMIT if output else STDERR_LIMIT
++                    need(len(body)<limit)
++                    # Bound before read; every byte acquired is durable before
++                    # the next read, including malformed/partial responses.
++                    position=offset if output else error_offset;size=min(65536-position,limit-len(body))
++                    chunk=os.read(descriptor,size)
++                    if not chunk:
++                        if not output:stderr_open=False;continue
++                        need(False)
++                    name=(f'response-{index:03d}-{len(response_parts):03d}.bin' if output else f'stderr-{index:03d}-{len(error_parts):03d}.bin')
++                    self.archive.append(name,chunk);body.extend(chunk);position+=len(chunk)
++                    if position==65536 or output and b'\n' in chunk:
++                        receipt=self.archive.seal(name);(response_parts if output else error_parts).append(receipt);position=0
++                    if output:offset=position
++                    else:error_offset=position
++                if b'\n' in incoming:
++                    need(sent==len(raw));break
++            if error_offset:error_parts.append(self.archive.seal(f'stderr-{index:03d}-{len(error_parts):03d}.bin'))
++            acquired=bytes(incoming)
++            # Complete immutable receipt/CAS BEFORE decoding an acquired reply.
++            self.archive.finish(dict(picoOperationReceiptVersion=1,request=request_original,response=response_parts,stderr=error_parts,
++                responseBytes=len(acquired),responseSha256=hashlib.sha256(acquired).hexdigest(),requestId=fields['requestId']))
++            reply=decode(acquired,RESPONSE_LIMIT)
++            need(set(reply)=={'picoOperationReplyVersion','requestId','hostProcessIdentity','parentHostProcessIdentity','result'}
++                and type(reply['picoOperationReplyVersion']) is int and reply['picoOperationReplyVersion']==1 and reply['requestId']==fields['requestId']
++                and reply['hostProcessIdentity']==self.process_identity and reply['parentHostProcessIdentity']==self.host)
++            from contracts import validate_operation_result
++            value=validate_operation_result(operation,reply['result']);self.guard();self.archive.guard();self.remaining(deadline);self.count+=1
++            return value
++        except BaseException:
++            self.failed=True;UNCERTAIN.append(self)
++            raise RuntimeError('Pico operation host unresolved; no replay or further operation permitted') from None
++    def close(self):
++        if self.closed:return
++        try:
++            need(not self.failed)
++            if self.process is None:self.closed=True;return
++            self.guard();self.archive.guard();self.pipes[0].close();self.pipes=self.pipes[1:]
++            deadline=time.monotonic()+60
++            while True:
++                self.remaining(deadline);pid,status=os.waitpid(self.process.pid,os.WNOHANG)
++                if pid:break
++                time.sleep(min(.01,self.remaining(deadline)))
++            self.wait_status=status;self.process.returncode=os.waitstatus_to_exitcode(status);need(pid==self.process.pid and status==0)
++            for _ in range(2):
++                try:os.kill(pid,0)
++                except ProcessLookupError as error:need(error.errno==errno.ESRCH)
++                else:need(False)
++                need(not (Path('/proc')/str(pid)).exists())
++            for pipe in self.pipes:pipe.close()
++            self.pipes=[];self.archive.close();need(all(pin.close() for pin in self.pins));self.closed=True
++        except BaseException:
++            self.failed=True;UNCERTAIN.append(self);raise RuntimeError('Pico operation host closure unresolved') from None
++    def abort(self):
++        """Stop ONLY this proven original child. Never app/peer cleanup."""
++        if self.process is None:return
++        try:
++            # failed forbids normal reuse, but original program/file/pipe facts
++            # still must match before a nonzero signal to our exact OS child.
++            failed=self.failed;self.failed=False
++            try:self.guard()
++            finally:self.failed=failed
++            os.kill(self.process.pid,signal.SIGTERM)
++            deadline=time.monotonic()+5
++            while time.monotonic()<deadline:
++                pid,status=os.waitpid(self.process.pid,os.WNOHANG)
++                if pid:self.wait_status=status;self.process.returncode=os.waitstatus_to_exitcode(status);return
++                time.sleep(.01)
++        except (OSError,ValueError):pass
++        UNCERTAIN.append(self)
++
++
++@contextmanager
++def scoped_host(manifest,target,artifacts):
++    need(ACTIVE.get() is None);owner=PicoOperationHost(manifest,target,artifacts);token=ACTIVE.set(owner)
++    try:
++        yield owner
++        owner.close()
++    except BaseException:
++        owner.failed=True;owner.abort();raise
++    finally:ACTIVE.reset(token)
+--- /dev/null
++++ b/tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/adapters/pico4/operation_archive.py
+@@ -0,0 +1,72 @@
++"""Private bounded original stdio bytes, durable before their parser/next read."""
++# Copyright 2026 Overte contributors.
++# SPDX-License-Identifier: Apache-2.0
++import hashlib
++import os
++from pathlib import Path
++from adapters.chat_journey.archive_file import ClosedOriginalFile,signature
++from adapters.native_fd_owner import OriginalDescriptor,require_directory
++from adapters.normal_feature_state import PrivateFeatureState
++from adapters.pico4.lifecycle_process_file import LifecycleProcessFile
++from adapters.pico4.operation_protocol import (need,PART_LIMIT,RESPONSE_LIMIT,STDERR_LIMIT,REQUEST_LIMIT,FILE_LIMIT,BYTE_LIMIT,dto_bytes)
++
++
++class OperationArchive:
++    def __init__(self,path):
++        self.path=Path(path);need(self.path.is_absolute() and not list(self.path.iterdir()))
++        self.directory=OriginalDescriptor(self.path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
++        self.rows={};self.writers={};self.uncertain=[];self.closed=False
++        self.store=PrivateFeatureState(self.path/'operation-host.json');self.journal=LifecycleProcessFile(self.store)
++        self.state=None;self.root(dict(picoOperationArchiveVersion=1,phase='new',completed=[],pending=None))
++    def guard(self):
++        need(not self.closed);require_directory(self.directory,self.path)
++        expected=set(self.rows)|set(self.writers)|{'operation-host.json'}
++        need(set(os.listdir(self.path))==expected)
++        self.journal.guard()
++        for owner in self.rows.values():owner.read()
++        for name,(owner,raw) in self.writers.items():
++            owner.require(owner.fd);need(os.pread(owner.fd,PART_LIMIT+1,0)==raw and signature(os.fstat(owner.fd))==signature((self.path/name).lstat()))
++    def root(self,value):
++        dto_bytes(value,65536);self.journal.write(value,self.state);self.state=value
++    def reserve(self,request):
++        self.guard();need(self.state['pending'] is None)
++        files=list(self.path.iterdir());used=sum(p.stat().st_size for p in files)
++        # One entire response, stderr and request plus immutable receipt and
++        # actual overlapping root-CAS temporary, before any pipe write/read.
++        need(len(files)+64+1+1+1+1<=FILE_LIMIT and used+RESPONSE_LIMIT+STDERR_LIMIT+REQUEST_LIMIT+2*65536<=BYTE_LIMIT)
++        state=dict(self.state,pending=request,phase='issued');dto_bytes(dict(state,completed=self.state['completed']+['f'*64]),65536);self.root(state)
++    def append(self,name,raw):
++        need(type(raw) is bytes and raw and len(raw)<=PART_LIMIT)
++        require_directory(self.directory,self.path)
++        if name not in self.writers:
++            need(name not in self.rows and '/' not in name and '\\' not in name)
++            path=self.path/name
++            owner=OriginalDescriptor(path,os.O_RDWR|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC)
++            os.fchmod(owner.fd,0o600);self.writers[name]=(owner,b'')
++        owner,previous=self.writers[name];owner.require(owner.fd);need(len(previous)+len(raw)<=PART_LIMIT)
++        need(os.pread(owner.fd,PART_LIMIT+1,0)==previous)
++        position=0
++        while position<len(raw):
++            owner.require(owner.fd);written=os.write(owner.fd,raw[position:]);need(written>0);position+=written
++        os.fsync(owner.fd);owner.require(owner.fd);current=previous+raw
++        need(os.pread(owner.fd,PART_LIMIT+1,0)==current and signature(os.fstat(owner.fd))==signature((self.path/name).lstat()))
++        self.writers[name]=(owner,current)
++    def seal(self,name):
++        owner,raw=self.writers[name];owner.require(owner.fd);need(raw)
++        os.fchmod(owner.fd,0o400);os.fsync(owner.fd);owner.require(owner.fd)
++        physical=signature(os.fstat(owner.fd));need(physical==signature((self.path/name).lstat()))
++        original=ClosedOriginalFile(self.path/name,0o400,lambda:require_directory(self.directory,self.path))
++        observed,stamp=original.read();need(observed==raw and stamp==physical)
++        need(owner.close());del self.writers[name];self.rows[name]=original
++        return dict(name=name,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),physical=physical)
++    def put(self,name,raw):
++        self.append(name,raw);return self.seal(name)
++    def finish(self,receipt):
++        self.guard();need(self.state['pending'] is not None)
++        raw=dto_bytes(receipt,65536);number=len(self.state['completed']);self.put(f'receipt-{number:03d}.json',raw)
++        self.root(dict(self.state,pending=None,phase='ready',completed=self.state['completed']+[hashlib.sha256(raw).hexdigest()]))
++        self.guard()
++    def close(self):
++        self.guard();need(not self.writers and self.state['pending'] is None)
++        self.root(dict(self.state,phase='closed'));self.guard();need(self.journal.close_host())
++        need(all(row.close() for row in self.rows.values()) and self.directory.close());self.closed=True
+--- /dev/null
++++ b/tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/adapters/pico4/operation_host.py
+@@ -0,0 +1,74 @@
++"""One original bound adapter on stdio; no discovery, service or cleanup."""
++# Copyright 2026 Overte contributors.
++# SPDX-License-Identifier: Apache-2.0
++import os
++import select
++import sys
++import time
++from adapters.host_process_identity import host_identity
++from adapters.pico4.operation_protocol import (VERSION,REQUEST_LIMIT,RESPONSE_LIMIT,STRIPPED_ENV,need,decode,dto_bytes,request,timeout_for)
++
++
++def process_identity(pid):
++    from pathlib import Path
++    fields=(Path('/proc')/str(pid)/'stat').read_text().rsplit(')',1)[1].split()
++    need(fields[0] not in ('Z','X'))
++    return str(pid)+':'+fields[19]+':'+Path('/proc/sys/kernel/random/boot_id').read_text().strip()
++
++
++def serve(args,binding,base_class,construct,*,profiles,stdin=None,stdout=None):
++    """Called only by the existing Android main BEFORE its normal factory.
++
++    Read the first bounded request before constructing the SAME normal factory.
++    Per-request DTOs never become argparse/environment/cwd mutations.
++    """
++    need(args.kind=='pico' and args.native_binding and binding is not None and args.action=='operation-host'
++        and type(args.target) is str and bool(args.target) and args.operation is None and args.arguments=='{}')
++    need(all(key not in os.environ for key in STRIPPED_ENV))
++    original_args=dto_bytes({key:str(value) for key,value in vars(args).items()},REQUEST_LIMIT)
++    original_types={key:type(value) for key,value in vars(args).items()};admitted_fields=dict(vars(args));environment=dict(os.environ);cwd=os.getcwd()
++    parent_pid=os.getppid();parent=process_identity(parent_pid);host=host_identity();adapter=None;seen=set();buffer=b''
++    source=sys.stdin.fileno() if stdin is None else stdin;destination=sys.stdout.fileno() if stdout is None else stdout
++    started=last=time.monotonic();lifetime=started+1560
++    def guard():
++        nonlocal last
++        now=time.monotonic();need(last<=now<lifetime);last=now
++        need(os.getppid()==parent_pid and process_identity(parent_pid)==parent and host_identity()==host
++            and dict(os.environ)==environment and os.getcwd()==cwd
++            and {key:type(value) for key,value in vars(args).items()}==original_types
++            and dto_bytes({key:str(value) for key,value in vars(args).items()},REQUEST_LIMIT)==original_args)
++        return now
++    while True:
++        guard()
++        if b'\n' not in buffer:
++            ready,_,_=select.select([source],[],[],min(.1,max(0,lifetime-time.monotonic())))
++            if not ready:continue
++            chunk=os.read(source,min(4096,REQUEST_LIMIT-len(buffer)+1))
++            if not chunk:
++                need(not buffer);return 0
++            buffer+=chunk;need(len(buffer)<=REQUEST_LIMIT)
++            if b'\n' not in buffer:continue
++        raw,buffer=buffer.split(b'\n',1);need(not buffer) # Sequential requests only.
++        value=request(decode(raw+b'\n',REQUEST_LIMIT));identifier=value['requestId'];need(identifier not in seen and len(seen)<512);seen.add(identifier)
++        now=guard();deadline=min(value['deadlineMonotonic'],now+timeout_for(value['operation']));need(now<deadline)
++        if adapter is None:
++            # The existing Pico factory adds its original require_identity flag
++            # once during admission. Freeze only after that authorized factory.
++            adapter=construct(args,binding,base_class,args.kind)
++            need(adapter.kind==args.kind and adapter.profile==profiles[args.kind])
++            current=dict(vars(args));expected=dict(admitted_fields)
++            if current.get('require_identity') is True:expected['require_identity']=True
++            need(current==expected and all(type(current[key]) is type(item) for key,item in expected.items()))
++            original_args=dto_bytes({key:str(item) for key,item in vars(args).items()},REQUEST_LIMIT)
++            original_types={key:type(item) for key,item in vars(args).items()}
++        need(guard()<deadline)
++        result=adapter.invoke(args.target,value['operation'],value['arguments'])
++        from contracts import validate_operation_result
++        validate_operation_result(value['operation'],result);need(guard()<deadline)
++        reply=dto_bytes(dict(picoOperationReplyVersion=VERSION,requestId=identifier,hostProcessIdentity=host,parentHostProcessIdentity=parent,result=result),RESPONSE_LIMIT)
++        need(guard()<deadline)
++        position=0
++        while position<len(reply):
++            need(guard()<deadline);_,writable,_=select.select([],[destination],[],min(.1,max(0,deadline-time.monotonic())))
++            if writable:position+=os.write(destination,reply[position:position+4096])
++        need(guard()<deadline)
+--- /dev/null
++++ b/tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/self_tests/pico_operation_host_worker.py
+@@ -0,0 +1,58 @@
++"""Explicit device-free CLI factory model, used only by owning stdio tests."""
++# Copyright 2026 Overte contributors.
++# SPDX-License-Identifier: Apache-2.0
++import json
++import os
++from pathlib import Path
++import sys
++import time
++from types import SimpleNamespace
++ROOT=Path(__file__).resolve().parents[3]
++sys.path[:0]=[str(ROOT),str(ROOT/'tests/device')]
++from adapters.android import adapter as cli
++from adapters.pico4.operation_host import serve
++from adapters.native_binding import create_adapter
++from adapters.pico4.operation_protocol import STRIPPED_ENV
++
++fault=sys.argv[sys.argv.index('--fault')+1];trace=Path(sys.argv[sys.argv.index('--trace')+1]);count=0
++args=SimpleNamespace(kind='pico',native_binding=True,action='operation-host',target='explicit-host-model',operation=None,arguments='{}')
++
++def record(kind):
++    with trace.open('a') as output:output.write(json.dumps(dict(kind=kind,pid=os.getpid()))+'\n');output.flush();os.fsync(output.fileno())
++
++class FakeAdapter(cli.AndroidAdapter):
++    def __init__(self):self.kind='pico';self.profile=cli.PROFILES['pico'];self.calls=0
++    def invoke(self,target,operation,values):
++        record('dispatch');self.calls+=1
++        if fault=='timeout':time.sleep(.4)
++        if fault=='mutate-args':args.operation='foreign'
++        if fault=='stderr':
++            for _ in range(40):os.write(2,b'x'*4096)
++        if fault=='invalid-json':os.write(1,b'{"broken":]\n');raise ValueError('Explicit invalid raw reply')
++        if fault=='partial':os.write(1,b'{"broken":');raise ValueError('Explicit partial raw reply')
++        if fault=='raw-cap':
++            for _ in range(1024):os.write(1,b'\0'*4096)
++            time.sleep(.4);raise ValueError('Explicit exact raw-window boundary')
++        if fault=='wrong-id':os.write(1,b'{"picoOperationReplyVersion":1,"requestId":"00000000000000000000000000000000","hostProcessIdentity":"x","parentHostProcessIdentity":"x","result":{}}\n');raise ValueError('Explicit wrong request')
++        return dict(running=True,identity=str(os.getpid()),calls=self.calls,factories=count,absentKeys=[key for key in STRIPPED_ENV if key not in os.environ])
++    def cleanup(self,target):record('FORBIDDEN cleanup');raise AssertionError('No automatic product cleanup')
++
++class Binding:
++    @staticmethod
++    def create_adapter(namespace,base):
++        global count
++        count+=1;record('factory')
++        if fault=='factory-timeout':time.sleep(.4)
++        return FakeAdapter()
++
++if __name__=='__main__':
++    # Actual existing CLI main/construct route, with only its source-owned
++    # argument producer and candidate factory explicitly replaced in this model.
++    cli.cli=lambda argv=None:(args,Binding)
++    try:
++        if 'operation-host' in cli.main.__code__.co_consts:raise SystemExit(cli.main([]))
++        # Bootstrap while the reviewed shared CLI hunk is still held by Root.
++        # Final tests remove this branch and require actual cli.main execution.
++        raise SystemExit(serve(args,Binding,cli.AndroidAdapter,create_adapter,profiles=cli.PROFILES))
++    except Exception:
++        record('rejected');raise SystemExit(2)
+--- /dev/null
++++ b/tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-paused-20261103-1nults5c/source/tests/device/self_tests/test_pico_operation_host.py
+@@ -0,0 +1,119 @@
++"""Actual stdio child boundaries with declared candidate/native-free factories."""
++# Copyright 2026 Overte contributors.
++# SPDX-License-Identifier: Apache-2.0
++from contextlib import contextmanager
++import json
++import os
++from pathlib import Path
++import signal
++import subprocess
++import sys
++import tempfile
++import time
++import unittest
++from unittest.mock import patch
++from adapter_operation_host import PicoOperationHost,PinnedFile,scoped_host,ACTIVE
++from adapters.pico4.operation_protocol import STRIPPED_ENV,dto_bytes,decode,request,timeout_for,REQUEST_LIMIT
++
++WORKER=Path(__file__).with_name('pico_operation_host_worker.py').resolve()
++
++
++class PicoOperationHostTests(unittest.TestCase):
++    def setUp(self):
++        temporary=tempfile.TemporaryDirectory(prefix='pico-stdio-host-');self.addCleanup(temporary.cleanup)
++        self.root=Path(temporary.name);self.root.chmod(0o700);self.manifest=self.root/'adapter.json'
++        self.manifest.write_text(json.dumps(dict(schemaVersion=1,command=[str(WORKER)])));self.manifest.chmod(0o600)
++        self.hosts=[];self.addCleanup(self.stop)
++    def stop(self):
++        for host in self.hosts:
++            if host.process is not None and host.process.returncode is None:
++                try:os.kill(host.process.pid,signal.SIGKILL)
++                except ProcessLookupError:pass
++                try:_,status=os.waitpid(host.process.pid,0);host.process.returncode=os.waitstatus_to_exitcode(status)
++                except ChildProcessError:pass
++    @contextmanager
++    def model(self,fault='normal'):
++        path=self.root/fault;path.mkdir(mode=0o700);trace=self.root/(fault+'.jsonl')
++        prefix=[sys.executable,str(WORKER),'--fault',fault,'--trace',str(trace)]
++        with patch('adapter_operation_host.pico_command',return_value=prefix):
++            host=PicoOperationHost(self.manifest,'explicit-host-model',path);self.hosts.append(host);yield host
++    def call(self,host,args=None):return host.invoke(self.manifest,'explicit-host-model','app.process',args)
++    def trace(self,fault):
++        path=self.root/(fault+'.jsonl');return [] if not path.exists() else [json.loads(row)['kind'] for row in path.read_text().splitlines()]
++
++    def test_actual_same_cli_factory_adapter_parent_and_zero_exit_across_operations(self):
++        with self.model() as host:
++            first=self.call(host);second=self.call(host)
++            self.assertEqual(1,first['factories']);self.assertEqual((1,2),(first['calls'],second['calls']))
++            self.assertEqual(first['identity'],second['identity']);self.assertNotEqual(str(os.getpid()),first['identity'])
++            self.assertEqual(['factory','dispatch','dispatch'],self.trace('normal'))
++            pid=host.process.pid;host.close();self.assertEqual(0,host.wait_status);self.assertFalse(Path('/proc',str(pid)).exists())
++            self.assertEqual('closed',host.archive.state['phase']);self.assertFalse(any('cleanup' in value for value in self.trace('normal')))
++    def test_all_six_policy_reader_control_environment_keys_are_stripped(self):
++        with patch.dict(os.environ,{key:'private-test-value' for key in STRIPPED_ENV}),self.model() as host:
++            value=self.call(host);self.assertEqual(sorted(STRIPPED_ENV),sorted(value['absentKeys']));host.close()
++    def test_deadline_includes_first_factory_and_later_dispatch_no_replay_or_second_host(self):
++        for fault in ('factory-timeout','timeout'):
++            with self.subTest(fault=fault),self.model(fault) as host,patch('adapter_operation_host.timeout_for',return_value=.12):
++                started=time.monotonic()
++                with self.assertRaises(RuntimeError):self.call(host)
++                self.assertLess(time.monotonic()-started,1.)
++                count=self.trace(fault)
++                with self.assertRaises(RuntimeError):self.call(host)
++                self.assertEqual(count,self.trace(fault));self.assertTrue(host.failed);host.abort()
++    def test_full_invalid_and_partial_raw_are_durable_before_decode_and_no_next_request(self):
++        for fault,expected in [('invalid-json',b'{"broken":]\n'),('partial',b'{"broken":'),('wrong-id',None)]:
++            with self.subTest(fault=fault),self.model(fault) as host:
++                with self.assertRaises(RuntimeError):self.call(host)
++                raw=b''.join(path.read_bytes() for path in sorted(host.artifacts.glob('response-*.bin')))
++                if expected is not None:self.assertEqual(expected,raw)
++                else:self.assertIn(b'00000000000000000000000000000000',raw)
++                with self.assertRaises(RuntimeError):self.call(host)
++                self.assertEqual(1,self.trace(fault).count('dispatch'));host.abort()
++    def test_actual_four_mib_literal_retained_in_bounded_binary_parts_before_parser(self):
++        with self.model('raw-cap') as host:
++            with self.assertRaises(RuntimeError):self.call(host)
++            parts=sorted(host.artifacts.glob('response-*.bin'));self.assertEqual(64,len(parts))
++            self.assertEqual(b'\0'*(4*1024*1024),b''.join(path.read_bytes() for path in parts));self.assertTrue(all(path.stat().st_size<=65536 for path in parts))
++            with self.assertRaises(RuntimeError):self.call(host)
++            self.assertEqual(1,self.trace('raw-cap').count('dispatch'));host.abort()
++    def test_bounded_stderr_draining_cannot_deadlock_or_authorize_another_dispatch(self):
++        with self.model('stderr') as host:
++            started=time.monotonic()
++            with self.assertRaises(RuntimeError):self.call(host)
++            self.assertLess(time.monotonic()-started,2.)
++            self.assertEqual(65536,sum(path.stat().st_size for path in host.artifacts.glob('stderr-*.bin')))
++            with self.assertRaises(RuntimeError):self.call(host)
++            self.assertEqual(1,self.trace('stderr').count('dispatch'));host.abort()
++    def test_strict_dto_and_policy_are_rejected_before_spawn_or_codec(self):
++        class Dict(dict):pass
++        for bad in ({'expectedFacts':{}},{'nested':{'policy':'not-sent'}},{'value':(1,)},Dict(),{1:'key'}, {'raw':'\0'*(4*1024*1024)}):
++            with self.subTest(value=type(bad).__name__),self.model(str(len(self.hosts))) as host:
++                with patch('adapter_operation_host.subprocess.Popen',side_effect=AssertionError('Unadmitted process')),self.assertRaises(RuntimeError):self.call(host,bad)
++                self.assertIsNone(host.process)
++        with self.assertRaises(ValueError):decode(b'{"x":1,"x":2}\n',REQUEST_LIMIT)
++        self.assertEqual((60,120,240),(timeout_for('app.process'),timeout_for('snapshot.files'),timeout_for('app.install')))
++    def test_same_bytes_replaced_manifest_and_same_inode_recycled_ofd_are_never_adopted(self):
++        for fault in ('same-bytes','same-inode-ofd'):
++            with self.subTest(fault=fault),self.model(fault) as host:
++                self.call(host);pin=host.pins[0];foreign=None
++                if fault=='same-bytes':
++                    other=self.root/'replacement';other.write_bytes(self.manifest.read_bytes());other.chmod(0o600);os.replace(other,self.manifest)
++                else:
++                    foreign=os.open(self.manifest,os.O_RDONLY);os.dup2(foreign,pin.owner.fd)
++                with self.assertRaises(RuntimeError):self.call(host)
++                with self.assertRaises(RuntimeError):host.close()
++                if foreign is not None:
++                    os.fstat(pin.owner.fd);os.close(foreign)
++                self.assertEqual(1,self.trace(fault).count('dispatch'))
++    def test_namespace_env_cwd_and_args_mutations_poison_original_scope(self):
++        with self.model('mutate-args') as host:
++            with self.assertRaises(RuntimeError):self.call(host)
++            self.assertEqual(1,self.trace('mutate-args').count('dispatch'))
++        with self.model('env') as host:
++            self.call(host)
++            with patch.dict(os.environ,{'UNRELATED_HOST_SCOPE_CHANGE':'1'}),self.assertRaises(RuntimeError):self.call(host)
++            self.assertEqual(1,self.trace('env').count('dispatch'))
++
++
++if __name__=='__main__':unittest.main()
+--- /dev/null
++++ b/tests/device/private_packets/pico_create_backup_20261105/pico-create-operation-host-plan-20261103-e5vzlvos/PLAN.md
+@@ -0,0 +1,45 @@
++# Create4: bounded existing-CLI operation host (review only)
++
++No checkout file was changed and no adapter/worker/device was run. Assets15 and Snapshot5 remain frozen. This is a proposed prerequisite, not full Create source admission.
++
++## Actual path and incompatibility
++
++* catalog.json feature-create executes modules/feature_journey.py --area create (1560s module deadline, existing full-capability requirements).
++* Module constructs OverteSession; Journey invokes session.feature_operation -> session._invoke -> module_support.operation -> adapter_client.invoke. process_identity/assert_process/assert_foreground also use module_support.operation.
++* adapter_client.invoke resolves manifest.command and runs a NEW subprocess per operation. It strips exactly six policy/reader/control keys and uses60s normally,120s for permission.snapshot/permission.set/snapshot.files,240s for app.install/app.upgrade.
++* The actual bound path is tests/device/adapters/android/adapter.py -> cli/attach_binding -> fixed pico4/binding.py -> create_adapter once PER PROCESS. The unrelated android/vr/pico/device-tests/adapter.py legacy adapter is not the selected implementation seam.
++* Pico _candidate_arguments snapshots exact vars(args) types/values, all environment, cwd and verifier identities. CandidateReadSeal pins original candidate inputs. Updating args.operation/args.arguments/action/target per request would poison this original admission.
++* _create_journey currently constructs PicoCreateJourney each call. Retaining only AndroidAdapter is insufficient: the actual Parent object, source lock, readers, original child program/FD owners and waitpid ownership must remain warm as well.
++* Parent.issue_peer_scope binds actual host PID/start/boot. peer_input_boundary requires the original live LinuxChatObserverProcess and holds original Parent lock plus worker source lock. Parent.accept_peer_return itself obtains actual waitpid(pid,WNOHANG)==(pid,0); an unrelated coordinator must not reap that worker first.
++* Journey.execute calls activate BEFORE continuity/act, including cleanup activation. A host transport by itself does not serialize that activation with Actor acquisition.
++
++## Proposed first reviewable packet: transport prerequisite only
++
++1. Add explicit Pico/native-binding operation-host mode to the EXISTING Android CLI. Parse one immutable Namespace and construct exactly the normal bound adapter once. Each request keeps local operation/arguments values, validates their existing contract, and calls that SAME adapter.invoke. No request mutates Namespace, cwd or env, imports another adapter, selects another target or discovers one.
++2. Add an explicit OverteSession operation context using a context-local adapter_client owner. Existing module_support.operation and helper calls automatically reuse the scoped transport because they already call invoke. Outside that context invoke retains its exact existing subprocess.run path; Phone/iOS/default behavior stays unchanged. Reject a changed manifest/target/nested foreign context instead of spawning another process. No global daemon or socket.
++3. One Popen child per journey, stdio only, sequential strict JSON request IDs and bounded frames/stderr. First operation's original60/120/240 timer starts before manifest pin/spawn/factory/dispatch; every later timer starts before send/checks. Factory, dispatch, complete response, physical/program rechecks and copy consume that SAME deadline. A phase-boundary bracket will later share its act deadline instead of adding independent begin+act budgets. The existing module deadline is still the total lifetime bound.
++4. Pin canonical manifest original bytes/hash/physical/OFD and actual resolved Python executable/entrypoint and source-owned prefix. Permit the opt-in only for the reviewed Android --kind pico --native-binding route with explicit target. Reuse OriginalDescriptor and original scope/file guards; do not misuse LinuxChatObserverProcess's exact --config grammar as generic operation-host admission. A small exact-cmdline owner can reuse its actual /proc PID/start/boot/exe/OFD predicates without changing the observer class. Child checks actual direct parent identity at startup, request boundaries and bounded idle waits.
++5. Snapshot and strip the EXISTING six env keys before Popen, then keep env/cwd immutable. Never serialize image policy, reader/control credentials, expectedFacts or requested verdicts. Strict operation validators remain the argument boundary; transport metadata is only version/id/operation/arguments/deadline. Reject duplicate keys, malformed IDs, unexpected replies, output overflow, changed files/program/parent, EOF and timeout. Record pending original request before delivery. Any uncertain write/read/result permanently poisons that owner: no replay/new host/fallback and no successful cleanup receipt. Preserve available raw originals. Actual owned child wait/exit and absence are host transport facts only, never app/Qt/native resource cleanup.
++6. Closing stdio never calls adapter.cleanup or sends product input. Successful host exit requires original process identity, actual kernel status, original FD checks and no unresolved host request/boundary/owned worker. Failure termination/reaping, if necessary, is restricted to the exact owned process and leaves application/worker/resource ownership unresolved. It cannot create a second Parent to repair the failed run.
++
++Proposed runtime files for packet A: adapter_client.py; overte_session.py; adapters/android/adapter.py (Pico-only mode); new adapters/pico4/operation_host.py (server/protocol); new adapter_operation_host.py (client/process/file ownership). No binding.py change in this packet. Explicit session context exists but no catalog/journey capability is promoted.
++
++Tests: device-free actual Popen fake of the same CLI construction seam, successive operations showing one adapter/host, exact original parent identity/zero kernel exit, first factory cost included in deadline, all6 keys absent, policy/expectedFacts refusal, args/env/cwd byte/type stability, real parent loss, changed/same-byte-replaced manifest/entry, actual same-inode recycled FD, stdout/stderr/partial JSON/duplicate ID/timeout/unknown delivery, no second spawn/replay, no automatic app cleanup. Assert every existing default subprocess deadline and Phone/iOS path unchanged. No compiler or device invocation.
++
++## Required subsequent Create composition before ordinary module enablement
++
++Retain the actual factory-created PicoCreateJourney once per fixed target/run inside that same operation host, not merely its serialized header. The Parent owns issue_peer_scope, actual feature_observer.py child launch/config and LinuxChatObserverProcess, nonce acceptance, zero-exit waitpid, final independent quiet and archive responsibilities. Reuse the current reviewed production worker and Parent methods unchanged; the module must not become their OS parent or reap their child.
++
++Add a DEFAULT-NOOP optional input context to existing Journey, supplied by the opt-in session, wrapping ticket publication through the normal act/cleanup call and its original return checks. It must cover baseline, ordinary steps, special retries and cleanup activation. With an active issued peer this context enters the ACTUAL Parent.peer_input_boundary BEFORE client.activate and holds that exact original worker owner/lock until ordinary input returns. Before a worker exists, any Parent-only locking is explicitly weaker and cannot claim peer serialization. Enter/exit fail closed and carry one original operation deadline; uncertain begin/activation/act/end is never replayed. If runner dies while a boundary is held, bounded parent/pipe checks fail the host and retain ownership. No fake cancellation or renewed worker deadline.
++
++This requires narrowly reviewed edits to modules/feature_journey.py, feature_journeys/engine.py and the private Pico coordinator/binding factory. It does not move policy/provider control into the child: existing client.activate remains in the common module between enter and act. Full feature.create.* remains closed until actual normal Parent factory, independent effect sources/Actor, before-activate boundary and final original retirement compose. The transport prerequisite alone cannot truthfully advertise them.
++
++## Main review risks
++
++* A context limited to session._invoke would miss process/foreground/probe helpers; use the existing adapter_client context boundary.
++* A stdio server that catches a write/CAS failure and continues can repeat real input. Uncertainty is permanent for that owner.
++* A generic per-request mutation of parsed args invalidates CandidateReadSeal; keep its admitted Namespace untouched.
++* A begin ACK does not release the actual lock. The same host thread must retain the real context until end or a bounded failure; do not substitute a JSON lock token.
++* Original worker waitpid belongs to the actual warm Parent. Host shutdown/transport zero exit does not retire its product graph.
++* Manifest resolution/bytes and executable ownership must be pinned, not just reloaded by pathname. Same-byte inode/OFD replacement is still foreign.
++* Exact request/frame-count and stdio size limits must be billed against current operation DTOs before implementation, with no existing deadline/cap raised. Stderr must drain boundedly to avoid pipe backpressure.

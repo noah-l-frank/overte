@@ -1,0 +1,53 @@
+--- /dev/null
++++ b/tests/device/private_packets/pico_navigation_backup_20261105/overte-pico-navigation-origin-ready-20261103-e4vnblxy/source/tests/device/adapters/pico4/NAVIGATION_PHONE_REUSE_20261103.json
+@@ -0,0 +1,50 @@
++{
++  "reference": "5e8ff8aa19571f5718b982dc47a165b8f22e0dc0",
++  "readOnly": true,
++  "pins": {
++    "tests/device/adapters/android-phone/SOURCE_STATUS.md": {
++      "sha256": "d0b72b999b7525e572a4155e0a55b89605474e5df086625fe79c8cd239429cc5",
++      "gitBlob": "47c65f755d7924bfc553c9c4e2fedde0c75b9b2a"
++    },
++    "tests/device/adapters/android-phone/WORLD_NAVIGATION_FEATURE.md": {
++      "sha256": "c9a6cda588d5ae4b967261437a9344980adf5613518a0845b850c672f0684653",
++      "gitBlob": "e50e3aee98db05e40fba9f7b11b7540f489d0b8f"
++    },
++    "tests/device/adapters/android-phone/overte_phone_navigation_feature.py": {
++      "sha256": "bc78b029c750596a2c8d47360d587c5a8e70f2fb8b0e573124a5ef3a1a6ab5f9",
++      "gitBlob": "6522e7d98b998cac5629b927b67a08f85164bd6c"
++    },
++    "tests/device/adapters/android-phone/overte_phone_navigation_measurements.py": {
++      "sha256": "e8caa1a6bb8d81413e15230d8f12d59ef2f2b74414b05dcd48438260a9feb5dd",
++      "gitBlob": "79105702d70e02808e16d571fdf77bf798bc8242"
++    },
++    "tests/device/adapters/android-phone/overte_phone_navigation_native.py": {
++      "sha256": "a1de562ab6bde371d0c036f7f883be95636346cb60407fa9a8c714fca3d380ca",
++      "gitBlob": "5f200df859dc384d6213273d4da9b877ded4952d"
++    },
++    "tests/device/adapters/android-phone/overte_phone_navigation_marker.py": {
++      "sha256": "435a83553a7f126b231c6f1fd94021c5f10e30143f8df137a76231cace95345c",
++      "gitBlob": "98a2c39032595e7e7c83b4072d8e9d02f713f0d8"
++    },
++    "tests/device/adapters/android-phone/overte_phone_navigation_scene.py": {
++      "sha256": "ca4505ff0945bd8cb7d6ba943432ffef11637c7c6f7dc5f5e27841bfc3cbefc5",
++      "gitBlob": "d5a0089f7d8c14205087f1dbe0b05ef8f3712ee1"
++    }
++  },
++  "selectedReuse": [
++    "explicit independent per-role source journals and pending acquisition ownership",
++    "digest-bound immutable frame/owner references",
++    "archive-before-CAS finalization and outside-source-lock Actor waiting",
++    "restore only actually admitted original URL through normal input; explicit quiet/source windows"
++  ],
++  "notImported": [
++    "Phone W3C/touch input classes",
++    "Phone monoscopic marker/image policy",
++    "optional holdView camera lease",
++    "v18 Common contract migration",
++    "Phone native/product source or device qualification"
++  ],
++  "picoNext": "Explicit Origin3 restart-restoration handoff: preserve original G0 target+type+physical graph, require genuine oldPID absence/newPID/nativebirth/Session, independent fresh G1 baseline, cleanup-specific normal Login/Return/Home/Close authority and exact current Settings/account/quiet. Original maturity is unchanged, observed through independent Settings digest.",
++  "picoJoin": "navigation_generation_restoration.py + navigation_origin_restart.py: same original-target authority and private ownership architecture; current Pico original normal controls, typed Settings, restart, native environment and independent three-second quiet.",
++  "qualification": "Static source reuse and scoped modeled-host composition only; no Phone device result or full-feature claim transfers to Pico."
++}

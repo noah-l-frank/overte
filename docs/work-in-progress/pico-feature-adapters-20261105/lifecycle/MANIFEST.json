@@ -1,0 +1,481 @@
+{
+  "formatVersion": 1,
+  "area": "lifecycle",
+  "baseCommit": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "status": "unintegrated-source-backup; adapter development paused",
+  "snapshotOnly": true,
+  "sourceRoots": [
+    "pico-lifecycle14-atomic-intent-acm7nwmj",
+    "pico-lifecycle14-atomic-intent2-27im91ft",
+    "pico-lifecycle14-projection-bound-xnktqpez",
+    "pico-lifecycle14-reply-final-check-q0g5xuru",
+    "pico-lifecycle14-sealed-stage-u7ahhxh2",
+    "pico-lifecycle14-validation-pass-6vnweins"
+  ],
+  "entries": [
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/atomic-only.diff",
+      "sha256": "703529b87985cf39ab767e59691e02d4b1c08f77b637599f3e17fda0cb5cad59",
+      "bytes": 6942,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/atomic-only.diff"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/lifecycle_pending.py",
+      "sha256": "c26ebd3c5cd07235e0ff936c28f7c784ed609bca7c632e68a3193c3b93f7f49f",
+      "bytes": 46079,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/normal_pending_counter.py",
+      "sha256": "785fd12040ae31479ae6ffa57c8826f5fe86aa28c7079ef7f1a6e3710874dc57",
+      "bytes": 3753,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/normal_pending_counter.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/owning-lifecycle-original120.py",
+      "sha256": "0e2a630f23b2fdf358308ee7b09ec0dbbfd400579d56bd342b9c66fb87e763ae",
+      "bytes": 2816,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/owning-lifecycle-original120.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/adapters/__init__.py",
+      "sha256": "51e1ebec8e15e582ecd9fe6a96a85649958ba7a29dded9d42458c963fc688893",
+      "bytes": 149,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/__init__.py",
+      "sha256": "cb4627b063199c86f15e68e3a2c67afa9f9180a10c6aa874ac692bfd271d97dd",
+      "bytes": 155,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/lifecycle_family_gate.py",
+      "sha256": "38d6f94a5274d8c628e9c208c765575c860cc70a5bd0174615bf179af0316c4b",
+      "bytes": 15914,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/lifecycle_family_gate.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/lifecycle_pending.py",
+      "sha256": "6b9b9c117987d03581cfc22298b7e6bb2bc60e9969339ff64d8fb3173cb1a6d3",
+      "bytes": 48650,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/__init__.py",
+      "sha256": "9aee9919a72a3d1a2490330509fadd20f3345228c823040e4e58e4547ff1f4ab",
+      "bytes": 151,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/pico_lifecycle_pending3_diagnostic.py",
+      "sha256": "cd58753239d9e06bf101fddf7fc2712195e3202f6b980706ae3066f8b66bc471",
+      "bytes": 16345,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/pico_lifecycle_pending3_diagnostic.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/test_pico_lifecycle_pending.py",
+      "sha256": "39ce611544135b6e672905ba233f56530534acb60d6a7bad8fe878a76dae629e",
+      "bytes": 20437,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/test_pico_lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/BILL-DELTA.diff",
+      "sha256": "02ce802a775c4c8d0462ae90198ccfb4db870197a19209e37d78a04257a1e359",
+      "bytes": 963,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent2-27im91ft/BILL-DELTA.diff"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/lifecycle_pending.py",
+      "sha256": "c26ebd3c5cd07235e0ff936c28f7c784ed609bca7c632e68a3193c3b93f7f49f",
+      "bytes": 46079,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/normal_pending_counter.py",
+      "sha256": "4ecff3a7f126b12036ef6cb86c29801a57267b9e86816aa8a5bb6ae558490ef8",
+      "bytes": 3806,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent2-27im91ft/normal_pending_counter.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/owning-lifecycle-original120.py",
+      "sha256": "0e2a630f23b2fdf358308ee7b09ec0dbbfd400579d56bd342b9c66fb87e763ae",
+      "bytes": 2816,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/owning-lifecycle-original120.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/adapters/__init__.py",
+      "sha256": "51e1ebec8e15e582ecd9fe6a96a85649958ba7a29dded9d42458c963fc688893",
+      "bytes": 149,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/adapters/pico4/__init__.py",
+      "sha256": "cb4627b063199c86f15e68e3a2c67afa9f9180a10c6aa874ac692bfd271d97dd",
+      "bytes": 155,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/adapters/pico4/lifecycle_family_gate.py",
+      "sha256": "38d6f94a5274d8c628e9c208c765575c860cc70a5bd0174615bf179af0316c4b",
+      "bytes": 15914,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/lifecycle_family_gate.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/adapters/pico4/lifecycle_pending.py",
+      "sha256": "fa6ffe066d9635bba681ca4e18c6a4f8812bfb7641362489db171187a05d39ee",
+      "bytes": 48828,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent2-27im91ft/adapters/pico4/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/self_tests/__init__.py",
+      "sha256": "9aee9919a72a3d1a2490330509fadd20f3345228c823040e4e58e4547ff1f4ab",
+      "bytes": 151,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/self_tests/pico_lifecycle_pending3_diagnostic.py",
+      "sha256": "cd58753239d9e06bf101fddf7fc2712195e3202f6b980706ae3066f8b66bc471",
+      "bytes": 16345,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/pico_lifecycle_pending3_diagnostic.py"
+    },
+    {
+      "source": "pico-lifecycle14-atomic-intent2-27im91ft/self_tests/test_pico_lifecycle_pending.py",
+      "sha256": "39ce611544135b6e672905ba233f56530534acb60d6a7bad8fe878a76dae629e",
+      "bytes": 20437,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/test_pico_lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/PROJECTION-BOUND.diff",
+      "sha256": "78857ffa8e04e8c0bfd401552e0f7cf095c2900ec2b98fc846c1ba4dfce930c4",
+      "bytes": 3651,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-projection-bound-xnktqpez/PROJECTION-BOUND.diff"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/lifecycle_pending.py",
+      "sha256": "c26ebd3c5cd07235e0ff936c28f7c784ed609bca7c632e68a3193c3b93f7f49f",
+      "bytes": 46079,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/normal_pending_counter.py",
+      "sha256": "fff61c39dc986f7095ffcac4047dad14cdd550b5ab2d4067684053d541e15832",
+      "bytes": 3998,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-projection-bound-xnktqpez/normal_pending_counter.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/owning-lifecycle-original120.py",
+      "sha256": "0e2a630f23b2fdf358308ee7b09ec0dbbfd400579d56bd342b9c66fb87e763ae",
+      "bytes": 2816,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/owning-lifecycle-original120.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/adapters/__init__.py",
+      "sha256": "51e1ebec8e15e582ecd9fe6a96a85649958ba7a29dded9d42458c963fc688893",
+      "bytes": 149,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/adapters/pico4/__init__.py",
+      "sha256": "cb4627b063199c86f15e68e3a2c67afa9f9180a10c6aa874ac692bfd271d97dd",
+      "bytes": 155,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/adapters/pico4/lifecycle_family_gate.py",
+      "sha256": "24443b6a123dbb5bea6a58b676b5e35b337827b19eb97e4f4819a985ed0b4193",
+      "bytes": 16276,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-projection-bound-xnktqpez/adapters/pico4/lifecycle_family_gate.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/adapters/pico4/lifecycle_pending.py",
+      "sha256": "fa6ffe066d9635bba681ca4e18c6a4f8812bfb7641362489db171187a05d39ee",
+      "bytes": 48828,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent2-27im91ft/adapters/pico4/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/adapters/pico4/lifecycle_source_raw.py",
+      "sha256": "920cd3861015fbf033e5cef6011fde26714157482f58ddf8ffc7951eb5aa3d21",
+      "bytes": 47796,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-projection-bound-xnktqpez/adapters/pico4/lifecycle_source_raw.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/self_tests/__init__.py",
+      "sha256": "9aee9919a72a3d1a2490330509fadd20f3345228c823040e4e58e4547ff1f4ab",
+      "bytes": 151,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/self_tests/pico_lifecycle_pending3_diagnostic.py",
+      "sha256": "cd58753239d9e06bf101fddf7fc2712195e3202f6b980706ae3066f8b66bc471",
+      "bytes": 16345,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/pico_lifecycle_pending3_diagnostic.py"
+    },
+    {
+      "source": "pico-lifecycle14-projection-bound-xnktqpez/self_tests/test_pico_lifecycle_pending.py",
+      "sha256": "39ce611544135b6e672905ba233f56530534acb60d6a7bad8fe878a76dae629e",
+      "bytes": 20437,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/test_pico_lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/REPLY-FINAL-CHECK.diff",
+      "sha256": "27ca1e3a6bb048ab7badbb1373d9139fe63114d91df5e7d55d611d8f288aacf5",
+      "bytes": 1205,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-reply-final-check-q0g5xuru/REPLY-FINAL-CHECK.diff"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/lifecycle_pending.py",
+      "sha256": "c26ebd3c5cd07235e0ff936c28f7c784ed609bca7c632e68a3193c3b93f7f49f",
+      "bytes": 46079,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/normal_pending_counter.py",
+      "sha256": "fff61c39dc986f7095ffcac4047dad14cdd550b5ab2d4067684053d541e15832",
+      "bytes": 3998,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-projection-bound-xnktqpez/normal_pending_counter.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/owning-lifecycle-original120.py",
+      "sha256": "0e2a630f23b2fdf358308ee7b09ec0dbbfd400579d56bd342b9c66fb87e763ae",
+      "bytes": 2816,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/owning-lifecycle-original120.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/adapters/__init__.py",
+      "sha256": "51e1ebec8e15e582ecd9fe6a96a85649958ba7a29dded9d42458c963fc688893",
+      "bytes": 149,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/adapters/pico4/__init__.py",
+      "sha256": "cb4627b063199c86f15e68e3a2c67afa9f9180a10c6aa874ac692bfd271d97dd",
+      "bytes": 155,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/adapters/pico4/lifecycle_family_gate.py",
+      "sha256": "24443b6a123dbb5bea6a58b676b5e35b337827b19eb97e4f4819a985ed0b4193",
+      "bytes": 16276,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-projection-bound-xnktqpez/adapters/pico4/lifecycle_family_gate.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/adapters/pico4/lifecycle_pending.py",
+      "sha256": "89c804e4df23d4004346061ae6a37f73965a19760b5ae5563cf2c3132f7f50ec",
+      "bytes": 50754,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-reply-final-check-q0g5xuru/adapters/pico4/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/adapters/pico4/lifecycle_source_raw.py",
+      "sha256": "920cd3861015fbf033e5cef6011fde26714157482f58ddf8ffc7951eb5aa3d21",
+      "bytes": 47796,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-projection-bound-xnktqpez/adapters/pico4/lifecycle_source_raw.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/self_tests/__init__.py",
+      "sha256": "9aee9919a72a3d1a2490330509fadd20f3345228c823040e4e58e4547ff1f4ab",
+      "bytes": 151,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/self_tests/pico_lifecycle_pending3_diagnostic.py",
+      "sha256": "cd58753239d9e06bf101fddf7fc2712195e3202f6b980706ae3066f8b66bc471",
+      "bytes": 16345,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/pico_lifecycle_pending3_diagnostic.py"
+    },
+    {
+      "source": "pico-lifecycle14-reply-final-check-q0g5xuru/self_tests/test_pico_lifecycle_pending.py",
+      "sha256": "39ce611544135b6e672905ba233f56530534acb60d6a7bad8fe878a76dae629e",
+      "bytes": 20437,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/test_pico_lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/SEALED-STAGE.diff",
+      "sha256": "1a897366cd6c87a3d0c08408548a2d1780a4fd8f51630ebd5b8b935c4688f290",
+      "bytes": 4354,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-sealed-stage-u7ahhxh2/SEALED-STAGE.diff"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/lifecycle_pending.py",
+      "sha256": "c26ebd3c5cd07235e0ff936c28f7c784ed609bca7c632e68a3193c3b93f7f49f",
+      "bytes": 46079,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/normal_pending_counter.py",
+      "sha256": "fff61c39dc986f7095ffcac4047dad14cdd550b5ab2d4067684053d541e15832",
+      "bytes": 3998,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-projection-bound-xnktqpez/normal_pending_counter.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/owning-lifecycle-original120.py",
+      "sha256": "0e2a630f23b2fdf358308ee7b09ec0dbbfd400579d56bd342b9c66fb87e763ae",
+      "bytes": 2816,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/owning-lifecycle-original120.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/adapters/__init__.py",
+      "sha256": "51e1ebec8e15e582ecd9fe6a96a85649958ba7a29dded9d42458c963fc688893",
+      "bytes": 149,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/adapters/pico4/__init__.py",
+      "sha256": "cb4627b063199c86f15e68e3a2c67afa9f9180a10c6aa874ac692bfd271d97dd",
+      "bytes": 155,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/adapters/pico4/lifecycle_family_gate.py",
+      "sha256": "24443b6a123dbb5bea6a58b676b5e35b337827b19eb97e4f4819a985ed0b4193",
+      "bytes": 16276,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-projection-bound-xnktqpez/adapters/pico4/lifecycle_family_gate.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/adapters/pico4/lifecycle_pending.py",
+      "sha256": "a26ee866aff23e0200a74651bc55a88ed86279a4051b186c6c38d8814e15c622",
+      "bytes": 50207,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-sealed-stage-u7ahhxh2/adapters/pico4/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/adapters/pico4/lifecycle_source_raw.py",
+      "sha256": "920cd3861015fbf033e5cef6011fde26714157482f58ddf8ffc7951eb5aa3d21",
+      "bytes": 47796,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-projection-bound-xnktqpez/adapters/pico4/lifecycle_source_raw.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/self_tests/__init__.py",
+      "sha256": "9aee9919a72a3d1a2490330509fadd20f3345228c823040e4e58e4547ff1f4ab",
+      "bytes": 151,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/self_tests/pico_lifecycle_pending3_diagnostic.py",
+      "sha256": "cd58753239d9e06bf101fddf7fc2712195e3202f6b980706ae3066f8b66bc471",
+      "bytes": 16345,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/pico_lifecycle_pending3_diagnostic.py"
+    },
+    {
+      "source": "pico-lifecycle14-sealed-stage-u7ahhxh2/self_tests/test_pico_lifecycle_pending.py",
+      "sha256": "39ce611544135b6e672905ba233f56530534acb60d6a7bad8fe878a76dae629e",
+      "bytes": 20437,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/test_pico_lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-validation-pass-6vnweins/lifecycle_pending.py",
+      "sha256": "c26ebd3c5cd07235e0ff936c28f7c784ed609bca7c632e68a3193c3b93f7f49f",
+      "bytes": 46079,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-validation-pass-6vnweins/normal_pending_counter.py",
+      "sha256": "2d17ddaf404de357818f97cd3302c91716fc4401bd439de7c965f726b8f515d6",
+      "bytes": 3749,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-validation-pass-6vnweins/normal_pending_counter.py"
+    },
+    {
+      "source": "pico-lifecycle14-validation-pass-6vnweins/owning-lifecycle-original120.py",
+      "sha256": "0e2a630f23b2fdf358308ee7b09ec0dbbfd400579d56bd342b9c66fb87e763ae",
+      "bytes": 2816,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/owning-lifecycle-original120.py"
+    },
+    {
+      "source": "pico-lifecycle14-validation-pass-6vnweins/validation-only.diff",
+      "sha256": "7881dff797adc57e4a3656302b3dd9c6ed5337989bb098f23b46be98f5f449d4",
+      "bytes": 2880,
+      "disposition": "unintegrated-source-snapshot",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-validation-pass-6vnweins/validation-only.diff"
+    },
+    {
+      "source": "pico-lifecycle14-validation-pass-6vnweins/adapters/__init__.py",
+      "sha256": "51e1ebec8e15e582ecd9fe6a96a85649958ba7a29dded9d42458c963fc688893",
+      "bytes": 149,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-validation-pass-6vnweins/adapters/pico4/__init__.py",
+      "sha256": "cb4627b063199c86f15e68e3a2c67afa9f9180a10c6aa874ac692bfd271d97dd",
+      "bytes": 155,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/adapters/pico4/__init__.py"
+    },
+    {
+      "source": "pico-lifecycle14-validation-pass-6vnweins/adapters/pico4/lifecycle_pending.py",
+      "sha256": "c26ebd3c5cd07235e0ff936c28f7c784ed609bca7c632e68a3193c3b93f7f49f",
+      "bytes": 46079,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/lifecycle_pending.py"
+    },
+    {
+      "source": "pico-lifecycle14-validation-pass-6vnweins/self_tests/__init__.py",
+      "sha256": "9aee9919a72a3d1a2490330509fadd20f3345228c823040e4e58e4547ff1f4ab",
+      "bytes": 151,
+      "disposition": "duplicate-source",
+      "snapshotPath": "tests/device/private_packets/pico_lifecycle_backup_20261105/pico-lifecycle14-atomic-intent-acm7nwmj/self_tests/__init__.py"
+    }
+  ],
+  "patchSha256": "ba8f05eb1ac874a5a08ed22589e6d41db871e01f9dde261fdffc26951dd77231",
+  "excluded": "Execution originals, generated credentials/certificates/configuration, mirrors, binary artifacts, logs and runtime directories are not source changes and are excluded."
+}

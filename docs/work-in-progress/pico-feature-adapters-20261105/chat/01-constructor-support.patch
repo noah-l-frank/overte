@@ -1,0 +1,798 @@
+diff --git a/tests/device/private_packets/pico_chat_source_backup_20261105/constructor2/cold_model.py b/tests/device/private_packets/pico_chat_source_backup_20261105/constructor2/cold_model.py
+new file mode 100644
+--- /dev/null
++++ b/tests/device/private_packets/pico_chat_source_backup_20261105/constructor2/cold_model.py
+@@ -0,0 +1,281 @@
++"""PRIVATE declared SDK/Qt model, selected before the real bound constructor.
++
++No device, product app, Qt event loop or Assignment Client executes here.
++There is no replacement of an existing class/global/method/default/owner.
++"""
++from copy import deepcopy
++import hashlib
++import importlib.util
++import json
++import os
++from pathlib import Path
++import shlex
++import subprocess
++import sys
++import time
++import uuid
++
++from adapters.android.adapter import AndroidAdapter, PROFILES, ANDROID_CONTROL_CONTRACT
++from adapters.host_process_identity import host_identity
++from adapters.native_feature_observation import need
++from self_tests.test_token_chat_ui import Widgets
++from cold_originals import ColdChatOriginals, FILES, script
++
++
++def load(path, name):
++    spec = importlib.util.spec_from_file_location(name, path)
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    return module
++
++
++class CandidateArtifacts:
++    """Original fabricated candidate algorithms in a persistent owned root.
++
++    The legacy source fixture's TemporaryDirectory/setUp/tearDown never runs.
++    These fabricated PASS receipts remain explicit host test inputs.
++    """
++    def __init__(self, repo, directory):
++        from artifact_identity import EVIDENCE_KEYS, INPUT_KEYS, digest_file, normalized_inputs
++        self.repo, self.directory = repo, directory
++        module = load(repo / 'android/vr/pico/tests/pico-apk-verifier-test.py', 'cold_chat_apk_fixture')
++        builder = module.PicoApkVerifierTests('test_accepts_expected_pico_apk_and_emits_manifest')
++        builder.directory, builder.parent = directory, repo
++        builder.network_config = (repo / 'android/common/web/res/xml' / (module.NETWORK_NAME + '.xml')).read_text()
++        builder.aapt2 = builder._tool('aapt2', "printf '  resource 0x7f010000 xml/" + module.NETWORK_NAME +
++            "\\n    () (file) " + module.NETWORK_FILE + " type=XML\\n'\n")
++        builder.analyzer = directory / 'apkanalyzer-stub'
++        builder.analyzer.write_text(module.synthetic_analyzer_script(module.NETWORK_MANIFEST, builder.network_config))
++        builder.analyzer.chmod(0o755)
++        builder.aapt = builder._tool('aapt',
++            "printf \"package: name='org.overte.pico' versionCode='7' versionName='0.4.0'\\n\"\n"
++            "printf \"sdkVersion:'26'\\ntargetSdkVersion:'35'\\n\"\n")
++        builder.apksigner = builder._tool('apksigner',
++            "printf 'Number of signers: 1\\nSigner #1 certificate SHA-256 digest: %064d\\n' 0\n")
++        self.apk = builder._apk(e2e_layer=True)
++        self.builder = builder
++        inputs = {key: 'c' * 64 for key in INPUT_KEYS}
++        input_file = directory / 'expected-inputs.json'
++        input_file.write_text(json.dumps(inputs))
++        files = {key: directory / (key + '.json') for key in EVIDENCE_KEYS}
++        for key, path in files.items():
++            path.write_text(json.dumps({'testOnly': key}))
++        self.record_file = directory / 'identity.json'
++        self.record = dict(contract='overte-sh009-identity-v1', sourceRevision='a' * 40,
++            product='pico4', versionCode=7, channel='internal-candidate',
++            artifactSha256=digest_file(self.apk), inputs=inputs,
++            normalizedInputsSha256=normalized_inputs(inputs),
++            evidence={key: digest_file(path) for key, path in files.items()},
++            signature=dict(state='pending', receiptSha256=None),
++            upgrade=dict(state='pending', receiptSha256=None))
++        self.record_file.write_text(json.dumps(self.record))
++        evidence_module = load(repo / 'tests/device/schema/test_android_build_evidence.py', 'cold_chat_evidence_fixture')
++        fixture = evidence_module.AndroidEvidence().fixture(directory / 'build', 'pico4')
++        fixture['evidence'].update(identityRecordSha256=digest_file(self.record_file),
++            artifactSha256=self.record['artifactSha256'],
++            normalizedInputsSha256=normalized_inputs(inputs), toolchainSha256=inputs['toolchain'])
++        for receipt in fixture['receipts'].values():
++            receipt.update(artifactSha256=self.record['artifactSha256'], normalizedInputsSha256=normalized_inputs(inputs))
++            if receipt['provenance']:
++                receipt['provenance'].update(toolchainSha256=inputs['toolchain'], normalizedInputsSha256=normalized_inputs(inputs))
++        evidence_module.AndroidEvidence().update(fixture)
++        self.fixture = fixture
++        self.arguments = ['--kind', 'pico', '--native-binding', '--apk', str(self.apk),
++            '--aapt', str(builder.aapt), '--apksigner', str(builder.apksigner),
++            '--aapt2', str(builder.aapt2), '--apkanalyzer', str(builder.analyzer),
++            '--identity-record', str(self.record_file), '--source-revision', 'a' * 40,
++            '--expected-inputs', str(input_file), '--minimum-version', '6',
++            '--expected-version-code', '7', '--expected-version-name', '0.4.0',
++            '--expected-signer-sha256', '0' * 64,
++            '--build-evidence', str(fixture['args'][0]),
++            '--expected-artifact-sha256', self.record['artifactSha256'], '--expect-e2e-input-layer']
++        for key, path in files.items():
++            self.arguments.extend(['--' + key, str(path)])
++
++
++class NativeModel:
++    """Actual-file producer with an explicit original host context at birth."""
++    target = 'private-cold-chat-model'
++    package_path = '/data/app/declared-chat-model/org.overte.pico/base.apk'
++
++    def __init__(self, root, digest, budget):
++        self.root, self.digest, self.budget = root, digest, budget
++        self.host = host_identity()
++        pid, birth, _boot = self.host.split(':')
++        self.pid, self.identity = int(pid), pid + ':' + birth
++        self.bridge = str(uuid.uuid4())
++        self.generation = str(uuid.uuid4())
++        self.widgets = Widgets()
++        self.widgets.pid, self.widgets.instance = self.pid, self.bridge
++        self.widgets.generation, self.widgets.tablet = self.generation, False
++        self.raw = None
++        self.running, self.sequence = True, 0
++        self.status, self.diagnostic = {}, None
++        self.commands, self.inputs, self.controllers, self.binary_calls = [], [], [], []
++        self.sdk_calls = 0
++        self._config = self._original_config = (root, digest, budget, self.host,
++            self.pid, self.identity, self.bridge, self.generation, self.widgets)
++        (root / 'files').mkdir(mode=0o700)
++        (root / 'files/overte-e2e').mkdir(mode=0o700)
++
++    def bind_raw(self, raw):
++        need(self.raw is None and type(raw) is ColdChatOriginals
++             and raw.target == self.target and raw.budget is self.budget)
++        self.raw = raw
++
++    def guard(self):
++        p = self._config
++        need(p is self._original_config and self.root is p[0] and self.digest is p[1]
++             and self.budget is p[2] and self.host is p[3] and self.pid is p[4]
++             and self.identity is p[5] and self.bridge is p[6] and self.generation is p[7]
++             and self.widgets is p[8] and type(self.widgets) is Widgets
++             and self.running is True and self.widgets.tablet is False
++             and self.widgets.ready is True and self.widgets.mutate is None
++             and self.widgets.panel is False and type(self.widgets.draft) is str and self.widgets.draft == ''
++             and type(self.widgets.local) is list and not self.widgets.local
++             and type(self.widgets.domain) is list and not self.widgets.domain
++             and type(self.commands) is list and len(self.commands) <= 512
++             and type(self.inputs) is list and not self.inputs
++             and type(self.controllers) is list and not self.controllers
++             and host_identity() == self.host
++             and self.budget[0] <= time.monotonic() < self.budget[1])
++
++    def process_state(self, target, package):
++        self.sdk_calls += 1
++        need(target == self.target and package == 'org.overte.pico')
++        self.guard()
++        return {'running': self.running, 'identity': self.identity}
++
++    def prop(self, target, name):
++        self.sdk_calls += 1
++        need(target == self.target)
++        return {'ro.product.manufacturer': 'Pico', 'ro.product.brand': 'Pico',
++            'ro.product.model': 'Pico 4', 'ro.product.device': 'Pico',
++            'ro.product.cpu.abilist': 'arm64-v8a', 'ro.build.version.sdk': '26',
++            'ro.opengles.version': '196610', 'ro.kernel.qemu': '0'}.get(name, '')
++
++    def require_connected(self, target, **options):
++        self.sdk_calls += 1
++        need(target == self.target)
++        self.guard()
++
++    def properties(self, target):
++        return {name: self.prop(target, name) for name in (
++            'ro.product.manufacturer', 'ro.product.brand', 'ro.product.model',
++            'ro.product.device', 'ro.product.cpu.abilist', 'ro.build.version.sdk',
++            'ro.opengles.version', 'ro.kernel.qemu')}
++
++    def foreground_package(self, target):
++        self.sdk_calls += 1
++        need(target == self.target)
++        self.guard()
++        return 'org.overte.pico'
++
++    def epoch_milliseconds(self, target):
++        self.sdk_calls += 1
++        need(target == self.target)
++        self.guard()
++        return time.time_ns() // 1000000
++
++    def shell(self, target, *arguments, check=True):
++        self.sdk_calls += 1
++        need(target == self.target)
++        self.guard()
++        if arguments == ('pm', 'path', 'org.overte.pico'):
++            return 'package:' + self.package_path + '\n'
++        if arguments == ('toybox', 'sha256sum', self.package_path):
++            return self.digest + '  ' + self.package_path + '\n'
++        raise RuntimeError('Unimplemented declared Chat identity/control shell')
++
++    def require_process_identity(self, identity):
++        self.guard()
++        need(identity == self.identity)
++
++    def current(self, kind):
++        self.guard()
++        epoch = time.time_ns() // 1000000
++        if kind == 'marker':
++            return dict(ANDROID_CONTROL_CONTRACT, processId=self.pid)
++        if kind == 'probe':
++            return dict(sampleEpochMs=epoch, control=ANDROID_CONTROL_CONTRACT, application={'running': True})
++        if kind == 'ui':
++            widgets = self.widgets.capture()
++            return dict(schemaVersion=1, bridgeId=self.bridge, generation=self.generation,
++                processId=self.pid, elapsedMs=int((time.monotonic() - self.budget[0]) * 1000),
++                updatedEpochMs=epoch, lastCommandSequence=self.sequence,
++                open=widgets['open'], ready=widgets['ready'] and widgets['open'],
++                controls=widgets['controls'] if widgets['open'] else [],
++                featureControlsVersion=1, chatControlsVersion=2)
++        if kind == 'status':
++            return self.status
++        if kind == 'diagnostic':
++            need(self.diagnostic is not None)
++            return self.diagnostic
++        raise RuntimeError('Native Chat source provider not implemented: ' + kind)
++
++    def execute_bytes(self, arguments, *, target, timeout, check=False):
++        need(target == self.target and type(arguments) is list and len(arguments) == 2
++             and arguments[0] == 'exec-out' and check is False and 0 < timeout <= 5)
++        self.guard()
++        argv = shlex.split(arguments[1])
++        need(len(argv) == 8 and argv[:4] == ['run-as', 'org.overte.pico', 'sh', '-c']
++             and argv[5] == 'overte-pico-chat-cold-source' and argv[7] == '262145')
++        kinds = [kind for kind in FILES if argv[4] == script(kind)]
++        need(len(kinds) == 1)
++        kind = kinds[0]
++        value = self.current(kind)
++        raw = json.dumps(value, ensure_ascii=True, separators=(',', ':')).encode('utf-8')
++        need(len(raw) <= 262144)
++        path = self.root / FILES[kind]
++        # This is actual fresh declared producer output, never a rewritten
++        # returned envelope. Its physical copy must be covered by resources.
++        with path.open('wb') as stream:
++            stream.write(raw)
++            stream.flush()
++            os.fsync(stream.fileno())
++        path.chmod(0o600)
++        result = subprocess.run(['sh', '-c', argv[4], *argv[5:]], cwd=self.root,
++            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, check=False)
++        self.binary_calls.append((kind, len(result.stdout), result.returncode))
++        return result.stdout
++
++    def read_debug_app_file(self, target, package, path, *, attempts=1, **options):
++        need(self.raw is not None)
++        return self.raw.original_reader(target, package, path, attempts=attempts, **options)
++
++    def write_debug_app_file(self, target, package, path, raw):
++        need(target == self.target and package == 'org.overte.pico' and type(raw) is str)
++        self.guard()
++        request = json.loads(raw)
++        need(self.raw is not None and len(raw.encode('utf-8')) <= 4096)
++        token = self.raw.archive.reserve('chat-cold-control', request, 65536)
++        try:
++            self.guard()  # Admission/CAS time cannot authorize a late writer.
++            self.commands.append(request)
++            if path == 'files/overte-e2e/android-control-command.json' and request['action'] == 'normal-feature-observe':
++                self.diagnostic = dict(schemaVersion=1, requestId=request['commandId'],
++                    instance='f' * 32, sampleSequence=len(self.commands), sampleEpochMs=time.time_ns() // 1000000,
++                    complete=True, scripts=[])
++                # The real API's None return is a distinct original receipt,
++                # not a fabricated successful native observation or raw lane.
++                self.raw.archive.retain(token, None)
++                return
++            raise RuntimeError('Native Chat control provider not implemented: ' + request.get('action', 'unknown'))
++        except BaseException as error:
++            self.raw.fail(error)
++            raise
++
++
++def selected_base(sdk, state_root):
++    """New explicit BaseAdapter type; existing production classes stay intact."""
++    selected = (sdk, (5038, state_root))
++    class DeclaredChatAdapter(AndroidAdapter):
++        def __init__(self, kind):
++            need(kind == 'pico')
++            self.kind, self.profile = kind, PROFILES[kind]
++            self.adb, self.pico_configuration = selected
++        def pico_input_session(self, target):
++            need(target == sdk.target and self.adb is sdk)
++            sdk.guard()
++            return sdk
++    return DeclaredChatAdapter
+diff --git a/tests/device/private_packets/pico_chat_source_backup_20261105/constructor2/cold_originals.py b/tests/device/private_packets/pico_chat_source_backup_20261105/constructor2/cold_originals.py
+new file mode 100644
+--- /dev/null
++++ b/tests/device/private_packets/pico_chat_source_backup_20261105/constructor2/cold_originals.py
+@@ -0,0 +1,208 @@
++"""PRIVATE cold Chat source-byte custody; not an application-ready factory.
++
++Caller resource accounting is mandatory. This reader preserves the existing
++262144-byte leaf grammar, AudioRawArchive limits and original deadline. It
++does not bound historical decoded frames, Native builders, GPU memory or RSS.
++"""
++from types import MappingProxyType
++import shlex
++import subprocess
++import time
++import uuid
++
++from adapters.host_process_identity import host_identity
++from adapters.native_feature_observation import need, exact, integer, number
++from adapters.pico4.audio_raw_archive import AudioRawArchive, AudioRawSourceLock
++from adapters.pico4.emote_stream_model_raw import literal
++from adapters.pico4.emote_stream_wire import _BODY, physical_stamp
++from adapters.pico4.probe_originals import same_callable
++from adapters.script_journey.lock import ScriptSourceLock
++
++VERSION = 1
++LIMIT = 262144
++WIRE_LIMIT = LIMIT + 1 + 4096
++# Only the concurrently active wire/framing/UTF8 domain. The caller still
++# charges ALL source frames, original payloads, other metadata and Native files.
++LITERAL_WORK = 8 * WIRE_LIMIT
++CONTROL_WORK = 32768
++FILES = MappingProxyType({
++    'marker': 'files/overte-e2e/android-control.json',
++    'probe': 'files/overte-e2e/overte-probe.json',
++    'ui': 'files/overte-e2e/navigation-ui-observation.json',
++    'status': 'files/overte-e2e/navigation-ui-status.json',
++    'diagnostic': 'files/overte-e2e/normal-feature-observation.json',
++    'native': 'files/overte-e2e/feature-native-observation.json',
++    'roots': 'files/overte-e2e/feature-script-roots.json',
++    'scripts': 'files/overte-e2e/feature-script-observation.json',
++    'profile': 'files/overte-e2e/feature-chat-profile.json',
++    'chat': 'files/overte-e2e/feature-chat-observation.json',
++    'view': 'files/overte-e2e/feature-chat-view-observation.json',
++})
++OWNED = []
++
++
++def script(kind):
++    need(type(kind) is str and kind in FILES)
++    return 'stream_path=' + FILES[kind] + '\n' + _BODY.replace('CHECK_SAMPLE', '')
++
++
++class ColdChatOriginals:
++    """Birth-selected original SDK reader; unknown acquisition never replays.
++
++    No app getter is invoked by construction. `resources` must return the
++    complete other-domain prospective bill; no default/free allowance exists.
++    """
++    def __init__(self, path, run, role, target, binary, resources, budget, *,
++                 monotonic=time.monotonic):
++        need(type(run) is str and len(run) == 32 and all(c in '0123456789abcdef' for c in run)
++             and type(role) is str and role in ('primary', 'actor') and type(target) is str and target
++             and callable(binary) and callable(resources) and callable(monotonic)
++             and type(budget) is tuple and len(budget) == 2
++             and all(type(value) is float for value in budget)
++             and 0 < budget[1] - budget[0] <= 120)
++        self.run, self.role, self.target = run, role, target
++        self.binary, self.resources, self.monotonic = binary, resources, monotonic
++        self.budget = budget
++        self.host = host_identity()
++        self.failed = False
++        self.active = self.issued = self.first_error = None
++        self.root_node = None
++        self.references = []
++        self._config = self._original_config = (
++            run, role, target, binary, resources, monotonic, budget, self.host)
++        self.lock = ScriptSourceLock(path.with_name('chat-raw-sources.lock'))
++        self.raw_lock = AudioRawSourceLock(self.lock)
++        self._bill_callback = self.bill
++        self._identity_callback = self.identity
++        # Retain the actual delegated original owner BEFORE its constructor.
++        OWNED.append(self)
++        self.archive = object.__new__(AudioRawArchive)
++        try:
++            AudioRawArchive.__init__(self.archive, path,
++                dict(picoChatColdOriginalsVersion=VERSION, runId=run, role=role,
++                     target=target, hostProcessIdentity=self.host,
++                     originalStarted=budget[0], originalDeadline=budget[1]),
++                self.raw_lock, self._identity_callback, self._bill_callback, monotonic)
++        except BaseException as error:
++            self.fail(error)
++            raise
++
++    def configuration(self):
++        p = self._config
++        need(p is self._original_config and type(p) is tuple and len(p) == 8
++             and type(self.run) is type(self.role) is type(self.target) is str
++             and (self.run, self.role, self.target) == p[:3]
++             and same_callable(self.binary, p[3])
++             and same_callable(self.resources, p[4])
++             and same_callable(self.monotonic, p[5])
++             and self.budget is p[6] and self.host is p[7])
++
++    def identity(self):
++        # Resource identity intentionally does not call an app getter or the
++        # business clock. Already-issued raw bytes can survive business expiry.
++        self.configuration()
++        need(host_identity() == self.host)
++        return True
++
++    def live(self):
++        self.identity()
++        need(not self.failed)
++        now = self.monotonic()
++        need(number(now, self.budget[0], self.budget[1]) and now < self.budget[1])
++        return now
++
++    def bill(self):
++        self.identity()
++        value = self.resources()
++        exact(value, {'parts', 'storedBytes', 'decodedBytes'})
++        need(all(integer(value[key]) for key in value))
++        return dict(parts=value['parts'],
++            storedBytes=value['storedBytes'] + LITERAL_WORK + CONTROL_WORK,
++            decodedBytes=value['decodedBytes'] + LITERAL_WORK + CONTROL_WORK)
++
++    def fail(self, error):
++        # This precedes every later callback/normalization. Never replace an
++        # earlier original exception and its original stack with a later one.
++        if self.first_error is None:
++            self.first_error = (error, error.__traceback__)
++        self.failed = True
++
++    def retain(self, issued, wire):
++        archive, token, retainer = issued
++        # AudioRawArchive retains the genuine issued original before entering
++        # its file/OFD guard; overlong/foreign returns stay on this owner too.
++        if type(wire) is not bytes or len(wire) > WIRE_LIMIT:
++            self.unknown_return = (issued, wire)
++            need(False)
++        reference = retainer(token, wire)
++        self.references.append(reference)
++        need(self.issued is issued)
++        self.issued = None
++        return reference
++
++    def read(self, kind):
++        # Acquire ownership before ANY resource/clock/SDK callback. A nested
++        # refusal cannot clear this outer acquisition's claim.
++        need(type(kind) is str and kind in FILES)
++        if self.active is not None:
++            try:
++                need(False)
++            except BaseException as error:
++                self.fail(error)
++                raise
++        claim = object()
++        self.active = claim
++        try:
++            started = self.live()
++            nonce = uuid.uuid4().hex
++            command = dict(picoChatColdOriginalVersion=VERSION, runId=self.run,
++                role=self.role, kind=kind, wireNonce=nonce)
++            archive = self.archive
++            token = archive.reserve('chat-cold-source', command, WIRE_LIMIT)
++            issued = (archive, token, archive.retain)
++            self.issued = issued
++            remote = ' '.join(shlex.quote(value) for value in (
++                'run-as', 'org.overte.pico', 'sh', '-c', script(kind),
++                'overte-pico-chat-cold-source', nonce, str(LIMIT + 1)))
++            now = self.live()
++            remaining = min(started + 5, self.budget[1]) - now
++            need(0 < remaining <= 5)
++            try:
++                wire = self.binary(['exec-out', remote], target=self.target,
++                    timeout=remaining, check=False)
++            except BaseException as error:
++                partial = (subprocess.TimeoutExpired, subprocess.CalledProcessError)
++                cause = error if isinstance(error, partial) else error.__cause__
++                if isinstance(cause, partial) and type(cause.output) is bytes:
++                    self.retain(issued, cause.output)
++                raise
++            self.retain(issued, wire)  # BEFORE framing, UTF8 or source parsing.
++            now = self.live()
++            need(self.active is claim and now - started < 5)
++            body, physical = literal(wire, nonce)
++            node = tuple(physical_stamp(physical[0])[:5])
++            if self.root_node is None:
++                self.root_node = node
++            need(node == self.root_node)
++            value = body.decode('utf-8', errors='strict')
++            now = self.live()
++            need(self.active is claim and now - started < 5)
++            return value
++        except BaseException as error:
++            self.fail(error)
++            raise
++        finally:
++            if self.active is claim:
++                self.active = None
++
++    def original_reader(self, target, package, path, *, attempts=1, **options):
++        try:
++            need(type(target) is type(package) is type(path) is str
++                 and target == self.target and package == 'org.overte.pico'
++                 and type(attempts) is int and attempts == 1 and not options)
++            kinds = [kind for kind, fixed in FILES.items() if path == fixed]
++            need(len(kinds) == 1)
++            return self.read(kinds[0])
++        except BaseException as error:
++            self.fail(error)
++            raise
+diff --git a/tests/device/private_packets/pico_chat_source_backup_20261105/constructor2/constructor.py b/tests/device/private_packets/pico_chat_source_backup_20261105/constructor2/constructor.py
+new file mode 100644
+--- /dev/null
++++ b/tests/device/private_packets/pico_chat_source_backup_20261105/constructor2/constructor.py
+@@ -0,0 +1,294 @@
++"""PRIVATE actual bound Chat constructor only; no prepared Parent adoption.
++
++Not yet executed. This component precedes the proposed baseline/Open/Send
++vertical. Product/Native/Actor-observation/whole qualification stays false.
++"""
++import argparse
++import hashlib
++import json
++import os
++from pathlib import Path
++import select
++import subprocess
++import sys
++import time
++import traceback
++
++REPO = Path(str(Path(__file__).resolve().parents[4]))
++sys.path[:0] = [str(REPO / 'tests/device'), str(REPO / 'provenance'), str(Path(__file__).parent)]
++
++from adapters.android import adapter as android
++from adapters.feature_fixture_access import AdapterFixtureClient
++from adapters.normal_feature_state import PrivateFeatureState
++from adapters.chat_journey.archive_file import ClosedOriginalFile, signature
++from adapters.chat_actor_files import stamp as actor_stamp
++from feature_journeys.phase_fixture import PhaseFixtureReader
++from fixture.owned_processes import OwnedProcesses
++from cold_model import CandidateArtifacts, NativeModel, selected_base
++from cold_originals import ColdChatOriginals
++
++RUN = 'd' * 32
++PART = 65536
++NATIVE_FILES = 13 * 262144
++HOST_FILES = 32 * PART
++REQUESTS = 512 * 4096
++PEER_ORIGIN = 4 * PART
++AUXILIARY = 8 * PART
++# Constructor-only envelope, not arbitrary Chat history or a whole fit. Actual
++# files are ALSO billed; these future/decoded/temporary domains stay additive.
++CONSTRUCTOR_CREDIT = NATIVE_FILES + HOST_FILES + REQUESTS + PEER_ORIGIN + AUXILIARY
++OWNED = []
++WORKER = r'''
++import hashlib,json,os,sys,time
++from pathlib import Path
++root=Path(sys.argv[sys.argv.index('--e2eChatActorDir')+1])
++value=dict(actorVersion=2,instance='b'*32,processId=os.getpid(),
++    configuredEpochMs=time.time_ns()//1000000,
++    scriptSha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
++    build=dict(cleanConfiguredSource=True,compiledSourceRevision='c'*40))
++fd=os.open(root/'chat-actor-source.v1.json',os.O_RDWR|os.O_CREAT|os.O_EXCL,0o600)
++os.write(fd,(json.dumps(value,sort_keys=True,separators=(',',':'))+'\n').encode());os.fsync(fd)
++print('ready',flush=True)
++for line in sys.stdin:
++    if line.strip()=='close':break
++    raise RuntimeError('Constructor-only native peer received an unexpected command')
++os.close(fd)
++'''
++
++
++def snapshot(paths):
++    rows = {}
++    for path in sorted(set(paths)):
++        if path.is_file():
++            first = path.stat()
++            raw = path.read_bytes()
++            second = path.stat()
++            stamp = lambda value: [value.st_dev, value.st_ino, value.st_uid,
++                value.st_mode, value.st_nlink, value.st_size, value.st_mtime_ns, value.st_ctime_ns]
++            if stamp(first) != stamp(second):
++                raise RuntimeError('Source changed during the original snapshot')
++            rows[str(path)] = dict(sha256=hashlib.sha256(raw).hexdigest(), stat8=stamp(second))
++    return rows
++
++
++def ready():
++    base = 'http://127.0.0.1:48308/v1/'
++    return dict(schemaVersion=1, domainUrl='hifi://127.0.0.1:48302/parity', domainHost='127.0.0.1',
++        domainId='33333333-3333-4333-8333-333333333333', requiredMarkers=[], expectedEntityCount=1,
++        bootstrapScriptUrl='http://127.0.0.1:48309/domain.js', peerScriptUrl='http://127.0.0.1:48309/peer.js',
++        peerDisplayName='owned-component-peer', controlUrl=base+'domain-state', controlToken='test_only_'+'a'*48,
++        collaborationEditUrl=base+'collaboration-edit', collaborationStateUrl=base+'collaboration-state',
++        messagesMixerControlUrl=base+'messages-mixer-state')
++
++
++class ConstructorCase:
++    def __init__(self, root):
++        self.root = root
++        self.budget = (time.monotonic(), 0.0)
++        self.budget = (self.budget[0], self.budget[0] + 120.0)
++        self.worker = self.parent = self.raw = self.first_error = None
++        self.closed = {}
++        OWNED.append(self)
++        for name in ('candidate', 'state', 'native', 'raw', 'peer', 'config-home'):
++            (root / name).mkdir(mode=0o700)
++        self.paths = self._paths = tuple(root / name for name in ('state', 'native', 'peer'))
++
++    def resources(self):
++        if self.paths is not self._paths or len(str(self.root).encode('utf-8')) > 512:
++            raise RuntimeError('Constructor namespace identity is unavailable')
++        physical = parts = 0
++        count = 0
++        for root in self.paths:
++            for path in root.rglob('*'):
++                if path.is_symlink():
++                    raise RuntimeError('Unowned link in the constructor namespace')
++                if path.is_file():
++                    size = path.stat().st_size
++                    count += 1
++                    maximum = 262144 if root.name == 'native' else PART
++                    if size > maximum or count > 32:
++                        raise RuntimeError('Constructor-only resource envelope exhausted')
++                    physical += size
++                    parts += max(1, (size + PART - 1) // PART)
++        return dict(parts=parts, storedBytes=physical + CONSTRUCTOR_CREDIT,
++            decodedBytes=physical + CONSTRUCTOR_CREDIT)
++
++    def prepare(self):
++        # Environment is fixed before candidate/code admission; never rebound
++        # underneath an already admitted candidate or a live owner.
++        os.environ.update(OVERTE_PICO_OPENXR_INPUT='1', OVERTE_ANDROID_E2E_DEBUG='1',
++            OVERTE_PICO_NORMAL_NAVIGATION='0', OVERTE_PICO_NORMAL_SCRIPTS='1',
++            OVERTE_E2E_SCENE_URL='http://controlled.invalid/scene.json',
++            ANDROID_ADB_SERVER_PORT='5038', OVERTE_PICO_OPENXR_STATE_DIR=str(self.root/'state'),
++            OVERTE_ANDROID_E2E_PROBE_ATTEMPTS='1')
++        self.candidate = CandidateArtifacts(REPO, self.root/'candidate')
++        self.sdk = NativeModel(self.root/'native', self.candidate.record['artifactSha256'], self.budget)
++        # Actual original raw owner before any app marker/probe/UI acquisition.
++        # This actual owner must be reachable even if its constructor fails.
++        # The business Parent is still constructed by its unchanged factory.
++        self.raw = object.__new__(ColdChatOriginals)
++        ColdChatOriginals.__init__(self.raw, self.root/'raw'/'originals.json', RUN, 'primary',
++            self.sdk.target, self.sdk.execute_bytes, self.resources, self.budget)
++        self.sdk.bind_raw(self.raw)
++        worker_path = self.root/'peer-model.py'
++        worker_path.write_text(WORKER)
++        worker_path.chmod(0o600)
++        environment = os.environ.copy()
++        environment['XDG_CONFIG_HOME'] = str(self.root/'config-home')
++        self.processes = OwnedProcesses(environment)
++        self.stderr = (self.root/'peer-stderr.txt').open('wb')
++        self.worker = subprocess.Popen([sys.executable, '-B', str(worker_path), '--testScript',
++            '--e2eChatActorDir', str(self.root/'peer')], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
++            stderr=self.stderr, text=True, env=environment)
++        if not select.select([self.worker.stdout], [], [], 5)[0] or self.worker.stdout.readline().strip() != 'ready':
++            raise RuntimeError('Original owned constructor peer did not become ready')
++        self.peer_config = PrivateFeatureState(self.root/'peer-config.json')
++        self.peer_config.write(dict(actorFilesVersion=1, directory=str(self.root/'peer'),
++            expectedScriptSha256=hashlib.sha256(worker_path.read_bytes()).hexdigest(),
++            expectedExecutableSha256=hashlib.sha256(Path(f'/proc/{self.worker.pid}/exe').read_bytes()).hexdigest(),
++            ownerToken=self.processes.owner, configHome=self.processes.config_home), None)
++        self.domain_ready = PrivateFeatureState(self.root/'ready.json')
++        self.domain_ready.write(ready(), None)
++        # Original native peer metadata is a file source too. Retain its exact
++        # bytes before OwnedChatPeer's first JSON parser; the later owner must
++        # still prove the SAME full original bytes/stamp after construction.
++        self.peer_original = ClosedOriginalFile(self.root/'peer'/'chat-actor-source.v1.json',
++            0o600, self.raw.live)
++        source_started = self.raw.live()
++        token = self.raw.archive.reserve('chat-peer-origin',
++            dict(picoChatColdPeerOriginalVersion=1, runId=RUN), PART)
++        self.peer_source_reference = None
++        def retain_source(raw):
++            self.pending_peer_return = raw
++            self.peer_source_reference = self.raw.archive.retain(token, raw)
++            self.pending_peer_return = None
++        self.peer_original.read(retain_source)
++        if self.raw.live() - source_started >= 5:
++            raise RuntimeError('Original peer SOURCE acquisition exceeded its original query bound')
++        # No network is started. This original fixture client is construction
++        # context only; the constructor must perform no phase/HTTP request.
++        self.source = PhaseFixtureReader(AdapterFixtureClient(
++            'http://127.0.0.1:48300/feature-fixture/v1', 'a'*48), RUN, 'chat')
++        args, binding = android.cli([*self.candidate.arguments, 'describe', '--target', self.sdk.target])
++        self.adapter = binding.create_adapter(args, selected_base(self.sdk, self.root/'state'))
++
++    def run(self):
++        self.prepare()
++        self.parent = self.adapter._chat_composition(self.sdk.target, self.source, self.peer_config, self.domain_ready)
++        source_path = self.root/'peer'/'chat-actor-source.v1.json'
++        if not (self.peer_original.stamp == signature(source_path.lstat())
++                and self.parent.peer.files.source_stamp == actor_stamp(source_path.lstat())
++                and self.parent.peer.files.source_sha == hashlib.sha256(self.peer_original.raw).hexdigest()
++                and self.raw.archive.literal(self.peer_source_reference) == self.peer_original.raw):
++            raise RuntimeError('Constructed peer is not the original pre-parser native SOURCE')
++        # Facts only here; final assertions remain outside every SourceLock.
++        return dict(parentPhase=self.parent.previous['phase'], parentVersion=self.parent.previous['picoChatCompositionVersion'],
++            parentRawReads=self.raw.archive.state['reads'], binaryCalls=list(self.sdk.binary_calls),
++            guardAndIdentitySDKCalls=self.sdk.sdk_calls,
++            controlReturns=len(self.sdk.commands),
++            totalDeclaredSDKCalls=self.sdk.sdk_calls+len(self.sdk.binary_calls)+len(self.sdk.commands),
++            inputs=len(self.sdk.inputs),
++            phaseRead=self.source.previous is not None, peerPid=self.worker.pid,
++            rawBill=self.raw.archive.bill(), otherBill=self.resources())
++
++    def finish(self):
++        if self.parent is not None:
++            try:
++                self.closed['parentHostDetach'] = self.parent.detach()
++            except BaseException as error:
++                self.closed['parentHostDetachError'] = type(error).__name__
++        if self.raw is not None:
++            try:
++                self.closed['rawHostClose'] = self.raw.archive.close_host()
++            except BaseException as error:
++                self.closed['rawHostCloseError'] = type(error).__name__
++        if self.worker is not None:
++            if self.worker.poll() is None:
++                self.worker.stdin.write('close\n')
++                self.worker.stdin.flush()
++            self.worker.wait(timeout=3)
++            self.closed['peerWaitStatus'] = self.worker.returncode
++            for stream in (self.worker.stdin, self.worker.stdout):
++                stream.close()
++            self.stderr.close()
++        return self.closed
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--output', type=Path, required=True)
++    options = parser.parse_args()
++    root = options.output.resolve()
++    root.mkdir(mode=0o700, exist_ok=False)
++    case = ConstructorCase(root)
++    paths = list(REPO.rglob('*.py')) + list(Path(__file__).parent.glob('*.py'))
++    before = snapshot(paths)
++    head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=REPO, text=True).strip()
++    status = subprocess.check_output(['git', 'status', '--porcelain'], cwd=REPO, text=True)
++    if head != 'b6355270c8e2afffbdeda95430638a2c8fd7a089' or status:
++        raise RuntimeError('Constructor review base is not the original clean source epoch')
++    report = dict(head=head, sourceBefore=before, applicationReady=False,
++        nativeQualified=False, deviceQualified=False, wholeQualified=False,
++        constructorOnly=True, actorObservationQualified=False)
++    try:
++        report['actual'] = case.run()
++    except BaseException as error:
++        case.first_error = (error, error.__traceback__)
++        report['errorType'] = type(error).__name__
++        report['originalException'] = ''.join(traceback.format_exception(error))
++        # Normalization suppresses display, not the actual original context.
++        # Preserve bounded diagnostic text without retaining inspected locals.
++        chain, seen, current = [], set(), error
++        while current is not None and id(current) not in seen and len(chain) < 16:
++            seen.add(id(current))
++            chain.append(dict(type=type(current).__name__,
++                trace=''.join(traceback.format_exception(type(current), current, current.__traceback__, chain=False))))
++            current = current.__cause__ or current.__context__
++        report['actualExceptionChain'] = chain
++        if case.raw is not None:
++            first = case.raw.first_error
++            first_trace_still_present = False
++            trace = None if first is None else first[0].__traceback__
++            while trace is not None:
++                first_trace_still_present = first_trace_still_present or trace is first[1]
++                trace = trace.tb_next
++            report['partialRaw'] = dict(reads=case.raw.archive.state.get('reads'),
++                binaryCalls=list(case.sdk.binary_calls), failed=case.raw.failed,
++                issued=case.raw.issued is not None, pending=case.raw.archive.state.get('pending'),
++                firstOriginalType=None if first is None else type(first[0]).__name__,
++                originalTracebackStillOwned=first_trace_still_present)
++    finally:
++        try:
++            report['closeOutcomes'] = case.finish()
++        except BaseException as error:
++            # Cleanup never replaces an original business failure/traceback.
++            report['cleanupError'] = ''.join(traceback.format_exception(error))
++            if case.first_error is None:
++                case.first_error = (error, error.__traceback__)
++        report['sourceAfter'] = snapshot(paths)
++        report['sourceStable'] = report['sourceAfter'] == before
++        report['headAfter'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=REPO, text=True).strip()
++        report['loadedRepoSources'] = sorted({str(Path(module.__file__).resolve())
++            for module in list(sys.modules.values())
++            if getattr(module, '__file__', None) and str(Path(module.__file__).resolve()).startswith(str(REPO) + '/')
++            and str(module.__file__).endswith('.py')})
++        report['originalDeadlineElapsed'] = time.monotonic() - case.budget[0]
++        report['retainedFiles'] = snapshot(root.rglob('*'))
++        (root/'result.json').write_text(json.dumps(report, indent=2) + '\n')
++    # Final checks are deliberately OUTSIDE every SourceLock and Parent call.
++    actual = report.get('actual', {})
++    if not (case.first_error is None and report['sourceStable'] and report['headAfter'] == head
++            and actual.get('parentPhase') == 'bound' and actual.get('parentVersion') == 6
++            and actual.get('inputs') == 0 and actual.get('phaseRead') is False
++            and case.closed.get('parentHostDetach') is True and case.closed.get('rawHostClose') is True
++            and case.closed.get('peerWaitStatus') == 0 and time.monotonic() < case.budget[1]):
++        raise RuntimeError('Actual cold constructor component is unresolved; originals retained')
++    print(json.dumps(dict(constructorOnly=True, sourceStable=True,
++        rawReads=actual['parentRawReads'], binaryReads=len(actual['binaryCalls']),
++        guardAndIdentitySDKCalls=actual['guardAndIdentitySDKCalls'],
++        controlReturns=actual['controlReturns'], totalDeclaredSDKCalls=actual['totalDeclaredSDKCalls'],
++        applicationReady=False)))
++
++
++if __name__ == '__main__':
++    main()

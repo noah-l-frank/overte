@@ -1,0 +1,1481 @@
+{
+  "baseCommit": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "latestActualSourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+  "areas": {
+    "audioPrefixWitnessPrepared": {
+      "sourcePacket": "pico-audio9-common-prefix-witness-private-20261105",
+      "sourceFiles": 7,
+      "historicalOrDependencySnapshot": true
+    },
+    "audioCleanupSharedPrepared": {
+      "sourcePacket": "pico-audio9-common-prefix-proof-9hd66y2h",
+      "sourceFiles": 7,
+      "historicalOrDependencySnapshot": true
+    },
+    "audioAuthCommon": {
+      "sourcePacket": "pico-audio9-common-auth-cleanup-ieq67dl0",
+      "sourceFiles": 7,
+      "historicalOrDependencySnapshot": true
+    },
+    "audioPrefixWitnessActual": {
+      "sourcePacket": "pico-audio9-prefix-witness3-42g28ha_",
+      "sourceFiles": 7,
+      "historicalOrDependencySnapshot": true
+    },
+    "audioWholeCleanupPrepared": {
+      "sourcePacket": "pico-audio9-whole-cleanup-gp2eolap",
+      "sourceFiles": 9,
+      "historicalOrDependencySnapshot": true
+    },
+    "audioWorkspace3Finite": {
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceFiles": 10,
+      "historicalOrDependencySnapshot": true
+    },
+    "audioWholeWorkspace3Actual": {
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceFiles": 13,
+      "historicalOrDependencySnapshot": true
+    },
+    "audioPCBatch3": {
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceFiles": 20,
+      "historicalOrDependencySnapshot": true
+    },
+    "audioPCRealCliPrepared": {
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceFiles": 18,
+      "historicalOrDependencySnapshot": true
+    },
+    "audioWholeBatch3": {
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceFiles": 23,
+      "historicalOrDependencySnapshot": false
+    },
+    "audioBundleProtocol": {
+      "sourcePacket": "pico-audio9-bundle-native-qgw76vfq",
+      "sourceFiles": 8,
+      "historicalOrDependencySnapshot": true
+    },
+    "audioCommonFiles": {
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceFiles": 11,
+      "historicalOrDependencySnapshot": true
+    }
+  },
+  "pendingProductDeltas": [
+    {
+      "path": "tests/device/adapters/pico4/audio_cleanup_common.py",
+      "baseSha256": "4ee349aec22955cb3a3ca249c9d0cd3898f4fd831aecbd06c69d25d985fb1d64",
+      "sourceSha256": "88f83ef4d6566d8eef107bc5ec3b2aca2454633f38aa68aabc4ebf072a13819f"
+    },
+    {
+      "path": "tests/device/adapters/pico4/audio_common_primary.py",
+      "baseSha256": "e78f749f885a77f826e985d81e8ece6f440f22a314b712b2669aac5a9488c098",
+      "sourceSha256": "fbb1519d98edec9f8b4b2f7563a6fac8affc78d0d5db0b0db793a2bb00ff1232"
+    }
+  ],
+  "sourceSnapshots": [
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessPrepared/audio_cleanup_common.py",
+      "sourceSha256": "88f83ef4d6566d8eef107bc5ec3b2aca2454633f38aa68aabc4ebf072a13819f",
+      "sourcePacket": "pico-audio9-common-prefix-witness-private-20261105",
+      "sourceRelativePath": "audio_cleanup_common.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_common.py",
+      "currentBaseSha256": "4ee349aec22955cb3a3ca249c9d0cd3898f4fd831aecbd06c69d25d985fb1d64",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessPrepared/audio_common_primary.py",
+      "sourceSha256": "72aa739182c8ddb912a42ee9d180af34c029b2482ba25b5d72678d48fbb16490",
+      "sourcePacket": "pico-audio9-common-prefix-witness-private-20261105",
+      "sourceRelativePath": "audio_common_primary.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_common_primary.py",
+      "currentBaseSha256": "e78f749f885a77f826e985d81e8ece6f440f22a314b712b2669aac5a9488c098",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessPrepared/auth_fixture.py",
+      "sourceSha256": "3d22d9a340e8a22b68eca7bb1cb7863a8964f2144543bb3e0b81f1853bb00683",
+      "sourcePacket": "pico-audio9-common-prefix-witness-private-20261105",
+      "sourceRelativePath": "auth_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessPrepared/canonical_audio_recipe_fixture.py",
+      "sourceSha256": "bf991aa8f88ad10d07c15c8a5d32b05774338b96ca94cceddc04338b97ce35eb",
+      "sourcePacket": "pico-audio9-common-prefix-witness-private-20261105",
+      "sourceRelativePath": "canonical_audio_recipe_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessPrepared/process_phase_clock.py",
+      "sourceSha256": "669ef382603f0dab90223a87ab4d085b6a51b76103b7560dc77e2985b01a42ae",
+      "sourcePacket": "pico-audio9-common-prefix-witness-private-20261105",
+      "sourceRelativePath": "process_phase_clock.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessPrepared/run_prefix.py",
+      "sourceSha256": "cd0da901fc2c09284a9e8eeea7da9cc484254600e9df1a7d8aad86295af7fe15",
+      "sourcePacket": "pico-audio9-common-prefix-witness-private-20261105",
+      "sourceRelativePath": "run_prefix.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessPrepared/test_prefix.py",
+      "sourceSha256": "8bc9e4f0c665884f360e898dde256dbcd350a6363fe2d89404f4bdd938a109af",
+      "sourcePacket": "pico-audio9-common-prefix-witness-private-20261105",
+      "sourceRelativePath": "test_prefix.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCleanupSharedPrepared/audio_cleanup_common.py",
+      "sourceSha256": "88f83ef4d6566d8eef107bc5ec3b2aca2454633f38aa68aabc4ebf072a13819f",
+      "sourcePacket": "pico-audio9-common-prefix-proof-9hd66y2h",
+      "sourceRelativePath": "audio_cleanup_common.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_common.py",
+      "currentBaseSha256": "4ee349aec22955cb3a3ca249c9d0cd3898f4fd831aecbd06c69d25d985fb1d64",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCleanupSharedPrepared/audio_common_primary.py",
+      "sourceSha256": "e4537215c53ba690d40e0c07093591d67ee525488c5ddcb5579ec89b7a879256",
+      "sourcePacket": "pico-audio9-common-prefix-proof-9hd66y2h",
+      "sourceRelativePath": "audio_common_primary.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_common_primary.py",
+      "currentBaseSha256": "e78f749f885a77f826e985d81e8ece6f440f22a314b712b2669aac5a9488c098",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCleanupSharedPrepared/auth_fixture.py",
+      "sourceSha256": "3d22d9a340e8a22b68eca7bb1cb7863a8964f2144543bb3e0b81f1853bb00683",
+      "sourcePacket": "pico-audio9-common-prefix-proof-9hd66y2h",
+      "sourceRelativePath": "auth_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCleanupSharedPrepared/canonical_audio_recipe_fixture.py",
+      "sourceSha256": "bf991aa8f88ad10d07c15c8a5d32b05774338b96ca94cceddc04338b97ce35eb",
+      "sourcePacket": "pico-audio9-common-prefix-proof-9hd66y2h",
+      "sourceRelativePath": "canonical_audio_recipe_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCleanupSharedPrepared/process_phase_clock.py",
+      "sourceSha256": "669ef382603f0dab90223a87ab4d085b6a51b76103b7560dc77e2985b01a42ae",
+      "sourcePacket": "pico-audio9-common-prefix-proof-9hd66y2h",
+      "sourceRelativePath": "process_phase_clock.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCleanupSharedPrepared/run_prefix.py",
+      "sourceSha256": "cd0da901fc2c09284a9e8eeea7da9cc484254600e9df1a7d8aad86295af7fe15",
+      "sourcePacket": "pico-audio9-common-prefix-proof-9hd66y2h",
+      "sourceRelativePath": "run_prefix.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCleanupSharedPrepared/test_prefix.py",
+      "sourceSha256": "4634a465bae2525b17eccb7376d047a8fbd2ddbdaf36731c0d02a51313ea3609",
+      "sourcePacket": "pico-audio9-common-prefix-proof-9hd66y2h",
+      "sourceRelativePath": "test_prefix.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioAuthCommon/auth_fixture.py",
+      "sourceSha256": "3d22d9a340e8a22b68eca7bb1cb7863a8964f2144543bb3e0b81f1853bb00683",
+      "sourcePacket": "pico-audio9-common-auth-cleanup-ieq67dl0",
+      "sourceRelativePath": "auth_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioAuthCommon/canonical_audio_recipe_fixture.py",
+      "sourceSha256": "bf991aa8f88ad10d07c15c8a5d32b05774338b96ca94cceddc04338b97ce35eb",
+      "sourcePacket": "pico-audio9-common-auth-cleanup-ieq67dl0",
+      "sourceRelativePath": "canonical_audio_recipe_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioAuthCommon/g1_sdk_model.py",
+      "sourceSha256": "74eb833b316ac9264dde8fb39b0fcb22ae10a085b139972a056c6137060c3d87",
+      "sourcePacket": "pico-audio9-common-auth-cleanup-ieq67dl0",
+      "sourceRelativePath": "g1_sdk_model.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioAuthCommon/g1_sdk_primitives.py",
+      "sourceSha256": "64da4e1d03a1d640dd85cf6d3e95aa0f5aef32daab3f7e585bb4d0b85716c9b2",
+      "sourcePacket": "pico-audio9-common-auth-cleanup-ieq67dl0",
+      "sourceRelativePath": "g1_sdk_primitives.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioAuthCommon/process_phase_clock.py",
+      "sourceSha256": "669ef382603f0dab90223a87ab4d085b6a51b76103b7560dc77e2985b01a42ae",
+      "sourcePacket": "pico-audio9-common-auth-cleanup-ieq67dl0",
+      "sourceRelativePath": "process_phase_clock.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioAuthCommon/run_auth.py",
+      "sourceSha256": "26413740166dc9358af41b912acbdfeab02669baa15da821c2d7a7db53ef7b33",
+      "sourcePacket": "pico-audio9-common-auth-cleanup-ieq67dl0",
+      "sourceRelativePath": "run_auth.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioAuthCommon/test_auth_common.py",
+      "sourceSha256": "ac6e52040a3c3ef1ecf62e4290196679b2d561ca9aa88daa3857ab648df33918",
+      "sourcePacket": "pico-audio9-common-auth-cleanup-ieq67dl0",
+      "sourceRelativePath": "test_auth_common.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessActual/audio_cleanup_common.py",
+      "sourceSha256": "88f83ef4d6566d8eef107bc5ec3b2aca2454633f38aa68aabc4ebf072a13819f",
+      "sourcePacket": "pico-audio9-prefix-witness3-42g28ha_",
+      "sourceRelativePath": "audio_cleanup_common.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_common.py",
+      "currentBaseSha256": "4ee349aec22955cb3a3ca249c9d0cd3898f4fd831aecbd06c69d25d985fb1d64",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessActual/audio_common_primary.py",
+      "sourceSha256": "fbb1519d98edec9f8b4b2f7563a6fac8affc78d0d5db0b0db793a2bb00ff1232",
+      "sourcePacket": "pico-audio9-prefix-witness3-42g28ha_",
+      "sourceRelativePath": "audio_common_primary.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_common_primary.py",
+      "currentBaseSha256": "e78f749f885a77f826e985d81e8ece6f440f22a314b712b2669aac5a9488c098",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessActual/auth_fixture.py",
+      "sourceSha256": "3d22d9a340e8a22b68eca7bb1cb7863a8964f2144543bb3e0b81f1853bb00683",
+      "sourcePacket": "pico-audio9-prefix-witness3-42g28ha_",
+      "sourceRelativePath": "auth_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessActual/canonical_audio_recipe_fixture.py",
+      "sourceSha256": "bf991aa8f88ad10d07c15c8a5d32b05774338b96ca94cceddc04338b97ce35eb",
+      "sourcePacket": "pico-audio9-prefix-witness3-42g28ha_",
+      "sourceRelativePath": "canonical_audio_recipe_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessActual/process_phase_clock.py",
+      "sourceSha256": "669ef382603f0dab90223a87ab4d085b6a51b76103b7560dc77e2985b01a42ae",
+      "sourcePacket": "pico-audio9-prefix-witness3-42g28ha_",
+      "sourceRelativePath": "process_phase_clock.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessActual/run_prefix.py",
+      "sourceSha256": "cd0da901fc2c09284a9e8eeea7da9cc484254600e9df1a7d8aad86295af7fe15",
+      "sourcePacket": "pico-audio9-prefix-witness3-42g28ha_",
+      "sourceRelativePath": "run_prefix.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPrefixWitnessActual/test_prefix.py",
+      "sourceSha256": "4a4441e3c098356d4f3dc2a8a64bf3d1f4a087443e502f68f8585cf2b72f5b56",
+      "sourcePacket": "pico-audio9-prefix-witness3-42g28ha_",
+      "sourceRelativePath": "test_prefix.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeCleanupPrepared/audio_cleanup_common.py",
+      "sourceSha256": "88f83ef4d6566d8eef107bc5ec3b2aca2454633f38aa68aabc4ebf072a13819f",
+      "sourcePacket": "pico-audio9-whole-cleanup-gp2eolap",
+      "sourceRelativePath": "audio_cleanup_common.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_common.py",
+      "currentBaseSha256": "4ee349aec22955cb3a3ca249c9d0cd3898f4fd831aecbd06c69d25d985fb1d64",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeCleanupPrepared/audio_common_primary.py",
+      "sourceSha256": "fbb1519d98edec9f8b4b2f7563a6fac8affc78d0d5db0b0db793a2bb00ff1232",
+      "sourcePacket": "pico-audio9-whole-cleanup-gp2eolap",
+      "sourceRelativePath": "audio_common_primary.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_common_primary.py",
+      "currentBaseSha256": "e78f749f885a77f826e985d81e8ece6f440f22a314b712b2669aac5a9488c098",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeCleanupPrepared/auth_fixture.py",
+      "sourceSha256": "3d22d9a340e8a22b68eca7bb1cb7863a8964f2144543bb3e0b81f1853bb00683",
+      "sourcePacket": "pico-audio9-whole-cleanup-gp2eolap",
+      "sourceRelativePath": "auth_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeCleanupPrepared/canonical_audio_recipe_fixture.py",
+      "sourceSha256": "bf991aa8f88ad10d07c15c8a5d32b05774338b96ca94cceddc04338b97ce35eb",
+      "sourcePacket": "pico-audio9-whole-cleanup-gp2eolap",
+      "sourceRelativePath": "canonical_audio_recipe_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeCleanupPrepared/g1_sdk_model.py",
+      "sourceSha256": "74eb833b316ac9264dde8fb39b0fcb22ae10a085b139972a056c6137060c3d87",
+      "sourcePacket": "pico-audio9-whole-cleanup-gp2eolap",
+      "sourceRelativePath": "g1_sdk_model.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeCleanupPrepared/g1_sdk_primitives.py",
+      "sourceSha256": "64da4e1d03a1d640dd85cf6d3e95aa0f5aef32daab3f7e585bb4d0b85716c9b2",
+      "sourcePacket": "pico-audio9-whole-cleanup-gp2eolap",
+      "sourceRelativePath": "g1_sdk_primitives.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeCleanupPrepared/process_phase_clock.py",
+      "sourceSha256": "669ef382603f0dab90223a87ab4d085b6a51b76103b7560dc77e2985b01a42ae",
+      "sourcePacket": "pico-audio9-whole-cleanup-gp2eolap",
+      "sourceRelativePath": "process_phase_clock.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeCleanupPrepared/run_whole.py",
+      "sourceSha256": "b4b2dfe844e4cd974380d59290c667f9646c2c678ccfd851f03a3dcada069b63",
+      "sourcePacket": "pico-audio9-whole-cleanup-gp2eolap",
+      "sourceRelativePath": "run_whole.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeCleanupPrepared/test_whole.py",
+      "sourceSha256": "2d0cd11ada912e4e9a7a613816208c58ac2d8327063e255eeef387c46f83ec5c",
+      "sourcePacket": "pico-audio9-whole-cleanup-gp2eolap",
+      "sourceRelativePath": "test_whole.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWorkspace3Finite/audio_cleanup_io.py",
+      "sourceSha256": "510694177b63f64de763ba4fc83396ada5fb7c87ebedc27f97bfb9ff80fe8106",
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceRelativePath": "audio_cleanup_io.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_io.py",
+      "currentBaseSha256": "510694177b63f64de763ba4fc83396ada5fb7c87ebedc27f97bfb9ff80fe8106",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWorkspace3Finite/audio_cleanup_owner.py",
+      "sourceSha256": "c5bd058083188be2af8b9ba1a7b862c6c03a14b0968f278c0c64e4a1b6f21056",
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceRelativePath": "audio_cleanup_owner.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_owner.py",
+      "currentBaseSha256": "c5bd058083188be2af8b9ba1a7b862c6c03a14b0968f278c0c64e4a1b6f21056",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWorkspace3Finite/audio_cleanup_profile.py",
+      "sourceSha256": "394ea8ac1fc57c6d0e994d768b22c5153c84289de25ff7f31b6e0a23c488b002",
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceRelativePath": "audio_cleanup_profile.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_profile.py",
+      "currentBaseSha256": "a2d7506dfe8fe2f984657167f9b14a32c6379e14e14e9f5d9b293971edfe3827",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWorkspace3Finite/audio_pc_actor.py",
+      "sourceSha256": "a0434e0fde48839a38e51c5379c35489f6772921203e6e0077f9745a6cd0cd18",
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceRelativePath": "audio_pc_actor.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_pc_actor.py",
+      "currentBaseSha256": "8801ada8e7d15c89a8f0823aedb75f5c207ff986069dc1d25e93859eae3881c4",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWorkspace3Finite/auth_fixture.py",
+      "sourceSha256": "a9e0fc2cf34158436e060b71f156bde44fccc9f09a7cf097a8d83203ebab4af5",
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceRelativePath": "auth_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWorkspace3Finite/canonical_audio_recipe_fixture.py",
+      "sourceSha256": "bf991aa8f88ad10d07c15c8a5d32b05774338b96ca94cceddc04338b97ce35eb",
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceRelativePath": "canonical_audio_recipe_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWorkspace3Finite/process_phase_clock.py",
+      "sourceSha256": "669ef382603f0dab90223a87ab4d085b6a51b76103b7560dc77e2985b01a42ae",
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceRelativePath": "process_phase_clock.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWorkspace3Finite/run.py",
+      "sourceSha256": "6d606eb26e53d960199fa68a58419295cd7fb4b5891ab5c15f8e91178a171aa4",
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceRelativePath": "run.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWorkspace3Finite/test_auth_common.py",
+      "sourceSha256": "ac6e52040a3c3ef1ecf62e4290196679b2d561ca9aa88daa3857ab648df33918",
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceRelativePath": "test_auth_common.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWorkspace3Finite/test_workspace.py",
+      "sourceSha256": "6aec205f3fad5c27f37ba535f0273e0a9bdbb44bc650cc696dbb1727864624ff",
+      "sourcePacket": "pico-audio9-workspace3-finite-qs3frwbq",
+      "sourceRelativePath": "test_workspace.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/audio_cleanup_common.py",
+      "sourceSha256": "88f83ef4d6566d8eef107bc5ec3b2aca2454633f38aa68aabc4ebf072a13819f",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "audio_cleanup_common.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_common.py",
+      "currentBaseSha256": "4ee349aec22955cb3a3ca249c9d0cd3898f4fd831aecbd06c69d25d985fb1d64",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/audio_cleanup_io.py",
+      "sourceSha256": "510694177b63f64de763ba4fc83396ada5fb7c87ebedc27f97bfb9ff80fe8106",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "audio_cleanup_io.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_io.py",
+      "currentBaseSha256": "510694177b63f64de763ba4fc83396ada5fb7c87ebedc27f97bfb9ff80fe8106",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/audio_cleanup_owner.py",
+      "sourceSha256": "c5bd058083188be2af8b9ba1a7b862c6c03a14b0968f278c0c64e4a1b6f21056",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "audio_cleanup_owner.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_owner.py",
+      "currentBaseSha256": "c5bd058083188be2af8b9ba1a7b862c6c03a14b0968f278c0c64e4a1b6f21056",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/audio_cleanup_profile.py",
+      "sourceSha256": "394ea8ac1fc57c6d0e994d768b22c5153c84289de25ff7f31b6e0a23c488b002",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "audio_cleanup_profile.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_profile.py",
+      "currentBaseSha256": "a2d7506dfe8fe2f984657167f9b14a32c6379e14e14e9f5d9b293971edfe3827",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/audio_common_primary.py",
+      "sourceSha256": "fbb1519d98edec9f8b4b2f7563a6fac8affc78d0d5db0b0db793a2bb00ff1232",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "audio_common_primary.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_common_primary.py",
+      "currentBaseSha256": "e78f749f885a77f826e985d81e8ece6f440f22a314b712b2669aac5a9488c098",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/audio_pc_actor.py",
+      "sourceSha256": "a0434e0fde48839a38e51c5379c35489f6772921203e6e0077f9745a6cd0cd18",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "audio_pc_actor.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_pc_actor.py",
+      "currentBaseSha256": "8801ada8e7d15c89a8f0823aedb75f5c207ff986069dc1d25e93859eae3881c4",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/auth_fixture.py",
+      "sourceSha256": "a9e0fc2cf34158436e060b71f156bde44fccc9f09a7cf097a8d83203ebab4af5",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "auth_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/canonical_audio_recipe_fixture.py",
+      "sourceSha256": "bf991aa8f88ad10d07c15c8a5d32b05774338b96ca94cceddc04338b97ce35eb",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "canonical_audio_recipe_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/g1_sdk_model.py",
+      "sourceSha256": "74eb833b316ac9264dde8fb39b0fcb22ae10a085b139972a056c6137060c3d87",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "g1_sdk_model.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/g1_sdk_primitives.py",
+      "sourceSha256": "64da4e1d03a1d640dd85cf6d3e95aa0f5aef32daab3f7e585bb4d0b85716c9b2",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "g1_sdk_primitives.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/process_phase_clock.py",
+      "sourceSha256": "669ef382603f0dab90223a87ab4d085b6a51b76103b7560dc77e2985b01a42ae",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "process_phase_clock.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/run_whole.py",
+      "sourceSha256": "c3e2bf869475a57aa43cb57cc7f6f67283ad9a9c5d6c23a528d1cd9e75ede2d9",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "run_whole.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeWorkspace3Actual/test_whole.py",
+      "sourceSha256": "2bf402799b0502fd3d442f21414bcbcd0b7dfd62292c3276ae73b130d1e49441",
+      "sourcePacket": "pico-audio9-whole-workspace3-pd1vdbti",
+      "sourceRelativePath": "test_whole.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/audio_cleanup_io.py",
+      "sourceSha256": "510694177b63f64de763ba4fc83396ada5fb7c87ebedc27f97bfb9ff80fe8106",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "audio_cleanup_io.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_io.py",
+      "currentBaseSha256": "510694177b63f64de763ba4fc83396ada5fb7c87ebedc27f97bfb9ff80fe8106",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/audio_cleanup_owner.py",
+      "sourceSha256": "c5bd058083188be2af8b9ba1a7b862c6c03a14b0968f278c0c64e4a1b6f21056",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "audio_cleanup_owner.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_owner.py",
+      "currentBaseSha256": "c5bd058083188be2af8b9ba1a7b862c6c03a14b0968f278c0c64e4a1b6f21056",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/audio_cleanup_profile.py",
+      "sourceSha256": "394ea8ac1fc57c6d0e994d768b22c5153c84289de25ff7f31b6e0a23c488b002",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "audio_cleanup_profile.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_profile.py",
+      "currentBaseSha256": "a2d7506dfe8fe2f984657167f9b14a32c6379e14e14e9f5d9b293971edfe3827",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/auth_fixture.py",
+      "sourceSha256": "a9e0fc2cf34158436e060b71f156bde44fccc9f09a7cf097a8d83203ebab4af5",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "auth_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/canonical_audio_recipe_fixture.py",
+      "sourceSha256": "bf991aa8f88ad10d07c15c8a5d32b05774338b96ca94cceddc04338b97ce35eb",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "canonical_audio_recipe_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/process_phase_clock.py",
+      "sourceSha256": "669ef382603f0dab90223a87ab4d085b6a51b76103b7560dc77e2985b01a42ae",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "process_phase_clock.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/run.py",
+      "sourceSha256": "ea01c2b56fc9fc6c849b9ddfd797d30b6e982edc29faed173cf6210fd7fcf636",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "run.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/test_batch.py",
+      "sourceSha256": "fd59adc235cc3e5ddfd1fdfd8d50d19366434dd3fd54b1729e165f0c7b6b448c",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "test_batch.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/test_cli.py",
+      "sourceSha256": "6a7e21c423254f1bda21fb1b24a2ad4a43d1063a9f698f52d775ab5672ecaead",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "test_cli.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/adapters/pico4/audio_pc_actor.py",
+      "sourceSha256": "6b9268b48438950a04f1e303714b039c4c7f531c87a929ba5703f1f53ca6b02b",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/adapters/pico4/audio_pc_actor.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_pc_actor.py",
+      "currentBaseSha256": "8801ada8e7d15c89a8f0823aedb75f5c207ff986069dc1d25e93859eae3881c4",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/adapters/pico4/audio_pc_batch.py",
+      "sourceSha256": "fe86280441edfdc35b94722e1835934f60549ae57fb8cdaaab831c47d63a8cdd",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/adapters/pico4/audio_pc_batch.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_pc_batch.py",
+      "currentBaseSha256": "fe86280441edfdc35b94722e1835934f60549ae57fb8cdaaab831c47d63a8cdd",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/adapters/pico4/audio_pc_originals.py",
+      "sourceSha256": "49be7954fe4e7172acafd74b8af6e65e7148756f323ad1ea6a5945e2cfaf6882",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/adapters/pico4/audio_pc_originals.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_pc_originals.py",
+      "currentBaseSha256": "dcb9da8ce468cd4e3f0a3387976239b65d6a4451088bdb8cc072a6c24388bae8",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/adapters/pico4/audio_peer.py",
+      "sourceSha256": "159056a1e841875434dff4cbfac7e1f66622acc603e74c51c9649f564fbfa1e4",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/adapters/pico4/audio_peer.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_peer.py",
+      "currentBaseSha256": "159056a1e841875434dff4cbfac7e1f66622acc603e74c51c9649f564fbfa1e4",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/voice_peer/__init__.py",
+      "sourceSha256": "28028009199472b86bffa5a7f0ff462728ea2dbdbe95d4258a12f6a4aabf5e6a",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/voice_peer/__init__.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/__init__.py",
+      "currentBaseSha256": "28028009199472b86bffa5a7f0ff462728ea2dbdbe95d4258a12f6a4aabf5e6a",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/voice_peer/fixture.py",
+      "sourceSha256": "5ead978abd8e982becd93140d7daa71132d5fd302878b0004fb356808d5d09d7",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/voice_peer/fixture.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/fixture.py",
+      "currentBaseSha256": "5ead978abd8e982becd93140d7daa71132d5fd302878b0004fb356808d5d09d7",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/voice_peer/peer.js",
+      "sourceSha256": "6043d37c0f056a84df12d920cb94c55a160c93d5f6943a53f4ef8b2e280a8d3d",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/voice_peer/peer.js",
+      "correspondingCurrentPath": "tests/device/voice_peer/peer.js",
+      "currentBaseSha256": "6043d37c0f056a84df12d920cb94c55a160c93d5f6943a53f4ef8b2e280a8d3d",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/voice_peer/preview_source.py",
+      "sourceSha256": "3072642ac5a4d2a920bc137f2bbf392370770e6e068f7aacceaf560ecd9d7107",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/voice_peer/preview_source.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/preview_source.py",
+      "currentBaseSha256": "3072642ac5a4d2a920bc137f2bbf392370770e6e068f7aacceaf560ecd9d7107",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/voice_peer/runtime.py",
+      "sourceSha256": "58de6a9d8a6f39c31365ea2206cc9dcebc58631ed2da436355dff0d3af8c5044",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/voice_peer/runtime.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/runtime.py",
+      "currentBaseSha256": "58de6a9d8a6f39c31365ea2206cc9dcebc58631ed2da436355dff0d3af8c5044",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/voice_peer/voice_peer.py",
+      "sourceSha256": "6f3d3719d15eafec366a0a27e5d452c8526aa64ba8ea0f8458c9d64c620c7980",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/voice_peer/voice_peer.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/voice_peer.py",
+      "currentBaseSha256": "6f3d3719d15eafec366a0a27e5d452c8526aa64ba8ea0f8458c9d64c620c7980",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCBatch3/tests/device/voice_peer/voice_signal.py",
+      "sourceSha256": "3952c48224191936d17b01f42ffe0587944f00ca394870fe0dabeca749e48dd0",
+      "sourcePacket": "pico-audio9-pc-source-batch3-thob14vp",
+      "sourceRelativePath": "tests/device/voice_peer/voice_signal.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/voice_signal.py",
+      "currentBaseSha256": "3952c48224191936d17b01f42ffe0587944f00ca394870fe0dabeca749e48dd0",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/audio_cleanup_io.py",
+      "sourceSha256": "510694177b63f64de763ba4fc83396ada5fb7c87ebedc27f97bfb9ff80fe8106",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "audio_cleanup_io.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_io.py",
+      "currentBaseSha256": "510694177b63f64de763ba4fc83396ada5fb7c87ebedc27f97bfb9ff80fe8106",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/audio_cleanup_owner.py",
+      "sourceSha256": "c5bd058083188be2af8b9ba1a7b862c6c03a14b0968f278c0c64e4a1b6f21056",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "audio_cleanup_owner.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_owner.py",
+      "currentBaseSha256": "c5bd058083188be2af8b9ba1a7b862c6c03a14b0968f278c0c64e4a1b6f21056",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/audio_cleanup_profile.py",
+      "sourceSha256": "394ea8ac1fc57c6d0e994d768b22c5153c84289de25ff7f31b6e0a23c488b002",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "audio_cleanup_profile.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_profile.py",
+      "currentBaseSha256": "a2d7506dfe8fe2f984657167f9b14a32c6379e14e14e9f5d9b293971edfe3827",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/auth_fixture.py",
+      "sourceSha256": "a9e0fc2cf34158436e060b71f156bde44fccc9f09a7cf097a8d83203ebab4af5",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "auth_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/canonical_audio_recipe_fixture.py",
+      "sourceSha256": "bf991aa8f88ad10d07c15c8a5d32b05774338b96ca94cceddc04338b97ce35eb",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "canonical_audio_recipe_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/process_phase_clock.py",
+      "sourceSha256": "669ef382603f0dab90223a87ab4d085b6a51b76103b7560dc77e2985b01a42ae",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "process_phase_clock.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/run.py",
+      "sourceSha256": "93ea76fbe8000915a8f77182a8c7f82660df701437f69be53b621e6cac1435bc",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "run.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/test_cli.py",
+      "sourceSha256": "8d00a2fe2d82500fa631cc9c8c66f64ef5ddcfdf08319f01bdeb1a0cf9762ed9",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "test_cli.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/tests/device/adapters/pico4/audio_pc_actor.py",
+      "sourceSha256": "8b93f6878a7cbc722fbcb518c88cfe67afb37e4990d810fb4a67430c24d1c0d4",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "tests/device/adapters/pico4/audio_pc_actor.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_pc_actor.py",
+      "currentBaseSha256": "8801ada8e7d15c89a8f0823aedb75f5c207ff986069dc1d25e93859eae3881c4",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/tests/device/adapters/pico4/audio_pc_originals.py",
+      "sourceSha256": "fdff9b17632e2a572d7d41a594239b3379c687d4c22e2926f7b27b14f7d058cf",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "tests/device/adapters/pico4/audio_pc_originals.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_pc_originals.py",
+      "currentBaseSha256": "dcb9da8ce468cd4e3f0a3387976239b65d6a4451088bdb8cc072a6c24388bae8",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/tests/device/adapters/pico4/audio_peer.py",
+      "sourceSha256": "087e68c1efcf41bea6d04030949ec3d07cc1b676517331a0320da56298d516a8",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "tests/device/adapters/pico4/audio_peer.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_peer.py",
+      "currentBaseSha256": "159056a1e841875434dff4cbfac7e1f66622acc603e74c51c9649f564fbfa1e4",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/tests/device/voice_peer/__init__.py",
+      "sourceSha256": "28028009199472b86bffa5a7f0ff462728ea2dbdbe95d4258a12f6a4aabf5e6a",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "tests/device/voice_peer/__init__.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/__init__.py",
+      "currentBaseSha256": "28028009199472b86bffa5a7f0ff462728ea2dbdbe95d4258a12f6a4aabf5e6a",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/tests/device/voice_peer/fixture.py",
+      "sourceSha256": "5ead978abd8e982becd93140d7daa71132d5fd302878b0004fb356808d5d09d7",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "tests/device/voice_peer/fixture.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/fixture.py",
+      "currentBaseSha256": "5ead978abd8e982becd93140d7daa71132d5fd302878b0004fb356808d5d09d7",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/tests/device/voice_peer/peer.js",
+      "sourceSha256": "6043d37c0f056a84df12d920cb94c55a160c93d5f6943a53f4ef8b2e280a8d3d",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "tests/device/voice_peer/peer.js",
+      "correspondingCurrentPath": "tests/device/voice_peer/peer.js",
+      "currentBaseSha256": "6043d37c0f056a84df12d920cb94c55a160c93d5f6943a53f4ef8b2e280a8d3d",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/tests/device/voice_peer/preview_source.py",
+      "sourceSha256": "3072642ac5a4d2a920bc137f2bbf392370770e6e068f7aacceaf560ecd9d7107",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "tests/device/voice_peer/preview_source.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/preview_source.py",
+      "currentBaseSha256": "3072642ac5a4d2a920bc137f2bbf392370770e6e068f7aacceaf560ecd9d7107",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/tests/device/voice_peer/runtime.py",
+      "sourceSha256": "f928334081f553694c2f01012d5d7b99f81c07042515fda18411373c2daae869",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "tests/device/voice_peer/runtime.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/runtime.py",
+      "currentBaseSha256": "58de6a9d8a6f39c31365ea2206cc9dcebc58631ed2da436355dff0d3af8c5044",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/tests/device/voice_peer/voice_peer.py",
+      "sourceSha256": "6f3d3719d15eafec366a0a27e5d452c8526aa64ba8ea0f8458c9d64c620c7980",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "tests/device/voice_peer/voice_peer.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/voice_peer.py",
+      "currentBaseSha256": "6f3d3719d15eafec366a0a27e5d452c8526aa64ba8ea0f8458c9d64c620c7980",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioPCRealCliPrepared/tests/device/voice_peer/voice_signal.py",
+      "sourceSha256": "3952c48224191936d17b01f42ffe0587944f00ca394870fe0dabeca749e48dd0",
+      "sourcePacket": "pico-audio9-pc-source-cli-v4_9i9vk",
+      "sourceRelativePath": "tests/device/voice_peer/voice_signal.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/voice_signal.py",
+      "currentBaseSha256": "3952c48224191936d17b01f42ffe0587944f00ca394870fe0dabeca749e48dd0",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/audio_cleanup_common.py",
+      "sourceSha256": "88f83ef4d6566d8eef107bc5ec3b2aca2454633f38aa68aabc4ebf072a13819f",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "audio_cleanup_common.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_common.py",
+      "currentBaseSha256": "4ee349aec22955cb3a3ca249c9d0cd3898f4fd831aecbd06c69d25d985fb1d64",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/audio_cleanup_io.py",
+      "sourceSha256": "510694177b63f64de763ba4fc83396ada5fb7c87ebedc27f97bfb9ff80fe8106",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "audio_cleanup_io.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_io.py",
+      "currentBaseSha256": "510694177b63f64de763ba4fc83396ada5fb7c87ebedc27f97bfb9ff80fe8106",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/audio_cleanup_owner.py",
+      "sourceSha256": "c5bd058083188be2af8b9ba1a7b862c6c03a14b0968f278c0c64e4a1b6f21056",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "audio_cleanup_owner.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_owner.py",
+      "currentBaseSha256": "c5bd058083188be2af8b9ba1a7b862c6c03a14b0968f278c0c64e4a1b6f21056",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/audio_cleanup_profile.py",
+      "sourceSha256": "a2d7506dfe8fe2f984657167f9b14a32c6379e14e14e9f5d9b293971edfe3827",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "audio_cleanup_profile.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_cleanup_profile.py",
+      "currentBaseSha256": "a2d7506dfe8fe2f984657167f9b14a32c6379e14e14e9f5d9b293971edfe3827",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/audio_common_primary.py",
+      "sourceSha256": "fbb1519d98edec9f8b4b2f7563a6fac8affc78d0d5db0b0db793a2bb00ff1232",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "audio_common_primary.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_common_primary.py",
+      "currentBaseSha256": "e78f749f885a77f826e985d81e8ece6f440f22a314b712b2669aac5a9488c098",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/audio_pc_actor.py",
+      "sourceSha256": "6b9268b48438950a04f1e303714b039c4c7f531c87a929ba5703f1f53ca6b02b",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "audio_pc_actor.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_pc_actor.py",
+      "currentBaseSha256": "8801ada8e7d15c89a8f0823aedb75f5c207ff986069dc1d25e93859eae3881c4",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/audio_pc_batch.py",
+      "sourceSha256": "fe86280441edfdc35b94722e1835934f60549ae57fb8cdaaab831c47d63a8cdd",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "audio_pc_batch.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_pc_batch.py",
+      "currentBaseSha256": "fe86280441edfdc35b94722e1835934f60549ae57fb8cdaaab831c47d63a8cdd",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/audio_pc_originals.py",
+      "sourceSha256": "49be7954fe4e7172acafd74b8af6e65e7148756f323ad1ea6a5945e2cfaf6882",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "audio_pc_originals.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_pc_originals.py",
+      "currentBaseSha256": "dcb9da8ce468cd4e3f0a3387976239b65d6a4451088bdb8cc072a6c24388bae8",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/audio_peer.py",
+      "sourceSha256": "159056a1e841875434dff4cbfac7e1f66622acc603e74c51c9649f564fbfa1e4",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "audio_peer.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_peer.py",
+      "currentBaseSha256": "159056a1e841875434dff4cbfac7e1f66622acc603e74c51c9649f564fbfa1e4",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/auth_fixture.py",
+      "sourceSha256": "a9e0fc2cf34158436e060b71f156bde44fccc9f09a7cf097a8d83203ebab4af5",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "auth_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/canonical_audio_recipe_fixture.py",
+      "sourceSha256": "bf991aa8f88ad10d07c15c8a5d32b05774338b96ca94cceddc04338b97ce35eb",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "canonical_audio_recipe_fixture.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/g1_sdk_model.py",
+      "sourceSha256": "74eb833b316ac9264dde8fb39b0fcb22ae10a085b139972a056c6137060c3d87",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "g1_sdk_model.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/g1_sdk_primitives.py",
+      "sourceSha256": "64da4e1d03a1d640dd85cf6d3e95aa0f5aef32daab3f7e585bb4d0b85716c9b2",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "g1_sdk_primitives.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/process_phase_clock.py",
+      "sourceSha256": "669ef382603f0dab90223a87ab4d085b6a51b76103b7560dc77e2985b01a42ae",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "process_phase_clock.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/run_whole.py",
+      "sourceSha256": "b8063c63f7281bf7f24152631e69b8685924605dc6a0afbcd9bd7f572ff4f395",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "run_whole.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/test_whole.py",
+      "sourceSha256": "2bf402799b0502fd3d442f21414bcbcd0b7dfd62292c3276ae73b130d1e49441",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "test_whole.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/voice_peer_source/__init__.py",
+      "sourceSha256": "28028009199472b86bffa5a7f0ff462728ea2dbdbe95d4258a12f6a4aabf5e6a",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "voice_peer_source/__init__.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/__init__.py",
+      "currentBaseSha256": "28028009199472b86bffa5a7f0ff462728ea2dbdbe95d4258a12f6a4aabf5e6a",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/voice_peer_source/fixture.py",
+      "sourceSha256": "5ead978abd8e982becd93140d7daa71132d5fd302878b0004fb356808d5d09d7",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "voice_peer_source/fixture.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/fixture.py",
+      "currentBaseSha256": "5ead978abd8e982becd93140d7daa71132d5fd302878b0004fb356808d5d09d7",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/voice_peer_source/peer.js",
+      "sourceSha256": "6043d37c0f056a84df12d920cb94c55a160c93d5f6943a53f4ef8b2e280a8d3d",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "voice_peer_source/peer.js",
+      "correspondingCurrentPath": "tests/device/voice_peer/peer.js",
+      "currentBaseSha256": "6043d37c0f056a84df12d920cb94c55a160c93d5f6943a53f4ef8b2e280a8d3d",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/voice_peer_source/preview_source.py",
+      "sourceSha256": "3072642ac5a4d2a920bc137f2bbf392370770e6e068f7aacceaf560ecd9d7107",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "voice_peer_source/preview_source.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/preview_source.py",
+      "currentBaseSha256": "3072642ac5a4d2a920bc137f2bbf392370770e6e068f7aacceaf560ecd9d7107",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/voice_peer_source/runtime.py",
+      "sourceSha256": "58de6a9d8a6f39c31365ea2206cc9dcebc58631ed2da436355dff0d3af8c5044",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "voice_peer_source/runtime.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/runtime.py",
+      "currentBaseSha256": "58de6a9d8a6f39c31365ea2206cc9dcebc58631ed2da436355dff0d3af8c5044",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/voice_peer_source/voice_peer.py",
+      "sourceSha256": "6f3d3719d15eafec366a0a27e5d452c8526aa64ba8ea0f8458c9d64c620c7980",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "voice_peer_source/voice_peer.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/voice_peer.py",
+      "currentBaseSha256": "6f3d3719d15eafec366a0a27e5d452c8526aa64ba8ea0f8458c9d64c620c7980",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioWholeBatch3/voice_peer_source/voice_signal.py",
+      "sourceSha256": "3952c48224191936d17b01f42ffe0587944f00ca394870fe0dabeca749e48dd0",
+      "sourcePacket": "pico-audio9-whole-batch3-4008j9ig",
+      "sourceRelativePath": "voice_peer_source/voice_signal.py",
+      "correspondingCurrentPath": "tests/device/voice_peer/voice_signal.py",
+      "currentBaseSha256": "3952c48224191936d17b01f42ffe0587944f00ca394870fe0dabeca749e48dd0",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioBundleProtocol/after/interface/src/scripting/TestScriptingInterface.cpp",
+      "sourceSha256": "37fc2dd510594b6d6f29fb47f07f0da19f117021d271faf254e7f3a5695c9429",
+      "sourcePacket": "pico-audio9-bundle-native-qgw76vfq",
+      "sourceRelativePath": "after/interface/src/scripting/TestScriptingInterface.cpp",
+      "correspondingCurrentPath": "interface/src/scripting/TestScriptingInterface.cpp",
+      "currentBaseSha256": "139d68f72509ef051168f32c4f352f45088cdae61617b178db7dc1f7ca5ae3d2",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioBundleProtocol/after/interface/src/scripting/TestScriptingInterface.h",
+      "sourceSha256": "596aa252e71a85a0e49d3bf32f2da0136b086d13c312989f6ff4e8fa2810d795",
+      "sourcePacket": "pico-audio9-bundle-native-qgw76vfq",
+      "sourceRelativePath": "after/interface/src/scripting/TestScriptingInterface.h",
+      "correspondingCurrentPath": "interface/src/scripting/TestScriptingInterface.h",
+      "currentBaseSha256": "9194cbc8c3a6e7669f1a116d6ab636595291c560e3396c95c7d3db36c47c35d1",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioBundleProtocol/after/tests/device/adapters/pico4/audio_observation_bundle.py",
+      "sourceSha256": "2e1b9b862b947b2ae1ca8fc2e3d95f32095976f2e5a4fca1e79d6bc8202a0cf7",
+      "sourcePacket": "pico-audio9-bundle-native-qgw76vfq",
+      "sourceRelativePath": "after/tests/device/adapters/pico4/audio_observation_bundle.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_observation_bundle.py",
+      "currentBaseSha256": "2e1b9b862b947b2ae1ca8fc2e3d95f32095976f2e5a4fca1e79d6bc8202a0cf7",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioBundleProtocol/after/tests/device/native/PicoAudioObservationBundle.h",
+      "sourceSha256": "89006b46f97417c7415e055e0f8d50dbf0dfe6df3c232d44731b8747371d89b1",
+      "sourcePacket": "pico-audio9-bundle-native-qgw76vfq",
+      "sourceRelativePath": "after/tests/device/native/PicoAudioObservationBundle.h",
+      "correspondingCurrentPath": "tests/device/native/PicoAudioObservationBundle.h",
+      "currentBaseSha256": "89006b46f97417c7415e055e0f8d50dbf0dfe6df3c232d44731b8747371d89b1",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioBundleProtocol/after/tests/device/native/PicoRemoteAvatarStreamFile.h",
+      "sourceSha256": "66b02c26f411ab0d2facb04a3b61dac8bd36e232ffbe91d57be634977cf25282",
+      "sourcePacket": "pico-audio9-bundle-native-qgw76vfq",
+      "sourceRelativePath": "after/tests/device/native/PicoRemoteAvatarStreamFile.h",
+      "correspondingCurrentPath": "tests/device/native/PicoRemoteAvatarStreamFile.h",
+      "currentBaseSha256": "66b02c26f411ab0d2facb04a3b61dac8bd36e232ffbe91d57be634977cf25282",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioBundleProtocol/after/tests/device/probe/overte_e2e_probe.js",
+      "sourceSha256": "bd900d01e10a7af477cfb4ff33656b77a9691d90ea143137ddee1129b2af7cff",
+      "sourcePacket": "pico-audio9-bundle-native-qgw76vfq",
+      "sourceRelativePath": "after/tests/device/probe/overte_e2e_probe.js",
+      "correspondingCurrentPath": "tests/device/probe/overte_e2e_probe.js",
+      "currentBaseSha256": "e2ad23bb215ff00e7383dd9d56c9ccb2a2682c36644bedbf80c3e328179c5822",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioBundleProtocol/after/tests/device/self_tests/test_pico_audio_observation_bundle.py",
+      "sourceSha256": "42790ed2b7578487ec4b3c612d6acb2e42f66bb906281f798f3fc081ff5ebf3d",
+      "sourcePacket": "pico-audio9-bundle-native-qgw76vfq",
+      "sourceRelativePath": "after/tests/device/self_tests/test_pico_audio_observation_bundle.py",
+      "correspondingCurrentPath": "tests/device/self_tests/test_pico_audio_observation_bundle.py",
+      "currentBaseSha256": "42790ed2b7578487ec4b3c612d6acb2e42f66bb906281f798f3fc081ff5ebf3d",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioBundleProtocol/run-boundary.py",
+      "sourceSha256": "a657987173864e43e8c98d737741d297f4eaf52c26b4fe204e6f7ee25ff93c11",
+      "sourcePacket": "pico-audio9-bundle-native-qgw76vfq",
+      "sourceRelativePath": "run-boundary.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/audio_common_files.py",
+      "sourceSha256": "864aae65fd527e00a7040d43beb1769e42915703293eacb86bca37e8ea489298",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "audio_common_files.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_common_files.py",
+      "currentBaseSha256": "139aca7f66adc0032c94e9ebbeab8a5d7bfff8403acc207e65923588d319d227",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/audio_common_flow.py",
+      "sourceSha256": "41be9fb1ca1d7e8cfff547f7e84a8b8fa57d990d50b5a7660c873aff6a091a62",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "audio_common_flow.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_common_flow.py",
+      "currentBaseSha256": "50a93e95464055526dc31e829e194ac17acf8101df1af869a116d50df4c8e1dd",
+      "identicalToCurrentBase": false,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/audio_common_primary.py",
+      "sourceSha256": "e78f749f885a77f826e985d81e8ece6f440f22a314b712b2669aac5a9488c098",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "audio_common_primary.py",
+      "correspondingCurrentPath": "tests/device/adapters/pico4/audio_common_primary.py",
+      "currentBaseSha256": "e78f749f885a77f826e985d81e8ece6f440f22a314b712b2669aac5a9488c098",
+      "identicalToCurrentBase": true,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/original_audio_files.py",
+      "sourceSha256": "425942409c7e612481ba49fd1a5fa0fc955226d3689703a2796791d5a2db6930",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "original_audio_files.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/run_eight.py",
+      "sourceSha256": "e0b53e750ed0a85540a3d8af8127ac1a05139715759d52108dc6607f1caff735",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "run_eight.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/run_files.py",
+      "sourceSha256": "ba6f6c76479c5e8101cf7df171637090a7d0b8ffb60008656c1baef53d886529",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "run_files.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/run_flow.py",
+      "sourceSha256": "79c06b8c238f3e2638af5c9067b721137ad227245ca6e85b6474c59bcefebefe",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "run_flow.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/test_common_eight.py",
+      "sourceSha256": "a7bc3ebee3f748735fa1bac60cf05955684dedebcca3129f7eed18b9784dcc48",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "test_common_eight.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/test_common_files.py",
+      "sourceSha256": "a9d22ab06cc3fe98271f3c5081998949c17a048e9f388b0ee2071946c8040c1e",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "test_common_files.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/test_common_flow.py",
+      "sourceSha256": "8d9fa1f17d50db0905fe1c38c939dd88f9f56e0571c8c2c2f15d9f1f0fc76fbe",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "test_common_flow.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    },
+    {
+      "snapshotPath": "source-snapshots/audioCommonFiles/test_common_primary.py",
+      "sourceSha256": "ccd9321bfb9c1a186130bd01349b90489b30e207910196d3f69e01792ad413f1",
+      "sourcePacket": "pico-audio9-common-files-_e8r7fjx",
+      "sourceRelativePath": "test_common_primary.py",
+      "correspondingCurrentPath": null,
+      "currentBaseSha256": null,
+      "identicalToCurrentBase": null,
+      "role": "source-only snapshot; never an automatic current product replacement"
+    }
+  ],
+  "runtimeFilesExcluded": true
+}

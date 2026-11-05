@@ -1,0 +1,1199 @@
+{
+  "alreadyCommittedExcluded": [
+    "tests/device/adapters/pico4/tablet_web_binding.py URL binding fix and its portable tests/docs, committed24772db8"
+  ],
+  "baseCommit": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "completeSourceBytesEmbeddedInArchivalPatch": true,
+  "developmentPaused": true,
+  "excludedCategories": [
+    "Runtime originals and evidence",
+    "All generated config/credential/token/certificate/private environment files",
+    "Binary/output artifacts, raw stdio/HTTP bodies, screenshots, WAV/APK/JAR/archive files",
+    "All old broad repository/Source SHA/stat manifests and result/audit/log inventories",
+    "Superseded private version trees already represented by the current composite"
+  ],
+  "groups": {
+    "current-runtime": {
+      "bytes": 441099,
+      "files": 18
+    },
+    "qualified-support": {
+      "bytes": 381271,
+      "files": 75
+    },
+    "withheld-adaptive": {
+      "bytes": 40179,
+      "files": 3
+    },
+    "withheld-research": {
+      "bytes": 487621,
+      "files": 42
+    }
+  },
+  "identicalBaseReferencePaths": [
+    "tests/device/adapters/android/adapter.py"
+  ],
+  "patches": {
+    "runtime-vs-24772.source-only.patch": {
+      "bytes": 191675,
+      "sha256": "1a9daed82c69eeb6eacaa44dbea284f885fdf04193d4657f539339d26b842f77"
+    },
+    "source-only.patch": {
+      "bytes": 1388465,
+      "sha256": "a4bd5399571a7f3c69f070c75fcfc2043f93d63438e0cf5a4dd661e4aca43ba5"
+    }
+  },
+  "pendingRuntimePatchPaths": [
+    "tests/device/adapter_client.py",
+    "tests/device/adapter_operation_host.py",
+    "tests/device/adapters/pico4/browser_operation_owner.py",
+    "tests/device/adapters/pico4/browser_operation_protocol.py",
+    "tests/device/adapters/pico4/browser_session.py",
+    "tests/device/adapters/pico4/operation_archive.py",
+    "tests/device/adapters/pico4/operation_host.py",
+    "tests/device/adapters/pico4/parent_peer_credit.py",
+    "tests/device/adapters/pico4/parent_peer_current.py",
+    "tests/device/adapters/pico4/parent_peer_scope.py",
+    "tests/device/adapters/pico4/parent_root_io.py",
+    "tests/device/adapters/pico4/peer_wire_closure.py",
+    "tests/device/feature_journeys/engine.py",
+    "tests/device/feature_journeys/witness.py",
+    "tests/device/modules/feature_journey.py",
+    "tests/device/overte_session.py",
+    "tests/device/peer_predecoder.py"
+  ],
+  "publicationTopLevelOnly": true,
+  "r20ActuallyChangedOverridePaths": 16,
+  "r20OverrideSnapshotsExcludingAlreadyCommittedUrlFix": 17,
+  "readmeSha256": "7b8c472b852f4f23d1a2985ae3a6b819ca7e99fd61c0da982a73f1be9870925e",
+  "remoteWrites": false,
+  "repoEdited": false,
+  "requiredPeerPredecoderHelperAdded": true,
+  "schemaVersion": 1,
+  "securityReview": {
+    "generatedCredentialFilesIncluded": false,
+    "hex32To128LiteralValuesInPython": 0,
+    "knownSyntheticConstantsAllowed": true,
+    "realDeviceOrAccountSelectorsIncluded": false,
+    "recognizedSecretPatternMatches": 0,
+    "sensitiveNamedLiteralAssignmentsReviewed": "Only public interaction marker and explicitly synthetic private-wire-settlement-target fixture constants",
+    "sourceBytesUnchanged": true,
+    "staticOnly": true
+  },
+  "sourceBackupOnly": true,
+  "sourceFiles": [
+    {
+      "bytes": 4355,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapter_client.py",
+      "role": "unintegrated-runtime",
+      "sha256": "b282ab6952f9134b0635bb7b3d805d4089665c5391a704092a9e1b35d5946ba7",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapter_client.py"
+    },
+    {
+      "bytes": 24665,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapter_operation_host.py",
+      "role": "unintegrated-runtime",
+      "sha256": "9bebb58e230cc0e6e261ad77eaede863e5ef705abe2272d140f497220b3242b1",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapter_operation_host.py"
+    },
+    {
+      "bytes": 70885,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/android/adapter.py",
+      "role": "identical-base-reference",
+      "sha256": "a78ea58f0bd2c9a1dd2888a123dfc8100ba1e319d782577442a19f19eba43df3",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/android/adapter.py"
+    },
+    {
+      "bytes": 29641,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/pico4/browser_operation_owner.py",
+      "role": "unintegrated-runtime",
+      "sha256": "fa823f3a8e2add66e25dcab757023a8ece62f58904d93b9792fd692695648376",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/pico4/browser_operation_owner.py"
+    },
+    {
+      "bytes": 3338,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/pico4/browser_operation_protocol.py",
+      "role": "unintegrated-runtime",
+      "sha256": "28bf5757eda9960e0e414002db4ec6bc7e3904642a350cf2cd684d96b3efb1c5",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/pico4/browser_operation_protocol.py"
+    },
+    {
+      "bytes": 14050,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/pico4/browser_session.py",
+      "role": "unintegrated-runtime",
+      "sha256": "021cdb211075f68d0cf71c209f58c006299f834b2236749e21f044d272f8b6ec",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/pico4/browser_session.py"
+    },
+    {
+      "bytes": 11220,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/pico4/operation_archive.py",
+      "role": "unintegrated-runtime",
+      "sha256": "8cf4fde67c2babffc92dcd002df61d265044c16835f79851ef7553db4efc713d",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/pico4/operation_archive.py"
+    },
+    {
+      "bytes": 10065,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/pico4/operation_host.py",
+      "role": "unintegrated-runtime",
+      "sha256": "285c4a9a49ec3597823473e624401405c2c9cd28ef6f8e33fc879d04982247bb",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/pico4/operation_host.py"
+    },
+    {
+      "bytes": 64717,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/pico4/parent_peer_credit.py",
+      "role": "unintegrated-runtime",
+      "sha256": "e583dddb05cd84e3f019b1988906e30cab18cc7955cfbc5c86706e9ae34ac68e",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/pico4/parent_peer_credit.py"
+    },
+    {
+      "bytes": 13096,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/pico4/parent_peer_current.py",
+      "role": "unintegrated-runtime",
+      "sha256": "bd2266f50a196c3a8eeef2acc5e35bd12eb0c1a8cfa7884c7d2f34f5916b565a",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/pico4/parent_peer_current.py"
+    },
+    {
+      "bytes": 6759,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/pico4/parent_peer_scope.py",
+      "role": "unintegrated-runtime",
+      "sha256": "f98d7c4b87528f0fb075ef7629364c90e618d3e19fad9e9c6ad92fe1a4776484",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/pico4/parent_peer_scope.py"
+    },
+    {
+      "bytes": 9716,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/pico4/parent_root_io.py",
+      "role": "unintegrated-runtime",
+      "sha256": "07f289b481f7ac0310d6200cd83075d7ef24c0be770f1d79e18f355bb5811f4d",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/pico4/parent_root_io.py"
+    },
+    {
+      "bytes": 11393,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/adapters/pico4/peer_wire_closure.py",
+      "role": "unintegrated-runtime",
+      "sha256": "bc6d0398e749f10f2ccec2c575b5ec029faced56d0472445e6aacd6a83c19380",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/adapters/pico4/peer_wire_closure.py"
+    },
+    {
+      "bytes": 62959,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/feature_journeys/engine.py",
+      "role": "unintegrated-runtime",
+      "sha256": "ba8f6a448b8eaac751853ee07728eea2cc52ec0f1b9adea89947086562ca95d6",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/feature_journeys/engine.py"
+    },
+    {
+      "bytes": 25466,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/feature_journeys/witness.py",
+      "role": "unintegrated-runtime",
+      "sha256": "83fc7bd667acbb2043e26a166be29b890396872002c5c378abec565c9240278c",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/feature_journeys/witness.py"
+    },
+    {
+      "bytes": 7583,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/modules/feature_journey.py",
+      "role": "unintegrated-runtime",
+      "sha256": "0fa3b59484b6e0e1555c3bb531308c9c64a253ff401a9eab1365229668066d5d",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/modules/feature_journey.py"
+    },
+    {
+      "bytes": 60717,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/overte_session.py",
+      "role": "unintegrated-runtime",
+      "sha256": "549e06167c01266837f89c9b8f006b9b4a05d0b3bf6a01e793f5df58cc17b0c0",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-public-r20/tests/device/overte_session.py"
+    },
+    {
+      "bytes": 10474,
+      "group": "current-runtime",
+      "path": "sources/current-runtime/tests/device/peer_predecoder.py",
+      "role": "unintegrated-required-helper",
+      "sha256": "086a790629630a910b65cd22945f20062889df237bbcef3423f8075325f1589f",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-predecoder/peer_predecoder.py"
+    },
+    {
+      "bytes": 2657,
+      "group": "qualified-support",
+      "path": "sources/support/owning_private.py",
+      "role": "current-source-harness",
+      "sha256": "d623a94017ef086c859abd9ae8e45ee3eb2107b7e14868115eafe66a93fee86a",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/owning_private.py"
+    },
+    {
+      "bytes": 8933,
+      "group": "qualified-support",
+      "path": "sources/support/parent-current-record-v4/PLAN_AND_BOUND.md",
+      "role": "source-design-documentation-not-runtime-evidence",
+      "sha256": "24ca980208e553ca5bda7bbff19a39e6b99932545afd0d70787340078b92da17",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-current-record-v4/PLAN_AND_BOUND.md"
+    },
+    {
+      "bytes": 1982,
+      "group": "qualified-support",
+      "path": "sources/support/parent-current-record-v4/audit_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "f6c058614eff8403b22ee8d98d829ff4b55cb3245821b3bc0c12c6cba09a2ec8",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-current-record-v4/audit_current_join.py"
+    },
+    {
+      "bytes": 2092,
+      "group": "qualified-support",
+      "path": "sources/support/parent-current-record-v4/run_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "b545c3366df112848f20bf7477097a1ffba2a71f434d3bb32135dfede67323fe",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-current-record-v4/run_current_join.py"
+    },
+    {
+      "bytes": 10332,
+      "group": "qualified-support",
+      "path": "sources/support/parent-current-record-v4/test_after_primary.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "fc5f0e19e947c051e1f382407b74b0977698f6bc10b45cd598693281c2d80dec",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-current-record-v4/test_after_primary.py"
+    },
+    {
+      "bytes": 10142,
+      "group": "qualified-support",
+      "path": "sources/support/parent-current-record-v4/test_current_records.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "bd4bbce2f7bdbfb4d07261d935cf3264b882d8b6268bac782e06d46bfab2db2e",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-current-record-v4/test_current_records.py"
+    },
+    {
+      "bytes": 1982,
+      "group": "qualified-support",
+      "path": "sources/support/parent-peer-participant-v21/audit_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "f6c058614eff8403b22ee8d98d829ff4b55cb3245821b3bc0c12c6cba09a2ec8",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-peer-participant-v21/audit_current_join.py"
+    },
+    {
+      "bytes": 2230,
+      "group": "qualified-support",
+      "path": "sources/support/parent-peer-participant-v21/run_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "cba475229118c50090c3bf1a4af5cdf433d210f07eeb949c1d13202b4614a6bc",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-peer-participant-v21/run_current_join.py"
+    },
+    {
+      "bytes": 10214,
+      "group": "qualified-support",
+      "path": "sources/support/parent-peer-participant-v21/test_after_primary.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "71958d9297adeb57cfec88776f7c4306bc6d41890761421d6c225862ab6f3d6a",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-peer-participant-v21/test_after_primary.py"
+    },
+    {
+      "bytes": 3184,
+      "group": "qualified-support",
+      "path": "sources/support/parent-peer-participant-v21/test_after_primary_custody.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "4efc649b3ba8aedc8fe6953c6719e847e5f10da86334bf9dd67bf2c25806a210",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-peer-participant-v21/test_after_primary_custody.py"
+    },
+    {
+      "bytes": 2978,
+      "group": "qualified-support",
+      "path": "sources/support/parent-peer-participant-v21/test_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "cee7196d76b80c2f07a62bd3d7fe8d5f4a2a986bb9f76627fb65bfd9b8808e92",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-peer-participant-v21/test_current_join.py"
+    },
+    {
+      "bytes": 4727,
+      "group": "qualified-support",
+      "path": "sources/support/parent-peer-participant-v21/test_wire_ledger.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "1911869df6fc6c8ab9508c75efbaa1e1133bbb5a864d6bdf5c21bb908c489a92",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-peer-participant-v21/test_wire_ledger.py"
+    },
+    {
+      "bytes": 1982,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-io-v1/audit_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "f6c058614eff8403b22ee8d98d829ff4b55cb3245821b3bc0c12c6cba09a2ec8",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v1/audit_current_join.py"
+    },
+    {
+      "bytes": 2255,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-io-v1/run_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "33d71629bb1bc514cb26358463e0f3a0929acf8f0811b8b706dc28ba61eb931e",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v1/run_current_join.py"
+    },
+    {
+      "bytes": 10280,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-io-v1/test_after_primary.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "50b0016e0282c21b2202775c64b694848797d6b750504425b2489a3d8695a219",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v1/test_after_primary.py"
+    },
+    {
+      "bytes": 3184,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-io-v1/test_after_primary_custody.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "4efc649b3ba8aedc8fe6953c6719e847e5f10da86334bf9dd67bf2c25806a210",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v1/test_after_primary_custody.py"
+    },
+    {
+      "bytes": 2978,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-io-v1/test_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "cee7196d76b80c2f07a62bd3d7fe8d5f4a2a986bb9f76627fb65bfd9b8808e92",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v1/test_current_join.py"
+    },
+    {
+      "bytes": 8636,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-io-v1/test_root_io.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "738b2157f3707543b5be3ef247755dd9129f7fc0d6c7e9d5cb14ffa96a28c521",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v1/test_root_io.py"
+    },
+    {
+      "bytes": 4727,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-io-v1/test_wire_ledger.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "1911869df6fc6c8ab9508c75efbaa1e1133bbb5a864d6bdf5c21bb908c489a92",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v1/test_wire_ledger.py"
+    },
+    {
+      "bytes": 1982,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-overlap-plan-v1/audit_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "f6c058614eff8403b22ee8d98d829ff4b55cb3245821b3bc0c12c6cba09a2ec8",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-overlap-plan-v1/audit_current_join.py"
+    },
+    {
+      "bytes": 2611,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-overlap-plan-v1/root_workspace_accounting.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "ca037dea93e525621ba5e483dca2173ce150499a77ea46957bb2c3f090ee5a2d",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-overlap-plan-v1/root_workspace_accounting.py"
+    },
+    {
+      "bytes": 2330,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-overlap-plan-v1/run_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "727124186b927048eb8b40966955488d34ad6581d7c8d5e5a3ac85ff4ea557ea",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-overlap-plan-v1/run_current_join.py"
+    },
+    {
+      "bytes": 10214,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-overlap-plan-v1/test_after_primary.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "71958d9297adeb57cfec88776f7c4306bc6d41890761421d6c225862ab6f3d6a",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-overlap-plan-v1/test_after_primary.py"
+    },
+    {
+      "bytes": 3184,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-overlap-plan-v1/test_after_primary_custody.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "4efc649b3ba8aedc8fe6953c6719e847e5f10da86334bf9dd67bf2c25806a210",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-overlap-plan-v1/test_after_primary_custody.py"
+    },
+    {
+      "bytes": 2978,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-overlap-plan-v1/test_current_join.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "cee7196d76b80c2f07a62bd3d7fe8d5f4a2a986bb9f76627fb65bfd9b8808e92",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-overlap-plan-v1/test_current_join.py"
+    },
+    {
+      "bytes": 2875,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-overlap-plan-v1/test_root_overlap.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "73b5a915c9230a17465103ad9cd3acab7b7c8e136ed2cc514fa35c57fabb60eb",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-overlap-plan-v1/test_root_overlap.py"
+    },
+    {
+      "bytes": 3024,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-overlap-plan-v1/test_root_workspace.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "f2b51b268c2ec156b2a46ebbb6d6db69ac680cba7adb53cab94fefad9776c7c9",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-overlap-plan-v1/test_root_workspace.py"
+    },
+    {
+      "bytes": 4727,
+      "group": "qualified-support",
+      "path": "sources/support/parent-root-overlap-plan-v1/test_wire_ledger.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "1911869df6fc6c8ab9508c75efbaa1e1133bbb5a864d6bdf5c21bb908c489a92",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-overlap-plan-v1/test_wire_ledger.py"
+    },
+    {
+      "bytes": 5410,
+      "group": "qualified-support",
+      "path": "sources/support/peer-predecoder/REVIEW-v1.md",
+      "role": "source-design-documentation-not-runtime-evidence",
+      "sha256": "5e2f4d901c4e70ec534eeb349c82b73cba1e6bbfc972c06e4c69614f55ee4040",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-predecoder/REVIEW-v1.md"
+    },
+    {
+      "bytes": 2240,
+      "group": "qualified-support",
+      "path": "sources/support/peer-predecoder/SCHEMA_DEPTH.md",
+      "role": "source-design-documentation-not-runtime-evidence",
+      "sha256": "b94146eb0d9ffc8bafec528e60c73c19c74686fa1db7d84c7c4fd4b06ae3cd5b",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-predecoder/SCHEMA_DEPTH.md"
+    },
+    {
+      "bytes": 2665,
+      "group": "qualified-support",
+      "path": "sources/support/peer-predecoder/archive_namespace_bill.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "ca2fc3e0c08b6e3a3238d8db4f6d3ade40e4bee03394a0e323081dab63fb7007",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-predecoder/archive_namespace_bill.py"
+    },
+    {
+      "bytes": 4624,
+      "group": "qualified-support",
+      "path": "sources/support/peer-predecoder/fixed_pair_component.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "61c6669a01363240c1c8f10514f1f06170ffa1c06ee1a8bae2eb4e6b7a007ec5",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-predecoder/fixed_pair_component.py"
+    },
+    {
+      "bytes": 2622,
+      "group": "qualified-support",
+      "path": "sources/support/peer-predecoder/source_lock_actor.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "b1ee77525f5426dfd071930337dee3c47cbddfd8bc21925ec94607c62dd5720c",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-predecoder/source_lock_actor.py"
+    },
+    {
+      "bytes": 6469,
+      "group": "qualified-support",
+      "path": "sources/support/peer-predecoder/test_archive_namespace_bill.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "e937e36cb1554ac8c2271f38c3e89f8769e01ca710b0c1aab015b411f63af133",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-predecoder/test_archive_namespace_bill.py"
+    },
+    {
+      "bytes": 7802,
+      "group": "qualified-support",
+      "path": "sources/support/peer-predecoder/test_peer_predecoder.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "89cf4bdd6f774c257b30792d40d976c71d75e5eaceb9d96c1c3c7f8f41e7cded",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-predecoder/test_peer_predecoder.py"
+    },
+    {
+      "bytes": 7535,
+      "group": "qualified-support",
+      "path": "sources/support/peer-predecoder/test_snapshot_raw_client.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "ebffecfd6b7f76af1d96c8e27e42785c6e284d145822a8bdd63b4379a141c56d",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-predecoder/test_snapshot_raw_client.py"
+    },
+    {
+      "bytes": 15902,
+      "group": "qualified-support",
+      "path": "sources/support/peer-predecoder/test_two_role_peek.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "1716b3100762254be28595e037dd4be2d220d481589af7954baee7e704d1043f",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/peer-predecoder/test_two_role_peek.py"
+    },
+    {
+      "bytes": 12071,
+      "group": "qualified-support",
+      "path": "sources/support/prepare_peer_public_r20.py",
+      "role": "current-source-harness",
+      "sha256": "4aa02696108570c903c5eb66825127467bc5c9162c694715a51381bdf7f4e93c",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/prepare_peer_public_r20.py"
+    },
+    {
+      "bytes": 10561,
+      "group": "qualified-support",
+      "path": "sources/support/probe_peer_public_r20.py",
+      "role": "current-source-harness",
+      "sha256": "f2bd80c2a4badb7e012dc926ec2f1c2df4c14881c1779bfbcce436656db9737e",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/probe_peer_public_r20.py"
+    },
+    {
+      "bytes": 1449,
+      "group": "qualified-support",
+      "path": "sources/support/readonly-v3/ACK-LIFETIME.md",
+      "role": "source-design-documentation-not-runtime-evidence",
+      "sha256": "f8d852b6d4c00c6f054ca419e8e2a96b9022b1a1229f776a1f91ebb0fac050db",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/readonly-v3/ACK-LIFETIME.md"
+    },
+    {
+      "bytes": 3178,
+      "group": "qualified-support",
+      "path": "sources/support/readonly-v3/CAS-MERGE-PROOF.md",
+      "role": "source-design-documentation-not-runtime-evidence",
+      "sha256": "32d45c0c83bef42217292465ee3d6467515d4bc85f8678ac0047f2cefed24cd6",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/readonly-v3/CAS-MERGE-PROOF.md"
+    },
+    {
+      "bytes": 29619,
+      "group": "qualified-support",
+      "path": "sources/support/readonly-v3/browser_owner_v3.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "bd2891832b9b6ed83c5a1d6fb5b07141f505a5a78a0ba518ca26dcf89ec38125",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/readonly-v3/browser_owner_v3.py"
+    },
+    {
+      "bytes": 3338,
+      "group": "qualified-support",
+      "path": "sources/support/readonly-v3/browser_protocol_v3.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "28bf5757eda9960e0e414002db4ec6bc7e3904642a350cf2cd684d96b3efb1c5",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/readonly-v3/browser_protocol_v3.py"
+    },
+    {
+      "bytes": 10043,
+      "group": "qualified-support",
+      "path": "sources/support/readonly-v3/operation_host_v3.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "e06928d1352bb71f63a7e01a3755632e11f979095e5d69232a14e1c9ee8f9e2a",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/readonly-v3/operation_host_v3.py"
+    },
+    {
+      "bytes": 13233,
+      "group": "qualified-support",
+      "path": "sources/support/readonly-v3/owner_v3_worker.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "de7cf190d27e7bc59384b4e5443e8bd9978d85ae6c25769cadd20f4fc341bcfd",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/readonly-v3/owner_v3_worker.py"
+    },
+    {
+      "bytes": 2354,
+      "group": "qualified-support",
+      "path": "sources/support/readonly-v3/root_publications.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "4018ec85b7b2c1af4bd8a31a89ac8ba9d353c668ef5c9d20d6a88409792a1117",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/readonly-v3/root_publications.py"
+    },
+    {
+      "bytes": 2447,
+      "group": "qualified-support",
+      "path": "sources/support/readonly-v3/test_continuity_protocol.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "48318865742fe3ba51ae2b78d0c0d0429573899e06ec94a73aeeed8000c59f97",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/readonly-v3/test_continuity_protocol.py"
+    },
+    {
+      "bytes": 2838,
+      "group": "qualified-support",
+      "path": "sources/support/readonly-v3/test_owner_v3.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "316087bcb18cb5d8bfc17095a196159096b9d86f74d9f5916bea722c1c6997c0",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/readonly-v3/test_owner_v3.py"
+    },
+    {
+      "bytes": 6792,
+      "group": "qualified-support",
+      "path": "sources/support/script-ui-sdk-v1/PLAN_AND_BOUND.md",
+      "role": "source-design-documentation-not-runtime-evidence",
+      "sha256": "930924cf6e50b9dc2f867cdbbed7b1d223859cb144033967d31daf4ed0304c7a",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/script-ui-sdk-v1/PLAN_AND_BOUND.md"
+    },
+    {
+      "bytes": 1982,
+      "group": "qualified-support",
+      "path": "sources/support/script-ui-sdk-v1/audit_manager_source.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "f6c058614eff8403b22ee8d98d829ff4b55cb3245821b3bc0c12c6cba09a2ec8",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/script-ui-sdk-v1/audit_manager_source.py"
+    },
+    {
+      "bytes": 2137,
+      "group": "qualified-support",
+      "path": "sources/support/script-ui-sdk-v1/run_manager_source.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "6238dcff9aa313a4e3310a39ee99d046e49226a9075ebd62e36400e53bc11902",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/script-ui-sdk-v1/run_manager_source.py"
+    },
+    {
+      "bytes": 6100,
+      "group": "qualified-support",
+      "path": "sources/support/script-ui-sdk-v1/script_ui_backend.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "c7f2c09fa7594a1c234cf97f194c92c6c3e3319ad323e9841c69e878dedd41dd",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/script-ui-sdk-v1/script_ui_backend.py"
+    },
+    {
+      "bytes": 2920,
+      "group": "qualified-support",
+      "path": "sources/support/script-ui-sdk-v1/tablet-feature-client.js",
+      "role": "source-fixture-or-harness",
+      "sha256": "74c52e251f5718e9cf4a4ecad8b60c16f2b87fae99a0f7a86ff3941eccde9d23",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/script-ui-sdk-v1/tablet-feature-client.js"
+    },
+    {
+      "bytes": 6125,
+      "group": "qualified-support",
+      "path": "sources/support/script-ui-sdk-v1/test_manager_source.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "d1f1507ec6676819012cfb718def953ba6bb8133567a25d236dabe6b8c40c43e",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/script-ui-sdk-v1/test_manager_source.py"
+    },
+    {
+      "bytes": 1982,
+      "group": "qualified-support",
+      "path": "sources/support/script-url-binding-v2/audit_manager_binding.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "f6c058614eff8403b22ee8d98d829ff4b55cb3245821b3bc0c12c6cba09a2ec8",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/script-url-binding-v2/audit_manager_binding.py"
+    },
+    {
+      "bytes": 2257,
+      "group": "qualified-support",
+      "path": "sources/support/script-url-binding-v2/run_manager_binding.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "bbf8706e3db7ff26ffce2439b072c1816e1434fe04e622ecf6732e13fa082915",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/script-url-binding-v2/run_manager_binding.py"
+    },
+    {
+      "bytes": 8842,
+      "group": "qualified-support",
+      "path": "sources/support/script-url-binding-v2/test_manager_binding.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "d2db1f73c712c76826b6f65ff55fc5604ab95eef0564d4ac2b900209869eabe9",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/script-url-binding-v2/test_manager_binding.py"
+    },
+    {
+      "bytes": 6544,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-neutral-v1/PLAN_AND_BOUND.md",
+      "role": "source-design-documentation-not-runtime-evidence",
+      "sha256": "cc2d9aab63b1c694a48dadf6af016a0d272219a918a84ff660cfe85983648308",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-neutral-v1/PLAN_AND_BOUND.md"
+    },
+    {
+      "bytes": 1982,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-neutral-v1/audit_original_neutral.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "f6c058614eff8403b22ee8d98d829ff4b55cb3245821b3bc0c12c6cba09a2ec8",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-neutral-v1/audit_original_neutral.py"
+    },
+    {
+      "bytes": 986,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-neutral-v1/neutral_backend_base.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "c94fb973defe7e08b333ecaddbdf24d7b4085ef29da6f868cd95ce1f26e3f458",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-neutral-v1/neutral_backend_base.py"
+    },
+    {
+      "bytes": 7601,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-neutral-v1/neutral_openxr_model.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "93a2c9e49b7880b9af463313be4467689556205476b64247a102bcb4053ca9bc",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-neutral-v1/neutral_openxr_model.py"
+    },
+    {
+      "bytes": 1173,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-neutral-v1/profile.json",
+      "role": "source-fixture-or-harness",
+      "sha256": "56aa147f8ae573bacbcab45e5b8674f2c74b730f6846c5c1f541e1daa7151ea2",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-neutral-v1/profile.json"
+    },
+    {
+      "bytes": 2233,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-neutral-v1/run_original_neutral.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "2cefca797240641905fa909a5c31b688402dd8087d3d41d3a9dc4019c172ce74",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-neutral-v1/run_original_neutral.py"
+    },
+    {
+      "bytes": 6102,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-neutral-v1/script_ui_neutral_backend.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "e9f49ed42d313b2f1966c785fe25bd7a7856f88e03ab075fbe3a5f3e49af3086",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-neutral-v1/script_ui_neutral_backend.py"
+    },
+    {
+      "bytes": 2920,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-neutral-v1/tablet-feature-client.js",
+      "role": "source-fixture-or-harness",
+      "sha256": "74c52e251f5718e9cf4a4ecad8b60c16f2b87fae99a0f7a86ff3941eccde9d23",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-neutral-v1/tablet-feature-client.js"
+    },
+    {
+      "bytes": 6674,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-neutral-v1/test_original_neutral.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "e977f29b9724abe067c5220a6ce93122fb08f02c9813754d08c9ee40e1f129d9",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-neutral-v1/test_original_neutral.py"
+    },
+    {
+      "bytes": 1982,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-openxr-cli-v2/audit_sdk_cli.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "f6c058614eff8403b22ee8d98d829ff4b55cb3245821b3bc0c12c6cba09a2ec8",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-openxr-cli-v2/audit_sdk_cli.py"
+    },
+    {
+      "bytes": 1664,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-openxr-cli-v2/declared_cli.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "ef1c6814996a6776de779c70555f757c174d68bcfb59376ecf81184edafa8439",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-openxr-cli-v2/declared_cli.py"
+    },
+    {
+      "bytes": 6244,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-openxr-cli-v2/openxr_model.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "cbb7abfdc6e57cc9fbd861753497f8ab5b17965d1863e18896ccc43c7a02f134",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-openxr-cli-v2/openxr_model.py"
+    },
+    {
+      "bytes": 1173,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-openxr-cli-v2/profile.json",
+      "role": "source-fixture-or-harness",
+      "sha256": "56aa147f8ae573bacbcab45e5b8674f2c74b730f6846c5c1f541e1daa7151ea2",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-openxr-cli-v2/profile.json"
+    },
+    {
+      "bytes": 1968,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-openxr-cli-v2/run_sdk_cli.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "4db7b08660ee15524b036b350f693849819f50b8da97ae3297f19779ba7fee33",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-openxr-cli-v2/run_sdk_cli.py"
+    },
+    {
+      "bytes": 953,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-openxr-cli-v2/sdk_backend_openxr.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "3e0eb9ac7df350e41ad60b2d846eaeb42e637143ec52d32fd1638d729b95e303",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-openxr-cli-v2/sdk_backend_openxr.py"
+    },
+    {
+      "bytes": 5722,
+      "group": "qualified-support",
+      "path": "sources/support/sdk-openxr-cli-v2/test_navigation_origin.py",
+      "role": "source-fixture-or-harness",
+      "sha256": "45c80075d02a4995a7dfe9283a9509a273778384dee22e71d0ece54503a80c92",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk-openxr-cli-v2/test_navigation_origin.py"
+    },
+    {
+      "bytes": 5719,
+      "group": "qualified-support",
+      "path": "sources/support/sdk_backend.py",
+      "role": "current-source-harness",
+      "sha256": "4c55bd8be0211d5168c202e927360ad413b15738896b8f9e5520ea22ba260570",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk_backend.py"
+    },
+    {
+      "bytes": 4674,
+      "group": "qualified-support",
+      "path": "sources/support/sdk_bootstrap_poll_diag_r8.py",
+      "role": "current-source-harness",
+      "sha256": "c43253a06a626ebc413862a8091a28d03d09da0973ecfa0b15d6737a2f5a8828",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/sdk_bootstrap_poll_diag_r8.py"
+    },
+    {
+      "bytes": 4555,
+      "group": "withheld-adaptive",
+      "path": "sources/withheld-adaptive/tests/device/adapters/pico4/browser_actor.py",
+      "role": "WITHHELD-alternative-not-active",
+      "sha256": "10b630c8fe2585dfe531d9ba5329b4d9c737d334e4d96748c86720cec84f6965",
+      "sourcePacketPath": "browser-adaptive-withheld-20261104/browser_actor.py"
+    },
+    {
+      "bytes": 26990,
+      "group": "withheld-adaptive",
+      "path": "sources/withheld-adaptive/tests/device/adapters/pico4/browser_operation_owner.py",
+      "role": "WITHHELD-alternative-not-active",
+      "sha256": "c1c7e262f1634eedc3f2e9b66dff5bed4bc468764ba478c50de63e04432a24ca",
+      "sourcePacketPath": "browser-adaptive-withheld-20261104/browser_operation_owner.py"
+    },
+    {
+      "bytes": 8634,
+      "group": "withheld-adaptive",
+      "path": "sources/withheld-adaptive/tests/device/self_tests/test_pico_browser_actor_period.py",
+      "role": "WITHHELD-alternative-not-active",
+      "sha256": "7e469c50cc058fbc508232378b29a108ec6c46bf3c64070bca00fef12af67ec1",
+      "sourcePacketPath": "browser-adaptive-withheld-20261104/test_pico_browser_actor_period.py"
+    },
+    {
+      "bytes": 3077,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/baseline-runtime-join-v1/counter.py",
+      "role": "REJECTED-not-active",
+      "sha256": "b676601de5e2338672dfed296c56240d3452b0afc03e00fd3be2d877597c98ce",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/baseline-runtime-join-v1/counter.py"
+    },
+    {
+      "bytes": 645,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/baseline-runtime-join-v1/counter_sdk.py",
+      "role": "REJECTED-not-active",
+      "sha256": "85c89692c88695baa1bbf69a517705b12df0aea23009935f34ad9b0493ab8a24",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/baseline-runtime-join-v1/counter_sdk.py"
+    },
+    {
+      "bytes": 3768,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/baseline-runtime-join-v1/prepare.py",
+      "role": "REJECTED-not-active",
+      "sha256": "01fd42b8483ec1b16dae57a984baeef00949a2ea05b50ee8693c4ed14ba06127",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/baseline-runtime-join-v1/prepare.py"
+    },
+    {
+      "bytes": 10130,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/baseline-runtime-join-v1/run_counter.py",
+      "role": "REJECTED-not-active",
+      "sha256": "88af957354373b08294896ba1719243083666de70ebb3541b2892d79b244c1c2",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/baseline-runtime-join-v1/run_counter.py"
+    },
+    {
+      "bytes": 12904,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/baseline-runtime-join-v1/tests/device/adapters/pico4/tablet_web_binding.py",
+      "role": "REJECTED-not-active",
+      "sha256": "62070fbe32ec79cbfcfaaf5d352709b6c5967a5beee49f47dc606a0cb2b31ebb",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/baseline-runtime-join-v1/tests/device/adapters/pico4/tablet_web_binding.py"
+    },
+    {
+      "bytes": 56012,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/baseline-runtime-join-v1/tests/device/adapters/pico4/tablet_web_feature.py",
+      "role": "REJECTED-not-active",
+      "sha256": "689e5f72236af2d771dfbd9648d4e7a65858d88debbcd4a075a67c49c0a7e582",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/baseline-runtime-join-v1/tests/device/adapters/pico4/tablet_web_feature.py"
+    },
+    {
+      "bytes": 1970,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/footer-proof-cost-v2/run.py",
+      "role": "REJECTED-not-active",
+      "sha256": "a71d81eda28eae5fc5422ae3b22f90ce279ef3d40b4f54ad94906daa79b02dd5",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/footer-proof-cost-v2/run.py"
+    },
+    {
+      "bytes": 2252,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/footer-proof-cost-v2/test_footer_cost.py",
+      "role": "REJECTED-not-active",
+      "sha256": "83b14ae4c7653bf918bdb0acf4a7176133baed1e223d4fdd11783b635f81af73",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/footer-proof-cost-v2/test_footer_cost.py"
+    },
+    {
+      "bytes": 6169,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/observe-lock-admission-v1/counter.py",
+      "role": "REJECTED-not-active",
+      "sha256": "f3b33348d8e249ae85d741f05fe181208e4ba3adfa3c4ae2abf45e21105760e6",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/observe-lock-admission-v1/counter.py"
+    },
+    {
+      "bytes": 684,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/observe-lock-admission-v1/counter_sdk.py",
+      "role": "REJECTED-not-active",
+      "sha256": "4fd582e383a7003a03f39c9d7bf1d7bfdd96169a8cfb9d344bccfcc5883bc945",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/observe-lock-admission-v1/counter_sdk.py"
+    },
+    {
+      "bytes": 4137,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/observe-lock-admission-v1/prepare.py",
+      "role": "REJECTED-not-active",
+      "sha256": "94ab9223e948d0108c6a3a55474c5b0b8e3c49c40cef2b112a2afc8dd643c34a",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/observe-lock-admission-v1/prepare.py"
+    },
+    {
+      "bytes": 10123,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/observe-lock-admission-v1/run_counter.py",
+      "role": "REJECTED-not-active",
+      "sha256": "893c3859201a9eaadcc3ae795c1f01600e05096abf27a467eb664c085903850d",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/observe-lock-admission-v1/run_counter.py"
+    },
+    {
+      "bytes": 12864,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/observe-lock-admission-v1/tests/device/adapters/pico4/tablet_web_binding.py",
+      "role": "REJECTED-not-active",
+      "sha256": "b6f883ea2bb01b9506b7709a14742d5bed266595063ac9749e8dae830e572d9e",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/observe-lock-admission-v1/tests/device/adapters/pico4/tablet_web_binding.py"
+    },
+    {
+      "bytes": 56016,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/observe-lock-admission-v1/tests/device/adapters/pico4/tablet_web_feature.py",
+      "role": "REJECTED-not-active",
+      "sha256": "073e7cfaa4f1075cb6184a5a72f4394e69a454df04f8f4a8aa3b97a472ee8c28",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/observe-lock-admission-v1/tests/device/adapters/pico4/tablet_web_feature.py"
+    },
+    {
+      "bytes": 4498,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/packing/kernel_append_tests.py",
+      "role": "REJECTED-not-active",
+      "sha256": "fd3c17a1e37e8dfdd3165d46795ee0375db40d6f40e48b06a9e3382a536cab7c",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/kernel_append_tests.py"
+    },
+    {
+      "bytes": 2438,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/packing/metadata_preflight.py",
+      "role": "REJECTED-not-active",
+      "sha256": "9adc26a3d4e078ceb48a26ebcb2bea7357822ff5ee0f9144dbd6b2c0d4d9ed94",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/metadata_preflight.py"
+    },
+    {
+      "bytes": 13207,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/packing/operation_raw_banks.py",
+      "role": "REJECTED-not-active",
+      "sha256": "a79eac532c91c0d70185e0b45828580160ba3677b710860ad911e88bfff18ae8",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/operation_raw_banks.py"
+    },
+    {
+      "bytes": 9124,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/packing/operation_raw_stream.py",
+      "role": "REJECTED-not-active",
+      "sha256": "6ea0327c711c1391f71eb7f51d348205204d8df113d48dbdc9ae8b7d8bfa4a77",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/operation_raw_stream.py"
+    },
+    {
+      "bytes": 3273,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/packing/test_cold_packing_cost.py",
+      "role": "REJECTED-not-active",
+      "sha256": "53b19caa10d43b169baa937c052985610c645cdd648ba34932f979f6a4a98f9e",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/test_cold_packing_cost.py"
+    },
+    {
+      "bytes": 2751,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/packing/test_metadata_preflight.py",
+      "role": "REJECTED-not-active",
+      "sha256": "4b5c2b9d4f09f9e12614e54e9c77e3bd05ecdf4519b044c84c5637644a8eb50a",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/test_metadata_preflight.py"
+    },
+    {
+      "bytes": 6282,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/packing/test_operation_raw_banks.py",
+      "role": "REJECTED-not-active",
+      "sha256": "6a9e9fffc72cc6ad4f3f53048195ce2e2cd1c340f980f5c922575689d2dc3f0a",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/test_operation_raw_banks.py"
+    },
+    {
+      "bytes": 4491,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/packing/test_operation_raw_stream.py",
+      "role": "REJECTED-not-active",
+      "sha256": "949a9785c8e47a79a55f078293df2bb1a2ace1557173f3008ca7a9d6f59a7844",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/test_operation_raw_stream.py"
+    },
+    {
+      "bytes": 2474,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/packing/test_packing_guard_counts.py",
+      "role": "REJECTED-not-active",
+      "sha256": "0d0505bdc3d5b3ce23599fca8f6a45521b8c78dbf8879857a196e6e5f0bab1ba",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/test_packing_guard_counts.py"
+    },
+    {
+      "bytes": 23648,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/afterimages/tests/device/adapter_operation_host.py",
+      "role": "REJECTED-not-active",
+      "sha256": "20f632d5efd111088fd3e84974f5c9ebe5ca9205ce8bffbce0f5e40615d7b73c",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/afterimages/tests/device/adapter_operation_host.py"
+    },
+    {
+      "bytes": 11019,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/afterimages/tests/device/adapters/pico4/operation_archive.py",
+      "role": "REJECTED-not-active",
+      "sha256": "5d2a6971e1a09d2953ec5467106085a1a43b32e4e699734bcb960c9cc8a6d725",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/afterimages/tests/device/adapters/pico4/operation_archive.py"
+    },
+    {
+      "bytes": 61991,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/afterimages/tests/device/adapters/pico4/parent_peer_credit.py",
+      "role": "REJECTED-not-active",
+      "sha256": "5724f9b65290e2c2e22a51407ff7968de9c185006611c45ff359132913435722",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/afterimages/tests/device/adapters/pico4/parent_peer_credit.py"
+    },
+    {
+      "bytes": 6303,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/afterimages/tests/device/adapters/pico4/parent_peer_scope.py",
+      "role": "REJECTED-not-active",
+      "sha256": "66e5973e7d088a2228562a4c65c995121bc2d3623d8477f62152999912d7c92f",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/afterimages/tests/device/adapters/pico4/parent_peer_scope.py"
+    },
+    {
+      "bytes": 10015,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/afterimages/tests/device/adapters/pico4/parent_root_io.py",
+      "role": "REJECTED-not-active",
+      "sha256": "f21d51969a903b08a1f38561f5b2c408f0119e7872a96315ccd8a68eeb5262f0",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/afterimages/tests/device/adapters/pico4/parent_root_io.py"
+    },
+    {
+      "bytes": 11393,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/afterimages/tests/device/adapters/pico4/peer_wire_closure.py",
+      "role": "REJECTED-not-active",
+      "sha256": "bc6d0398e749f10f2ccec2c575b5ec029faced56d0472445e6aacd6a83c19380",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/afterimages/tests/device/adapters/pico4/peer_wire_closure.py"
+    },
+    {
+      "bytes": 61982,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/afterimages/tests/device/feature_journeys/engine.py",
+      "role": "REJECTED-not-active",
+      "sha256": "ec5b60bf93d314d003b009caba1918ffa28ee844e09e5788e3b8901dfc5e29ba",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/afterimages/tests/device/feature_journeys/engine.py"
+    },
+    {
+      "bytes": 25466,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/afterimages/tests/device/feature_journeys/witness.py",
+      "role": "REJECTED-not-active",
+      "sha256": "83fc7bd667acbb2043e26a166be29b890396872002c5c378abec565c9240278c",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/afterimages/tests/device/feature_journeys/witness.py"
+    },
+    {
+      "bytes": 1982,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/audit_current_join.py",
+      "role": "REJECTED-not-active",
+      "sha256": "f6c058614eff8403b22ee8d98d829ff4b55cb3245821b3bc0c12c6cba09a2ec8",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/audit_current_join.py"
+    },
+    {
+      "bytes": 2287,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/run_current_join.py",
+      "role": "REJECTED-not-active",
+      "sha256": "edcdc3ceae513b1cddc6d9892a6ff8fdd9eb11918b1194fadca12ccfba33c3f7",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/run_current_join.py"
+    },
+    {
+      "bytes": 10280,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/test_after_primary.py",
+      "role": "REJECTED-not-active",
+      "sha256": "50b0016e0282c21b2202775c64b694848797d6b750504425b2489a3d8695a219",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/test_after_primary.py"
+    },
+    {
+      "bytes": 3184,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/test_after_primary_custody.py",
+      "role": "REJECTED-not-active",
+      "sha256": "4efc649b3ba8aedc8fe6953c6719e847e5f10da86334bf9dd67bf2c25806a210",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/test_after_primary_custody.py"
+    },
+    {
+      "bytes": 2978,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/test_current_join.py",
+      "role": "REJECTED-not-active",
+      "sha256": "cee7196d76b80c2f07a62bd3d7fe8d5f4a2a986bb9f76627fb65bfd9b8808e92",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/test_current_join.py"
+    },
+    {
+      "bytes": 2492,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/test_root_idle_cost.py",
+      "role": "REJECTED-not-active",
+      "sha256": "91a5494f31576ffe142af5a249cc86f0e80b30105a4f7de42bd211f98c3b51a9",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/test_root_idle_cost.py"
+    },
+    {
+      "bytes": 8636,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/test_root_io.py",
+      "role": "REJECTED-not-active",
+      "sha256": "738b2157f3707543b5be3ef247755dd9129f7fc0d6c7e9d5cb14ffa96a28c521",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/test_root_io.py"
+    },
+    {
+      "bytes": 4727,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/parent-root-io-v2/test_wire_ledger.py",
+      "role": "REJECTED-not-active",
+      "sha256": "1911869df6fc6c8ab9508c75efbaa1e1133bbb5a864d6bdf5c21bb908c489a92",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/parent-root-io-v2/test_wire_ledger.py"
+    },
+    {
+      "bytes": 3323,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/retained-original-study-v2/retained_original.py",
+      "role": "REJECTED-not-active",
+      "sha256": "340db109519ab285e6f8bfb66d478167ab9cff44590f59de615e07b9b485be3d",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/retained-original-study-v2/retained_original.py"
+    },
+    {
+      "bytes": 1926,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/retained-original-study-v2/run.py",
+      "role": "REJECTED-not-active",
+      "sha256": "179f23d911b25f454cb5448d768d34df9505c52aa7610462f0d3d11b79da3dc2",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/retained-original-study-v2/run.py"
+    },
+    {
+      "bytes": 4700,
+      "group": "withheld-research",
+      "path": "sources/withheld-research/retained-original-study-v2/test_retained_original.py",
+      "role": "REJECTED-not-active",
+      "sha256": "3158f3a317ddf571ad7c918fae7f626b3ecee1fb993e0184207274e02d69b5b1",
+      "sourcePacketPath": "browser-canonical-prefix-20261104/retained-original-study-v2/test_retained_original.py"
+    }
+  ],
+  "status": {
+    "lastCanonical": "R20 partial RED after clean baseline and five Script UI inputs/owned source read; second Controller required neutral status unavailable in old declared producer",
+    "nativeQualified": false,
+    "neutralModel": "Three finite cases GREEN; NOT wired into a canonical successor",
+    "physicalDeviceQualified": false,
+    "publicComplete": false,
+    "sourceComplete": "unchanged3/14"
+  },
+  "testsOrBuildsRun": false
+}

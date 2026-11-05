@@ -1,0 +1,26 @@
+{
+  "purpose": "Source backup only; Audio development paused",
+  "baseCommit": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "latestActualPacket": "pico-audio9-whole-batch3-4008j9ig",
+  "sourceAreas": 12,
+  "sourceSnapshotFiles": 140,
+  "pendingProductFiles": 2,
+  "staticPatchChecks": {
+    "pending-common-joins.patch": 0,
+    "source-snapshots.patch": 0
+  },
+  "testsRunForExport": 0,
+  "buildsRunForExport": 0,
+  "runtimeImportsForExport": 0,
+  "repoMutations": 0,
+  "sourcePrivacyInspection": "No actual secrets found; no generated/runtime/evidence files copied",
+  "fullAudioComplete": false,
+  "latestWholeStatus": "RED: original16MiB prospective admission after firstG1",
+  "independentRecovery": "open",
+  "files": {
+    "COVERAGE.json": "2aa7431ad2aef96db30f9c8af001e22ae43a5c6d4050400ad39727e565b3f067",
+    "README.md": "28ac8186a282aade09ab94f9e5b03bf5ebd23587e290e0c597feccf59987cc47",
+    "pending-common-joins.patch": "86dc140914f660b1937ca828275c1086b372e75cd47e46f921f7ec725c40a616",
+    "source-snapshots.patch": "b9d84d6fcfdaee9d1521257576c236e2790702ae9f1ceabecbf39239dd52cdeb"
+  }
+}

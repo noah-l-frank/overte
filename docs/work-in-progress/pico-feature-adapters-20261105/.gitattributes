@@ -1,0 +1,3 @@
+# Source snapshot patches retain original bytes, including existing whitespace.
+# This is limited to archived patch data; live source checks are unchanged.
+**/*.patch -text -eol -whitespace

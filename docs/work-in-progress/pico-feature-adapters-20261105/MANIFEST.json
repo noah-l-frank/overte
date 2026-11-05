@@ -1,0 +1,300 @@
+{
+  "formatVersion": 1,
+  "baseCommit": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "publicationBranch": "test/android-pico/feature-adapters-wip",
+  "repository": "noah-l-frank/overte",
+  "developmentPaused": true,
+  "sourceCompleteAreas": [
+    "authentication",
+    "graphics",
+    "scripts"
+  ],
+  "sourceCompleteCount": 3,
+  "totalFeatureCount": 14,
+  "deviceQualifiedCount": 0,
+  "patchesAreNotApplied": true,
+  "behavioralTestsOrBuildsRunForPublication": false,
+  "patchSyntaxChecks": [
+    "assets/sources.patch",
+    "audio/pending-common-joins.patch",
+    "audio/source-snapshots.patch",
+    "avatar/all-pending-combined.patch",
+    "avatar/host-checkpoint4.patch",
+    "avatar/native7-complete.patch",
+    "avatar/source-support.patch",
+    "browser/runtime-vs-24772.source-only.patch",
+    "browser/source-only.patch",
+    "chat/01-constructor-support.patch",
+    "chat/02-prepare-file-custody-variant.patch",
+    "chat/03-qualified-carrier-variant.patch",
+    "chat/04-bounded-diagnostic-variant.patch",
+    "chat/05-latest-host-common-wip.patch",
+    "chat/06-native-handler-boundary.patch",
+    "create/sources.patch",
+    "emotes/sources.patch",
+    "lifecycle/sources.patch",
+    "navigation/source-registry-snapshots.patch",
+    "navigation/sources.patch",
+    "snapshots/source-registry-snapshots.patch",
+    "snapshots/sources.patch",
+    "world-web/sources.patch"
+  ],
+  "excluded": [
+    "runtime originals and evidence",
+    "generated credentials, certificates and configuration",
+    "device/account selectors and private environments",
+    "binary artifacts, mirrors and execution logs"
+  ],
+  "files": [
+    {
+      "path": "assets/MANIFEST.json",
+      "bytes": 485574,
+      "sha256": "540b07ccdc47b3d5fb9eeb54e0f694ec3dce6601f0df569ed254e4666c41d07e"
+    },
+    {
+      "path": "assets/README.md",
+      "bytes": 711,
+      "sha256": "df28548a080413ebee492fb191c75ce2f660258b58beb70a8d4537e2ff9dae59"
+    },
+    {
+      "path": "assets/sources.patch",
+      "bytes": 2936046,
+      "sha256": "8e0b7d3baab5f50d6d11d21454b62ef56d01cca92230c7a65bb29fb4efcc3704"
+    },
+    {
+      "path": "audio/COVERAGE.json",
+      "bytes": 81165,
+      "sha256": "2aa7431ad2aef96db30f9c8af001e22ae43a5c6d4050400ad39727e565b3f067"
+    },
+    {
+      "path": "audio/MANIFEST.json",
+      "bytes": 1105,
+      "sha256": "ec84c6e800cb8f368641f66f4c4864884aae9fbc0f5b0e0888f97a6af1feeaf4"
+    },
+    {
+      "path": "audio/README.md",
+      "bytes": 5211,
+      "sha256": "28ac8186a282aade09ab94f9e5b03bf5ebd23587e290e0c597feccf59987cc47"
+    },
+    {
+      "path": "audio/pending-common-joins.patch",
+      "bytes": 12304,
+      "sha256": "86dc140914f660b1937ca828275c1086b372e75cd47e46f921f7ec725c40a616"
+    },
+    {
+      "path": "audio/source-snapshots.patch",
+      "bytes": 1939671,
+      "sha256": "b9d84d6fcfdaee9d1521257576c236e2790702ae9f1ceabecbf39239dd52cdeb"
+    },
+    {
+      "path": "avatar/COVERAGE.json",
+      "bytes": 59114,
+      "sha256": "62feb1aaf12e680eb1a2d114222a2052221fbebb2c78644c979ce86f0971f572"
+    },
+    {
+      "path": "avatar/MANIFEST.json",
+      "bytes": 1854,
+      "sha256": "83f4119d04b0c65ead0b235518b3764a75f9e1bb69bf81519895c8c283e9ebbc"
+    },
+    {
+      "path": "avatar/README.md",
+      "bytes": 5278,
+      "sha256": "aa93f6f8fef5e618b0fc72a56f696e1b343bb3780400abf4177f839379427805"
+    },
+    {
+      "path": "avatar/all-pending-combined.patch",
+      "bytes": 469875,
+      "sha256": "d94c0235476046e65c392ff7898e732acb4de8f8a90f3a3e05aa3e93d8b7d15b"
+    },
+    {
+      "path": "avatar/host-checkpoint4.patch",
+      "bytes": 309520,
+      "sha256": "e7fb3458e2eb0d68808ba244040c19311016ca798791a4689ae816cff8388ecc"
+    },
+    {
+      "path": "avatar/native7-complete.patch",
+      "bytes": 299826,
+      "sha256": "02e3767b53239413e51b447776064c14caa10a23ab611f5b2dc1b9b3c90cc8b4"
+    },
+    {
+      "path": "avatar/source-support.patch",
+      "bytes": 447093,
+      "sha256": "15eee8f5d2addc57dbb758e4bdf89aee22780c270553458e44482c5e922069f4"
+    },
+    {
+      "path": "browser/EXPORT_REVIEW.json",
+      "bytes": 1208,
+      "sha256": "a884bd2c3444df688e5bff5496e98e7f1831e7069e36538f9407123b702f3efc"
+    },
+    {
+      "path": "browser/README.md",
+      "bytes": 6354,
+      "sha256": "7b8c472b852f4f23d1a2985ae3a6b819ca7e99fd61c0da982a73f1be9870925e"
+    },
+    {
+      "path": "browser/manifest.json",
+      "bytes": 56477,
+      "sha256": "e7fa5993ceda283d9a3da03de33d8d5b27fe6fcd9e493e480655d2e64dcce4e6"
+    },
+    {
+      "path": "browser/runtime-vs-24772.source-only.patch",
+      "bytes": 191675,
+      "sha256": "1a9daed82c69eeb6eacaa44dbea284f885fdf04193d4657f539339d26b842f77"
+    },
+    {
+      "path": "browser/source-only.patch",
+      "bytes": 1388465,
+      "sha256": "a4bd5399571a7f3c69f070c75fcfc2043f93d63438e0cf5a4dd661e4aca43ba5"
+    },
+    {
+      "path": "chat/01-constructor-support.patch",
+      "bytes": 41868,
+      "sha256": "497f502f2805e56956923b5a98057c4679a0c1374419af681aaffb83c86c12b5"
+    },
+    {
+      "path": "chat/02-prepare-file-custody-variant.patch",
+      "bytes": 201721,
+      "sha256": "9652e0ded1b08e1eebe90ede230c8bb802363c18afb90c848ac6f9096762cf92"
+    },
+    {
+      "path": "chat/03-qualified-carrier-variant.patch",
+      "bytes": 1005884,
+      "sha256": "04f0302b3a011aa3ec60c64138406e84de592a7b66a810789535087ed4b5e631"
+    },
+    {
+      "path": "chat/04-bounded-diagnostic-variant.patch",
+      "bytes": 1126003,
+      "sha256": "a4661ed34944ec28bd5733c6860b2b6092aa309dc07ace2f8818890d164c8293"
+    },
+    {
+      "path": "chat/05-latest-host-common-wip.patch",
+      "bytes": 1131581,
+      "sha256": "d7a41f53f5146e7cf171c0a695fb6731a314468de041d63c0956276db195bd15"
+    },
+    {
+      "path": "chat/06-native-handler-boundary.patch",
+      "bytes": 2444,
+      "sha256": "c48daebf78a19ae74517cf027cb05243251c9b3a623bed64e7bde600df96073d"
+    },
+    {
+      "path": "chat/README.md",
+      "bytes": 3144,
+      "sha256": "e3a21d66eddffdbfd62394ac242194a542baedada13e7c1c3ca3b474c6802be6"
+    },
+    {
+      "path": "chat/manifest.json",
+      "bytes": 48538,
+      "sha256": "4e16c816637c01451adc70a33158c2f3a1c1f9cb4ab92886f54c0949ec1ae421"
+    },
+    {
+      "path": "chat/native-reference-hashes.json",
+      "bytes": 2478,
+      "sha256": "dc409caa6a47a7128eb5644ead535f27f130f2530f88bf4bac7bdad42af46356"
+    },
+    {
+      "path": "create/MANIFEST.json",
+      "bytes": 4305,
+      "sha256": "d2dfb28d071a53af6e2e8b4e954c8148b0b42deec44943da9f4c5ff7906d2f55"
+    },
+    {
+      "path": "create/README.md",
+      "bytes": 711,
+      "sha256": "b7714b4307dc6cbfc5ec8bbf072743aef96d232f47f104eed840da9daf8135ff"
+    },
+    {
+      "path": "create/sources.patch",
+      "bytes": 46098,
+      "sha256": "ce990f5e5d16ca3017e19ec58ce28fe9e3412b419b9dcd47ac1d3e5287bb497c"
+    },
+    {
+      "path": "emotes/MANIFEST.json",
+      "bytes": 425301,
+      "sha256": "d6c43c323324659d613c8e7537a50c89f7b297a2a26d8296dfa5eddc8336612e"
+    },
+    {
+      "path": "emotes/README.md",
+      "bytes": 711,
+      "sha256": "6565baafae9bd34dd68399be52a0765606aaa5e8a012a214a630054e42253a3d"
+    },
+    {
+      "path": "emotes/sources.patch",
+      "bytes": 3116490,
+      "sha256": "36c78dfcde7de49b6deca35d865319f4e9cc3becc40b71e0e3ee960c1e46c6ed"
+    },
+    {
+      "path": "lifecycle/MANIFEST.json",
+      "bytes": 27814,
+      "sha256": "cf234eacff92b944747793e9be1f23f43cf595cdff2fd5b7e040f9220227208a"
+    },
+    {
+      "path": "lifecycle/README.md",
+      "bytes": 714,
+      "sha256": "a45b4010aef6091b4fd8a50e836a554b95540ae1f2cd68017877011a3fd7225f"
+    },
+    {
+      "path": "lifecycle/sources.patch",
+      "bytes": 409832,
+      "sha256": "ba8f05eb1ac874a5a08ed22589e6d41db871e01f9dde261fdffc26951dd77231"
+    },
+    {
+      "path": "navigation/MANIFEST.json",
+      "bytes": 20820,
+      "sha256": "6e076846561647b8ad73696f3f8fbec8b370b138b48572e7d52c644dd20fbf32"
+    },
+    {
+      "path": "navigation/README.md",
+      "bytes": 715,
+      "sha256": "da773de99d1eb1e01502d35a272d672b86494ccf2638c8f84ee8123615d01158"
+    },
+    {
+      "path": "navigation/source-registry-snapshots.patch",
+      "bytes": 3348,
+      "sha256": "421ae6efcd5e5df4ea1a8a5282d3af2a0a73ddb87bdbacaea05595603e33d5f3"
+    },
+    {
+      "path": "navigation/sources.patch",
+      "bytes": 757431,
+      "sha256": "14d463a715109f33da3a55fe9e8bc24e31228103d2d80ac405fb4b2058b9f569"
+    },
+    {
+      "path": "snapshots/MANIFEST.json",
+      "bytes": 2954739,
+      "sha256": "7ce1f51e7e17d81662eeec78c373541d0976479296d95751e19d46ad7ad3bb24"
+    },
+    {
+      "path": "snapshots/README.md",
+      "bytes": 714,
+      "sha256": "7a08492ee5a2521b728720928ea42f1ee7572ad2a0d2a625f674e52a18e115c1"
+    },
+    {
+      "path": "snapshots/source-registry-snapshots.patch",
+      "bytes": 165920,
+      "sha256": "5fa239d4381d5e8d36f41a147cb5788233bbf7a7f9d4be93cd8ff70e1fb07c62"
+    },
+    {
+      "path": "snapshots/sources.patch",
+      "bytes": 3642953,
+      "sha256": "f5967d2d54d6e5bb6dae4a0ef12a4dc92df27397cfef9a51f05926900f1fcde3"
+    },
+    {
+      "path": "world-web/MANIFEST.json",
+      "bytes": 141877,
+      "sha256": "058d0d5e3d25b79d3fca7ab0f1ae38548ae1ce255d1bd99a1bc601d2eb9a5c5a"
+    },
+    {
+      "path": "world-web/README.md",
+      "bytes": 714,
+      "sha256": "ad8de351219a6fbbb6ce54ba11e57f8973611dcc3f430c43c7388614d24e26bc"
+    },
+    {
+      "path": "world-web/sources.patch",
+      "bytes": 2492802,
+      "sha256": "ac7a1b36c0eb3aac8f29482dedc3f5d9473c2d1c3a2cd9702ed273ba7718942d"
+    }
+  ],
+  "archiveAttributes": {
+    "path": ".gitattributes",
+    "sha256": "fef06e7c01b640adffc90c09ad8fc5ceb1c0fe1bd976e493d446319dacf8404d",
+    "purpose": "Preserve exact archived source patch bytes; no live source rule changes"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "status": "read-only-reference-hashes-no-native-implementation",
+  "baseHead": "24772db8a343dce1ac3e9847cf8ead43c8f1f575",
+  "current": {
+    "interface/src/scripting/TestScriptingInterface.cpp": "139d68f72509ef051168f32c4f352f45088cdae61617b178db7dc1f7ca5ae3d2",
+    "interface/src/scripting/TestScriptingInterface.h": "9194cbc8c3a6e7669f1a116d6ab636595291c560e3396c95c7d3db36c47c35d1",
+    "tests/device/probe/overte_e2e_probe.js": "e2ad23bb215ff00e7383dd9d56c9ccb2a2682c36644bedbf80c3e328179c5822",
+    "tests/device/native/PicoAudioObservationBundle.h": "89006b46f97417c7415e055e0f8d50dbf0dfe6df3c232d44731b8747371d89b1",
+    "tests/device/native/AudioSettingsQueue.h": "4c9e0b3c31dce0743f6ff69338578400f8069986c1c4a9107bd8776f502d96ce",
+    "tests/device/native/ChatObservation.h": "6a3c1e8d7c38f64deaa3785c16b237e3a71158a97832980b55a935934741eed0",
+    "tests/device/native/ChatViewObservation.h": "9d44ffe46a47aa6ed56b86cae574d4a227bf8deda177d76838c73e02831687c7",
+    "tests/device/adapters/native_script_roots.py": "dd27dcb32f9b76af84b2ef4a0c2c97d6bf1a142488a17d2b5dc7b5b7faec64dd",
+    "tests/device/adapters/native_script_observation.py": "4192e1abff88b925f240a2863d0041d69c22afe397264d9eb9629af5b4fe862f",
+    "tests/device/adapters/native_chat_observation.py": "f6dba28ab84fb752373a795b6aa22c6f80bb4cc0f3116d329bcf5759603e5604",
+    "tests/device/adapters/native_chat_view.py": "d1f15736d8cd7459bc7d417ca2eaddb044dd1b991a4e4ac521b5ca88fbc255dc",
+    "tests/device/adapters/native_feature_observation.py": "dced64005d30a559192376d98d37ebdc553d127bce6419fbef7bc526d0e4fc6e",
+    "tests/device/adapters/pico4/chat_composition.py": "5042e5d38d3f1a72b40add35ef0cb5f850a5cf81292df006ce53dd2417394b45"
+  },
+  "frozenPhone": {
+    "commit": "5e8ff8aa19571f5718b982dc47a165b8f22e0dc0",
+    "files": {
+      "interface/src/scripting/TestScriptingInterface.cpp": {
+        "gitBlob": "f8f96ef5756990e31542c1e2e6a4f81c67087d63",
+        "sha256": "0270afb2ba306f5a3b7e2687777e34df1524cd8ba8df3b44b6ee17ecc71f406f"
+      },
+      "android/phone/tests/device/chat_native_boundary.py": {
+        "gitBlob": "a3e44e137280b0c955ea4607a5bb78893a25faae",
+        "sha256": "a085f655051fd9afda17da47e653a185bc3ffa3bc6d0d2e09b0f6855da1e14cc"
+      },
+      "android/phone/tests/device/chat-history-runtime.cpp": {
+        "gitBlob": "3495d9cbb9aef6093c738a973df4511e8a01c983",
+        "sha256": "cdc6090afaca7bad7ff37fc1f4c8ab39f2b39e965a2af071fb6c45f3c8052256"
+      }
+    }
+  }
+}

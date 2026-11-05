@@ -1,0 +1,2723 @@
+--- a/tests/device/adapter_client.py
++++ b/tests/device/adapter_client.py
+@@ -69,10 +69,10 @@
+         raise RuntimeError("adapter returned invalid JSON") from error
+ 
+ 
+-def operation_host(manifest: Path, target: str, artifacts: Path):
++def operation_host(manifest: Path, target: str, artifacts: Path,*,browser_protocol_version=None,peer_scope=None):
+     """Explicit original Pico process scope; ordinary callers stay unchanged."""
+     from adapter_operation_host import scoped_host
+-    return scoped_host(manifest, target, artifacts)
++    return scoped_host(manifest, target, artifacts,**({} if browser_protocol_version is None else dict(browser_protocol_version=browser_protocol_version)),**({} if peer_scope is None else dict(peer_scope=peer_scope)))
+ 
+ 
+ def main() -> int:
+--- a/tests/device/adapter_operation_host.py
++++ b/tests/device/adapter_operation_host.py
+@@ -74,18 +74,30 @@
+ 
+ 
+ class PicoOperationHost:
+-    def __init__(self,manifest,target,artifacts):
++    def __init__(self,manifest,target,artifacts,*,peer_scope=None,browser_protocol_version=None):
+         need(type(target) is str and 0<len(target)<=256 and all(33<=ord(c)<127 for c in target))
++        if peer_scope is not None:
++            from adapters.pico4.parent_peer_credit import FixedParentPeerScope
++            need(type(peer_scope) is FixedParentPeerScope);peer_scope.guard()
++            need(peer_scope.values[3]==hashlib.sha256(target.encode()).hexdigest())
++        need(browser_protocol_version is None or type(browser_protocol_version) is int and browser_protocol_version==3)
++        self.browser_version=self._browser_version=2 if browser_protocol_version is None else 3
++        self.peer_scope=self._original_peer_scope=peer_scope
+         self.manifest=Path(manifest).absolute();self.target=target;self.artifacts=Path(artifacts)
+         self.host=host_identity();self.environment=dict(os.environ);self.cwd=os.getcwd()
+         self.child_environment={k:v for k,v in self.environment.items() if k not in STRIPPED_ENV}
+         self._original_scope=(str(self.manifest),self.target,dict(self.environment),self.cwd,self.host,dict(self.child_environment))
++        if peer_scope is not None:self._original_scope+= (peer_scope.profile(),)
+         self.failed=self.closed=False;self.process=None;self.pins=[];self.pipes=[];self.archive=None;self.count=0
+         self.process_identity=None;self.command=None;self.wait_status=None;self.last=time.monotonic();self.lifetime=None;self.first_started=None
+         self.acquired_response=bytearray();self.acquired_stderr=bytearray();self.pending_request=None;self.sent_bytes=0
+     def guard(self,*,allow_expired=False):
+         need(not self.failed and not self.closed and host_identity()==self.host and dict(os.environ)==self.environment and os.getcwd()==self.cwd
+-            and (str(self.manifest),self.target,self.environment,self.cwd,self.host,self.child_environment)==self._original_scope)
++            and self.peer_scope is self._original_peer_scope
++            and (str(self.manifest),self.target,self.environment,self.cwd,self.host,self.child_environment)
++                + (() if self.peer_scope is None else (self.peer_scope.profile(),))==self._original_scope)
++        need(type(self.browser_version) is int and self.browser_version==self._browser_version and self.browser_version in (2,3))
++        if self.archive is not None:need(self.archive.state['scope'].get('browserProtocolVersion',2)==self.browser_version)
+         if getattr(self,'_browser_whole_budget',None) is not None:
+             from adapters.chat_journey.source_chunks import json_digest
+             need(json_digest(self._browser_whole_budget)==self._browser_budget_sha)
+@@ -103,7 +115,15 @@
+     def remaining(self,deadline):
+         now=time.monotonic();need(self.last<=now<deadline);self.last=now;return min(.1,deadline-now)
+     def start(self,deadline):
+-        need(self.process is None);self.lifetime=self.first_started+1560;self.archive=OperationArchive(self.artifacts,dict(parentHostProcessIdentity=self.host,targetFingerprint=hashlib.sha256(self.target.encode()).hexdigest(),contextSha256=hashlib.sha256(dto_bytes(list(self._original_scope),4*1024*1024)).hexdigest()))
++        need(self.process is None);self.lifetime=self.first_started+1560
++        archive_scope=dict(parentHostProcessIdentity=self.host,targetFingerprint=hashlib.sha256(self.target.encode()).hexdigest(),contextSha256=hashlib.sha256(dto_bytes(list(self._original_scope),4*1024*1024)).hexdigest())
++        if self.browser_version==3:archive_scope['browserProtocolVersion']=3
++        if self.peer_scope is None:self.archive=OperationArchive(self.artifacts,archive_scope)
++        else:
++            # Strong Owner->Archive->Peer->Root/OFD registration before their
++            # actual IO constructors. An unresolved partial cannot disappear.
++            self.archive=object.__new__(OperationArchive)
++            OperationArchive.__init__(self.archive,self.artifacts,archive_scope,peer_scope=self.peer_scope)
+         self.pins.append(PinnedFile(self.manifest,65536));prefix=pico_command(self.manifest);need(self.pins[0].raw==self.manifest.read_bytes())
+         self.pins.extend([PinnedFile(Path(prefix[0]).resolve(strict=True),128*1024*1024),PinnedFile(Path(prefix[1]).resolve(strict=True),1024*1024)])
+         self.guard();self.remaining(deadline);self.command=[*prefix,'operation-host','--target',self.target]
+@@ -149,7 +169,7 @@
+         now=time.monotonic();selected=getattr(self,'_browser_input_budget',None)
+         action=(dict(id=uuid.uuid4().hex,startedMonotonic=now,
+             deadlineMonotonic=min(now+60,whole_budget['deadlineMonotonic'])) if selected is None else deepcopy(selected))
+-        fields=dict(picoBrowserOperationRequestVersion=VERSION,requestId=uuid.uuid4().hex,runId=run,fixtureUrl=fixture_url,
++        fields=dict(picoBrowserOperationRequestVersion=self.browser_version,requestId=uuid.uuid4().hex,runId=run,fixtureUrl=fixture_url,
+             operation=operation,arguments=arguments,wholeBudget=deepcopy(whole_budget),actionBudget=action)
+         validate(fields)
+         return self._exchange(self.manifest,self.target,fields,now,action['deadlineMonotonic'],private='browser')
+@@ -237,6 +257,7 @@
+                     if output:offset=position
+                     else:error_offset=position
+                 if writable:
++                    self.archive.admit_parent_pipe(fields['requestId'])
+                     self.pipes[0].check();written=os.write(self.pipes[0].fd,raw[sent:sent+4096]);need(written>0);sent+=written;self.sent_bytes=sent
+                 if b'\n' in incoming:
+                     need(sent==len(raw));break
+@@ -252,6 +273,8 @@
+                 and reply['hostProcessIdentity']==self.process_identity and reply['parentHostProcessIdentity']==self.host)
+             if private:
+                 need(reply['componentOnly'] is True and reply['completeCommonObservation'] is False);value=reply['result']
++                if private=='browser' and operation=='continuity':
++                    need(self.browser_version==3 and type(value) is dict and value.get('requestId')==fields['requestId'])
+             else:
+                 from contracts import validate_operation_result
+                 value=validate_operation_result(operation,reply['result'])
+@@ -273,6 +296,7 @@
+             close_raw=dto_bytes(dict(picoOperationCloseVersion=1,requestId=closing['requestId'],deadlineMonotonic=deadline),REQUEST_LIMIT)
+             self.archive.put('shutdown-request.bin',close_raw);self.pipes[0].check();self.remaining(deadline)
+             _,writable,_=select.select([],[self.pipes[0].fd],[],self.remaining(deadline));need(writable)
++            self.archive.admit_parent_pipe(closing['requestId'])
+             need(os.write(self.pipes[0].fd,close_raw)==len(close_raw))
+             self.pipes[0].close();self.pipes=self.pipes[1:]
+             readable_pipes=list(self.pipes);late=[];status=None
+@@ -324,8 +348,21 @@
+ 
+ 
+ @contextmanager
+-def scoped_host(manifest,target,artifacts):
+-    need(ACTIVE.get() is None);owner=PicoOperationHost(manifest,target,artifacts);token=ACTIVE.set(owner)
++def scoped_host(manifest,target,artifacts,*,peer_scope=None,browser_protocol_version=None):
++    need(ACTIVE.get() is None)
++    if peer_scope is None:
++        owner=PicoOperationHost(manifest,target,artifacts,**({} if browser_protocol_version is None else dict(browser_protocol_version=browser_protocol_version)));token=ACTIVE.set(owner)
++    else:
++        owner=object.__new__(PicoOperationHost);token=ACTIVE.set(owner)
++        owner._cold_scope_registration=(manifest,target,artifacts,peer_scope)
++        try:PicoOperationHost.__init__(owner,manifest,target,artifacts,peer_scope=peer_scope,**({} if browser_protocol_version is None else dict(browser_protocol_version=browser_protocol_version)))
++        except BaseException as error:
++            # First error/TB and actual partial exist independently of the
++            # caller's later privacy normalization and ACTIVE reset.
++            owner._constructor_failure=(error,error.__traceback__)
++            owner.failed=True
++            if not any(value is owner for value in UNCERTAIN):UNCERTAIN.append(owner)
++            ACTIVE.reset(token);raise
+     try:
+         yield owner
+         owner.close()
+--- a/tests/device/adapters/pico4/browser_operation_owner.py
++++ b/tests/device/adapters/pico4/browser_operation_owner.py
+@@ -65,6 +65,7 @@
+         self.public = self._public = None
+         self.input_boundary=self._input_boundary=None
+         self.input_entered=False
++        self.continuity_unconfirmed=None;self.continuity_failure=None
+         try:
+             LifecycleProcessFile.__init__(self.file, self.store)
+             need(self.file.file is None and process_identity(os.getppid()) == parent_identity)
+@@ -73,7 +74,8 @@
+                 targetFingerprint=hashlib.sha256(target.encode()).hexdigest(), phase='admitting',
+                 wholeBudget=deepcopy(request['wholeBudget']), calls=[], pending=None,
+                 workerStdoutHex='', workerStderrHex='', result=None,
+-                **({} if self.version==1 else dict(inputBoundary=None))))
++                **({} if self.version==1 else dict(inputBoundary=None)),
++                **(dict(continuity=None) if self.version==3 else {})))
+             entry = Path(runner_entry).resolve(strict=True)
+             executable = Path('/proc') / str(os.getppid()) / 'exe'
+             def owned(pid):
+@@ -131,14 +133,14 @@
+         self.whole.same(self.state['wholeBudget']); self.file.guard()
+         need(json_digest(self.store.read()) == self.state_sha)
+         if self.input_boundary is not None:
+-            need(self.version==2 and type(self.input_boundary) is tuple and len(self.input_boundary)==5
++            need(self.version in (2,3) and type(self.input_boundary) is tuple and len(self.input_boundary)==5
+                 and self.input_entered is True and self.state['inputBoundary'] is not None
+                 and self.feature.lock is self.input_boundary[4]
+                 and self.state['inputBoundary']['operation']==self.input_boundary[2]
+                 and self.state['inputBoundary']['argumentsSha256']==self.input_boundary[3])
+             self.input_boundary[1].same(self.state['inputBoundary']['actionBudget'])
+             self.feature.lock.assert_held()
+-        elif self.version==2:need(self.state['inputBoundary'] is None)
++        elif self.version in (2,3):need(self.state['inputBoundary'] is None)
+         if self.worker is not None:
+             need(type(self.worker_identity) is tuple and len(self.worker_identity) == 5
+                 and self.worker.pid == self.worker_identity[0]
+@@ -162,10 +164,15 @@
+         self.guard()
+         if self.action is not None: self.action.check()
+ 
+-    def _issued(self, identifier, operation, action):
++    def _issued(self, identifier, operation, action,*,continuity=None):
+         self.guard(); self.action = self._action = action; self.action.check()
+         need(identifier not in self.state['calls'] and len(self.state['calls']) < 512 and self.state['pending'] is None)
+-        self._write(dict(self.state, calls=self.state['calls'] + [identifier], pending=operation))
++        value=dict(self.state,calls=self.state['calls']+[identifier],pending=operation)
++        if continuity is not None:
++            need(self.version==3 and operation=='continuity' and continuity['requestId']==identifier
++                and continuity['records']==[] and continuity['complete'] is False)
++            value['continuity']=continuity
++        self._write(value)
+ 
+     def _returned(self, phase='ready', **changes):
+         self.control(); self._write(dict(self.state, phase=phase, pending=None, **changes))
+@@ -178,7 +185,7 @@
+             and self.worker_owner is not None and self.state['phase'] == 'ready' and self.public is None)
+         try:
+             need(time.monotonic()<request['deadlineMonotonic'])
+-            if self.version==2 and operation!='feature.tablet-web.observe':
++            if self.version in (2,3) and operation!='feature.tablet-web.observe':
+                 boundary=self.input_boundary;need(boundary is not None and boundary[2]==operation.rsplit('.',1)[1])
+                 if boundary[2]=='act':need(json_digest(arguments)==boundary[3])
+                 else:
+@@ -218,7 +225,7 @@
+         return getattr(self.feature, operation.rsplit('.', 1)[1])(arguments)
+ 
+     def begin_input(self, fields):
+-        self.control();need(self.version==2 and self.input_boundary is None and not self.input_entered)
++        self.control();need(self.version in (2,3) and self.input_boundary is None and not self.input_entered)
+         lock=self.feature.lock;context=lock.held();action=self.action
+         boundary=(context,action,fields['operation'],json_digest(fields['arguments']),lock)
+         # Retain the actual context before entering its original kernel lock.
+@@ -254,6 +261,48 @@
+         if error is not None:self.failed=True;raise error
+         self._write(dict(self.state,inputBoundary=None));self.control()
+         return dict(picoBrowserInputBoundaryVersion=1,released=True)
++
++    def admit_continuity(self,fields,action,identifier):
++        """Only original control/phase/budget/launch metadata, no SDK getter."""
++        phase=fields['phase'];self.control();action.check()
++        need(self.version==3 and self.state['phase']=='ready' and self.state['pending'] is None)
++        if phase in ('before','after'):
++            boundary=self.input_boundary
++            need(boundary is not None and boundary[2]=='act' and action is boundary[1]
++                and self.state['inputBoundary']['calls']==(0 if phase=='before' else 1))
++            boundary[4].assert_held()
++        else:need(self.input_boundary is None)
++        launch=self.adapter.pico_input_session(self.target)
++        identity=launch.bound_process_identity();need(type(identity) is str and bool(identity))
++        operations=('app.process','app.process','app.foreground') if phase=='before' else ('app.process','app.foreground')
++        progress=dict(requestId=identifier,phase=phase,records=[],complete=False)
++        return phase,operations,launch,identity,progress
++
++    def readonly_continuity(self,fields,admission):
++        """Each actual answer durable before the next getter; no product cache."""
++        from contracts import validate_operation_result
++        from adapters.pico4.operation_protocol import dto_bytes
++        phase,operations,launch,identity,progress=admission
++        self.control()
++        need(self.version==3 and phase==fields['phase'] and self.state['pending']=='continuity'
++            and self.state['continuity']==progress)
++        for operation in operations:
++            self.control();launch.require_process_identity(identity)
++            value=self.adapter.invoke(self.target,operation,{})
++            self.continuity_unconfirmed=(operation,value)
++            record=dict(operation=operation,result=value);dto_bytes(record,4096)
++            progress=dict(progress,records=progress['records']+[record])
++            self._write(dict(self.state,continuity=progress));self.control()
++            validate_operation_result(operation,value)
++            self.continuity_unconfirmed=None
++            if operation=='app.process' and (value.get('running') is not True or value.get('identity')!=identity):
++                return dict(picoBrowserContinuityVersion=1,**progress)
++            if operation=='app.foreground' and value.get('foreground') is not True:
++                return dict(picoBrowserContinuityVersion=1,**progress)
++        self.control()
++        # Complete is made durable by dispatch's existing _returned CAS BEFORE
++        # a result can leave this Owner. The final answer CAS above remains.
++        return dict(picoBrowserContinuityVersion=1,**dict(progress,complete=True))
+ 
+     def start_actor(self, spec):
+         from adapter_operation_host import PinnedFile, PipeOwner
+@@ -357,18 +406,30 @@
+         validate(request); self.guard()
+         need(request['runId'] == self.run and request['fixtureUrl'] == self.url
+             and json_digest(request['wholeBudget']) == self.whole_raw)
++        if self.version==3:need(request['picoBrowserOperationRequestVersion']==3 and self.state['phase']=='ready')
+         action = BrowserExecutionBudget(request['actionBudget'], maximum=60)
+         operation, fields = request['operation'], request['arguments']
+         try:
+             if self.input_boundary is not None:
+-                need(operation=='input.end');self.input_boundary[1].same(request['actionBudget']);action=self.input_boundary[1]
+-            self._issued(request['requestId'], operation, action)
++                need(operation=='input.end' or self.version==3 and operation=='continuity');self.input_boundary[1].same(request['actionBudget']);action=self.input_boundary[1]
++            admission=self.admit_continuity(fields,action,request['requestId']) if operation=='continuity' else None
++            # The previous complete answer is retired ONLY here, after all
++            # original metadata checks and _issued's fresh-ID/Root checks.
++            self._issued(request['requestId'],operation,action,continuity=None if admission is None else admission[4])
+             if operation == 'begin':
+                 need(not self.begin_delivered and json_digest(request) == self.begin_sha)
+                 self.begin_delivered = True
+                 result = dict(picoBrowserOperationBeginVersion=self.version, nonce=self.nonce,
+                     producerHostProcessIdentity=self.parent_identity, wholeBudget=deepcopy(self.whole.value))
+             elif operation == 'actor.start': result = self.start_actor(fields)
++            elif operation == 'continuity':
++                result=self.readonly_continuity(fields,admission)
++                if not result['complete']:
++                    self._returned(phase='continuity-refused')
++                    return result
++                progress={key:value for key,value in result.items() if key!='picoBrowserContinuityVersion'}
++                self._returned(continuity=progress)
++                return result
+             elif operation == 'input.begin':result=self.begin_input(fields)
+             elif operation == 'input.end':result=self.end_input()
+             elif operation == 'consume':
+@@ -384,7 +445,9 @@
+                 self.action.check(); self.action = self._action = None; self.guard(); return result
+             else: need(False)
+             self._returned(); return result
+-        except BaseException:
++        except BaseException as error:
++            if operation=='continuity' and self.continuity_failure is None:
++                self.continuity_failure=(error,error.__traceback__)
+             self.failed = True
+             if not any(owner is self for owner in UNRESOLVED): UNRESOLVED.append(self)
+             raise
+--- a/tests/device/adapters/pico4/browser_operation_protocol.py
++++ b/tests/device/adapters/pico4/browser_operation_protocol.py
+@@ -8,8 +8,10 @@
+ from feature_journeys.contract import identifier
+ 
+ VERSION = 2
++PACKED_VERSION = 3
+ LEGACY_OPERATIONS = ('begin', 'actor.start', 'consume', 'actor.return', 'finalize')
+-OPERATIONS = (*LEGACY_OPERATIONS, 'input.begin', 'input.end')
++V2_OPERATIONS = (*LEGACY_OPERATIONS, 'input.begin', 'input.end')
++OPERATIONS = (*V2_OPERATIONS, 'continuity')
+ 
+ 
+ def budget(value, maximum):
+@@ -26,11 +28,11 @@
+     exact(value, {'picoBrowserOperationRequestVersion', 'requestId', 'runId', 'fixtureUrl',
+         'operation', 'wholeBudget', 'actionBudget', 'arguments'})
+     need(type(value['picoBrowserOperationRequestVersion']) is int
+-        and value['picoBrowserOperationRequestVersion'] in (1, VERSION))
++        and value['picoBrowserOperationRequestVersion'] in (1, VERSION, PACKED_VERSION))
+     for key in ('requestId', 'runId'): identifier(value[key])
+     need(type(value['fixtureUrl']) is str
+         and value['fixtureUrl'].endswith('/runs/' + value['runId'] + '/')
+-        and value['operation'] in (LEGACY_OPERATIONS if value['picoBrowserOperationRequestVersion']==1 else OPERATIONS))
++        and value['operation'] in (LEGACY_OPERATIONS if value['picoBrowserOperationRequestVersion']==1 else V2_OPERATIONS if value['picoBrowserOperationRequestVersion']==2 else OPERATIONS))
+     whole, action = budget(value['wholeBudget'], 120), budget(value['actionBudget'], 60)
+     need(whole['startedMonotonic'] <= action['startedMonotonic']
+         < action['deadlineMonotonic'] <= whole['deadlineMonotonic'])
+@@ -44,6 +46,9 @@
+     elif operation == 'consume':
+         exact(fields, {'journeyConsumptionExportVersion', 'name', 'rootSha256', 'rootStamp',
+             'recordSha256', 'commonSha256', 'nonce', 'chunkPins'})
++    elif operation == 'continuity':
++        exact(fields, {'phase'})
++        need(type(fields['phase']) is str and fields['phase'] in ('observe','observed','before','after'))
+     elif operation == 'input.begin':
+         exact(fields, {'operation', 'arguments'})
+         need(fields['operation'] in ('prepare','act','cleanup'))
+--- a/tests/device/adapters/pico4/browser_session.py
++++ b/tests/device/adapters/pico4/browser_session.py
+@@ -25,7 +25,8 @@
+ 
+ 
+ class PicoBrowserSession:
+-    def __init__(self, session, artifacts, run, fixture_url, configuration, whole_budget):
++    def __init__(self, session, artifacts, run, fixture_url, configuration, whole_budget,*,peer_scope=None):
++        self.peer_scope=self._peer_scope=peer_scope
+         self.session = session; self.artifacts = Path(artifacts); self.run = run; self.url = fixture_url
+         self.whole = self._whole = BrowserExecutionBudget(whole_budget)
+         self.configuration = Path(configuration)
+@@ -48,8 +49,17 @@
+ 
+     def configure(self):
+         self.config = PrivateFeatureState(self.configuration).read()
+-        exact(self.config, {'picoBrowserRunConfigVersion', 'foreignFixtureUrl', 'actorToken'})
+-        need(type(self.config['picoBrowserRunConfigVersion']) is int and self.config['picoBrowserRunConfigVersion'] == VERSION
++        version=self.config.get('picoBrowserRunConfigVersion') if type(self.config) is dict else None
++        exact(self.config, {'picoBrowserRunConfigVersion', 'foreignFixtureUrl', 'actorToken'}|({'continuityProfile'} if version in (2,3) else set())|({'peerProfile'} if version==3 else set()))
++        if version in (2,3):need(type(self.config['continuityProfile']) is str and self.config['continuityProfile']=='fixed-readonly-v3')
++        if version==3:
++            from adapters.pico4.parent_peer_credit import FixedParentPeerScope
++            need(type(self.config['peerProfile']) is str and self.config['peerProfile']=='typed-after-primary-v16'
++                and type(self.peer_scope) is FixedParentPeerScope and self.peer_scope.refresh_after_primary and self.peer_scope.server_receipts and self.peer_scope.defer_wire and self.peer_scope.poll_trace and self.peer_scope.decoder_workspace and type(self.peer_scope.closed_parts) is bool and self.peer_scope.closed_parts and type(self.peer_scope.joined_guards) is bool and self.peer_scope.joined_guards and type(self.peer_scope.literal_roots) is bool and self.peer_scope.literal_roots and type(self.peer_scope.joined_wire) is bool and self.peer_scope.joined_wire and type(self.peer_scope.root_io) is bool and self.peer_scope.root_io and type(self.peer_scope.current_graphs) is bool and self.peer_scope.current_graphs)
++            self.peer_scope.guard();need(self.peer_scope.values[2]==self.run and self.peer_scope.values[0]+'/runs/'+self.run+'/'==self.url)
++        else:need(self.peer_scope is None)
++        self.operation_version=self._operation_version=3 if version in (2,3) else 2
++        need(type(self.config['picoBrowserRunConfigVersion']) is int and self.config['picoBrowserRunConfigVersion'] in (VERSION,2,3)
+             and type(self.config['actorToken']) is str and 32 <= len(self.config['actorToken']) <= 256
+             and self.config['actorToken'].isascii() and all(33 <= ord(c) <= 126 for c in self.config['actorToken']))
+         fixture(self.run, self.url)
+@@ -61,7 +71,7 @@
+ 
+     def bound(self):
+         try:
+-            need(not self.failed and self.scope is self._scope and self.config_pin is self._config_pin
++            need(not self.failed and self.peer_scope is self._peer_scope and self.scope is self._scope and self.config_pin is self._config_pin
+                 and self.whole is self._whole and self.context is self._context
+                 and self.owner is self._owner and self.export is self._export
+                 and self.session is self.scope[0] and self.whole is self.scope[5]
+@@ -72,10 +82,21 @@
+                 and (self.artifacts, self.run, self.url, self.configuration, self.nonce)
+                     == (self.scope[1], self.scope[2], self.scope[3], self.scope[4], self.scope[6])
+                 and self.config_sha is self._config_sha and json_digest(self.config) == self.config_sha)
++            need(type(self.operation_version) is int and self.operation_version==self._operation_version
++                and self.operation_version==(3 if self.config['picoBrowserRunConfigVersion'] in (2,3) else 2))
++            if self.config['picoBrowserRunConfigVersion']==3:
++                from adapters.pico4.parent_peer_credit import FixedParentPeerScope
++                need(type(self.peer_scope) is FixedParentPeerScope and self.peer_scope.refresh_after_primary and self.peer_scope.server_receipts and self.peer_scope.defer_wire and self.peer_scope.poll_trace and self.peer_scope.decoder_workspace and type(self.peer_scope.closed_parts) is bool and self.peer_scope.closed_parts and type(self.peer_scope.joined_guards) is bool and self.peer_scope.joined_guards and type(self.peer_scope.literal_roots) is bool and self.peer_scope.literal_roots and type(self.peer_scope.joined_wire) is bool and self.peer_scope.joined_wire and type(self.peer_scope.root_io) is bool and self.peer_scope.root_io and type(self.peer_scope.current_graphs) is bool and self.peer_scope.current_graphs)
++                self.peer_scope.guard()
++            else:need(self.peer_scope is None)
+             self.whole.check(); self.config_pin.check()
+             if self.artifact_parent is not None:require_directory(self.artifact_parent,self.artifacts)
+             if self.archive_directory is not None:require_directory(self.archive_directory,self.archive_path)
+-            if self.owner is not None: self.owner.guard()
++            if self.owner is not None:
++                if self.operation_version==3:need(self.owner.browser_version==3)
++                self.owner.guard()
++                if self.peer_scope is not None and self.owner.archive is not None:
++                    need(self.owner.archive.peer.scope is self.peer_scope)
+         except BaseException:
+             self.failed = True
+             raise
+@@ -97,7 +118,7 @@
+             require_directory(self.artifact_parent,self.artifacts)
+             self.archive_directory=self._archive_directory=OriginalDescriptor(self.archive_path,flags)
+             require_directory(self.archive_directory,self.archive_path)
+-            self.context = self._context = self.session.operation_host(self.archive_path)
++            self.context = self._context = self.session.operation_host(self.archive_path,**({} if self.operation_version==2 else dict(browser_protocol_version=3)),**({} if self.peer_scope is None else dict(peer_scope=self.peer_scope)))
+             self.owner = self._owner = self.context.__enter__();self.entered=True
+             self.call('begin', dict(artifactRoot=str(self.artifacts),
+                 foreignFixtureUrl=self.config['foreignFixtureUrl'], nonce=self.nonce))
+@@ -125,6 +146,20 @@
+         self.bound()
+         return self.owner.browser_input_context(self.run,self.url,operation,arguments,
+             whole_budget=self.whole.value)
++
++    def continuity(self,phase):
++        need(self.operation_version==3 and phase in ('before','after','observe','observed'))
++        value=self.call('continuity',dict(phase=phase))
++        exact(value,{'picoBrowserContinuityVersion','requestId','phase','records','complete'})
++        need(type(value['picoBrowserContinuityVersion']) is int and value['picoBrowserContinuityVersion']==1
++            and value['phase']==phase and type(value['complete']) is bool and type(value['records']) is list)
++        operations=('app.process','app.process','app.foreground') if phase=='before' else ('app.process','app.foreground')
++        need(0<len(value['records'])<=len(operations) and (not value['complete'] or len(value['records'])==len(operations)))
++        from contracts import validate_operation_result
++        for expected,record in zip(operations,value['records']):
++            exact(record,{'operation','result'});need(record['operation']==expected)
++            validate_operation_result(expected,record['result'])
++        return value
+ 
+     def close_fixture(self, client):
+         need(not self.fixture_close_started and client.run == self.run and client.url + '/runs/' + self.run + '/' == self.url)
+--- a/tests/device/adapters/pico4/operation_archive.py
++++ b/tests/device/adapters/pico4/operation_archive.py
+@@ -12,13 +12,67 @@
+ 
+ 
+ class OperationArchive:
+-    def __init__(self,path,scope):
++    def __init__(self,path,scope,*,peer_scope=None):
++        self.peer=self._registered_peer=None;self._peer_scope=peer_scope
++        self._peer_required=peer_scope is not None;self._peer_registration=None
++        if peer_scope is not None:
++            self._initialize_peer(path,scope,peer_scope);return
+         self.path=Path(path);need(self.path.is_absolute())
+         self.directory=OriginalDescriptor(self.path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+         require_directory(self.directory,self.path);need(not self.names())
+         self.rows={};self.writers={};self.uncertain=[];self.closed=False
+         self.store=PrivateFeatureState(self.path/'operation-host.json');self.journal=LifecycleProcessFile(self.store)
+         self.state=None;self.root(dict(picoOperationArchiveVersion=1,scope=scope,program=None,phase='new',completed=[],pending=None))
++    def _initialize_peer(self,path,scope,peer_scope):
++        from adapters.pico4.parent_peer_credit import FixedParentPeerScope,ParentPeerCredits
++        need(type(peer_scope) is FixedParentPeerScope)
++        self.path=Path(path);need(self.path.is_absolute())
++        self.rows={};self.writers={};self.uncertain=[];self.closed=False;self.state=None
++        self.directory=object.__new__(OriginalDescriptor)
++        self.store=PrivateFeatureState(self.path/'operation-host.json');self.journal=object.__new__(LifecycleProcessFile)
++        self.peer=self._registered_peer=object.__new__(ParentPeerCredits)
++        self._peer_registration=(peer_scope,self.peer)
++        ParentPeerCredits.register(self.peer,self,peer_scope)
++        if peer_scope.root_io:self._peer_registration=(peer_scope,self.peer,self.peer.root_io)
++        if peer_scope.current_graphs:self._peer_registration=(*self._peer_registration,self.peer.current_graphs)
++        try:
++            self.peer.preflight_ctor(self.path,scope)
++            OriginalDescriptor.__init__(self.directory,self.path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
++            require_directory(self.directory,self.path);need(not self.names())
++            LifecycleProcessFile.__init__(self.journal,self.store)
++            self.peer.install_sources()
++            self.root(dict(picoOperationArchiveVersion=1,scope=scope,program=None,phase='new',completed=[],pending=None))
++            self.guard()
++        except BaseException as error:self.peer.fail(error);raise
++    def _fixed_peer(self):
++        # The birth registration retains the original participant even when
++        # both public peer pins are evicted. Refusal must retain first error/TB
++        # and cannot turn held decoded work into a legacy None owner.
++        if (not self._peer_required and self._peer_scope is None and self.peer is None
++                and self._registered_peer is None and self._peer_registration is None):return None
++        from adapters.pico4.parent_peer_credit import FixedParentPeerScope,ParentPeerCredits
++        registration=self._peer_registration
++        original=(registration[1] if type(registration) is tuple and len(registration) in (2,3,4)
++            and type(registration[1]) is ParentPeerCredits else None)
++        try:
++            need(self._peer_required and type(registration) is tuple and len(registration) in (2,3,4)
++                and type(self._peer_scope) is FixedParentPeerScope and self._peer_scope is registration[0]
++                and type(self.peer) is ParentPeerCredits and self.peer is self._registered_peer is registration[1]
++                and self._peer_scope.current_graphs is (len(registration)==4)
++                and ((len(registration) in (3,4) and self._peer_scope.root_io is True and registration[2] is self.peer._root_io_registration[1])
++                    or len(registration)==2 and not self._peer_scope.root_io))
++            return self.peer
++        except BaseException as error:
++            if original is not None:original.fail(error)
++            raise
++    def admit_parent_pipe(self,request_id):
++        peer=self._fixed_peer()
++        if peer is None:return
++        try:
++            self.guard();need(self.state['pending'] is not None and self.state['pending']['requestId']==request_id
++                and peer.active is None and all(row['phase']=='parsed' for row in peer.header['reads']))
++            peer._admit()
++        except BaseException as error:peer.fail(error);raise
+     def names(self):
+         result=set()
+         with os.scandir(self.path) as scan:
+@@ -28,23 +82,62 @@
+     def bind(self,program):
+         self.guard();need(self.state['program'] is None);self.root(dict(self.state,program=program))
+     def guard(self):
+-        need(not self.closed);require_directory(self.directory,self.path)
+-        expected=set(self.rows)|set(self.writers)|{'operation-host.json'}
+-        need(self.names()==expected)
+-        self.journal.guard()
+-        for owner in self.rows.values():owner.read()
+-        for name,(owner,raw,physical) in self.writers.items():
+-            owner.require(owner.fd);need(os.pread(owner.fd,PART_LIMIT+1,0)==raw
+-                and signature(os.fstat(owner.fd))==signature((self.path/name).lstat())==physical)
++        peer=self._fixed_peer()
++        try:
++            result=self._guard_body(peer)
++            root_io=None if peer is None else peer.fixed_root_io()
++            if root_io is not None:root_io.after_guard()
++            return result
++        except BaseException as error:
++            if peer is not None:peer.fail(error)
++            raise
++    def _guard_body(self,peer):
++        try:
++            need(not self.closed);require_directory(self.directory,self.path)
++            expected=set(self.rows)|set(self.writers)|{'operation-host.json'}
++            need(self.names()==expected)
++            self.journal.guard()
++            for owner in self.rows.values():owner.read()
++            for name,(owner,raw,physical) in self.writers.items():
++                owner.require(owner.fd);need(os.pread(owner.fd,PART_LIMIT+1,0)==raw
++                    and signature(os.fstat(owner.fd))==signature((self.path/name).lstat())==physical)
++            if peer is not None:peer.check(self)
++        except BaseException as error:
++            if peer is not None:peer.fail(error)
++            raise
+     def root(self,value):
+-        dto_bytes(value,65536);self.journal.write(value,self.state);self.state=value
++        peer=self._fixed_peer();root_io=None if peer is None else peer.fixed_root_io()
++        try:
++            if root_io is not None:root_io.begin()
++            result=self._root_body(value,peer)
++            if root_io is not None:root_io.returned()
++            return result
++        except BaseException as error:
++            if root_io is not None:root_io.fail(error)
++            if peer is not None:peer.fail(error)
++            raise
++    def _root_body(self,value,peer):
++        try:
++            if peer is not None:value=dict(value,parentPeerDecoded=peer.before_root(self))
++            dto_bytes(value,65536);self.journal.write(value,self.state);self.state=value
++            if peer is not None:peer.accepted_root(self)
++        except BaseException as error:
++            if peer is not None:peer.fail(error)
++            raise
+     def reserve(self,request):
+-        self.guard();need(self.state['pending'] is None)
+-        files=self.names();used=sum((self.path/name).stat().st_size for name in files)
+-        # One entire response, stderr and request plus immutable receipt and
+-        # actual overlapping root-CAS temporary, before any pipe write/read.
+-        need(len(files)+64+1+1+1+1<=FILE_LIMIT and used+RESPONSE_LIMIT+STDERR_LIMIT+REQUEST_LIMIT+2*65536<=BYTE_LIMIT)
+-        state=dict(self.state,pending=request,phase='issued');dto_bytes(dict(state,completed=self.state['completed']+['f'*64]),65536);self.root(state)
++        peer=self._fixed_peer()
++        try:
++            self.guard();need(self.state['pending'] is None)
++            if peer is not None:
++                need(peer.active is None and all(row['phase']=='parsed' for row in peer.header['reads']));peer._admit()
++            files=self.names();used=sum((self.path/name).stat().st_size for name in files)
++            # One entire response, stderr and request plus immutable receipt and
++            # actual overlapping root-CAS temporary, before any pipe write/read.
++            need(len(files)+64+1+1+1+1<=FILE_LIMIT and used+RESPONSE_LIMIT+STDERR_LIMIT+REQUEST_LIMIT+2*65536<=BYTE_LIMIT)
++            state=dict(self.state,pending=request,phase='issued');dto_bytes(dict(state,completed=self.state['completed']+['f'*64]),65536);self.root(state)
++        except BaseException as error:
++            if peer is not None:peer.fail(error)
++            raise
+     def append(self,name,raw):
+         need(type(raw) is bytes and raw and len(raw)<=PART_LIMIT)
+         require_directory(self.directory,self.path)
+@@ -84,5 +177,9 @@
+         self.guard()
+     def close(self):
+         self.guard();need(not self.writers and self.state['pending'] is None)
++        peer=self._fixed_peer()
++        if peer is not None:need(peer.active is None and all(row['phase']=='parsed' for row in peer.header['reads']))
+         self.root(dict(self.state,phase='closed'));self.guard();need(self.journal.close_host())
+-        need(all(row.close() for row in self.rows.values()) and self.directory.close());self.closed=True
++        need(all(row.close() for row in self.rows.values()) and self.directory.close())
++        if peer is not None:need(peer.close_known())
++        self.closed=True
+--- a/tests/device/adapters/pico4/operation_host.py
++++ b/tests/device/adapters/pico4/operation_host.py
+@@ -135,6 +135,7 @@
+                         validate_operation_result(value['operation'],result)
+                 else:
+                     if browser_owner is not None:
++                        if browser_owner.version==3:need(browser_owner.state['phase']=='ready')
+                         allowed=('app.process','app.foreground','probe.snapshot','telemetry.snapshot')
+                         if browser_owner.worker is None:allowed+=('scene.load',)
+                         need(value['operation'] in allowed)
+--- /dev/null
++++ b/tests/device/adapters/pico4/parent_peer_credit.py
+@@ -0,0 +1,838 @@
++"""PRIVATE fixed Parent Peer participant. No current/native authority.
++
++One actual OperationArchive owns the physical namespace and original forward
++reservation. Conservative profile adds monotonic Peer work/retention credit.
++A separate cold profile can settle only its confirmed closed wire forecast.
++It is not a process RSS, CLI Native-bank or aggregate device-memory proof.
++"""
++import hashlib,http.client,io,json,math,os,re,socket,sys,threading,time,types
++from pathlib import Path
++from adapters.chat_journey.archive_file import signature
++from adapters.host_process_identity import host_identity
++from adapters.native_fd_owner import OriginalDescriptor,require_directory
++from adapters.pico4.operation_protocol import need,PART_LIMIT,FILE_LIMIT,BYTE_LIMIT,RESPONSE_LIMIT,REQUEST_LIMIT,STDERR_LIMIT
++from adapters.script_journey.history import canonical
++from adapters.json_original_value import container_dimensions,capture_containers,matches_containers
++from feature_journeys.contract import json_document,identifier,exact
++from feature_journeys.witness import Client
++from peer_predecoder import raw_counts,canonical_size,_canonical_walk
++from adapters.pico4.peer_wire_closure import PeerWireClosure,WireClaim,META as WIRE_META,SCRATCH as WIRE_SCRATCH,SLOT as WIRE_SLOT
++
++WIRE=1048576
++READ_MAX=WIRE+1
++SCRATCH=131072
++METADATA=262144
++ROOT_WORK=3*PART_LIMIT
++PART_METADATA=8192
++SLOT_METADATA=16384
++ORIGINAL_RECORD_WORK=32768
++WIRE_RETAIN=131072
++WIRE_SETTLE_WORK=16384
++PAIR_WORK=65536
++POLL_TRACE_WORK=4096
++FORWARD_BYTES=RESPONSE_LIMIT+STDERR_LIMIT+REQUEST_LIMIT+2*PART_LIMIT
++FORWARD_FILES=64+1+1+1+1
++UNRESOLVED=[]
++# Python3.14 uses a distinct builtin_method for this original regex binding.
++# Exact original identity only; no general builtin-method literal admission.
++_JSON_DECODE_WHITESPACE=json.JSONDecoder.decode.__defaults__[0]
++
++from adapters.pico4.parent_peer_scope import FixedParentPeerScope
++
++class _SourcePin:
++    def __init__(self,path,expected_size):
++        self.path=path;self.owner=object.__new__(OriginalDescriptor);self.raw=None;self.stamp=None;self.original=None
++        OriginalDescriptor.__init__(self.owner,path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
++        info=os.fstat(self.owner.fd);need(type(expected_size) is int and 0<expected_size<=PART_LIMIT and info.st_size==expected_size and not info.st_mode&0o022)
++        self.stamp=tuple(signature(info));self.raw=os.pread(self.owner.fd,expected_size+1,0)
++        need(len(self.raw)==info.st_size);self.original=(self.path,self.owner,self.raw,self.stamp);self.check()
++    def check(self):
++        need(type(self.original) is tuple and self.path is self.original[0] and self.owner is self.original[1]
++            and self.raw is self.original[2] and self.stamp is self.original[3])
++        self.owner.require(self.owner.fd)
++        need(tuple(signature(os.fstat(self.owner.fd)))==tuple(signature(self.path.lstat()))==self.stamp
++            and os.pread(self.owner.fd,len(self.raw)+1,0)==self.raw)
++        self.owner.require(self.owner.fd)
++    def close_known(self):self.check();return self.owner.close()
++
++
++FACT_STRINGS=('surface','text','page','origin','documentKind','error')
++FACT_INTS=('bridgeMessages','bridgeEchoes','attemptedMessages','documentLoads','httpStatus','inlineLeases','deferredMessages')
++FACT_BOOLS=('focused','open')
++
++def _literal(value,depth=0):
++    need(depth<=8)
++    if value is _JSON_DECODE_WHITESPACE:return value
++    kind=type(value)
++    if value is None or kind in (str,int,float,bool,bytes,types.BuiltinFunctionType):return value
++    if kind is tuple:return tuple(_literal(item,depth+1) for item in value)
++    if kind is dict:
++        need(all(type(key) is str for key in value))
++        return tuple((key,_literal(value[key],depth+1)) for key in sorted(value))
++    need(False)
++
++def _function_pin(fn):
++    return fn,fn.__code__,fn.__defaults__,_literal(fn.__defaults__),fn.__kwdefaults__,_literal(fn.__kwdefaults__),fn.__closure__
++
++def _function_matches(fn,pin):
++    return (fn is pin[0] and fn.__code__ is pin[1] and fn.__defaults__ is pin[2] and _literal(fn.__defaults__)==pin[3]
++        and fn.__kwdefaults__ is pin[4] and _literal(fn.__kwdefaults__)==pin[5] and fn.__closure__ is pin[6])
++
++def _validate_snapshot(value,scope,ticket):
++    exact(value,{'schemaVersion','runId','area','ticket','sampleEpochMs','entries'},'independent journal')
++    need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['runId']==scope.values[2]
++        and value['area']=='tablet-web' and value['ticket']==ticket and type(value['entries']) is list and len(value['entries'])<=512)
++    need(type(value['sampleEpochMs']) in (int,float) and math.isfinite(value['sampleEpochMs']) and 1<=value['sampleEpochMs']<=1e15)
++    # Closed scalar shape only. The original Common reader retains all exact
++    # order, receipt, freshness, consistency and expected-product comparisons.
++    for entry in value['entries']:
++        exact(entry,{'ticket','actor','actorSequence','capturedEpochMs','facts','sequence','receivedEpochMs'},'independent raw observation')
++        identifier(entry['ticket']);need(entry['actor']=='owned-observer'
++            and type(entry['actorSequence']) is int and entry['actorSequence']>0
++            and type(entry['sequence']) is int and entry['sequence']>0)
++        for key in ('capturedEpochMs','receivedEpochMs'):
++            item=entry[key];need(type(item) in (int,float) and math.isfinite(item) and 1<=item<=1e15)
++        facts=entry['facts'];exact(facts,set(FACT_STRINGS+FACT_INTS+FACT_BOOLS),'independent fact projection')
++        for key in FACT_STRINGS:need(type(facts[key]) is str and len(facts[key])<=256 and all(ord(ch)>=32 for ch in facts[key]))
++        for key in FACT_INTS:need(type(facts[key]) is int and -1000000<=facts[key]<=1000000)
++        for key in FACT_BOOLS:need(type(facts[key]) is bool)
++
++class FixedParentPeerOriginal:
++    """One original graph/arrival record, never a cached current verdict."""
++    __slots__=('peer','ordinal','raw','value','receipt','birth')
++    def __init__(self,peer,ordinal,raw,value,receipt):
++        self.peer,self.ordinal,self.raw,self.value,self.receipt=peer,ordinal,raw,value,receipt
++        self.birth=(peer,ordinal,raw,value,receipt)
++        self._guard(peer)
++    def _guard(self,peer):
++        need(type(self) is FixedParentPeerOriginal and type(self.birth) is tuple and len(self.birth)==5
++            and self.peer is self.birth[0] is peer and type(peer) is ParentPeerCredits
++            and type(self.ordinal) is int and type(self.birth[1]) is int and self.ordinal==self.birth[1]
++            and 0<=self.ordinal<len(peer.raws) and self.ordinal<len(peer.decoded)
++            and self.raw is self.birth[2] is peer.raws[self.ordinal][0]
++            and self.value is self.birth[3] is peer.decoded[self.ordinal][0]
++            and self.receipt is self.birth[4] and type(self.receipt) is tuple and len(self.receipt)==2
++            and all(type(item) is float and math.isfinite(item) and item>0 for item in self.receipt))
++        row=peer.header['reads'][self.ordinal]
++        need(row['phase']=='parsed' and self.receipt[0]==row['receivedMonotonic']
++            and self.receipt[1]==row['receivedEpochMs'])
++    def original_value(self):
++        # The immutable birth tuple still retains the actual participant if
++        # a public field is corrupted. No product/freshness result is cached.
++        birth=self.birth
++        peer=birth[0] if type(birth) is tuple and len(birth)==5 else None
++        try:
++            need(type(peer) is ParentPeerCredits);peer.archive.guard()
++            need(any(record is self and birth is self.birth for record,birth in peer.records))
++            self._guard(peer);return self.value.current() if peer.scope.current_graphs else self.value
++        except BaseException as error:
++            if type(peer) is ParentPeerCredits:peer.fail(error)
++            raise
++
++class ParentPeerCredits:
++    """Archive creates/registers this exact object BEFORE its IO constructor."""
++    def register(self,archive,scope):
++        need(type(scope) is FixedParentPeerScope);scope.guard()
++        self.archive=self._archive=archive;self.scope=self._scope=scope;self.scope_values=scope.values
++        self.failed=False;self.first_failure=None;self.client=None;self.sources=[]
++        self.held=0;self.grants=self._grants=();self.raws=self._raws=();self.decoded=self._decoded=()
++        self.active=None;self.unconfirmed=None;self.decoded_unconfirmed=None
++        self.poll_diagnostic=self._poll_diagnostic=None
++        self.unconfirmed_receipt=None;self.record_unconfirmed=None;self.records=self._records=()
++        self.clock_functions=(time.monotonic,time.time);self.record_class=FixedParentPeerOriginal
++        self.pending_grant=0;self.pending_header=None;self.pending_grants=None
++        self.pending_raws=self.pending_decoded=self.pending_records=None
++        self.pending_wire_issues=self.pending_wire_settled=None
++        self.pending_header_seal=None;self.header_seal=None
++        self.header=self.root_state=self.root_header=None
++        self.wire=self._wire=(object.__new__(PeerWireClosure) if scope.wire_settlement else None)
++        self.wire_issues=self._wire_issues=();self.wire_settled=self._wire_settled=()
++        self.wire_pending=self._wire_pending=None;self.wire_unconfirmed_delta=0;self.wire_lower_accepted=False
++        self.decoder_class=None;self.decoder_functions=self.decoder_pins=None
++        self.host=None;self.thread=threading.get_ident();self.bound=False;self.root_ready=False
++        self.root_io=self._root_io=None;self._root_io_registration=None
++        if scope.root_io:
++            from adapters.pico4.parent_root_io import RootIoCredit
++            self.root_io=self._root_io=object.__new__(RootIoCredit)
++            self._root_io_registration=(scope,self.root_io,True)
++            RootIoCredit.register(self.root_io,self)
++        self.current_graphs=self._current_graphs=None
++        if scope.current_graphs:
++            from adapters.pico4.parent_peer_current import RetainedPeerGraphs
++            self.current_graphs=self._current_graphs=object.__new__(RetainedPeerGraphs)
++            RetainedPeerGraphs.register(self.current_graphs,self)
++    def fixed_current_graphs(self):
++        birth=getattr(self.archive,'_peer_registration',None)
++        original=birth[3] if type(birth) is tuple and len(birth)==4 else None
++        if not self.scope.current_graphs:
++            need(self.current_graphs is self._current_graphs is None and original is None);return None
++        from adapters.pico4.parent_peer_current import RetainedPeerGraphs
++        try:
++            need(type(original) is RetainedPeerGraphs and self.current_graphs is self._current_graphs is original);return original
++        except BaseException as error:
++            if type(original) is RetainedPeerGraphs:original.fail(error)
++            self.fail(error);raise
++    def graph_reduction(self):
++        graphs=self.fixed_current_graphs();return 0 if graphs is None else graphs.retired
++    def graph_matches(self,value,seal):
++        if not self.scope.current_graphs:return matches_containers(value,seal)
++        return self.fixed_current_graphs().slot_matches(value,seal)
++    def root_metadata_reduction(self):
++        root_io=self.fixed_root_io();return 0 if root_io is None else root_io.retired()
++    def fixed_root_io(self):
++        registration=self._root_io_registration;birth=getattr(self.archive,'_peer_registration',None)
++        if registration is None:
++            need(self.root_io is None and self._root_io is None and not self.scope.root_io
++                and type(birth) is tuple and len(birth)==2);return None
++        from adapters.pico4.parent_root_io import RootIoCredit
++        original=(birth[2] if type(birth) is tuple and len(birth) in (3,4) and type(birth[2]) is RootIoCredit else
++            registration[1] if type(registration) is tuple and len(registration)==3 and type(registration[1]) is RootIoCredit else None)
++        try:
++            need(type(registration) is tuple and len(registration)==3 and registration[0] is self.scope is self._scope
++                and registration[2] is True and self.scope.root_io is True and type(original) is RootIoCredit
++                and self.root_io is self._root_io is original)
++            return original
++        except BaseException as error:
++            if original is not None:original.fail(error)
++            self.fail(error);raise
++    def fail(self,error):
++        if self.first_failure is None:self.first_failure=(error,error.__traceback__)
++        self.failed=True
++        if not any(owner is self for owner in UNRESOLVED):UNRESOLVED.append(self)
++    def preflight_ctor(self,path,archive_scope):
++        # Registered object already belongs to archive. This is read-only
++        # finite preflight, before any owned source/directory/Root constructor.
++        need(not self.failed and not self.bound and type(archive_scope) is dict
++            and archive_scope.get('targetFingerprint')==self.scope.values[3])
++        need(path.is_absolute() and path.resolve(strict=True)==path)
++        with os.scandir(path) as scan:need(next(scan,None) is None)
++        from adapters.pico4 import operation_archive
++        from adapter_operation_host import PicoOperationHost
++        from feature_journeys.engine import Journey
++        files=(Path(__file__).resolve(),Path(FixedParentPeerScope.guard.__code__.co_filename).resolve(),Path(operation_archive.__file__).resolve(),
++            Path(raw_counts.__code__.co_filename).resolve(),Path(json_document.__code__.co_filename).resolve(),
++            Path(capture_containers.__code__.co_filename).resolve(),Path(Client.__init__.__code__.co_filename).resolve(),Path(PicoOperationHost._exchange.__code__.co_filename).resolve(),Path(Journey.wait.__code__.co_filename).resolve())
++        if self.scope.root_io:
++            from adapters.pico4.parent_root_io import RootIoCredit,META as ROOT_META,PRECOUNT as ROOT_PRECOUNT
++            need(ROOT_META==65536 and ROOT_PRECOUNT==4096)
++            files+=(Path(RootIoCredit.register.__code__.co_filename).resolve(),)
++        if self.scope.wire_settlement:files+=(Path(PeerWireClosure.__init__.__code__.co_filename).resolve(),)
++        if self.scope.current_graphs:
++            from adapters.pico4.parent_peer_current import RetainedPeerGraphs
++            files+=(Path(RetainedPeerGraphs.register.__code__.co_filename).resolve(),)
++        plan=tuple((file,file.lstat().st_size) for file in files)
++        need(all(0<size<=PART_LIMIT for file,size in plan))
++        literal=sum(sys.getsizeof(item) for item in self.scope.values)+sys.getsizeof(self.scope.values)
++        peak=(ROOT_META+ROOT_PRECOUNT if self.scope.root_io else 0)+SCRATCH+METADATA+ROOT_WORK+(POLL_TRACE_WORK if self.scope.poll_trace else 0)+(WIRE_META+WIRE_SCRATCH if self.scope.wire_settlement else 0)+2*sum(size+1 for file,size in plan)+8*literal
++        # Same original future response/Root allowance, not fake live pending.
++        if self.scope.current_graphs:peak+=65536
++        need(peak+FORWARD_BYTES<=BYTE_LIMIT and 1+FORWARD_FILES<=FILE_LIMIT)
++        self.held=peak;self.grants=self._grants=(peak,);self.source_plan=plan
++        self.ctor_peak=peak;self.host=host_identity()
++        self.profile=(WIRE,READ_MAX,SCRATCH,METADATA,ROOT_WORK,PART_METADATA,SLOT_METADATA,ORIGINAL_RECORD_WORK,FORWARD_BYTES,FORWARD_FILES,FILE_LIMIT,BYTE_LIMIT,PART_LIMIT,WIRE_META,WIRE_SCRATCH,WIRE_SLOT,WIRE_RETAIN,WIRE_SETTLE_WORK,PAIR_WORK,POLL_TRACE_WORK)
++        self.original_profile=self.profile
++        return peak
++    def install_sources(self):
++        need(self.held>=self.ctor_peak and not self.bound)
++        self.sources=[None]*len(self.source_plan)
++        for index,(path,size) in enumerate(self.source_plan):
++            owner=self.sources[index]=object.__new__(_SourcePin)
++            _SourcePin.__init__(owner,path,size);need(len(owner.raw)==size)
++        self.original_sources=tuple(self.sources)
++        if self.wire is not None:PeerWireClosure.__init__(self.wire,self)
++        self.client=self._client=Client(self.scope.values[0],self.scope.values[1],
++            readonly_snapshot=(self.scope.values[2],self.receive_raw),wire_witness=self.wire)
++        self.client_snapshot=self.client.readonly_snapshot
++        from adapter_operation_host import PicoOperationHost
++        self.functions=(raw_counts,canonical_size,_canonical_walk,json_document,container_dimensions,capture_containers,matches_containers,_validate_snapshot,
++            Client.__init__,Client.request,FixedParentPeerScope.guard,_SourcePin.check,_literal,_function_pin,_function_matches,
++            PicoOperationHost.__init__,PicoOperationHost.start,PicoOperationHost._exchange,PicoOperationHost.close)
++        self.function_pins=tuple(_function_pin(fn) for fn in self.functions)
++        if self.scope.decoder_workspace:
++            # The actual existing synchronous strict decoder is unchanged.
++            # Pin its exact original constructor/call functions, not a new
++            # parser/provider/ABI or C-destruction requirement.
++            self.decoder_class=json.JSONDecoder
++            self.decoder_functions=(json.loads,json.JSONDecoder.__init__,json.JSONDecoder.decode,json.JSONDecoder.raw_decode)
++            self.decoder_pins=tuple(_function_pin(fn) for fn in self.decoder_functions)
++        self.schema_profile=(FACT_STRINGS,FACT_INTS,FACT_BOOLS)
++        self.method_pins=tuple((name,_function_pin(value)) for name,value in ParentPeerCredits.__dict__.items() if type(value) is types.FunctionType)
++        self.record_method_pins=tuple((name,_function_pin(value)) for name,value in FixedParentPeerOriginal.__dict__.items() if type(value) is types.FunctionType)
++        from feature_journeys.engine import Journey
++        self.consumer_class=Journey
++        self.consumer_pins=tuple((name,_function_pin(value)) for name,value in Journey.__dict__.items() if type(value) is types.FunctionType)
++        self.header=dict(**self.scope.profile(),heldBytes=self.held,grantCount=len(self.grants),rawCount=0,decodedCount=0,recordCount=0,reads=[],
++            sourcePins=[dict(name=source.path.name,sha256=hashlib.sha256(source.raw).hexdigest(),physical=list(source.stamp)) for source in self.sources])
++        if self.scope.root_io:self.header.update(rootMetaIssuedBytes=0,rootMetaRetainedBytes=0,rootMetaBookCount=0)
++        if self.scope.current_graphs:self.header.update(consumerGraphRetiredBytes=0,consumerClosedGraphs=0,escapedWitnessRetainedBytes=0)
++        if self.scope.wire_settlement:self.header['wireSettlementCount']=0
++        sealed=capture_containers(self.header,capacity=METADATA,max_nodes=65536,max_depth=8);need(sealed is not None)
++        self.header_seal=sealed[0]
++        self.bound=True
++        root_io=self.fixed_root_io()
++        if root_io is not None:root_io.install()
++        if self.scope.current_graphs:self.fixed_current_graphs().install()
++    def before_root(self,archive):
++        need(archive is self._archive and archive.peer is self)
++        if self.root_ready:self.check(archive)
++        else:
++            need(self.bound and self.root_state is None and archive.state is None)
++            for source in self.sources:source.check()
++        return self.header if self.pending_header is None else self.pending_header
++    def accepted_root(self,archive):
++        need(archive is self._archive)
++        if self.pending_header is not None:
++            root_io=self.fixed_root_io()
++            if root_io is not None:root_io.accept_metadata()
++            # Overcount before lowering, never an async-exception window with
++            # the old issued capacity already missing from effective charge.
++            if self.wire_pending is not None:self.wire_lower_accepted=True
++            if self.scope.current_graphs:self.fixed_current_graphs().accepted_root(self.pending_header)
++            self.header=self.pending_header;self.held=self.header['heldBytes'];self.grants=self._grants=self.pending_grants
++            if self.pending_raws is not None:self.raws=self._raws=self.pending_raws
++            if self.pending_decoded is not None:self.decoded=self._decoded=self.pending_decoded
++            if self.pending_records is not None:self.records=self._records=self.pending_records
++            if self.pending_wire_issues is not None:self.wire_issues=self._wire_issues=self.pending_wire_issues
++            if self.pending_wire_settled is not None:self.wire_settled=self._wire_settled=self.pending_wire_settled
++            self.header_seal=self.pending_header_seal;self.pending_header_seal=None
++            self.pending_grant=0;self.pending_header=self.pending_grants=None
++            self.pending_raws=self.pending_decoded=self.pending_records=None
++            self.pending_wire_issues=self.pending_wire_settled=None
++        self.root_state=archive.state;self.root_header=archive.state['parentPeerDecoded'];self.root_ready=True
++    def check(self,archive):
++        need(not self.failed and self.bound and archive is self._archive and self.archive is archive
++            and type(self.scope) is FixedParentPeerScope and self.scope is self._scope and type(self.client) is Client
++            and self.client is self._client and self.client.url is self.scope.values[0] and self.client.token is self.scope.values[1]
++            and self.client.readonly_snapshot is self.client_snapshot and self.wire is self._wire
++            and ((self.wire is None and not self.scope.wire_settlement) or type(self.wire) is PeerWireClosure and self.scope.wire_settlement)
++            and self.client.wire_witness is self.wire and type(self.held) is int and self.held>=self.ctor_peak
++            and type(self.grants) is tuple and self.grants is self._grants and all(type(x) is int and x>=0 for x in self.grants) and sum(self.grants)-self.wire_reduction()-self.decoder_reduction()-self.part_metadata_reduction()-self.literal_reduction()-self.root_metadata_reduction()-self.graph_reduction()==self.held
++            and self.profile is self.original_profile and self.profile==(1048576,1048577,131072,262144,196608,8192,16384,32768,4456448,68,512,16777216,65536,65536,32768,131072,131072,16384,65536,4096)
++            and self.profile==(WIRE,READ_MAX,SCRATCH,METADATA,ROOT_WORK,PART_METADATA,SLOT_METADATA,ORIGINAL_RECORD_WORK,FORWARD_BYTES,FORWARD_FILES,FILE_LIMIT,BYTE_LIMIT,PART_LIMIT,WIRE_META,WIRE_SCRATCH,WIRE_SLOT,WIRE_RETAIN,WIRE_SETTLE_WORK,PAIR_WORK,POLL_TRACE_WORK)
++            and self.host==host_identity() and self.thread==threading.get_ident())
++        self.scope.guard();need(self.scope.values is self.scope_values)
++        need(type(self.header) is dict and type(self.header['parentPeerCreditVersion']) is int
++            and self.header['parentPeerCreditVersion']==(16 if self.scope.current_graphs else 15 if self.scope.root_io else 14 if self.scope.joined_wire else 13 if self.scope.literal_roots else 12 if self.scope.joined_guards else 11 if self.scope.closed_parts else 10 if self.scope.decoder_workspace else 9 if self.scope.poll_trace else 8 if self.scope.defer_wire else 7 if self.scope.server_receipts else 6 if self.scope.refresh_after_primary else 5 if self.scope.wire_settlement else 3)
++            and (self.header.get('refreshAfterPrimary') is True if self.scope.refresh_after_primary else 'refreshAfterPrimary' not in self.header)
++            and (self.header.get('originalServerReceipts') is True if self.scope.server_receipts else 'originalServerReceipts' not in self.header)
++            and (self.header.get('deferWireUntilNextPreview') is True if self.scope.defer_wire else 'deferWireUntilNextPreview' not in self.header)
++            and (type(self.header.get('fixedPollDiagnosticBytes')) is int and self.header['fixedPollDiagnosticBytes']==4096 if self.scope.poll_trace else 'fixedPollDiagnosticBytes' not in self.header)
++            and (type(self.header.get('closedDecoderWorkspaceBytes')) is int and self.header['closedDecoderWorkspaceBytes']==SCRATCH if self.scope.decoder_workspace else 'closedDecoderWorkspaceBytes' not in self.header)
++            and (self.header.get('closedUnusedPartMetadata') is True if self.scope.closed_parts else 'closedUnusedPartMetadata' not in self.header)
++            and (self.header.get('immediateGuardedCallees') is True if self.scope.joined_guards else 'immediateGuardedCallees' not in self.header)
++            and (self.header.get('closedLiteralRootExtent') is True if self.scope.literal_roots else 'closedLiteralRootExtent' not in self.header)
++            and (self.header.get('immediateWireLedgerGuard') is True if self.scope.joined_wire else 'immediateWireLedgerGuard' not in self.header)
++            and (self.header.get('fixedRootIoWork') is True if self.scope.root_io else 'fixedRootIoWork' not in self.header))
++        root_io=self.fixed_root_io()
++        if root_io is not None:root_io.require()
++        if self.wire is not None:self.wire.require()
++        if self.scope.current_graphs:self.fixed_current_graphs().require()
++        if self.scope.decoder_workspace:
++            need(json.JSONDecoder is self.decoder_class and type(self.decoder_functions) is tuple
++                and type(self.decoder_pins) is tuple and len(self.decoder_functions)==len(self.decoder_pins)==4
++                and type(raw_counts.__globals__['SCRATCH']) is int and raw_counts.__globals__['SCRATCH']==SCRATCH)
++            for actual,pin in zip((json.loads,json.JSONDecoder.__init__,json.JSONDecoder.decode,json.JSONDecoder.raw_decode),self.decoder_pins):
++                need(_function_matches(actual,pin))
++        else:need(self.decoder_class is None and self.decoder_functions is None and self.decoder_pins is None)
++        self.check_wire_ledger()
++        need(archive.state is self.root_state and archive.state['parentPeerDecoded'] is self.root_header is self.header
++            and matches_containers(self.header,self.header_seal)
++            and self.header['heldBytes']==self.held and self.header['grantCount']==len(self.grants)
++            and type(self.raws) is tuple and self.raws is self._raws and len(self.raws)==self.header['rawCount']
++            and type(self.decoded) is tuple and self.decoded is self._decoded and len(self.decoded)==self.header['decodedCount']
++            and type(self.records) is tuple and self.records is self._records and len(self.records)==self.header['recordCount']
++            and FixedParentPeerOriginal is self.record_class and type(self.clock_functions) is tuple and len(self.clock_functions)==2
++            and time.monotonic is self.clock_functions[0]
++            and time.time is self.clock_functions[1]
++            and archive.journal.raw==canonical(archive.state)+b'\n')
++        need(len(self.sources)==len(self.original_sources) and all(a is b for a,b in zip(self.sources,self.original_sources)))
++        for source in self.sources:source.check()
++        from adapter_operation_host import PicoOperationHost
++        current=(raw_counts,canonical_size,_canonical_walk,json_document,container_dimensions,capture_containers,matches_containers,_validate_snapshot,
++            Client.__init__,Client.request,FixedParentPeerScope.guard,_SourcePin.check,_literal,_function_pin,_function_matches,
++            PicoOperationHost.__init__,PicoOperationHost.start,PicoOperationHost._exchange,PicoOperationHost.close)
++        need(all(actual is expected for actual,expected in zip((FACT_STRINGS,FACT_INTS,FACT_BOOLS),self.schema_profile)))
++        for name,pin in self.method_pins:need(_function_matches(getattr(ParentPeerCredits,name),pin))
++        for name,pin in self.record_method_pins:need(_function_matches(getattr(FixedParentPeerOriginal,name),pin))
++        from feature_journeys.engine import Journey
++        need(Journey is self.consumer_class)
++        for name,pin in self.consumer_pins:need(_function_matches(getattr(Journey,name),pin))
++        for row in self.records:
++            need(type(row) is tuple and len(row)==2 and type(row[0]) is FixedParentPeerOriginal and row[0].birth is row[1])
++            row[0]._guard(self)
++        for actual,pin in zip(current,self.function_pins):
++            need(_function_matches(actual,pin))
++        for raw,ticket,parts,seal in self.raws:
++            need(type(raw) is bytes and matches_containers(parts,seal))
++            offset=0
++            for part in parts:
++                original=archive.rows[part['name']]
++                need(len(original.raw)==part['bytes'] and hashlib.sha256(original.raw).hexdigest()==part['sha256']
++                    and original.stamp==part['physical'] and memoryview(raw)[offset:offset+part['bytes']]==original.raw)
++                offset+=part['bytes']
++            need(offset==len(raw))
++        for value,seal in self.decoded:need(self.graph_matches(value,seal))
++        if self.active is not None:need(archive.state['pending'] is self.active[2])
++        # Integrity guards count occupied physical bytes plus all held work.
++        # Future Parent allowance is charged at the ORIGINAL reserve and every
++        # pipe admission. Once response bytes arrive they consume that already
++        # reserved allowance; they do not create a second future response.
++        files=archive.names();used=sum((archive.path/name).stat().st_size for name in files)
++        need(len(files)<=FILE_LIMIT and used+self.effective_charge()<=BYTE_LIMIT)
++    def _admit(self,*,extra_credit=0,extra_files=0,extra_bytes=0):
++        archive=self.archive;files=archive.names();used=sum((archive.path/name).stat().st_size for name in files)
++        need(type(extra_credit) is int and extra_credit>=0 and type(extra_files) is int and extra_files>=0
++            and type(extra_bytes) is int and extra_bytes>=0 and type(self.pending_grant) is int and self.pending_grant>=0
++            and len(files)+FORWARD_FILES+extra_files<=FILE_LIMIT
++            and used+FORWARD_BYTES+self.effective_charge()+extra_credit+extra_bytes<=BYTE_LIMIT)
++    def _book(self,amount,*,raws=None,decoded=None,records=None,wire_issues=None,future_files=0,future_bytes=0,reads=None):
++        self.archive.guard()
++        return self._book_from_current_guard(amount,raws=raws,decoded=decoded,records=records,wire_issues=wire_issues,
++            future_files=future_files,future_bytes=future_bytes,reads=reads)
++    def _book_from_current_guard(self,amount,*,raws=None,decoded=None,records=None,wire_issues=None,future_files=0,future_bytes=0,reads=None):
++        # Fixed immediate internal callees only. Their FULL original Archive
++        # guard just returned; ONLY pure exact typed metadata work intervenes.
++        # All following real namespace IO/admission/RootCAS/after-IO guards stay.
++        root_io=self.fixed_root_io()
++        if root_io is not None:return root_io.book(amount,raws=raws,decoded=decoded,records=records,wire_issues=wire_issues,
++            future_files=future_files,future_bytes=future_bytes,reads=reads)
++        archive=self.archive;need(type(amount) is int and amount>=0 and self.pending_header is None and self.wire_pending is None)
++        proposed=dict(self.header,heldBytes=self.held+amount,grantCount=len(self.grants)+1,
++            rawCount=len(self.raws) if raws is None else len(raws),decodedCount=len(self.decoded) if decoded is None else len(decoded),
++            recordCount=len(self.records) if records is None else len(records),
++            reads=self.header['reads'] if reads is None else reads)
++        plan=container_dimensions(proposed,max_nodes=65536,max_depth=8);need(plan is not None)
++        amount+=plan[4]
++        self._admit(extra_credit=amount,extra_files=future_files,extra_bytes=future_bytes)
++        # Full new credit is strong before allocating its seal or Root CAS.
++        self.pending_grant=amount
++        self.pending_grants=self.grants+(amount,)
++        self.pending_raws=raws;self.pending_decoded=decoded;self.pending_records=records;self.pending_wire_issues=wire_issues
++        self.pending_header=dict(proposed,heldBytes=self.held+amount)
++        sealed=capture_containers(self.pending_header,capacity=plan[4],max_nodes=65536,max_depth=8);need(sealed is not None)
++        self.pending_header_seal=sealed[0]
++        archive.root(archive.state);archive.guard()
++        self._admit(extra_files=future_files,extra_bytes=future_bytes)
++    def wire_reduction(self):
++        need(type(self.scope) is FixedParentPeerScope and type(self.scope.decoder_workspace) is bool
++            and self.scope.decoder_workspace is self.scope._decoder_workspace
++            and type(self.scope.closed_parts) is bool and self.scope.closed_parts is self.scope._closed_parts
++            and type(self.scope.literal_roots) is bool and self.scope.literal_roots is self.scope._literal_roots)
++        need(type(self.wire_settled) is tuple and self.wire_settled is self._wire_settled)
++        total=0
++        for row in self.wire_settled:
++            need(type(row) is tuple and len(row)==(6 if self.scope.literal_roots else 5 if self.scope.closed_parts else 4 if self.scope.decoder_workspace else 3) and all(type(item) is int for item in row)
++                and row[0]>=0 and 0<=row[1]<=2*READ_MAX and row[2]>=0 and row[1]+row[2]==2*READ_MAX
++                and (row[3]==SCRATCH if self.scope.decoder_workspace else True)
++                and (0<=row[4]<17*PART_METADATA and row[4]%PART_METADATA==0 if self.scope.closed_parts else True))
++            total+=row[1]
++        return total
++    def decoder_reduction(self):
++        # Only the original explicit per-call SCRATCH term is retired. Every
++        # other conservative decoder term still fully covers ALL held graphs,
++        # strings, pairs, copies, raw parts, seals, records and prior readers.
++        need(type(self.scope) is FixedParentPeerScope and type(self.scope.decoder_workspace) is bool
++            and self.scope.decoder_workspace is self.scope._decoder_workspace
++            and type(self.scope.closed_parts) is bool and self.scope.closed_parts is self.scope._closed_parts
++            and type(self.scope.literal_roots) is bool and self.scope.literal_roots is self.scope._literal_roots)
++        need(type(self.wire_settled) is tuple and self.wire_settled is self._wire_settled)
++        if not self.scope.decoder_workspace:return 0
++        total=0
++        for row in self.wire_settled:
++            need(type(row) is tuple and len(row)==(6 if self.scope.literal_roots else 5 if self.scope.closed_parts else 4) and type(row[3]) is int and row[3]==SCRATCH)
++            total+=row[3]
++        return total
++    def part_metadata_reduction(self):
++        need(type(self.scope) is FixedParentPeerScope and type(self.scope.closed_parts) is bool
++            and self.scope.closed_parts is self.scope._closed_parts
++            and type(self.scope.literal_roots) is bool and self.scope.literal_roots is self.scope._literal_roots
++            and type(self.wire_settled) is tuple and self.wire_settled is self._wire_settled)
++        if not self.scope.closed_parts:return 0
++        total=0
++        for row in self.wire_settled:
++            need(type(row) is tuple and len(row)==(6 if self.scope.literal_roots else 5) and type(row[4]) is int
++                and 0<=row[4]<17*PART_METADATA and row[4]%PART_METADATA==0)
++            total+=row[4]
++        return total
++    def literal_reduction(self):
++        need(type(self.scope) is FixedParentPeerScope and type(self.scope.literal_roots) is bool
++            and self.scope.literal_roots is self.scope._literal_roots
++            and type(self.wire_settled) is tuple and self.wire_settled is self._wire_settled)
++        if not self.scope.literal_roots:return 0
++        total=0
++        for row in self.wire_settled:
++            need(type(row) is tuple and len(row)==6 and type(row[5]) is int and row[5]>=0)
++            total+=row[5]
++        return total
++    def _closed_literal_extent(self,record):
++        need(type(self.scope.literal_roots) is bool and self.scope.literal_roots
++            and type(record) is FixedParentPeerOriginal and type(record.ordinal) is int
++            and 0<=record.ordinal<len(self.records) and self.records[record.ordinal][0] is record)
++        record._guard(self);row=self.header['reads'][record.ordinal]
++        need(row['phase']=='parsed' and type(row['literalCanonicalBytes']) is int and row['literalCanonicalBytes']>0
++            and type(row['literalNodes']) is int and 0<row['literalNodes']<=65536
++            and type(row['literalRetainedBytes']) is int and row['literalRetainedBytes']>0
++            and type(row['decoderUpperBytes']) is int and row['decoderUpperBytes']>SCRATCH
++            and row['literalRetainedBytes']==min(row['decoderUpperBytes']-SCRATCH,
++                4*row['literalCanonicalBytes']+256*row['literalNodes']))
++        # The original complete graph and every escaped alias remain held.
++        # Only its no-longer-live decode/copy peak differs from this bounded
++        # literal protocol extent. This is neither an RSS nor C-heap theorem.
++        return row['decoderUpperBytes']-SCRATCH-row['literalRetainedBytes']
++    def _closed_part_metadata(self,record):
++        need(type(self.scope) is FixedParentPeerScope and type(self.scope.closed_parts) is bool
++            and self.scope.closed_parts and self.scope.decoder_workspace and self.scope.defer_wire
++            and type(record) is FixedParentPeerOriginal and type(record.ordinal) is int
++            and 0<=record.ordinal<len(self.records) and self.records[record.ordinal][0] is record)
++        record._guard(self);ordinal=record.ordinal;row=self.header['reads'][ordinal]
++        parts=self.raws[ordinal][2];forecast=(READ_MAX+PART_LIMIT-1)//PART_LIMIT
++        need(row['phase']=='parsed' and type(parts) is list and type(record.raw) is bytes and row['parts'] is parts
++            and len(parts)==(len(record.raw)+PART_LIMIT-1)//PART_LIMIT and 0<len(parts)<forecast
++            and type(row['partMetadataForecastBytes']) is int and row['partMetadataForecastBytes']==forecast*PART_METADATA)
++        index=self.wire_issues[ordinal][1]
++        need(type(index) is int and 0<=index<len(self.grants)
++            and self.grants[index]>=2*READ_MAX+ROOT_WORK+forecast*PART_METADATA+SLOT_METADATA+WIRE_SLOT)
++        # Only slots NEVER created by this completed actual read are retired.
++        # Every actual immutable part keeps its full original PART_METADATA,
++        # physical bytes/OFD/stat8, seal and copy/Root work allowance.
++        return (forecast-len(parts))*PART_METADATA
++    def _closed_decoder_workspace(self,record):
++        need(type(self.scope) is FixedParentPeerScope and type(self.scope.decoder_workspace) is bool
++            and self.scope.decoder_workspace and self.scope.defer_wire and type(record) is FixedParentPeerOriginal
++            and type(record.ordinal) is int and 0<=record.ordinal<len(self.records)
++            and self.active is None and self.records[record.ordinal][0] is record)
++        record._guard(self);row=self.header['reads'][record.ordinal];index=row['decoderGrantIndex']
++        need(row['phase']=='parsed' and type(index) is int and self.wire_issues[record.ordinal][1]<index<len(self.grants)
++            and type(row['decoderUpperBytes']) is int and row['decoderUpperBytes']>SCRATCH
++            and self.grants[index]>=row['decoderUpperBytes'] and type(row['decoderWorkspaceBytes']) is int
++            and row['decoderWorkspaceBytes']==SCRATCH)
++        # Existing Originalrecord creation follows the REAL synchronous return
++        # of parse_peer/json_document/json.loads. With defer_wire this fixed
++        # settlement is called only at the NEXT historical preview. No failed
++        # decoder/outer frame can reach here: first-error custody stays sticky.
++        return SCRATCH
++    def effective_charge(self):
++        # Before CAS this is OLD held; after accepting its lower Root this is
++        # lower-held PLUS the exact unconfirmed delta. Never a future loan.
++        need(type(self.held) is int and self.held>=0 and type(self.pending_grant) is int and self.pending_grant>=0
++            and type(self.wire_unconfirmed_delta) is int and self.wire_unconfirmed_delta>=0
++            and type(self.wire_lower_accepted) is bool and self.wire_pending is self._wire_pending)
++        if self.wire_pending is None:
++            need(not self.wire_lower_accepted and self.wire_unconfirmed_delta==0)
++        else:
++            pending=self.wire_pending
++            need(type(pending) is tuple and len(pending)==5 and type(pending[0]) is FixedParentPeerOriginal
++                and all(type(item) is int for item in pending[1:]) and pending[1]>=0
++                and pending[2]==self.wire_unconfirmed_delta and pending[2]>0 and pending[3]>=0 and pending[4]>=0)
++            need(self.held+(self.wire_unconfirmed_delta if self.wire_lower_accepted else 0)==pending[1])
++        root_io=self.fixed_root_io()
++        graphs=self.fixed_current_graphs()
++        return self.held+self.pending_grant+(self.wire_unconfirmed_delta if self.wire_lower_accepted else 0)+(0 if root_io is None else root_io.charge())+(0 if graphs is None else graphs.charge())
++    def check_wire_ledger(self):
++        # Cold fixed ledger path only. One complete current wire proof, then
++        # pure exact record/closure metadata work. No IO/callback intervenes.
++        # Standalone and every before/after-CAS extent retain their old require.
++        self.scope.guard()
++        if self.scope.joined_wire:self.wire.require()
++        need(type(self.wire_issues) is tuple and self.wire_issues is self._wire_issues
++            and type(self.header) is dict and type(self.header['reads']) is list
++            and type(self.records) is tuple and self.records is self._records
++            and type(self.raws) is tuple and self.raws is self._raws and type(self.decoded) is tuple and self.decoded is self._decoded)
++        self.wire_reduction();self.effective_charge()
++        if not self.scope.wire_settlement:
++            need(not self.wire_issues and not self.wire_settled and self.wire_pending is None
++                and 'wireSettlementCount' not in self.header);return
++        need(type(self.header['wireSettlementCount']) is int and self.header['wireSettlementCount']==len(self.wire_settled)
++            and len(self.wire_issues)==len(self.header['reads']))
++        previous=-1
++        for ordinal,issue in enumerate(self.wire_issues):
++            need(type(issue) is tuple and len(issue)==3 and all(type(item) is int for item in issue)
++                and issue[0]==ordinal and previous<issue[1]<len(self.grants) and issue[2]==2*READ_MAX
++                and self.grants[issue[1]]>=issue[2])
++            previous=issue[1];row=self.header['reads'][ordinal]
++            need(type(row) is dict and type(row['wireGrantIndex']) is int and row['wireGrantIndex']==issue[1]
++                and type(row['wireForecastBytes']) is int and row['wireForecastBytes']==issue[2]
++                and type(row['wireSettledBytes']) is int and type(row['wireRetainedBytes']) is int)
++            settled=tuple(item for item in self.wire_settled if item[0]==ordinal)
++            need(len(settled)<=1)
++            if settled:
++                need(row['phase']=='parsed' and row['wireSettledBytes']==settled[0][1]
++                    and row['wireRetainedBytes']==settled[0][2] and ordinal<len(self.records)
++                    and ordinal<len(self.wire.claims) and self.wire.claims[ordinal].finished
++                    and (self._closed_wire_extent_after_require(self.records[ordinal][0],latest=False) if self.scope.joined_wire else self._closed_wire_extent(self.records[ordinal][0],latest=False))==settled[0][2])
++            else:need(row['wireSettledBytes']==0 and row['wireRetainedBytes']==issue[2])
++            decoder_fields={'decoderGrantIndex','decoderUpperBytes','decoderWorkspaceBytes','decoderWorkspaceRetiredBytes'}
++            if self.scope.decoder_workspace and row['phase'] in ('parsing','parsed'):
++                index=row['decoderGrantIndex']
++                need(type(index) is int and issue[1]<index<len(self.grants)
++                    and (ordinal+1==len(self.wire_issues) or index<self.wire_issues[ordinal+1][1])
++                    and type(row['decoderUpperBytes']) is int and row['decoderUpperBytes']>SCRATCH
++                    and self.grants[index]>=row['decoderUpperBytes']
++                    and type(row['decoderWorkspaceBytes']) is int and row['decoderWorkspaceBytes']==SCRATCH
++                    and type(row['decoderWorkspaceRetiredBytes']) is int
++                    and row['decoderWorkspaceRetiredBytes']==(SCRATCH if settled else 0))
++            else:need(not decoder_fields.intersection(row))
++            if self.scope.closed_parts:
++                need(type(row['partMetadataForecastBytes']) is int and row['partMetadataForecastBytes']==17*PART_METADATA
++                    and type(row['partMetadataRetiredBytes']) is int
++                    and row['partMetadataRetiredBytes']==(settled[0][4] if settled else 0))
++                if settled:need(self._closed_part_metadata(self.records[ordinal][0])==settled[0][4])
++            else:need('partMetadataForecastBytes' not in row and 'partMetadataRetiredBytes' not in row)
++            literal_fields={'literalCanonicalBytes','literalNodes','literalRetainedBytes','literalCopyRetiredBytes'}
++            if self.scope.literal_roots and row['phase']=='parsed':
++                need(type(row['literalCopyRetiredBytes']) is int and row['literalCopyRetiredBytes']==(settled[0][5] if settled else 0))
++                need(ordinal<len(self.decoded) and self.graph_matches(self.decoded[ordinal][0],self.decoded[ordinal][1]))
++                if settled:need(self._closed_literal_extent(self.records[ordinal][0])==settled[0][5])
++            else:need(not literal_fields.intersection(row))
++        need(all(0<=row[0]<len(self.wire_issues) for row in self.wire_settled))
++    def _closed_wire_extent(self,record,*,latest=True):
++        need(type(latest) is bool and type(record) is FixedParentPeerOriginal and self.scope.wire_settlement and self.wire is self._wire
++            and type(record.ordinal) is int and 0<=record.ordinal<len(self.records)
++            and self.records[record.ordinal][0] is record and self.records[record.ordinal][1] is record.birth
++            and (not latest or self.records[-1][0] is record)
++            and (not latest or self.active is None and self.wire.active is None))
++        record._guard(self);self.wire.require();ordinal=record.ordinal
++        need(ordinal<len(self.wire.claims));claim=self.wire.claims[ordinal]
++        need(type(claim) is WireClaim and type(claim.ordinal) is int and claim.ordinal==ordinal
++            and claim.finished is True and claim.first_failure is None and claim.body is record.raw
++            and type(claim.response) is http.client.HTTPResponse and claim.response.fp is None and claim.response.closed
++            and type(claim.fp) is io.BufferedReader and type(claim.raw_io) is socket.SocketIO
++            and io.BufferedReader.__sizeof__(claim.fp)==self.wire.buffer_base
++            and claim.raw_io.closed and claim.raw_io._sock is None
++            and type(claim.metadata_bytes) is int and 0<claim.metadata_bytes<=WIRE_SLOT
++            and self.wire.metadata_extent(claim)<=WIRE_SLOT)
++        # Immutable body references/one possible canonical payload copy are
++        # retained conservatively; all decoder and HTTP metadata grants remain.
++        return 2*sys.getsizeof(record.raw)+WIRE_RETAIN
++    def _closed_wire_extent_after_require(self,record,*,latest=True):
++        need(type(latest) is bool and type(record) is FixedParentPeerOriginal and self.scope.wire_settlement and self.wire is self._wire
++            and type(record.ordinal) is int and 0<=record.ordinal<len(self.records)
++            and self.records[record.ordinal][0] is record and self.records[record.ordinal][1] is record.birth
++            and (not latest or self.records[-1][0] is record)
++            and (not latest or self.active is None and self.wire.active is None))
++        record._guard(self);ordinal=record.ordinal
++        need(ordinal<len(self.wire.claims));claim=self.wire.claims[ordinal]
++        need(type(claim) is WireClaim and type(claim.ordinal) is int and claim.ordinal==ordinal
++            and claim.finished is True and claim.first_failure is None and claim.body is record.raw
++            and type(claim.response) is http.client.HTTPResponse and claim.response.fp is None and claim.response.closed
++            and type(claim.fp) is io.BufferedReader and type(claim.raw_io) is socket.SocketIO
++            and io.BufferedReader.__sizeof__(claim.fp)==self.wire.buffer_base
++            and claim.raw_io.closed and claim.raw_io._sock is None
++            and type(claim.metadata_bytes) is int and 0<claim.metadata_bytes<=WIRE_SLOT
++            and self.wire.metadata_extent(claim)<=WIRE_SLOT)
++        # Immutable body references/one possible canonical payload copy are
++        # retained conservatively; all decoder and HTTP metadata grants remain.
++        return 2*sys.getsizeof(record.raw)+WIRE_RETAIN
++    def _settle_wire(self,record):
++        try:
++            self.archive.guard();need(type(record) is FixedParentPeerOriginal and self.scope.wire_settlement and self.wire_pending is None
++                and self.pending_header is None and not any(row[0]==record.ordinal for row in self.wire_settled))
++            extent=self._closed_wire_extent(record);forecast=self.wire_issues[record.ordinal][2]
++            if extent>=forecast:return record
++            delta=forecast-extent
++            decoder_delta=self._closed_decoder_workspace(record) if self.scope.decoder_workspace else 0
++            parts_delta=self._closed_part_metadata(record) if self.scope.closed_parts else 0
++            literal_delta=self._closed_literal_extent(record) if self.scope.literal_roots else 0
++            total_delta=delta+decoder_delta+parts_delta+literal_delta
++            # Planning uses the preexisting Root work allowance. The complete
++            # candidate seal/work domain is then booked under FULL OLD SUM.
++            rows=self.header['reads'][:-1]+[dict(self.header['reads'][-1],wireSettledBytes=delta,wireRetainedBytes=extent,
++                **({'decoderWorkspaceRetiredBytes':decoder_delta} if self.scope.decoder_workspace else {}),
++                **({'partMetadataRetiredBytes':parts_delta} if self.scope.closed_parts else {}),
++                **({'literalCopyRetiredBytes':literal_delta} if self.scope.literal_roots else {}))]
++            proposed=dict(self.header,heldBytes=self.held-total_delta,wireSettlementCount=len(self.wire_settled)+1,reads=rows)
++            plan=container_dimensions(proposed,max_nodes=65536,max_depth=8);need(plan is not None)
++            capacity=plan[4];proposed=rows=None
++            self._book(WIRE_SETTLE_WORK+capacity)
++            self.archive.guard();self._admit();need(self._closed_wire_extent(record)==extent)
++            old=self.held
++            rows=self.header['reads'][:-1]+[dict(self.header['reads'][-1],wireSettledBytes=delta,wireRetainedBytes=extent,
++                **({'decoderWorkspaceRetiredBytes':decoder_delta} if self.scope.decoder_workspace else {}),
++                **({'partMetadataRetiredBytes':parts_delta} if self.scope.closed_parts else {}),
++                **({'literalCopyRetiredBytes':literal_delta} if self.scope.literal_roots else {}))]
++            proposed=dict(self.header,heldBytes=old-total_delta,wireSettlementCount=len(self.wire_settled)+1,reads=rows)
++            plan=container_dimensions(proposed,max_nodes=65536,max_depth=8);need(plan is not None and plan[4]<=capacity)
++            # All candidate state/old authority survives an unknown CAS, with
++            # full old charge before and after accepting the lower Root body.
++            self.wire_pending=self._wire_pending=(record,old,total_delta,len(self.wire_settled),extent)
++            self.wire_unconfirmed_delta=total_delta
++            self.pending_header=proposed;self.pending_grants=self.grants
++            self.pending_wire_settled=self.wire_settled+((record.ordinal,delta,extent,decoder_delta,parts_delta,literal_delta) if self.scope.literal_roots else (record.ordinal,delta,extent,decoder_delta,parts_delta) if self.scope.closed_parts else (record.ordinal,delta,extent,decoder_delta) if self.scope.decoder_workspace else (record.ordinal,delta,extent),)
++            sealed=capture_containers(proposed,capacity=capacity,max_nodes=65536,max_depth=8);need(sealed is not None)
++            self.pending_header_seal=sealed[0]
++            self.archive.root(self.archive.state);self.archive.guard();self._admit()
++            need(self.wire_lower_accepted and self.effective_charge()==old and self._closed_wire_extent(record)==extent
++                and (not self.scope.decoder_workspace or self._closed_decoder_workspace(record)==decoder_delta)
++                and (not self.scope.closed_parts or self._closed_part_metadata(record)==parts_delta)
++                and (not self.scope.literal_roots or self._closed_literal_extent(record)==literal_delta))
++            # No IO/callback/product check remains before this fixed handback.
++            # Unknown/failed paths above keep the old complete charge and TB.
++            self.wire_lower_accepted=False
++            self.wire_unconfirmed_delta=0;self.wire_pending=self._wire_pending=None
++            return record
++        except BaseException as error:self.fail(error);raise
++    def read_original(self,ticket):
++        # Actual HTTP/read/parse/record frames have returned before settlement.
++        # No decoded graph/raw/record or original receipt is replaced/released.
++        self.read_peer(ticket)
++        if self.scope.joined_guards:
++            # read_peer's final full guard -> parse body, then that body's final
++            # full guard -> record body. No IO/callback between either pair.
++            self._parse_peer_from_current_guard();record=self._record_from_current_guard()
++        else:self.parse_peer();record=self.original_record()
++        return self._settle_wire(record) if self.scope.wire_settlement and not self.scope.defer_wire else record
++    def historical_preview(self,ticket):
++        # Freshly guarded ORIGINAL history only, never current permission.
++        # No receipt/frame clock is renewed. A new ticket gets an actual seed.
++        try:
++            self.archive.guard();self.scope.guard();identifier(ticket)
++            need(self.scope.refresh_after_primary)
++            if self.scope.current_graphs:self.fixed_current_graphs().retire_after_record()
++            if self.records:
++                record=self.records[-1][0];value=record.original_value()
++                # Only unused wire forecast moves here. Current/old decoded
++                # aliases stay strongly held and ALL existing charge is live
++                # until the unchanged actual closed-witness/Root CAS commits.
++                if self.scope.defer_wire and not any(row[0]==record.ordinal for row in self.wire_settled):
++                    self._settle_wire(record)
++                if value['ticket']==ticket:return record
++            record=self.read_original(ticket)
++            if self.scope.defer_wire:self._settle_wire(record)
++            return record
++        except BaseException as error:self.fail(error);raise
++    def read_after_primary(self,preview,ticket):
++        # A single actual GET, never wait-for-NEW. Original forward allowance
++        # stays fully charged even when Parent.pending is currently None.
++        try:
++            self.archive.guard();self.scope.guard()
++            need(self.scope.refresh_after_primary and type(preview) is FixedParentPeerOriginal
++                and preview.peer is self and type(preview.ordinal) is int
++                and preview.ordinal==len(self.records)-1 and self.records[-1][0] is preview
++                and type(ticket) is str and self.header['reads'][preview.ordinal]['ticket']==ticket)
++            # The immediately preceding full Archive guard already freshly
++            # proves every record birth/receipt/container, including this exact
++            # last preview. Only pure exact-type slot checks intervene; no IO
++            # or callback can require repeating that same whole proof here.
++            if not self.scope.defer_wire:preview.original_value()
++            # Fixed merge uses an output <=512 reference list, one shallow
++            # snapshot header and scalar cursors, no map/set/encoded copy.
++            if self.scope.joined_guards:self._book_from_current_guard(PAIR_WORK)
++            else:self._book(PAIR_WORK)
++            return self.read_original(ticket)
++        except BaseException as error:self.fail(error);raise
++    def read_after_primary_values(self,preview,ticket):
++        # The fixed callee's final full Archive guard freshly proves ALL original
++        # records, birth/receipt links, container edges, source bytes/OFDs and
++        # namespace. No IO/callback lies between that guard and these exact slot
++        # reads. Return the same held graphs, never cached current permission.
++        need(self.scope.defer_wire)
++        peek=self.read_after_primary(preview,ticket)
++        return (peek,preview.value.current(),peek.value.current()) if self.scope.current_graphs else (peek,preview.value,peek.value)
++    def note_poll_diagnostic(self,value):
++        # Exact internal caller builds only its fixed16-value numeric tuple.
++        # Diagnostic only: no IO/clock/validation gate or current permission.
++        # Both old+new tuple domains are covered by prior4096 credit.
++        self.poll_diagnostic=self._poll_diagnostic=value
++    def receive_raw(self,raw):
++        # Actual returned object enters strong custody BEFORE HTTP close and
++        # every type/size/Root/namespace/source check.
++        self.unconfirmed=raw
++        need(type(self.clock_functions) is tuple and len(self.clock_functions)==2
++            and time.monotonic is self.clock_functions[0] and time.time is self.clock_functions[1])
++        self.unconfirmed_receipt=(time.monotonic(),time.time()*1000)
++        if self.wire is not None:self.wire.capture_body(raw)
++    def _begin_peer_read(self,ticket):
++        self.archive.guard();identifier(ticket);need(self.active is None)
++        number=len(self.raws);parts_bound=(READ_MAX+PART_LIMIT-1)//PART_LIMIT
++        row=dict(ordinal=number,ticket=ticket,
++            parentRequestId=None if self.archive.state['pending'] is None else self.archive.state['pending']['requestId'],
++            phase='issued',acquiredBytes=0,receivedMonotonic=None,receivedEpochMs=None,parts=[])
++        issues=None
++        if self.scope.closed_parts:row.update(partMetadataForecastBytes=parts_bound*PART_METADATA,partMetadataRetiredBytes=0)
++        if self.scope.wire_settlement:
++            index=len(self.grants);row.update(wireGrantIndex=index,wireForecastBytes=2*READ_MAX,wireSettledBytes=0,wireRetainedBytes=2*READ_MAX)
++            issues=self.wire_issues+((number,index,2*READ_MAX),)
++        book=self._book_from_current_guard if self.scope.joined_guards else self._book
++        book(2*READ_MAX+ROOT_WORK+parts_bound*PART_METADATA+SLOT_METADATA+(WIRE_SLOT if self.wire is not None else 0),
++            future_files=parts_bound,future_bytes=READ_MAX,reads=self.header['reads']+[row],wire_issues=issues)
++        self.active=(number,ticket,self.archive.state['pending'])
++        if self.wire is not None:self.wire.begin(number)
++        return number
++    def read_peer(self,ticket):
++        try:
++            number=self._begin_peer_read(ticket)
++            raw=self.client.request('/runs/'+self.scope.values[2])
++            need(type(raw) is bytes and 0<len(raw)<=READ_MAX and self.unconfirmed is raw
++                and type(self.unconfirmed_receipt) is tuple and len(self.unconfirmed_receipt)==2
++                and all(type(item) is float and math.isfinite(item) and item>0 for item in self.unconfirmed_receipt));self.archive.guard()
++            parts=[]
++            for offset in range(0,len(raw),PART_LIMIT):
++                part=self.archive.put(f'peer-{number:03d}-{len(parts):02d}.bin',raw[offset:offset+PART_LIMIT]);parts.append(part)
++            plan=container_dimensions(parts,max_nodes=65536,max_depth=4);need(plan is not None)
++            self._book(plan[4]);captured=capture_containers(parts,capacity=plan[4],max_nodes=65536,max_depth=4);need(captured is not None)
++            self._book(0,raws=self.raws+((raw,ticket,parts,captured[0]),),reads=self.header['reads'][:-1]+[dict(self.header['reads'][-1],
++                phase='raw',acquiredBytes=len(raw),receivedMonotonic=self.unconfirmed_receipt[0],
++                receivedEpochMs=self.unconfirmed_receipt[1],withinOriginalWireLimit=len(raw)<=WIRE,sha256=hashlib.sha256(raw).hexdigest(),parts=parts)])
++            need(len(raw)<=WIRE);self.archive.guard();return raw
++        except BaseException as error:self.fail(error);raise
++    def parse_peer(self):
++        try:
++            self.archive.guard();return self._parse_peer_from_current_guard()
++        except BaseException as error:self.fail(error);raise
++    def _parse_peer_from_current_guard(self):
++        try:
++            need(self.active is not None and len(self.raws)==self.active[0]+1)
++            raw,ticket,_parts,_seal=self.raws[-1]
++            counts=raw_counts(raw)
++            if self.scope.decoder_workspace:
++                # This exact grant includes the existing decoderUpper SCRATCH;
++                # its graph/copy/resize remainder is NEVER retired or replaced.
++                row=dict(self.header['reads'][-1],phase='parsing',decoderGrantIndex=len(self.grants),
++                    decoderUpperBytes=counts['decoderUpper'],decoderWorkspaceBytes=SCRATCH,decoderWorkspaceRetiredBytes=0)
++                book=self._book_from_current_guard if self.scope.joined_guards else self._book
++                book(counts['decoderUpper']+(4096 if self.scope.current_graphs else 0),reads=self.header['reads'][:-1]+[row])
++            else:self._book(counts['decoderUpper'],reads=self.header['reads'][:-1]+[dict(self.header['reads'][-1],phase='parsing')])
++            value=json_document(raw);self.decoded_unconfirmed=value
++            self.archive.guard();_validate_snapshot(value,self.scope,ticket)
++            plan=container_dimensions(value,max_nodes=65536,max_depth=4);need(plan is not None)
++            book=self._book_from_current_guard if self.scope.joined_guards else self._book
++            book(plan[4]);captured=capture_containers(value,capacity=plan[4],max_nodes=65536,max_depth=4);need(captured is not None)
++            literal={}
++            if self.scope.literal_roots:
++                # Actual successful strict decode/schema return; its FULL old
++                # grant still covers the exact size walk and all graph copies.
++                size,_pairs=canonical_size(value)
++                literal=dict(literalCanonicalBytes=size,literalNodes=plan[0],
++                    literalRetainedBytes=min(counts['decoderUpper']-SCRATCH,4*size+256*plan[0]),literalCopyRetiredBytes=0)
++            stored=value;seal=captured[0]
++            if self.scope.current_graphs:
++                from adapters.pico4.parent_peer_current import PeerGraphSlot
++                stored=PeerGraphSlot(self,len(self.decoded),raw,self.unconfirmed_receipt,value,seal,plan[4]);seal=stored.birth
++                literal['graphSealCapacityBytes']=plan[4]
++            self._book(0,decoded=self.decoded+((stored,seal),),reads=self.header['reads'][:-1]+[dict(self.header['reads'][-1],phase='parsed',**literal)]);self.active=None
++            self.archive.guard();return value
++        except BaseException as error:self.fail(error);raise
++    def original_record(self):
++        # Standalone public call always performs its original full fresh guard.
++        try:
++            self.archive.guard();return self._record_from_current_guard()
++        except BaseException as error:self.fail(error);raise
++    def _record_from_current_guard(self):
++        # Same original wrapper body, actual original graph/arrival, no release.
++        try:
++            need(self.active is None and len(self.raws)==len(self.decoded) and self.decoded)
++            ordinal=len(self.decoded)-1
++            if self.records and self.records[-1][0].ordinal==ordinal:
++                self.records[-1][0]._guard(self);return self.records[-1][0]
++            if self.scope.joined_guards:self._book_from_current_guard(ORIGINAL_RECORD_WORK)
++            else:self._book(ORIGINAL_RECORD_WORK)
++            record=self.record_unconfirmed=object.__new__(FixedParentPeerOriginal)
++            FixedParentPeerOriginal.__init__(record,self,ordinal,self.raws[ordinal][0],self.decoded[ordinal][0],self.unconfirmed_receipt)
++            self._book(0,records=self.records+((record,record.birth),));self.record_unconfirmed=None
++            self.archive.guard();return record
++        except BaseException as error:self.fail(error);raise
++    def close_known(self):
++        result=[]
++        for source in self.sources:
++            if source is not None and hasattr(source,'owner'):result.append(source.close_known())
++        return all(result)
+--- /dev/null
++++ b/tests/device/adapters/pico4/parent_peer_current.py
+@@ -0,0 +1,206 @@
++"""Fixed Parent Peer slots after the original witness-helper return/record.
++
++PRIVATE finite proposal, not executed; never a generic allocator/current verdict.
++All escaped witness entries, the latest full graph, raw bytes, source files,
++HTTP metadata, other grants and original clocks remain independently held.
++"""
++import types
++from adapters.pico4.operation_protocol import need,FILE_LIMIT,PART_LIMIT
++from adapters.json_original_value import container_dimensions,capture_containers,matches_containers
++from peer_predecoder import canonical_size
++
++META=65536
++SLOT_META=4096
++
++class PeerGraphSlot:
++    __slots__=('peer','ordinal','graph','seal','birth','closed')
++    def __init__(self,peer,ordinal,raw,receipt,graph,seal,capacity):
++        self.peer,self.ordinal,self.graph,self.seal=peer,ordinal,graph,seal
++        self.birth=(peer,ordinal,raw,receipt,capacity)
++        self.closed=False
++    def require(self,peer,birth):
++        need(type(self) is PeerGraphSlot and self.peer is peer and self.birth is birth
++            and type(birth) is tuple and len(birth)==5 and birth[0] is peer
++            and type(self.ordinal) is int and self.ordinal==birth[1]
++            and 0<=self.ordinal<len(peer.raws) and peer.raws[self.ordinal][0] is birth[2]
++            and type(birth[4]) is int and birth[4]>0
++            and type(self.closed) is bool)
++        need(type(peer.header['reads'][self.ordinal]['graphSealCapacityBytes']) is int
++            and peer.header['reads'][self.ordinal]['graphSealCapacityBytes']==birth[4])
++        if self.closed:need(self.graph is None and self.seal is None)
++        else:need(type(self.graph) is dict and matches_containers(self.graph,self.seal))
++    def current(self):
++        try:
++            self.require(self.peer,self.birth)
++            need(not self.closed and self.peer.fixed_current_graphs().waiting is not None)
++            return self.graph
++        except BaseException as error:self.peer.fail(error);raise
++
++class RetainedPeerGraphs:
++    def register(self,peer):
++        self.peer=self._peer=peer
++        self.entries=self.pins=None
++        self.marked=None;self.prepared=None;self.consumer=None;self.samples=None;self.waiting=None
++        self.escaped=[];self.escaped_seal=None;self.escaped_charge=0
++        self.retired=0;self.closed_count=0
++        self.pending=self._pending=None;self.lower_accepted=False
++        self.first_failure=None
++    def install(self):
++        from adapters.pico4.parent_peer_credit import _function_pin
++        self.entries=tuple((owner,name,value) for owner in (RetainedPeerGraphs,PeerGraphSlot)
++            for name,value in owner.__dict__.items() if type(value) is types.FunctionType)
++        need(len(self.entries)<=32)
++        self.pins=tuple(_function_pin(row[2]) for row in self.entries)
++        self.original=(self.entries,self.pins)
++        self.require()
++    def fail(self,error):
++        if self.first_failure is None:self.first_failure=(error,error.__traceback__)
++        self.peer.fail(error)
++    def charge(self):
++        need(self.pending is self._pending and type(self.lower_accepted) is bool)
++        if self.pending is None:
++            need(not self.lower_accepted);return 0
++        need(type(self.pending) is tuple and len(self.pending)==10
++            and type(self.pending[0]) is int and type(self.pending[1]) is int
++            and 0<self.pending[1]<=self.pending[0])
++        need(self.peer.held in (self.pending[0],self.pending[0]-self.pending[1]))
++        # Derive from the actual held transition, never from a separately
++        # cleared boolean. Keep full SUM until the last pending payload holder
++        # itself ends, including every asynchronous interruption boundary.
++        return self.pending[0]-self.peer.held
++    def require(self):
++        from adapters.pico4.parent_peer_credit import ParentPeerCredits,_function_matches
++        need(type(self) is RetainedPeerGraphs and type(self.peer) is ParentPeerCredits
++            and self.peer is self._peer and self.peer.current_graphs is self.peer._current_graphs is self
++            and self.peer.scope.current_graphs is True and (META,SLOT_META)==(65536,4096)
++            and type(self.entries) is tuple and type(self.pins) is tuple
++            and self.entries is self.original[0] and self.pins is self.original[1]
++            and type(self.retired) is int and self.retired>=0 and type(self.closed_count) is int
++            and 0<=self.closed_count<=FILE_LIMIT and type(self.escaped_charge) is int and self.escaped_charge>=0)
++        for (owner,name,fn),pin in zip(self.entries,self.pins):
++            raw=type.__getattribute__(owner,'__dict__').get(name)
++            need(raw is fn and _function_matches(fn,pin))
++        self.charge()
++        need(all(type(slot) is PeerGraphSlot for slot,_birth in self.peer.decoded))
++        if self.pending is not None:need(matches_containers(self.pending[4],self.pending[5]))
++        actual_closed=sum(slot.closed for slot,_birth in self.peer.decoded)
++        before_closed=self.closed_count-(len(self.pending[3]) if self.pending is not None and self.lower_accepted else 0)
++        need(actual_closed==before_closed)
++        if self.escaped_seal is not None:need(matches_containers(self.escaped,self.escaped_seal))
++        if self.consumer is not None:
++            need(self.consumer.samples is self.samples and type(self.samples) is list)
++            position=0
++            for sample in self.samples:
++                need(type(sample) is dict)
++                witness=sample['witness']
++                if witness is not None:
++                    need(any(witness is item for item in self.escaped)
++                        or any(witness is entry for slot,_birth in self.peer.decoded if not slot.closed for entry in slot.graph['entries']))
++                if witness is not None and position<len(self.escaped):
++                    need(witness is self.escaped[position]);position+=1
++            need(position==len(self.escaped))
++        if self.peer.header is not None:
++            need(all(type(self.peer.header[name]) is int for name in
++                ('consumerGraphRetiredBytes','consumerClosedGraphs','escapedWitnessRetainedBytes'))
++                and self.peer.header.get('retainedCurrentPeerGraphs') is True
++                and self.peer.header['consumerGraphRetiredBytes']==self.retired
++                and self.peer.header['consumerClosedGraphs']==self.closed_count
++                and self.peer.header['escapedWitnessRetainedBytes']==self.escaped_charge)
++    def enter_wait(self,journey):
++        from feature_journeys.engine import Journey
++        try:
++            need(type(journey) is Journey and journey.pico_peer_originals is self.peer
++                and type(journey.samples) is list and self.waiting is None)
++            if self.consumer is not None:need(self.consumer is journey and self.samples is journey.samples)
++            self.consumer,self.samples=journey,journey.samples
++            self.waiting=journey
++        except BaseException as error:self.fail(error);raise
++    def slot_matches(self,slot,birth):
++        need(type(slot) is PeerGraphSlot);slot.require(self.peer,birth);return True
++    def prepare_poll_marker(self,journey,value):
++        # Allocate and validate this fixed metadata BEFORE original final
++        # freshness/clock checks. No census/IO/retirement occurs here.
++        try:
++            need(type(journey) is self.peer.consumer_class and self.waiting is journey
++                and self.consumer is journey and type(value) is dict and self.peer.records
++                and self.samples is journey.samples and type(self.samples) is list)
++            self.prepared=(journey,self.samples,len(self.samples)+1,self.peer.records[-1][0],
++                value['sequence'],value['capturedEpochMs'],value['state'],value['resources'])
++        except BaseException as error:self.fail(error);raise
++    def mark_poll_recorded(self,journey,value):
++        # Original helpers returned, witness_original=None and original sample
++        # appended. Pointer-only commit; no new tuple/list/import/IO or clock.
++        try:
++            need(type(self.prepared) is tuple and len(self.prepared)==8
++                and self.prepared[0] is journey is self.waiting is self.consumer
++                and self.prepared[1] is self.samples is journey.samples
++                and self.prepared[2]==len(self.samples) and self.prepared[3] is self.peer.records[-1][0])
++            need(self.samples[-1]['sequence']==self.prepared[4]==value['sequence']
++                and self.samples[-1]['capturedEpochMs']==self.prepared[5]==value['capturedEpochMs']
++                and self.samples[-1]['state'] is self.prepared[6] is value['state']
++                and self.samples[-1]['resources'] is self.prepared[7] is value['resources'])
++            self.marked=self.prepared;self.prepared=None
++        except BaseException as error:self.fail(error);raise
++    def leave_wait(self,journey):
++        need(self.waiting is journey);self.waiting=None
++    def accepted_root(self,header):
++        if self.pending is None:return
++        need(not self.lower_accepted and header is self.pending[2])
++        # Set the complete unconfirmed old charge BEFORE lowering peer.held.
++        self.lower_accepted=True
++        self.retired=header['consumerGraphRetiredBytes']
++        self.closed_count=header['consumerClosedGraphs']
++        self.escaped_charge=header['escapedWitnessRetainedBytes']
++    def retire_after_record(self):
++        try:
++            self._retire_body()
++            if self.pending is None:return
++            need(self.lower_accepted and self.peer.held+self.charge()==self.pending[0])
++            # The complete original Root/CAS/guard/admission body returned.
++            # No older graph is reachable through the slots after these pure
++            # stores; pending still strongly holds every old payload meanwhile.
++            for slot in self.pending[3]:
++                slot.graph=None;slot.seal=None;slot.closed=True
++            self.escaped=self.pending[4];self.escaped_seal=self.pending[5]
++            # End the actual last old-payload holder and its charge together.
++            self.marked=None;self.lower_accepted=False;self.pending=self._pending=None
++        except BaseException as error:self.fail(error);raise
++    def _retire_body(self):
++        p=self.peer;self.require()
++        if self.marked is None:return
++        need(self.pending is None and p.active is None and p.pending_header is None
++            and p.wire_pending is None and p.record_unconfirmed is None
++            and p.decoded_unconfirmed is p.decoded[-1][0].graph and self.marked[0] is self.consumer
++            and self.marked[1] is self.samples and self.marked[2]<=len(self.samples)
++            and len(self.samples)<=len(p.records) and len(p.records)<=FILE_LIMIT)
++        latest=len(p.decoded)-1
++        slots=tuple(slot for slot,birth in p.decoded[:-1] if not slot.closed)
++        if not slots:self.marked=None;return
++        # META permanently covers <=512 reference slots and finite pure walks.
++        latest_graph=p.decoded[-1][0].graph
++        roots=[sample['witness'] for sample in self.samples if sample['witness'] is not None
++            and not any(sample['witness'] is entry for entry in latest_graph['entries'])]
++        for witness in roots[len(self.escaped):]:
++            need(any(witness is entry for slot,_birth in p.decoded if not slot.closed for entry in slot.graph['entries']))
++        plan=container_dimensions(roots,max_nodes=65536,max_depth=4);need(plan is not None)
++        size,_=canonical_size(roots);retained=4*size+256*plan[0]+plan[3]
++        header_plan=container_dimensions(p.header,max_nodes=65536,max_depth=8);need(header_plan is not None)
++        # Same closed Header shape; only bounded integer counters change. The
++        # doubled existing seal plan plus128 covers their derived11-digit pad.
++        header_peak=2*header_plan[4]+128
++        p._book(retained+plan[4]+header_peak)
++        captured=capture_containers(roots,capacity=plan[4],max_nodes=65536,max_depth=4);need(captured is not None)
++        delta=self.escaped_charge+plan[4]+header_peak
++        for slot in slots:
++            slot.require(p,slot.birth);row=p.header['reads'][slot.ordinal]
++            need(slot.ordinal<latest and any(item[0]==slot.ordinal for item in p.wire_settled))
++            delta+=row['literalRetainedBytes']+row['graphSealCapacityBytes']
++        old=p.held
++        proposed=dict(p.header,heldBytes=old-delta,consumerGraphRetiredBytes=self.retired+delta,
++            consumerClosedGraphs=self.closed_count+len(slots),escapedWitnessRetainedBytes=retained)
++        old_payloads=tuple((slot.graph,slot.seal) for slot in slots)
++        self.pending=self._pending=(old,delta,proposed,slots,roots,captured[0],old_payloads,self.escaped,self.escaped_seal,p.header)
++        seal=capture_containers(proposed,capacity=header_peak,max_nodes=65536,max_depth=8);need(seal is not None)
++        p.pending_header=proposed;p.pending_grants=p.grants;p.pending_header_seal=seal[0]
++        p.archive.root(p.archive.state);p.archive.guard();p._admit()
++        need(self.lower_accepted and p.held+self.charge()==old)
+--- /dev/null
++++ b/tests/device/adapters/pico4/parent_peer_scope.py
+@@ -0,0 +1,81 @@
++"""Fixed cold Parent Peer scope, source part; no IO or authority construction."""
++import hashlib,math,re
++from adapters.pico4.operation_protocol import need
++from feature_journeys.contract import identifier
++SCRATCH=131072
++
++class FixedParentPeerScope:
++    __slots__=('values','original','wire_settlement','_wire_settlement','refresh_after_primary','_refresh_after_primary','server_receipts','_server_receipts','defer_wire','_defer_wire','poll_trace','_poll_trace','decoder_workspace','_decoder_workspace','closed_parts','_closed_parts','joined_guards','_joined_guards','literal_roots','_literal_roots','joined_wire','_joined_wire','root_io','_root_io','current_graphs','_current_graphs')
++    def __init__(self,url,reader_token,run_id,target_fingerprint,*,wire_settlement=False,refresh_after_primary=False,server_receipts=False,defer_wire=False,poll_trace=False,decoder_workspace=False,closed_parts=False,joined_guards=False,literal_roots=False,joined_wire=False,root_io=False,current_graphs=False):
++        need(type(url) is str and 0<len(url)<=512 and type(reader_token) is str
++            and 32<=len(reader_token)<=256 and reader_token.isascii() and all(33<=ord(c)<=126 for c in reader_token))
++        identifier(run_id);need(type(target_fingerprint) is str and re.fullmatch('[0-9a-f]{64}',target_fingerprint))
++        need(type(wire_settlement) is bool and type(refresh_after_primary) is bool and type(server_receipts) is bool
++            and (not refresh_after_primary or wire_settlement) and (not server_receipts or refresh_after_primary)
++            and type(defer_wire) is bool and (not defer_wire or server_receipts)
++            and type(poll_trace) is bool and (not poll_trace or defer_wire)
++            and type(decoder_workspace) is bool and (not decoder_workspace or defer_wire)
++            and type(closed_parts) is bool and (not closed_parts or decoder_workspace)
++            and type(joined_guards) is bool and (not joined_guards or closed_parts)
++            and type(literal_roots) is bool and (not literal_roots or joined_guards)
++            and type(joined_wire) is bool and (not joined_wire or literal_roots)
++            and type(root_io) is bool and (not root_io or joined_wire))
++        need(type(current_graphs) is bool and (not current_graphs or root_io))
++        self.current_graphs=self._current_graphs=current_graphs
++        self.root_io=self._root_io=root_io
++        self.joined_wire=self._joined_wire=joined_wire
++        self.literal_roots=self._literal_roots=literal_roots
++        self.joined_guards=self._joined_guards=joined_guards
++        self.closed_parts=self._closed_parts=closed_parts
++        self.decoder_workspace=self._decoder_workspace=decoder_workspace
++        self.poll_trace=self._poll_trace=poll_trace
++        self.defer_wire=self._defer_wire=defer_wire
++        self.server_receipts=self._server_receipts=server_receipts
++        self.refresh_after_primary=self._refresh_after_primary=refresh_after_primary
++        self.wire_settlement=self._wire_settlement=wire_settlement
++        self.values=self.original=(url,reader_token,run_id,target_fingerprint)
++    def guard(self):
++        need(type(self.current_graphs) is bool and self.current_graphs is self._current_graphs
++            and (not self.current_graphs or self.root_io))
++        need(type(self.wire_settlement) is bool and self.wire_settlement is self._wire_settlement
++            and type(self.refresh_after_primary) is bool and self.refresh_after_primary is self._refresh_after_primary
++            and (not self.refresh_after_primary or self.wire_settlement)
++            and type(self.server_receipts) is bool and self.server_receipts is self._server_receipts
++            and (not self.server_receipts or self.refresh_after_primary)
++            and type(self.defer_wire) is bool and self.defer_wire is self._defer_wire
++            and (not self.defer_wire or self.server_receipts)
++            and type(self.poll_trace) is bool and self.poll_trace is self._poll_trace
++            and (not self.poll_trace or self.defer_wire)
++            and type(self.decoder_workspace) is bool and self.decoder_workspace is self._decoder_workspace
++            and (not self.decoder_workspace or self.defer_wire)
++            and type(self.closed_parts) is bool and self.closed_parts is self._closed_parts
++            and (not self.closed_parts or self.decoder_workspace)
++            and type(self.joined_guards) is bool and self.joined_guards is self._joined_guards
++            and (not self.joined_guards or self.closed_parts)
++            and type(self.literal_roots) is bool and self.literal_roots is self._literal_roots
++            and (not self.literal_roots or self.joined_guards)
++            and type(self.joined_wire) is bool and self.joined_wire is self._joined_wire
++            and (not self.joined_wire or self.literal_roots)
++            and type(self.root_io) is bool and self.root_io is self._root_io
++            and (not self.root_io or self.joined_wire))
++        need(type(self.values) is tuple and self.values is self.original and len(self.values)==4)
++        url,token,run,fingerprint=self.values
++        need(type(url) is str and 0<len(url)<=512 and type(token) is str and 32<=len(token)<=256
++            and token.isascii() and all(33<=ord(ch)<=126 for ch in token))
++        identifier(run);need(type(fingerprint) is str and re.fullmatch('[0-9a-f]{64}',fingerprint))
++    def profile(self):
++        self.guard();result=dict(parentPeerCreditVersion=16 if self.current_graphs else 15 if self.root_io else 14 if self.joined_wire else 13 if self.literal_roots else 12 if self.joined_guards else 11 if self.closed_parts else 10 if self.decoder_workspace else 9 if self.poll_trace else 8 if self.defer_wire else 7 if self.server_receipts else 6 if self.refresh_after_primary else 5 if self.wire_settlement else 3,wireSettlement=self.wire_settlement,runId=self.values[2],targetFingerprint=self.values[3],
++            fixtureSha256=hashlib.sha256(self.values[0].encode()).hexdigest())
++        if self.refresh_after_primary:result['refreshAfterPrimary']=True
++        if self.server_receipts:result['originalServerReceipts']=True
++        if self.defer_wire:result['deferWireUntilNextPreview']=True
++        if self.poll_trace:result['fixedPollDiagnosticBytes']=4096
++        if self.decoder_workspace:result['closedDecoderWorkspaceBytes']=SCRATCH
++        if self.closed_parts:result['closedUnusedPartMetadata']=True
++        if self.joined_guards:result['immediateGuardedCallees']=True
++        if self.literal_roots:result['closedLiteralRootExtent']=True
++        if self.joined_wire:result['immediateWireLedgerGuard']=True
++        if self.root_io:result['fixedRootIoWork']=True
++        if self.current_graphs:result['retainedCurrentPeerGraphs']=True
++        return result
++
+--- /dev/null
++++ b/tests/device/adapters/pico4/parent_root_io.py
+@@ -0,0 +1,139 @@
++"""Fixed original Parent Root IO/metadata credit; no generic heap authority.
++
++One cold participant prebooks actual work in its existing namespace. Every
++original Root writer/parser keeps old+new work through successful outer return
++and original guards. Unknown/error states keep the complete work and first TB.
++This bounded byte/copy policy is not a process RSS or universal C-heap theorem.
++"""
++import json,types
++from adapters.pico4.operation_protocol import need,PART_LIMIT,FILE_LIMIT,BYTE_LIMIT,dto_bytes
++from adapters.json_original_value import container_dimensions,capture_containers
++from peer_predecoder import raw_counts,canonical_size
++META=65536
++PRECOUNT=4096
++
++class RootIoCredit:
++    def register(self,peer):
++        self.peer=self._peer=peer;self.claim=self._claim=None;self.body_returned=False
++        self.meta_pending=self._meta_pending=None;self.issued=self.retained=self.books=0
++        self.entries=self.pins=None;self.first_failure=None;self.last_work=0;self.io_calls=0
++    def fail(self,error):
++        if self.first_failure is None:self.first_failure=(error,error.__traceback__)
++        self.peer.fail(error)
++    def install(self):
++        from adapters.pico4.operation_archive import OperationArchive
++        from adapters.pico4.lifecycle_process_file import LifecycleProcessFile
++        from adapters.normal_feature_state import PrivateFeatureState
++        from adapters.script_journey import history
++        from adapters.pico4 import operation_protocol,parent_peer_credit
++        owners=((OperationArchive,('root','_root_body','guard','_guard_body')),
++            (LifecycleProcessFile,('write','read','guard','parent_guard')),(PrivateFeatureState,('read','_parent')),
++            (json,('loads','dumps')),(json.JSONDecoder,('__init__','decode','raw_decode')),
++            (json.JSONEncoder,('__init__','encode','iterencode')),(history,('canonical',)),
++            (operation_protocol,('dto_bytes',)),(parent_peer_credit,('raw_counts','canonical_size')),
++            (RootIoCredit,tuple(k for k,v in RootIoCredit.__dict__.items() if type(v) is types.FunctionType)))
++        self.entries=tuple((owner,name,getattr(owner,name)) for owner,names in owners for name in names)
++        need(len(self.entries)<=64 and all(type(row[2]) is types.FunctionType for row in self.entries))
++        self.pins=tuple(parent_peer_credit._function_pin(row[2]) for row in self.entries)
++        self.original=(self.entries,self.pins)
++        self.require()
++    def require(self):
++        from adapters.pico4.parent_peer_credit import ParentPeerCredits,_function_matches
++        need(type(self) is RootIoCredit and type(self.peer) is ParentPeerCredits and self.peer is self._peer
++            and self.peer.root_io is self.peer._root_io is self and self.peer.scope.root_io is True
++            and (META,PRECOUNT)==(65536,4096) and type(self.entries) is tuple and type(self.pins) is tuple
++            and self.entries is self.original[0] and self.pins is self.original[1] and len(self.entries)==len(self.pins)
++            and type(self.issued) is int and type(self.retained) is int and 0<=self.retained<=self.issued
++            and type(self.books) is int and 0<=self.books<=(11 if self.peer.scope.current_graphs else 10)*FILE_LIMIT)
++        for (owner,name,fn),pin in zip(self.entries,self.pins):need(_function_matches(getattr(owner,name),pin) and getattr(owner,name) is fn)
++        self.charge()
++        if self.peer.header is not None:
++            header=self.peer.header
++            need(type(header['rootMetaIssuedBytes']) is int and header['rootMetaIssuedBytes']==self.issued
++                and type(header['rootMetaRetainedBytes']) is int and header['rootMetaRetainedBytes']==self.retained
++                and type(header['rootMetaBookCount']) is int and header['rootMetaBookCount']==self.books)
++    def retired(self):
++        need(type(self.issued) is int and type(self.retained) is int and 0<=self.retained<=self.issued)
++        return self.issued-self.retained
++    def charge(self):
++        need(self.claim is self._claim and self.meta_pending is self._meta_pending
++            and type(self.body_returned) is bool and type(self.io_calls) is int and self.io_calls>=0)
++        work=0
++        if self.claim is None:need(not self.body_returned)
++        else:
++            need(type(self.claim) is tuple and len(self.claim)==4 and type(self.claim[0]) is int and self.claim[0]>=0
++                and (self.claim[1] is None or type(self.claim[1]) is bytes and len(self.claim[1])<=PART_LIMIT)
++                and (self.claim[2] is None or type(self.claim[2]) is dict) and type(self.claim[3]) is int and self.claim[3]==self.io_calls)
++            work=self.claim[0]
++        if self.meta_pending is not None:
++            need(type(self.meta_pending) is tuple and len(self.meta_pending)==9
++                and all(type(x) is int and x>=0 for x in self.meta_pending[:6])
++                and type(self.meta_pending[8]) is bool)
++            if self.meta_pending[8]:
++                deficit=self.meta_pending[0]+self.meta_pending[1]-self.peer.held-self.peer.pending_grant
++                if deficit>0:work+=deficit
++        return work
++    def begin(self):
++        self.require()
++        if self.claim is not None:
++            need(self.body_returned);self.peer.archive.guard();need(self.claim is None)
++        raw=self.peer.archive.journal.raw
++        need(raw is None or type(raw) is bytes and 0<len(raw)<=PART_LIMIT)
++        work=0 if raw is None else raw_counts(raw)['decoderUpper']
++        self.peer._admit(extra_credit=work)
++        # Strong original bytes/state and full work BEFORE any Root parser/IO.
++        self.io_calls+=1;self.claim=self._claim=(work,raw,self.peer.archive.state,self.io_calls)
++        self.body_returned=False
++    def returned(self):
++        self.require();need(self.claim is not None and not self.body_returned)
++        self.body_returned=True
++    def after_guard(self):
++        self.require()
++        if self.claim is not None and self.body_returned:
++            # Original Root/write frames returned, then original full Archive
++            # guard passed with ALL work included. No IO/callback before clear.
++            self.last_work=self.claim[0];self.body_returned=False;self.claim=self._claim=None
++    def accept_metadata(self):
++        if self.meta_pending is None:return
++        need(not self.meta_pending[8] and self.peer.pending_header is not None)
++        state=self.meta_pending
++        self.meta_pending=self._meta_pending=state[:8]+(True,)
++        self.issued=state[2];self.retained=state[3];self.books=state[4]
++    def book(self,amount,*,raws=None,decoded=None,records=None,wire_issues=None,future_files=0,future_bytes=0,reads=None):
++        try:
++            self._book_body(amount,raws=raws,decoded=decoded,records=records,wire_issues=wire_issues,
++                future_files=future_files,future_bytes=future_bytes,reads=reads)
++            # Body really returned: no old Root/header/seal payload local is
++            # held in this wrapper. One assignment ends the exact pending
++            # custody and corresponding unconfirmed charge together.
++            self.require();need(self.meta_pending is not None and self.meta_pending[8] and self.claim is None
++                and self.peer.pending_grant==0 and self.peer.pending_header is None
++                and self.peer.held+self.charge()==self.meta_pending[0]+self.meta_pending[1])
++            self.meta_pending=self._meta_pending=None
++        except BaseException as error:self.fail(error);raise
++    def _book_body(self,amount,*,raws,decoded,records,wire_issues,future_files,future_bytes,reads):
++        p=self.peer;archive=p.archive;self.require()
++        need(type(amount) is int and amount>=0 and p.pending_header is None and p.wire_pending is None and self.meta_pending is None
++            and self.books<(11 if self.peer.scope.current_graphs else 10)*FILE_LIMIT)
++        proposed=dict(p.header,heldBytes=p.held+amount,grantCount=len(p.grants)+1,
++            rawCount=len(p.raws) if raws is None else len(raws),decodedCount=len(p.decoded) if decoded is None else len(decoded),
++            recordCount=len(p.records) if records is None else len(records),reads=p.header['reads'] if reads is None else reads)
++        plan=container_dimensions(proposed,max_nodes=65536,max_depth=8);need(plan is not None)
++        size,_=canonical_size(proposed)
++        # Four metadata/counter numeric values need at most 11 ASCII digits:
++        # <=5120 books, each positive grant<16MiB.64 padded digits cover their
++        # eventual updates without a self-referential encoding-size loop.
++        retained=4*(size+(128 if p.scope.current_graphs else 64))+256*plan[0]+plan[3]
++        metadata=plan[4]+retained;positive=amount+metadata
++        need(positive<=BYTE_LIMIT and self.issued+metadata<=(self.books+1)*BYTE_LIMIT)
++        p._admit(extra_credit=positive,extra_files=future_files,extra_bytes=future_bytes)
++        old=p.held
++        p.pending_grant=positive;p.pending_grants=p.grants+(positive,)
++        self.meta_pending=self._meta_pending=(old,positive,self.issued+metadata,retained,self.books+1,plan[4],p.header,p.header_seal,False)
++        p.pending_raws=raws;p.pending_decoded=decoded;p.pending_records=records;p.pending_wire_issues=wire_issues
++        p.pending_header=dict(proposed,heldBytes=old+amount+retained-self.retained,
++            rootMetaIssuedBytes=self.issued+metadata,rootMetaRetainedBytes=retained,rootMetaBookCount=self.books+1)
++        sealed=capture_containers(p.pending_header,capacity=plan[4],max_nodes=65536,max_depth=8);need(sealed is not None)
++        p.pending_header_seal=sealed[0]
++        archive.root(archive.state);archive.guard()
++        p._admit(extra_files=future_files,extra_bytes=future_bytes)
+--- /dev/null
++++ b/tests/device/adapters/pico4/peer_wire_closure.py
+@@ -0,0 +1,179 @@
++"""Cold fixed HTTP reader witness. NO wire/decoder credit settlement."""
++import email.message,email._policybase,http.client,io,math,socket,sys,types,urllib.request
++from adapters.pico4.operation_protocol import need
++
++META=65536
++SCRATCH=32768
++SLOT=131072
++
++
++def _shape(value):
++    kind=type(value)
++    if value is socket._GLOBAL_DEFAULT_TIMEOUT:return ('original-timeout-sentinel',value)
++    if any(kind is cls for cls in (str,int,float,bool,bytes,type(None),type,types.BuiltinFunctionType)):return (kind,value)
++    if kind is tuple:
++        need(len(value)<=64);return tuple(_shape(item) for item in value)
++    if kind is dict:
++        need(len(value)<=64 and all(type(key) is str for key in value));return tuple((key,_shape(value[key])) for key in sorted(value))
++    need(False)
++
++
++def _state(value):
++    return (getattr(value,'__code__',None),getattr(value,'__defaults__',None),_shape(getattr(value,'__defaults__',None)),
++        getattr(value,'__kwdefaults__',None),_shape(getattr(value,'__kwdefaults__',None)),getattr(value,'__closure__',None))
++
++
++def _matches(value,pin):
++    return (type(pin) is tuple and len(pin)==6 and getattr(value,'__code__',None) is pin[0] and getattr(value,'__defaults__',None) is pin[1]
++        and _shape(getattr(value,'__defaults__',None))==pin[2] and getattr(value,'__kwdefaults__',None) is pin[3]
++        and _shape(getattr(value,'__kwdefaults__',None))==pin[4] and getattr(value,'__closure__',None) is pin[5])
++
++
++def _entries():
++    from feature_journeys.witness import Client,NoRedirect
++    owners=((http.client.HTTPResponse,('__init__','read','_read_chunked','_safe_read','close','_close_conn')),
++        (socket.socket,('makefile','close','_decref_socketios','_real_close')),(socket.SocketIO,('readinto','close')),
++        (urllib.request.AbstractHTTPHandler,('do_open',)),(urllib.request.OpenerDirector,('open',)),
++        (urllib.request,('build_opener',)),(Client,('__init__','request')),(NoRedirect,('redirect_request',)),
++        (io.BufferedReader,('__sizeof__','close')),(io.IOBase,('__exit__',)),(sys,('getsizeof',)),
++        (email._policybase,('compat32',)))
++    result=tuple((owner,name,getattr(owner,name)) for owner,names in owners for name in names)
++    result+=tuple((cls,name,value) for cls in (PeerWireClosure,WireClaim) for name,value in cls.__dict__.items() if type(value) is types.FunctionType)
++    module=sys.modules[__name__]
++    result+=tuple((module,name,getattr(module,name)) for name in ('_shape','_state','_matches','_entries','_metadata_bound'))
++    need(len(result)<=64);return result
++
++
++def _metadata_bound(entries):
++    # Finite table/default/reference bound before snapshots; source/code/type
++    # payloads are strong original references, not cloned universal heaps.
++    resident=8192+len(entries)*384;maximum=0
++    for _owner,_name,value in entries:
++        total=0
++        for defaults in (getattr(value,'__defaults__',None),getattr(value,'__kwdefaults__',None)):
++            need(defaults is None or (type(defaults) is tuple or type(defaults) is dict) and len(defaults)<=64)
++            if defaults is None:continue
++            values=defaults.values() if type(defaults) is dict else defaults
++            for item in values:
++                need(any(type(item) is cls for cls in (str,int,float,bool,bytes,type(None),type,types.BuiltinFunctionType))
++                    or item is socket._GLOBAL_DEFAULT_TIMEOUT)
++                total+=256
++        resident+=total;maximum=max(maximum,total+256)
++    fresh=4096+len(entries)*128+maximum
++    need(resident<=META and fresh<=SCRATCH);return resident,fresh
++
++
++class WireClaim:
++    __slots__=('ordinal','response','fp','raw_io','body','finished','first_failure','before_buffer_size','metadata_bytes','captured','_captured')
++    def __init__(self,ordinal):
++        self.ordinal=ordinal;self.response=self.fp=self.raw_io=self.body=None
++        self.finished=False;self.first_failure=None;self.before_buffer_size=None;self.metadata_bytes=None
++        self.captured=self._captured=None
++
++
++class PeerWireClosure:
++    def __init__(self,owner):
++        self.owner=self._owner=owner;self.claims=self._claims=();self.active=None;self.unconfirmed=None
++        self.failed=False;self.first_failure=None;self.unconfirmed_response=self.unconfirmed_body=None
++        self.policies=self._policies=(email._policybase.compat32,)
++        self.entries=self._entries=_entries();self.metadata_bound=self._metadata_bound=_metadata_bound(self.entries)
++        self.states=self._states=tuple(_state(row[2]) for row in self.entries)
++        self.buffer_base=self._buffer_base=io.BufferedReader.__basicsize__
++        self.profile=(META,SCRATCH,SLOT,self.buffer_base);self._profile=self.profile
++        self.require()
++    def fail(self,error):
++        if self.first_failure is None:self.first_failure=(error,error.__traceback__)
++        self.failed=True
++        if self.active is not None and self.active.first_failure is None:self.active.first_failure=self.first_failure
++        self.owner.fail(error)
++    def require(self):
++        from adapters.pico4.parent_peer_credit import ParentPeerCredits
++        need(not self.failed and type(self.owner) is ParentPeerCredits and self.owner is self._owner and self.owner.wire is self
++            and self.metadata_bound is self._metadata_bound and type(self.metadata_bound) is tuple and len(self.metadata_bound)==2
++            and all(type(item) is int and item>=0 for item in self.metadata_bound)
++            and self.metadata_bound[0]<=META and self.metadata_bound[1]<=SCRATCH
++            and self.entries is self._entries and type(self.entries) is tuple
++            and self.policies is self._policies and type(self.policies) is tuple and len(self.policies)==1
++            and self.policies[0] is email._policybase.compat32
++            and self.states is self._states and type(self.states) is tuple and len(self.states)==len(self.entries)
++            and self.claims is self._claims and type(self.claims) is tuple
++            and type(self.buffer_base) is int and type(self._buffer_base) is int
++            and self.buffer_base==self._buffer_base==io.BufferedReader.__basicsize__
++            and self.profile is self._profile and type(self.profile) is tuple and len(self.profile)==4
++            and all(type(item) is int for item in self.profile) and self.profile==(65536,32768,131072,self.buffer_base))
++        current=_entries();need(len(current)==len(self.entries))
++        for original,actual,pin in zip(self.entries,current,self.states):
++            need(type(original) is tuple and len(original)==3 and original[0] is actual[0]
++                and type(original[1]) is str and original[1]==actual[1] and original[2] is actual[2]
++                and _matches(actual[2],pin))
++        for ordinal,claim in enumerate(self.claims):
++            need(type(claim) is WireClaim and type(claim.ordinal) is int and claim.ordinal==ordinal
++                and type(claim.finished) is bool)
++            need(claim.captured is claim._captured and (claim.captured is None and not claim.finished
++                or type(claim.captured) is tuple and len(claim.captured)==3
++                and claim.response is claim.captured[0] and claim.fp is claim.captured[1] and claim.raw_io is claim.captured[2]))
++    def begin(self,ordinal):
++        self.require();need(self.active is None and type(ordinal) is int and ordinal==len(self.claims))
++        claim=self.unconfirmed=object.__new__(WireClaim);WireClaim.__init__(claim,ordinal)
++        self.claims=self._claims=self.claims+(claim,);self.active=claim;self.unconfirmed=None
++    def context(self,client,run,receiver):
++        self.require();self.owner.scope.guard();need(self.active is not None and type(run) is str and run==self.owner.scope.values[2]
++            and client is self.owner.client and receiver is self.owner.client_snapshot[1])
++    def capture_response(self,response):
++        # Actual object enters custody before any shape/source guard.
++        self.unconfirmed_response=response
++        claim=self.active
++        try:
++            need(type(claim) is WireClaim);claim.response=response
++            self.require();need(type(response) is http.client.HTTPResponse)
++            claim.fp=response.fp;need(type(claim.fp) is io.BufferedReader)
++            claim.raw_io=claim.fp.raw;need(type(claim.raw_io) is socket.SocketIO)
++            claim.before_buffer_size=io.BufferedReader.__sizeof__(claim.fp)
++            need(type(claim.before_buffer_size) is int and claim.before_buffer_size>=self.buffer_base)
++            claim.captured=claim._captured=(response,claim.fp,claim.raw_io)
++        except BaseException as error:self.fail(error);raise
++    def capture_body(self,body):
++        self.unconfirmed_body=body
++        try:
++            claim=self.active;need(type(claim) is WireClaim);claim.body=body
++        except BaseException as error:self.fail(error);raise
++    def metadata_extent(self,claim):
++        # Fixed CLOSED-object profile, not a generic heap walker. Shared stdlib
++        # policy/module/class graphs remain outside this finite extent claim.
++        need(type(claim.captured) is tuple and claim.captured is claim._captured and len(claim.captured)==3)
++        total=sys.getsizeof(claim)+sys.getsizeof(claim.captured)
++        def scalar(value):
++            need(any(type(value) is cls for cls in (str,int,float,bool,type(None))));return sys.getsizeof(value)
++        def fields(value):
++            result=sys.getsizeof(value);mapping=vars(value);result+=sys.getsizeof(mapping)
++            for key,item in mapping.items():
++                need(type(key) is str);result+=sys.getsizeof(key)
++                if type(item) is http.client.HTTPMessage:
++                    result+=header(item)
++                elif any(item is original for original in self.policies):
++                    # Shared original parser policy: retain a conservative fixed
++                    # reference/metadata domain, no claim its global heap iszero.
++                    result+=4096
++                elif type(item) is list:
++                    result+=sys.getsizeof(item)
++                    for row in item:
++                        need(type(row) is tuple and len(row)==2 and all(type(x) is str for x in row))
++                        result+=sys.getsizeof(row)+sum(sys.getsizeof(x) for x in row)
++                else:result+=scalar(item)
++                need(result<=SLOT)
++            return result
++        def header(value):return fields(value)
++        total+=fields(claim.response)+fields(claim.raw_io)+sys.getsizeof(claim.fp)+sys.getsizeof(vars(claim.fp))
++        need(total<=SLOT);return total
++    def finish(self):
++        try:
++            self.require();claim=self.active;need(type(claim) is WireClaim and not claim.finished
++                and type(claim.body) is bytes and claim.body is self.owner.unconfirmed
++                and type(claim.response) is http.client.HTTPResponse and claim.response.fp is None and claim.response.closed
++                and type(claim.fp) is io.BufferedReader and type(claim.raw_io) is socket.SocketIO
++                and io.BufferedReader.__sizeof__(claim.fp)==self.buffer_base
++                and claim.raw_io.closed and claim.raw_io._sock is None)
++            claim.metadata_bytes=self.metadata_extent(claim)
++            claim.finished=True;self.active=None
++            # No grant, held counter or settlement field is changed here.
++        except BaseException as error:self.fail(error);raise
+--- a/tests/device/feature_journeys/engine.py
++++ b/tests/device/feature_journeys/engine.py
+@@ -32,7 +32,7 @@
+ class Journey:
+     def __init__(self, area, run, fixture_url, *, invoke, witness, activate,
+                  read_artifact, image_policy, continuity, monotonic, epoch_ms, sleep, report, navigation_source=None,
+-                 after_cleanup_baseline=None,input_context=None,poll_work_inclusive=False,audio_cleanup_poll_profile=None):
++                 after_cleanup_baseline=None,input_context=None,poll_work_inclusive=False,audio_cleanup_poll_profile=None,pico_peer_originals=None):
+         if area not in SCENARIOS:
+             raise ValueError('Unknown common feature area')
+         self.area, self.run, self.url = area, identifier(run), fixture_url
+@@ -85,6 +85,10 @@
+                 or audio_cleanup_poll_profile!='pico-audio-cleanup1' or area!='audio' or poll_work_inclusive):
+             raise ValueError('Audio cleanup polling requires its explicit original audio profile')
+         self.audio_cleanup_poll_profile=self._audio_cleanup_poll_profile=audio_cleanup_poll_profile
++        self.pico_peer_originals=self._pico_peer_originals=pico_peer_originals
++        self._pico_peer_scope=(None if pico_peer_originals is None else
++            (pico_peer_originals,self.run,self.url,self.monotonic,self.epoch_ms))
++        if pico_peer_originals is not None:self.pico_peer_policy().archive.guard()
+ 
+     def input_scope(self,kind,fields=None):
+         # Only normal input fields cross this optional seam. Expected recipe,
+@@ -94,7 +98,45 @@
+         request=None if kind!='act' else dict(contractVersion=VERSION,runId=self.run,**fields)
+         return self.input_context(kind,request)
+ 
++    def pico_peer_policy(self):
++        peer=self.pico_peer_originals;scope=self._pico_peer_scope
++        if peer is None and self._pico_peer_originals is None and scope is None:return None
++        from adapters.pico4.parent_peer_credit import ParentPeerCredits,FixedParentPeerScope
++        owner=(scope[0] if type(scope) is tuple and len(scope)==5
++            and type(scope[0]) is ParentPeerCredits else None)
++        try:
++            if (type(self) is not Journey or type(peer) is not ParentPeerCredits or peer is not self._pico_peer_originals or peer is not owner
++                    or type(self.area) is not str or self.area!='tablet-web' or self.poll_work_inclusive is not True
++                    or type(self.run) is not str or type(self.url) is not str
++                    or type(scope[1]) is not str or type(scope[2]) is not str
++                    or self.run!=scope[1] or self.url!=scope[2]
++                    or self.monotonic is not scope[3] or self.epoch_ms is not scope[4]
++                    or type(peer.clock_functions) is not tuple or len(peer.clock_functions)!=2
++                    or self.monotonic is not peer.clock_functions[0]
++                    or type(peer.scope) is not FixedParentPeerScope or peer.scope is not peer._scope):
++                raise ValueError('Original typed Peer belongs to a different cold scope')
++            FixedParentPeerScope.guard(peer.scope)
++            if peer.scope.values[2]!=self.run or self.url!=peer.scope.values[0]+'/runs/'+self.run+'/':
++                raise ValueError('Original typed Peer belongs to a foreign run or fixture')
++            # The immediately following fixed read/original_value performs its
++            # full current archive/Root/OFD/source/container guard before any IO.
++            return peer
++        except BaseException as error:
++            if owner is not None:owner.fail(error)
++            raise
++
++    def pico_peer_value(self,original):
++        peer=self.pico_peer_policy()
++        if peer is None:return json.loads(original)
++        from adapters.pico4.parent_peer_credit import FixedParentPeerOriginal
++        try:
++            if type(original) is not FixedParentPeerOriginal or original.peer is not peer:
++                raise ValueError('Original typed Peer record belongs to a foreign participant')
++            return original.original_value()
++        except BaseException as error:peer.fail(error);raise
++
+     def poll_policy(self):
++        self.pico_peer_policy()
+         if type(self.poll_work_inclusive) is not bool or self.poll_work_inclusive is not self._poll_work_inclusive:
+             raise ValueError('Original feature polling policy changed')
+         if (self.audio_cleanup_poll_profile is not self._audio_cleanup_poll_profile
+@@ -132,8 +174,12 @@
+         self.sequence, self.last_epoch = value['sequence'], captured
+         return value
+ 
+-    def observed_witness(self, ticket, barrier, expected, *, original=None, consume=True, receipt_epoch=None):
+-        if type(consume) is not bool:raise ValueError('Invalid independent journal cursor policy')
++    def observed_witness(self, ticket, barrier, expected, *, original=None, consume=True, receipt_epoch=None,pico_server_history=False):
++        if type(consume) is not bool or type(pico_server_history) is not bool:raise ValueError('Invalid independent journal cursor policy')
++        if pico_server_history:
++            peer=self.pico_peer_policy()
++            if peer is None or not peer.scope.server_receipts or original is None:
++                raise ValueError('Cold original server-receipt policy is absent')
+         value = self.witness() if original is None else original
+         exact(value, {'schemaVersion', 'runId', 'area', 'ticket', 'sampleEpochMs', 'entries'}, 'independent journal')
+         if (type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
+@@ -145,7 +191,16 @@
+             raise ValueError('Independent journal snapshot is stale')
+         if type(value['entries']) is not list or len(value['entries']) > 512:
+             raise ValueError('Invalid bounded independent journal')
++        latest_new=None
++        if pico_server_history:
++            # Fixed Parent-admitted scalar schema; original data/receipt remain.
++            for entry in value['entries']:
++                exact(entry, {'ticket', 'actor', 'actorSequence', 'capturedEpochMs', 'facts', 'sequence', 'receivedEpochMs'}, 'independent raw observation')
++                seq=entry['sequence']
++                if type(seq) is not int:raise ValueError('Independent journal order is invalid')
++                if seq>self.witness_sequence and entry['ticket']==ticket and number(entry['capturedEpochMs'],1)>=barrier:latest_new=seq
+         last_sequence = 0
++        previous_received=None
+         new = []
+         previous_actor=self.last_actor_sequence;previous_epoch=self.last_actor_epoch;cutoff=self.witness_sequence
+         for entry in value['entries']:
+@@ -166,12 +221,16 @@
+             # Such a sample is valid journal history but cannot prove this action.
+             if observed < barrier:
+                 continue
++            historical_age=received-observed if pico_server_history else epoch-observed
+             if (observed < previous_epoch or observed > received + 250
+-                    or received > epoch + 250 or epoch - observed > 1500):
++                    or received > epoch + 250 or historical_age > 1500
++                    or pico_server_history and (previous_received is not None and received<previous_received
++                        or seq==latest_new and epoch-observed>1500)):
+                 raise ValueError('Independent actor observation is stale')
+             exact(entry['facts'], expected, 'independent fact projection')
+             validate_state(self.area, {**SCENARIOS[self.area]['baseline'], **entry['facts']}, self.run)
+             previous_epoch=observed;previous_actor=entry['actorSequence'];cutoff=seq
++            if pico_server_history:previous_received=received
+             if consume:
+                 self.last_actor_epoch = observed
+                 self.last_actor_sequence = entry['actorSequence']
+@@ -181,6 +240,78 @@
+             return False, None
+         return all(matches(entry['facts'], expected) for entry in new), new[-1]
+ 
++    def pico_peer_entry_same(self,left,right):
++        # Fixed admitted tablet-web scalar schema, not arbitrary JSON equality.
++        if type(left) is not dict or type(right) is not dict or left.keys()!=right.keys():return False
++        for key in ('ticket','actor','actorSequence','capturedEpochMs','sequence','receivedEpochMs'):
++            a,b=left[key],right[key]
++            if type(a) is not type(b) or a!=b:return False
++        a,b=left['facts'],right['facts']
++        if type(a) is not dict or type(b) is not dict or a.keys()!=b.keys():return False
++        for key in a:
++            if type(a[key]) is not type(b[key]) or a[key]!=b[key]:return False
++        return True
++
++    def pico_peer_after_primary(self,original,ticket,barrier,expected):
++        # Original preview constrains history at its ORIGINAL receipt. The one
++        # new GET has its own body/arrival; no pre-read timestamp is renewed.
++        peer=self.pico_peer_policy()
++        if peer is None or not peer.scope.refresh_after_primary:raise ValueError('Cold after-Primary peer policy is absent')
++        try:
++            preview,received,epoch,cursor=original
++            if cursor!=(self.witness_sequence,self.last_actor_sequence,self.last_actor_epoch):
++                raise ValueError('Independent journal cursor changed during product acquisition')
++            if peer.scope.defer_wire:peek,old,fresh=peer.read_after_primary_values(preview,ticket)
++            else:
++                peek=peer.read_after_primary(preview,ticket)
++                old=preview.original_value();fresh=peek.original_value()
++            preview_okay,_prior=self.observed_witness(ticket,barrier,expected,original=old,consume=False,receipt_epoch=epoch,pico_server_history=peer.scope.server_receipts)
++            # Already consumed history has no NEW contradiction. It remains an
++            # immutable prefix constraint, never a current candidate.
++            preview_okay=preview_okay or _prior is None
++            prior=old['entries'];rows=fresh['entries'];new=[];position=0;last=0
++            cutoff=prior[-1]['sequence'] if prior else 0
++            first=rows[0]['sequence'] if rows else None
++            for row in rows:
++                sequence=row['sequence']
++                if type(sequence) is not int or sequence<=last:raise ValueError('Independent peek history order changed')
++                last=sequence
++                while position<len(prior) and prior[position]['sequence']<sequence:
++                    # Only the original server's full512-entry suffix can evict an
++                    # older prefix; all evicted originals remain validated/held.
++                    if len(rows)!=512 or prior[position]['sequence']>=first:
++                        raise ValueError('Independent peek discarded retained history')
++                    position+=1
++                if position<len(prior) and prior[position]['sequence']==sequence:
++                    if not self.pico_peer_entry_same(prior[position],row):
++                        raise ValueError('Independent peek changed an original history row')
++                    position+=1
++                elif sequence<=cutoff:raise ValueError('Independent peek inserted unknown old history')
++                else:new.append(row)
++            if position!=len(prior):raise ValueError('Independent peek lost retained history')
++            # Prevalidate the genuine new suffix against the previous preview's
++            # actual Actor order without modifying the real cursor yet.
++            previous_actor=self.last_actor_sequence;previous_epoch=self.last_actor_epoch;previous_received=None
++            for row in prior:
++                if row['ticket']==ticket and row['capturedEpochMs']>=barrier:
++                    previous_received=row['receivedEpochMs']
++                    if row['sequence']>self.witness_sequence:
++                        previous_actor=row['actorSequence'];previous_epoch=row['capturedEpochMs']
++            for row in new:
++                if row['ticket']==ticket and row['capturedEpochMs']>=barrier:
++                    if (row['actorSequence']<=previous_actor or row['capturedEpochMs']<previous_epoch
++                            or peer.scope.server_receipts and previous_received is not None and row['receivedEpochMs']<previous_received):
++                        raise ValueError('Independent peek source history regressed')
++                    previous_actor=row['actorSequence'];previous_epoch=row['capturedEpochMs'];previous_received=row['receivedEpochMs']
++            view=dict(fresh,entries=new)
++            new_okay,witness=self.observed_witness(ticket,barrier,expected,original=view,consume=False,receipt_epoch=peek.receipt[1],pico_server_history=peer.scope.server_receipts)
++            # Commit only after both full original constraints/prefix and the new
++            # suffix passed; contradictions still reject this acquired pair.
++            self.observed_witness(ticket,barrier,expected,original=old,receipt_epoch=epoch,pico_server_history=peer.scope.server_receipts)
++            self.observed_witness(ticket,barrier,expected,original=view,receipt_epoch=peek.receipt[1],pico_server_history=peer.scope.server_receipts)
++            return preview_okay and new_okay,witness,(peek,peek.receipt[0],peek.receipt[1],cursor)
++        except BaseException as error:peer.fail(error);raise
++
+     def poll_original_current(self,value,started,requested):
+         """Same acquired source, including all passive peer/evidence work."""
+         now=self.now();epoch=number(self.epoch_ms(),1);captured=value['capturedEpochMs']
+@@ -198,10 +329,25 @@
+         # Await an actual NEW peer original BEFORE acquiring another Primary
+         # original. Select any valid new publication, including contradictions;
+         # no requested fact is a readiness predicate or sent to the producer.
++        peer=self.pico_peer_policy()
++        if peer is not None and peer.scope.refresh_after_primary:
++            if self.now()>=deadline:raise AssertionError('Independent journal exceeded original checkpoint deadline')
++            record=peer.historical_preview(ticket);original=record.original_value()
++            self.observed_witness(ticket,barrier,expected,original=original,consume=False,receipt_epoch=record.receipt[1],pico_server_history=peer.scope.server_receipts)
++            cursor=(self.witness_sequence,self.last_actor_sequence,self.last_actor_epoch)
++            return record,record.receipt[0],record.receipt[1],cursor
+         while True:
+             if self.now()>=deadline:raise AssertionError('Independent journal exceeded original checkpoint deadline')
+-            original=self.witness()
+-            received=self.now();epoch_at_receipt=number(self.epoch_ms(),1)
++            peer=self.pico_peer_policy()
++            record=None
++            if peer is None:
++                original=self.witness()
++                received=self.now();epoch_at_receipt=number(self.epoch_ms(),1)
++            else:
++                if peer.scope.wire_settlement:record=peer.read_original(ticket)
++                else:peer.read_peer(ticket);peer.parse_peer();record=peer.original_record()
++                original=record.original_value()
++                received,epoch_at_receipt=record.receipt
+             cursor=(self.witness_sequence,self.last_actor_sequence,self.last_actor_epoch)
+             _okay,witness=self.observed_witness(ticket,barrier,expected,original=original,consume=False,
+                 receipt_epoch=epoch_at_receipt)
+@@ -209,8 +355,8 @@
+                 # Keep the received original immutable through product callbacks.
+                 # Full ownership/order/freshness/facts are checked again AFTER
+                 # the actual product read; a preview grants no cursor progress.
+-                raw=json.dumps(original,sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')
+-                if len(raw)>16*1024*1024:raise ValueError('Independent journal original exceeds existing raw bound')
++                raw=(record if peer is not None else json.dumps(original,sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8'))
++                if peer is None and len(raw)>16*1024*1024:raise ValueError('Independent journal original exceeds existing raw bound')
+                 return raw,received,epoch_at_receipt,cursor
+             if self.now()>=deadline:raise AssertionError('Independent journal exceeded original checkpoint deadline')
+             self.sleep(.025)
+@@ -380,6 +526,18 @@
+         for query in queries:self.navigation_stereo_queries[query]=pin
+ 
+     def wait(self, label, ticket, barrier, expected, kinds, *, duration=0.5):
++        peer=self.pico_peer_policy()
++        graphs=None if peer is None else peer.fixed_current_graphs()
++        if graphs is not None:graphs.enter_wait(self)
++        try:
++            value=self._wait_body(label,ticket,barrier,expected,kinds,duration=duration)
++            if graphs is not None:graphs.leave_wait(self)
++            return value
++        except BaseException as error:
++            if graphs is not None:graphs.fail(error)
++            raise
++
++    def _wait_body(self, label, ticket, barrier, expected, kinds, *, duration=0.5):
+         work_inclusive=self.poll_policy()
+         audio_cleanup=self.audio_cleanup_poll_profile is not None and label=='cleanup-restored-baseline'
+         consumption_start=len(self.samples)
+@@ -391,6 +549,7 @@
+         actual_lifecycle=None
+         release_position=None
+         for _attempt in range(81):
++            trace_peer=None;trace_peer_expected=trace_peer_initial=None;trace_primary_current=trace_peer_final=None
+             witness_original=None
+             if work_inclusive and 'peer' in kinds:
+                 witness_original=self.poll_independent_witness(deadline,ticket,barrier,projection(self.area,expected))
+@@ -398,7 +557,7 @@
+             poll_requested=number(self.epoch_ms(),1) if work_inclusive or audio_cleanup else None
+             value = self.observe(ticket, barrier)
+             current = self.now()
+-            okay = matches(value['state'], expected)
++            okay = matches(value['state'], expected);trace_state_match=okay
+             navigation_okay,navigation_receipts=self.navigation(ticket,barrier)
+             okay=okay and navigation_okay
+             if self.area=='lifecycle-input' and label.endswith('-release-input'):
+@@ -461,9 +620,16 @@
+                     # Older entries were actual fresh observations at receipt,
+                     # and remain historical constraints, including contradictions.
+                     # Only the LAST new original may qualify this current pair.
+-                    peer_okay,witness=self.observed_witness(ticket,barrier,peer_expected,
+-                        original=json.loads(witness_original[0]),receipt_epoch=witness_original[2])
+-                    if not self.poll_witness_current(witness,witness_original):
++                    typed_peer=self.pico_peer_policy()
++                    if typed_peer is not None and typed_peer.scope.refresh_after_primary:
++                        peer_okay,witness,witness_original=self.pico_peer_after_primary(witness_original,ticket,barrier,peer_expected)
++                    else:
++                        peer_okay,witness=self.observed_witness(ticket,barrier,peer_expected,
++                            original=self.pico_peer_value(witness_original[0]),receipt_epoch=witness_original[2])
++                    trace_peer_expected=peer_okay
++                    if typed_peer is not None and typed_peer.scope.poll_trace:trace_peer=typed_peer
++                    trace_peer_initial=None if witness is None else self.poll_witness_current(witness,witness_original)
++                    if witness is None or not trace_peer_initial:
+                         # This original was valid at receipt. An expired pair
+                         # cannot qualify; await a genuinely NEW original under
+                         # the same checkpoint, without replaying normal input.
+@@ -478,14 +644,32 @@
+                     okay, last_problem = False, str(error)
+             # Fixture, peer and artifact I/O also consume the existing checkpoint
+             # budget. A late final source read cannot turn an old sample green.
+-            if work_inclusive or audio_cleanup:okay=okay and self.poll_original_current(value,poll_started,poll_requested)
++            if 'peer' in kinds and self.pico_peer_originals is not None and self.pico_peer_originals.scope.current_graphs:
++                self.pico_peer_originals.fixed_current_graphs().prepare_poll_marker(self,value)
++            trace_before_footer=okay
++            if work_inclusive or audio_cleanup:
++                if okay:
++                    trace_primary_current=self.poll_original_current(value,poll_started,poll_requested)
++                    okay=trace_primary_current
+             if audio_cleanup and witness is not None:okay=okay and self.poll_original_current(witness,poll_started,poll_requested)
+-            if work_inclusive and witness is not None:okay=okay and self.poll_witness_current(witness,witness_original)
++            if work_inclusive and witness is not None:
++                if okay:
++                    trace_peer_final=self.poll_witness_current(witness,witness_original)
++                    okay=trace_peer_final
++            trace_received=None if witness_original is None else witness_original[1]
++            trace_epoch=None if witness_original is None else witness_original[2]
+             witness_original=None
+             current=self.now()
+             if current>=deadline:raise AssertionError('Common '+self.area+' '+label+': source/evidence exceeded the checkpoint deadline; '+last_problem)
++            if trace_peer is not None:
++                trace_peer.note_poll_diagnostic((trace_state_match,navigation_okay,trace_peer_expected,trace_peer_initial,
++                    trace_before_footer,trace_primary_current,trace_peer_final,poll_started,current,poll_requested,
++                    value['capturedEpochMs'],None if witness is None else witness['capturedEpochMs'],
++                    trace_received,trace_epoch,stable_count,okay))
+             self.samples.append(dict(phase=label, ticket=ticket, actionBarrierEpochMs=barrier, sequence=value['sequence'], capturedEpochMs=value['capturedEpochMs'],
+                                      state=value['state'], resources=value['resources'], lifecycle=value['lifecycle'], witness=witness, evidence=details, navigationHttp=navigation_receipts))
++            if 'peer' in kinds and self.pico_peer_originals is not None and self.pico_peer_originals.scope.current_graphs:
++                self.pico_peer_originals.fixed_current_graphs().mark_poll_recorded(self,value)
+             if okay:
+                 if progressing_script and initial_effects is None:
+                     initial_effects = value['state']['effects']
+--- a/tests/device/feature_journeys/witness.py
++++ b/tests/device/feature_journeys/witness.py
+@@ -10,6 +10,7 @@
+ import json
+ import secrets
+ import threading
++import types
+ import time
+ from urllib.request import HTTPRedirectHandler, Request, build_opener
+ from .contract import exact, identifier, number, state, json_document
+@@ -155,18 +156,54 @@
+         raise ValueError('Owned fixture control redirects are forbidden')
+ 
+ 
++def readonly_snapshot_binding(value):
++    """PRIVATE cold opt-in: one original snapshot GET and original receiver."""
++    if value is None:return None
++    if type(value) is not tuple or len(value)!=2:
++        raise ValueError('Invalid fixed readonly snapshot binding')
++    run,receiver=value;identifier(run)
++    if (type(receiver) is not types.MethodType or type(receiver.__func__) is not types.FunctionType
++            or receiver.__func__.__defaults__ is not None or receiver.__func__.__kwdefaults__ is not None
++            or receiver.__func__.__closure__ is not None):
++        raise ValueError('Invalid original readonly snapshot receiver')
++    return run,receiver.__self__,receiver.__func__,receiver.__func__.__code__
++
++
+ class Client:
+-    def __init__(self, url, reader_token,*,monotonic=time.monotonic,sleep=time.sleep):
++    def __init__(self, url, reader_token,*,monotonic=time.monotonic,sleep=time.sleep,readonly_snapshot=None,wire_witness=None):
+         from urllib.parse import urlsplit
+         parsed = urlsplit(url)
+         if (parsed.scheme not in {'http', 'https'} or not parsed.hostname or parsed.path != '/feature-fixture/v1'
+                 or parsed.username or parsed.password or parsed.query or parsed.fragment
+                 or type(reader_token) is not str or len(reader_token) < 32 or not callable(monotonic) or not callable(sleep)):
+             raise ValueError('Private feature fixture configuration is incomplete')
++        self.readonly_snapshot=self._readonly_snapshot=readonly_snapshot
++        self._readonly_snapshot_binding=readonly_snapshot_binding(readonly_snapshot)
+         self.url, self.token = url, reader_token
+         self.monotonic,self.sleep=monotonic,sleep
++        self.wire_witness=self._wire_witness=wire_witness
++        if wire_witness is not None:
++            from adapters.pico4.peer_wire_closure import PeerWireClosure
++            if type(wire_witness) is not PeerWireClosure or readonly_snapshot is None:
++                raise ValueError('Invalid fixed wire witness')
+ 
+     def request(self, path, value=None, method=None, *, script_nonce=None, graphics_nonce=None, phase_nonce=None, snapshot_upload_nonce=None, adapter_access=False):
++        if (self.readonly_snapshot is not self._readonly_snapshot
++                or readonly_snapshot_binding(self.readonly_snapshot)!=self._readonly_snapshot_binding):
++            raise ValueError('Original readonly snapshot binding changed')
++        receiver=None
++        if self.readonly_snapshot is not None:
++            run,receiver=self.readonly_snapshot
++            if (path!='/runs/'+run or value is not None or method not in (None,'GET')
++                    or any(item is not None for item in (script_nonce,graphics_nonce,phase_nonce,snapshot_upload_nonce))
++                    or adapter_access is not False):
++                raise ValueError('Invalid fixed readonly snapshot request')
++        wire=self.wire_witness
++        if wire is not self._wire_witness:raise ValueError('Original wire witness changed')
++        if wire is not None:
++            from adapters.pico4.peer_wire_closure import PeerWireClosure
++            if type(wire) is not PeerWireClosure or receiver is None:raise ValueError('Invalid original wire witness')
++            wire.context(self,run,receiver)
+         raw = None if value is None else json.dumps(value).encode()
+         headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'}
+         if type(adapter_access) is not bool:raise ValueError('Invalid adapter fixture access marker')
+@@ -179,11 +216,16 @@
+                           headers=headers)
+         try:
+             with build_opener(NoRedirect).open(request, timeout=5) as response:
++                if wire is not None:wire.capture_response(response)
+                 body = response.read(1024 * 1024 + 1)
++                if receiver is not None:receiver(body)
++            if wire is not None:wire.finish()
++            if receiver is not None:return body
+             if len(body) > 1024 * 1024:
+                 raise ValueError('Feature fixture response exceeds the bounded limit')
+             return json_document(body)
+         except Exception as error:
++            if wire is not None:wire.fail(error)
+             if hasattr(error, 'close'):
+                 error.close()
+             # Do not print URLs, headers, account details or provider exceptions.
+--- a/tests/device/modules/feature_journey.py
++++ b/tests/device/modules/feature_journey.py
+@@ -40,6 +40,23 @@
+     try:
+         def continuity(phase, verb):
+             nonlocal identity, old_identity
++            if browser is not None and browser.operation_version==3:
++                if phase=='after' and verb=='restart-app':
++                    raise AssertionFailure('Fixed tablet browser continuity does not register application restart')
++                value=browser.continuity(phase)
++                # Compare each fresh original record immediately and in the
++                # unchanged original order. No result becomes later permission.
++                for index,record in enumerate(value['records']):
++                    observed=record['result']
++                    if record['operation']=='app.process':
++                        label='before normal feature input' if phase=='before' and index==0 else 'normal feature observation'
++                        if observed.get('running') is not True:raise AssertionFailure(f'{label}: application process exited')
++                        if observed.get('identity')!=identity:raise AssertionFailure(f'{label}: application process restarted')
++                        if phase=='before' and index==0:old_identity=identity
++                    elif observed.get('foreground') is not True:
++                        raise AssertionFailure('normal feature observation: application is not foregrounded')
++                if not value['complete']:raise AssertionFailure('Original fixed browser continuity answer is incomplete')
++                return
+             if phase == 'before':
+                 assert_process(identity, 'before normal feature input')
+                 old_identity = identity
+@@ -62,15 +79,24 @@
+                 navigation_source=client.navigation_status if args.area=='world-navigation' else None,
+                 after_cleanup_baseline=None if browser is None else browser.export.callback,
+                 input_context=None if browser is None else browser.input_context,
+-                poll_work_inclusive=browser is not None)
++                poll_work_inclusive=browser is not None,
++                pico_peer_originals=None if browser is None or browser.peer_scope is None else browser.owner.archive.peer)
+             if browser is not None:browser.export.attach(journey)
+             journey.execute()
+ 
+         if args.area=='tablet-web' and session.pico_openxr and os.environ.get('OVERTE_PICO_FEATURE_TABLET_WEB')=='1':
+             from adapters.pico4.browser_session import PicoBrowserSession
+             whole=dict(id=uuid.uuid4().hex,startedMonotonic=whole_started,deadlineMonotonic=whole_started+120)
++            peer_scope=None
++            from adapters.normal_feature_state import PrivateFeatureState
++            selected=PrivateFeatureState(Path(os.environ.get('OVERTE_PICO_BROWSER_RUN_CONFIG',''))).read()
++            if type(selected) is dict and selected.get('picoBrowserRunConfigVersion')==3:
++                import hashlib
++                from module_support import TARGET
++                from adapters.pico4.parent_peer_credit import FixedParentPeerScope
++                peer_scope=FixedParentPeerScope(client.url,client.token,run,hashlib.sha256(TARGET.encode()).hexdigest(),wire_settlement=True,refresh_after_primary=True,server_receipts=True,defer_wire=True,poll_trace=True,decoder_workspace=True,closed_parts=True,joined_guards=True,literal_roots=True,joined_wire=True,root_io=True,current_graphs=True)
+             browser=PicoBrowserSession(session,ARTIFACT_DIR,run,url,
+-                os.environ.get('OVERTE_PICO_BROWSER_RUN_CONFIG',''),whole)
++                os.environ.get('OVERTE_PICO_BROWSER_RUN_CONFIG',''),whole,**({} if peer_scope is None else dict(peer_scope=peer_scope)))
+             with browser:
+                 prepare(session,args.area);identity=process_identity();browser.start_actor();execute()
+                 final=browser.finalize(client)
+--- a/tests/device/overte_session.py
++++ b/tests/device/overte_session.py
+@@ -124,11 +124,11 @@
+         except ValueError as error:
+             raise InfrastructureError(str(error)) from error
+ 
+-    def operation_host(self, artifacts):
++    def operation_host(self, artifacts,*,browser_protocol_version=None,peer_scope=None):
+         """Opt into one bounded original Pico CLI for this explicit context."""
+         from adapter_client import operation_host
+         from module_support import MANIFEST, TARGET
+-        return operation_host(MANIFEST, TARGET, artifacts)
++        return operation_host(MANIFEST, TARGET, artifacts,**({} if browser_protocol_version is None else dict(browser_protocol_version=browser_protocol_version)),**({} if peer_scope is None else dict(peer_scope=peer_scope)))
+ 
+     @contextmanager
+     def create_input_context(self,run,fixture_url,operation,arguments=None):
+--- /dev/null
++++ b/tests/device/peer_predecoder.py
+@@ -0,0 +1,190 @@
++"""PRIVATE finite raw/decoder-credit component; no Peer/Lock/public policy.
++
++The allocation units are a conservative CPython policy under finite review,
++not a universal heap theorem. Every failure retains its granted SUM and raw.
++"""
++import hashlib,json,math,sys,types
++from pathlib import Path
++from adapter_operation_host import PinnedFile
++from adapters.native_feature_observation import need
++from adapters.normal_feature_state import PrivateFeatureState
++from adapters.pico4.lifecycle_process_file import LifecycleProcessFile
++from adapters.pico4.operation_protocol import BYTE_LIMIT,FILE_LIMIT,RESPONSE_LIMIT,REQUEST_LIMIT,STDERR_LIMIT
++from adapters.script_journey.history import canonical
++
++WIRE=1024*1024
++READ_MAX=WIRE+1
++PART=65536
++SCRATCH=131072
++HELPER=262144
++LEDGER=131072
++FORWARD=RESPONSE_LIMIT+REQUEST_LIMIT+STDERR_LIMIT+2*PART
++UNRESOLVED=[]
++
++def raw_counts(raw):
++    """Count bytes only inside preheld scratch; no token/string/graph copies."""
++    need(type(raw) is bytes and len(raw)<=WIRE)
++    stack=[0]*33;depth=i=0;n=len(raw)
++    strings=quoted=primitives=numeric=containers=pairs=tokens=0
++    while i<n:
++        ch=raw[i]
++        if ch in (32,9,10,13,44):i+=1;continue
++        if ch==58:pairs+=1;i+=1;continue
++        if ch in (123,91):
++            depth+=1;need(depth<=32);stack[depth]=ch;containers+=1;tokens+=1;i+=1;continue
++        if ch in (125,93):
++            need(depth>0 and stack[depth]==(123 if ch==125 else 91));depth-=1;i+=1;continue
++        if ch==34:
++            start=i;i+=1
++            while i<n and raw[i]!=34:
++                if raw[i]==92:need(i+1<n);i+=2
++                else:i+=1
++            need(i<n);strings+=1;quoted+=i-start-1;tokens+=1;i+=1;continue
++        need(ch<128)
++        start=i
++        while i<n and raw[i] not in (32,9,10,13,44,58,123,91,125,93,34):
++            need(raw[i]<128);i+=1
++        need(i>start);primitives+=1;tokens+=1
++        if ch==45 or 48<=ch<=57:numeric+=i-start
++    need(depth==0)
++    # Covers input Unicode, string/writer overlap, primitive conversion,
++    # pairs-hook tuples/list, dictionary resize+memo, vectors and frame scratch.
++    upper=(SCRATCH+n+4*n+8*quoted+128*strings+64*primitives+2*numeric
++        +512*pairs+256*containers+32*tokens)
++    return dict(rawBytes=n,stringTokens=strings,quotedWireBytes=quoted,
++        primitiveTokens=primitives,numericWireBytes=numeric,containers=containers,
++        objectPairs=pairs,valueTokens=tokens,decoderUpper=upper)
++
++def _canonical_walk(item,depth,counts):
++    need(depth<=32);kind=type(item)
++    if kind is str:
++        total=2
++        for ch in item:
++            point=ord(ch)
++            total+=2 if ch in ('"','\\','\b','\f','\n','\r','\t') else 6 if point<32 or 127<=point<=65535 else 12 if point>65535 else 1
++        return total
++    if item is None:return 4
++    if kind is bool:return 4 if item else 5
++    if kind is int:return len(str(item))
++    if kind is float:
++        need(math.isfinite(item));return len(json.dumps(item,allow_nan=False))
++    if kind is list:
++        result=2+max(0,len(item)-1)
++        for child in item:result+=_canonical_walk(child,depth+1,counts)
++        return result
++    need(kind is dict);counts[0]+=len(item)
++    result=2+max(0,len(item)-1)
++    for key,child in item.items():
++        need(type(key) is str);result+=_canonical_walk(key,depth+1,counts)+1+_canonical_walk(child,depth+1,counts)
++    return result
++
++def canonical_size(value):
++    """Exact ASCII canonical length, using only module-level walkers."""
++    counts=[0];return _canonical_walk(value,0,counts),counts[0]
++
++def literal(value,depth=0):
++    need(depth<=8);kind=type(value)
++    if value is None or kind in (bool,int,str,bytes):return value
++    if kind is tuple:return tuple(literal(child,depth+1) for child in value)
++    if kind is dict:
++        need(all(type(key) is str for key in value));return tuple((key,literal(value[key],depth+1)) for key in sorted(value))
++    need(False)
++
++def binding(callback):
++    if type(callback) is types.MethodType:owner=callback.__self__;function=callback.__func__
++    else:owner=None;function=callback
++    need(type(function) is types.FunctionType)
++    return (owner,function,function.__code__,literal(function.__defaults__),literal(function.__kwdefaults__),function.__closure__)
++
++class PeerPredecoder:
++    """One NEW cold query, actual original root, shared16MiB admission only."""
++    def __init__(self,path,acquire,parse,encode,external,*,retained_raws=()):
++        need(type(retained_raws) is tuple and all(type(raw) is bytes for raw in retained_raws))
++        self.acquire,self.parse,self.encode,self.external=acquire,parse,encode,external
++        self.callbacks=(acquire,parse,encode,external);self.bindings=tuple(binding(callback) for callback in self.callbacks)
++        self.retained=self._retained=retained_raws;self.retained_bytes=sum(sys.getsizeof(raw) for raw in retained_raws)
++        self.base=HELPER+2*PART+FORWARD+LEDGER+self.retained_bytes
++        self.held=self.base+SCRATCH+READ_MAX
++        self.failed=False;self.first_failure=None;self.unconfirmed=None;self.result=None;self.entered=False
++        self.counts=None;self.last_encoding_size=None;self.phase='new';self.state=None
++        outside=external();need(outside['files']+2<=FILE_LIMIT and outside['decodedBytes']+self.held<=BYTE_LIMIT)
++        self.source=self._source=object.__new__(PinnedFile);PinnedFile.__init__(self.source,Path(__file__).resolve(),PART)
++        self.store=self._store=PrivateFeatureState(path);self.store._parent();need(not self.store.path.exists())
++        self.journal=self._journal=LifecycleProcessFile(self.store)
++        self.functions=(raw_counts,_canonical_walk,canonical_size,literal,binding)
++        self.function_bindings=tuple(binding(callback) for callback in self.functions)
++        self._write('ready');self.guard()
++    def _write(self,phase):
++        value=dict(peerPredecoderVersion=1,phase=phase,reservedDecodedBytes=self.held,
++            capturedPrefixBytes=0 if self.unconfirmed is None else len(self.unconfirmed),
++            completeBody=False if self.unconfirmed is None else len(self.unconfirmed)<=WIRE)
++        self.journal.write(value,self.state);self.state=self._state=value;self.phase=phase
++    def guard(self):
++        need(not self.failed and self.retained is self._retained)
++        need((WIRE,READ_MAX,PART,SCRATCH,HELPER,LEDGER,FORWARD)==(1048576,1048577,65536,131072,262144,131072,4456448))
++        need(self.source is self._source and self.store is self._store and self.journal is self._journal)
++        need(self.base==HELPER+2*PART+FORWARD+LEDGER+self.retained_bytes)
++        need(self.held>=self.base+SCRATCH and self.retained_bytes==sum(sys.getsizeof(raw) for raw in self.retained))
++        need(self.state is self._state and self.held==self.state['reservedDecodedBytes'] and self.phase==self.state['phase'])
++        for actual,original,expected in zip((raw_counts,_canonical_walk,canonical_size,literal,binding),self.functions,self.function_bindings):
++            need(actual is original and binding(actual)==expected)
++        self.source.check()
++        for actual,original,expected in zip((self.acquire,self.parse,self.encode,self.external),self.callbacks,self.bindings):
++            need(actual is original and binding(actual)==expected)
++        self.journal.guard();need(self.journal.raw==canonical(self.state)+b'\n')
++        outside=self.external();need(outside['files']+2<=FILE_LIMIT and outside['decodedBytes']+self.held<=BYTE_LIMIT)
++    def reserve(self,amount,phase):
++        self.guard();need(type(amount) is int and amount>=self.held)
++        outside=self.external();need(outside['decodedBytes']+amount<=BYTE_LIMIT)
++        self.held=amount;self._write(phase);self.guard()
++    def _closed_decode(self,raw,decoder_claim):
++        value=self.parse(raw);self.guard()
++        need(type(value) is dict and type(value.get('entries')) is list and len(value['entries'])<=512)
++        # No fixed per-entry grammar/encoding cap: exact actual canonical size.
++        sizes=[];maximum=0
++        for entry in value['entries']:
++            size,pairs=canonical_size(entry);sizes.append(size)
++            maximum=max(maximum,8*size+128*pairs+SCRATCH)
++        self.reserve(max(self.held,decoder_claim+maximum),'encoding-reserved')
++        digests=[]
++        for entry,size in zip(value['entries'],sizes):
++            self.last_encoding_size=size
++            encoded=self.encode(entry)
++            need(type(encoded) is bytes and len(encoded)==size);self.guard()
++            digests.append(hashlib.sha256(encoded).digest())
++        self.guard();return tuple(digests)
++    def read(self):
++        try:
++            self.guard();need(not self.entered and self.phase=='ready');self.entered=True
++            self._write('io-issued');self.guard()
++            raw=self.acquire(READ_MAX)
++            # Actual acquired bytes remain held BEFORE root/type/size/current
++            # checks. Oversize is a PREFIX, not evidence for an unread body.
++            self.unconfirmed=raw
++            need(type(raw) is bytes and len(raw)<=READ_MAX);self.guard()
++            need(len(raw)<=WIRE)
++            self.counts=raw_counts(raw)
++            claim=self.base+self.counts['decoderUpper']
++            self.reserve(max(self.held,claim),'decoder-reserved')
++            ledger=self._closed_decode(raw,claim)
++            need(type(ledger) is tuple and all(type(item) is bytes and len(item)==32 for item in ledger))
++            self.result=(raw,ledger)
++            # Conservative initial component retains all granted work credit;
++            # no automatic old-graph release or universal heap claim is enabled.
++            self._write('complete');self.guard();return self.result
++        except BaseException as error:
++            if self.first_failure is None:self.first_failure=(error,error.__traceback__)
++            self.failed=True
++            if not any(owner is self for owner in UNRESOLVED):UNRESOLVED.append(self)
++            raise
++    def capture_summary(self):
++        raw=self.unconfirmed
++        return dict(capturedPrefixBytes=len(raw) if type(raw) is bytes else 0,
++            completeBody=type(raw) is bytes and len(raw)<=WIRE,
++            failed=self.failed,reservedDecodedBytes=self.held)
++    def retain_raw(self,raw):
++        # The original Client calls this before response close or any parser.
++        # Store the exact returned object before all checks or allocation.
++        self.unconfirmed=raw
++    def close_known(self):
++        return all([self.journal.close_host(),self.source.close()])
