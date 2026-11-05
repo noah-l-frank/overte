@@ -35,7 +35,7 @@ def result_exit_code(result: unittest.TestResult) -> int:
 class CoverageMatrixTests(unittest.TestCase):
     def test_audio_common_wrappers_keep_finite_sources_separate_from_one_full_flow(self):
         expected={
-            'test_audio_common_sources.py':('self_tests.test_pico_audio_common_primary.PrimaryTests','self_tests.test_pico_audio_common_files.FileTests','self_tests.test_pico_audio_common_flow.FlowTests'),
+            'test_audio_common_sources.py':('self_tests.test_pico_audio_common_primary.PrimaryTests','self_tests.test_pico_audio_common_files.FileTests','self_tests.test_pico_audio_common_flow.FlowTests','self_tests.test_pico_audio_source_batch.BatchTests','self_tests.test_pico_audio_source_batch_cli.CliBatchTests','self_tests.test_pico_audio_cleanup_workspace.WorkspaceTests'),
             'test_audio_common_fourteen.py':('self_tests.test_pico_audio_common_fourteen.CommonFourteenTests.test_actual_fourteen_common_phases_original_wavs_and_later_actor',),
         }
         for leaf,names in expected.items():

@@ -33,7 +33,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.witness import projection
 from voice_peer.preview_source import producer_sha256
 
-VERSION=3
+VERSION=4
 
 
 def original(store):
@@ -60,7 +60,7 @@ class PicoAudioPCActor:
         from adapters.pico4.audio_bundle_acquisition import AudioBundleTransport1,DECLARATION
         need(observation_bundle is None or type(observation_bundle) is AudioBundleTransport1
             and observation_bundle.actor is None and not observation_bundle.failed and not observation_bundle.issued)
-        self.version=self._version=2 if observation_bundle is None else VERSION
+        self.version=self._version=2 if observation_bundle is None else (VERSION if cleanup_budget is not None and cleanup_budget.value['picoAudioCleanupProfileVersion']==3 else 3)
         self.observation_bundle=self._observation_bundle=observation_bundle
         self.bundle_declaration=self._bundle_declaration=0 if observation_bundle is None else DECLARATION
         self.recipe,self.source,self.native,self.settings,self.pages=recipe,phase_source,native,settings,pages
@@ -84,6 +84,7 @@ class PicoAudioPCActor:
         self.raw_scope=dict(audioPCActorVersion=self.version,runId=recipe.run,binding=deepcopy(recipe.binding),
             fixtureUrl=recipe.source.fixture_url,actorCredentialSha256=hashlib.sha256(phase_source.client.token.encode()).hexdigest(),hostProcessIdentity=self.host)
         if observation_bundle is not None:self.raw_scope['audioObservationBundleVersion']=1
+        if self.version==4:self.raw_scope['audioPreviewSourceBatchVersion']=2
         self.raw_scope_sha=json_digest(self.raw_scope);self.raws=None;self.raw_getters={}
         self.disk=self.pin=self.state=None;self.frames=[];self.frames_sha=json_digest([])
         from adapters.pico4.audio_raw_archive import AudioRawArchive,AudioRawSourceLock
@@ -97,9 +98,10 @@ class PicoAudioPCActor:
             peerSessionOriginal=deepcopy(self.session_original),producerSha256=self.producer_sha,peerBaseline=deepcopy(self.pc_baseline),
             actorCredentialSha256=hashlib.sha256(phase_source.client.token.encode()).hexdigest())
         if observation_bundle is not None:self.scope['audioObservationBundleVersion']=1
+        if self.version==4:self.scope['audioPreviewSourceBatchVersion']=2
         self.scope_sha=json_digest(self.scope)
         self.history=ChatSourceChunks(self.store,self.scope);self.frames=[];self.frames_sha=json_digest([])
-        self.disk=self.pin=None;self.jobs={};self.executor=None;self.state=None;self.raw_hooks={};self.completion_failure=None
+        self.disk=self.pin=None;self.jobs={};self.executor=None;self.state=None;self.raw_hooks={};self.completion_failure=None;self.source_batch_failure=None
         with self.held():
             need(all(path==self.lock.path or path.name.startswith('audio-recipe-pc-raw.json') or path.name=='audio-recipe-pc-raw.lock' for path in recipe.store.path.parent.glob('audio-recipe-pc-*')))
             self.header.write(deepcopy(self.scope),None);self.header_ref=original(self.header)
@@ -229,6 +231,14 @@ class PicoAudioPCActor:
                 from adapters.native_feature_observation import decode
                 need(json_digest(decode(raw))==json_digest(result.pop(key)))
                 result[key+'Raw']=deepcopy(reference)
+        if 'packets' in result:
+            refs=[row['rawReference'] for row in result.get('raws',[]) if row['label']=='pc-reply'];need(len(refs)==1)
+            reference=refs[0];raw=self.raws.literal(reference)
+            from adapters.native_feature_observation import decode
+            batch=decode(raw.decode('utf-8'))
+            from adapters.pico4.audio_pc_batch import packets as original_packets
+            need(json_digest({row['captureId']:row for row in original_packets(batch)})==json_digest(result.pop('packets')))
+            result['packetsRaw']=deepcopy(reference)
         if 'packet' in result:
             refs=[row['rawReference'] for row in result.get('raws',[]) if row['label']=='pc-reply'];need(refs)
             reference=refs[-1];raw=self.raws.literal(reference)
@@ -256,7 +266,7 @@ class PicoAudioPCActor:
         """Exact durable role authority, safe under the Primary source lock."""
         need(not self.raws.stopped)
         self.recipe.lock.assert_held()
-        need(type(self.version) is int and self.version==self._version==(2 if self.observation_bundle is None else VERSION))
+        need(type(self.version) is int and self.version==self._version==(2 if self.observation_bundle is None else (VERSION if self.cleanup_budget is not None and self.cleanup_budget.value['picoAudioCleanupProfileVersion']==3 else 3)))
         need(self.observation_bundle is self._observation_bundle
             and type(self.bundle_declaration) is int and self.bundle_declaration==self._bundle_declaration)
         if self.observation_bundle is not None:self.observation_bundle.guard()
@@ -330,10 +340,43 @@ class PicoAudioPCActor:
     def job(self,ticket):
         rows=[row for row in self.state['jobs'] if row['ticket']==ticket];need(len(rows)==1);return rows[0]
 
+    def packet_for(self,job):
+        frame=self.frames[job['last']]
+        if frame['kind']=='pc-source-batch':return frame['packets'][job['ticket']]
+        return frame['packet']
+
+    def _sources(self,captures,*,states=('retired',)):
+        # Explicit cold3/Bundle only. Failure cannot fall back or replay input.
+        need(self.observation_bundle is not None and self.cleanup_budget is not None
+            and self.cleanup_budget.value['picoAudioCleanupProfileVersion']==3
+            and type(states) is tuple and states in (('retired',),('completed','retired'))
+            and (states!=('retired',) or all(self.job(ticket)['retired'] is True for ticket in captures)))
+        need(self.source_batch_failure is None)
+        try:
+            self._begin('pc-source-batch',None)
+            batch=self.peer(self._pc_reply).sources(captures);packets={}
+            for ticket,packet in zip(captures,batch['packets']):
+                job=self.job(ticket);previous=job['provider'] if job['last'] is None else self.packet_for(job)
+                source_accept(previous,packet)
+                need(packet['source'] is not None and packet['source']['state'] in states
+                    and packet['source']['armRequestId']==job['request'] and packet['source']['seconds']==job['seconds'])
+                packets[ticket]=packet
+            index=self._append(dict(kind='pc-source-batch',packets=deepcopy(packets),
+                raws=deepcopy(self.state['pending']['raws']),hostMonotonic=self.monotonic()))
+            value=deepcopy(self.state)
+            for row in value['jobs']:
+                if row['ticket'] in packets:row['last']=index
+            value['pending']=None;self._save(value);self.bound();return packets
+
+        except BaseException as error:
+            if self.source_batch_failure is None:self.source_batch_failure=(error,error.__traceback__)
+            self.raws.stopped=True
+            raise
+
     def _source(self,ticket):
         self._begin('pc-source',ticket)
         packet=self.peer(self._pc_reply).source(ticket);job=self.job(ticket)
-        previous=job['provider'] if job['last'] is None else self.frames[job['last']]['packet']
+        previous=job['provider'] if job['last'] is None else self.packet_for(job)
         source_accept(previous,packet)
         need(packet['instance']==job['provider']['instance'] and packet['provider']==job['provider']['provider'])
         if packet['source'] is not None:need(packet['source']['armRequestId']==job['request'] and packet['source']['seconds']==job['seconds'])
@@ -349,11 +392,17 @@ class PicoAudioPCActor:
         if self.observation_bundle is not None:
             need(all(type(future) is Future for _,future in prior))
             prior=sorted(prior,key=lambda item:item[1].done())
+        batched=self.observation_bundle is not None and self.cleanup_budget is not None and self.cleanup_budget.value['picoAudioCleanupProfileVersion']==3
         for other,future in prior:
             if other!=ticket:
-                self.wait_saved(other)
+                # A completed Future only selects the original bulk query.
+                # Unfinished work still uses the original bounded wait/source.
+                if not batched or not future.done():self.wait_saved(other)
                 try:future.result(timeout=15)
                 except Exception:pass # Only the actual source below can resolve effects.
+        captures=tuple(other for other,_future in prior if other!=ticket)
+        if batched and captures:
+            with self.held():self._sources(captures,states=('completed','retired'))
         with self.held():
             self.bound();need(self.state['pending'] is None)
             existing=[row for row in self.state['jobs'] if row['ticket']==ticket]
@@ -508,7 +557,7 @@ class PicoAudioPCActor:
             return deepcopy(packet)
 
     def _finish_retirement(self,ticket,packet):
-        job=self.job(ticket);previous=job['provider'] if job['last'] is None else self.frames[job['last']]['packet']
+        job=self.job(ticket);previous=job['provider'] if job['last'] is None else self.packet_for(job)
         source_accept(previous,packet)
         need(packet['source'] is not None and packet['source']['state']=='retired'
             and packet['source']['armRequestId']==job['request'] and packet['source']['exit'] is not None)
@@ -536,7 +585,7 @@ class PicoAudioPCActor:
             except Exception:pass # Completed original source + files, never the reply, qualify the effect.
             with self.held():
                 self._begin('pc-retire',ticket);peer=self.peer(self._pc_reply);packet,raw=peer.original(self.recipe.run,ticket)
-                source=self.frames[self.job(ticket)['last']]['packet']['source']
+                source=self.packet_for(self.job(ticket))['source']
                 need(raw is not None and packet['original']==source['original'])
                 self._append(dict(kind='pc-file-original',packet=deepcopy(packet),file=deepcopy(peer.last_file),metadata=deepcopy(peer.last_metadata),
                     raws=deepcopy(self.state['pending']['raws']),hostMonotonic=self.monotonic()))
@@ -551,18 +600,22 @@ class PicoAudioPCActor:
         work_inclusive=False
         if self.cleanup_budget is not None:
             self.cleanup_budget.guard()
-            work_inclusive=self.cleanup_budget.value['picoAudioCleanupProfileVersion']==2
-        # Explicit cold Profile2 only. Native timers, hard500ms gaps, actual
+            work_inclusive=self.cleanup_budget.value['picoAudioCleanupProfileVersion'] in (2,3)
+        # Explicit cold Profile2/3 only. Native timers, hard500ms gaps, actual
         # independent clocks, minimum3s and original41 attempts are unchanged.
         period=.45 if work_inclusive else .25
         from adapters.pico4.audio_settings_source import CLOCKS
         for attempt in range(41):
             poll_started=self.monotonic() if work_inclusive else None
             frame=self.observe();packets={}
-            for ticket in tuple(row['ticket'] for row in self.state['jobs']):
-                with self.held():
-                    packet=self._source(ticket);need(packet['source'] is not None and packet['source']['state']=='retired')
-                    packets[ticket]=packet
+            captures=tuple(row['ticket'] for row in self.state['jobs'])
+            if self.observation_bundle is not None and self.cleanup_budget is not None and self.cleanup_budget.value['picoAudioCleanupProfileVersion']==3:
+                with self.held():packets=self._sources(captures)
+            else:
+                for ticket in captures:
+                    with self.held():
+                        packet=self._source(ticket);need(packet['source'] is not None and packet['source']['state']=='retired')
+                        packets[ticket]=packet
             with self.held():
                 self.bound();need(not frame['actual']['recording'] and not frame['actual']['preview'] and not frame['actual']['open'])
                 baseline=next(row for row in self.frames if row['kind']=='observation')

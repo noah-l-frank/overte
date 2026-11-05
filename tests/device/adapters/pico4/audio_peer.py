@@ -21,7 +21,7 @@ from voice_peer.fixture import CLI
 
 
 def invoke(root,action,*,_literal=None,**fields):
-    need(action in ('status','domain-check','position','receive-preview','receive-preview-owned','preview-source','preview-source-retire','preview-files','preview-release'))
+    need(action in ('status','domain-check','position','receive-preview','receive-preview-owned','preview-source','preview-source-retire','preview-source-batch','preview-files','preview-release'))
     command=[sys.executable,str(CLI),'--state-dir',str(root),action]
     for key,value in fields.items():command.extend(['--'+key.replace('_','-'),str(value)])
     token=None if _literal is None else _literal.before(action,fields)
@@ -78,7 +78,7 @@ class PicoAudioPeer:
 
     def request(self,action,**fields):
         need(self.reply_observer is self._reply_observer)
-        if action in ('preview-files','preview-release','preview-source','preview-source-retire'):fields['request_id']=uuid.uuid4().hex
+        if action in ('preview-files','preview-release','preview-source','preview-source-retire','preview-source-batch'):fields['request_id']=uuid.uuid4().hex
         need(self.literal is self._literal)
         self.session()
         if self.literal is None:value=self.call(self.root,action,**fields)
@@ -157,6 +157,27 @@ class PicoAudioPeer:
         validate(value,ticket,value['requestId'],self.epoch_ms());verify_kernel(value)
         validate(value,ticket,value['requestId'],self.epoch_ms());need(0<=time.monotonic()-started<=1.5)
         return value
+
+    def sources(self,captures):
+        from adapters.pico4.audio_pc_source import validate,verify_kernel
+        need(type(captures) is tuple and 1<=len(captures)<=9 and len(set(captures))==len(captures))
+        for ticket in captures:identifier(ticket)
+        started=time.monotonic()
+        batch=self.request('preview-source-batch',capture_ids=','.join(captures))
+        from adapters.pico4.audio_pc_batch import packets as original_packets
+        need(type(batch.get('audioPreviewSourceBatchVersion')) is int and batch['audioPreviewSourceBatchVersion']==2)
+        values=original_packets(batch);need(len(values)==len(captures))
+        seen=set();previous=None
+        for ticket,packet in zip(captures,values):
+            validate(packet,ticket,packet['requestId'],self.epoch_ms());verify_kernel(packet)
+            validate(packet,ticket,packet['requestId'],self.epoch_ms())
+            need(packet['requestId'] not in seen);seen.add(packet['requestId'])
+            if previous is not None:
+                need(all(packet[key]==previous[key] for key in ('producerSha256','instance','provider','clientProcess'))
+                    and packet['sequence']>previous['sequence'])
+            previous=packet
+        need(0<=time.monotonic()-started<=1.5)
+        return dict(audioPreviewSourceBatchVersion=2,requestId=batch['requestId'],packets=values)
 
     def receive_owned(self,run,ticket,seconds,request):
         status=self.status();need(status['client'].get('muted') is True)

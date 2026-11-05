@@ -33,10 +33,12 @@ def profile(value):
     version=value.get('picoAudioCleanupProfileVersion') if type(value) is dict else None
     exact(value,{'picoAudioCleanupProfileVersion','runId','binding',
                  'hostProcessIdentity','startedMonotonic','deadlineMonotonic'}
-                 |({'quietPollingProfile'} if version==2 else set()))
-    need(type(version) is int and version in (VERSION,2))
-    if version==2:need(type(value['quietPollingProfile']) is str
+                 |({'quietPollingProfile'} if version in (2,3) else set())
+                 |({'cleanupWorkspacePolicy'} if version==3 else set()))
+    need(type(version) is int and version in (VERSION,2,3))
+    if version in (2,3):need(type(value['quietPollingProfile']) is str
         and value['quietPollingProfile']=='work-inclusive-450ms')
+    if version==3:need(value['cleanupWorkspacePolicy']=='book-before-cleanup-constructor' and type(value['cleanupWorkspacePolicy']) is str)
     identifier(value['runId']);context(value['binding'])
     need(type(value['hostProcessIdentity']) is str and value['hostProcessIdentity']==host_identity()
          and number(value['startedMonotonic'],0,1e15)
@@ -62,7 +64,8 @@ class AudioCleanupBudget1:
         self.factory_failure=None
         self._original_lock=source_lock;self._original_raw=raw
         self._original_sha=self.sha
-        self.prospective=PROSPECTIVE_BYTES
+        self.workspace=self._workspace=(value['picoAudioCleanupProfileVersion']!=3,None)
+        self.prospective=PROSPECTIVE_BYTES if self.workspace[0] else 0
         self.fixed=3*PROFILE_LIMIT+3*FENCE_LIMIT+PROCESS_OWNER_BYTES
         self.last_inventory=None
         self.row_slots=0;self.decode_hold=0
@@ -90,7 +93,10 @@ class AudioCleanupBudget1:
              and type(self.raw) is bytes and self.raw is self._original_raw
              and self.sha==self._original_sha==hashlib.sha256(self.raw).hexdigest()
              and profile(self.value)==self.raw and self.fixed==3*PROFILE_LIMIT+3*FENCE_LIMIT+PROCESS_OWNER_BYTES
-             and self.prospective==PROSPECTIVE_BYTES
+             and type(self.workspace) is tuple and self.workspace is self._workspace and len(self.workspace)==2
+             and type(self.workspace[0]) is bool
+             and (self.value['picoAudioCleanupProfileVersion']==3 or self.workspace==(True,None))
+             and type(self.prospective) is int and self.prospective==(PROSPECTIVE_BYTES if self.workspace[0] else 0)
              and type(self.process_hold) is int and self.process_hold==self._original_process_hold
              and 0<=self.process_hold<=8*PROCESS_CAPTURE_BYTES and self.process_hold%PROCESS_CAPTURE_BYTES==0
              and self.new_samplers is self._original_new_samplers
@@ -123,6 +129,36 @@ class AudioCleanupBudget1:
              and ((not self.old_frozen and self.freeze_receipt is None)
                   or self.old_frozen and type(self.freeze_receipt) is bytes
                   and len(self.freeze_receipt)<=FENCE_LIMIT))
+
+    def require_cleanup_workspace(self):
+        self.guard();need(not self.failed and self.workspace[0] and self.prospective==PROSPECTIVE_BYTES)
+        if self.value['picoAudioCleanupProfileVersion']==3:
+            need(self.actor is not None and self.actor.raws.literal(self.workspace[1]) is None)
+
+    def begin_cleanup(self):
+        """Profile3 books the FULL serial cleanup workspace before any ctor IO."""
+        self.guard();need(not self.failed and self.actor is not None)
+        if self.workspace[0]:return
+        need(self.value['picoAudioCleanupProfileVersion']==3 and self.recipe.state['cursor']==14
+            and self.recipe.state['pending'] is None and self.actor.state['pending'] is None
+            and self.process_source is self.sampler is self.common_owner is None
+            and self.new_samplers==() and self.row_slots==self.decode_hold==0)
+        try:
+            with self.actor.raws.lock.held():
+                # Existing bank enforces FULL old Root/current/pending and the
+                # complete new cleanup domain before even a marker is written.
+                token=self.actor.raws.reserve('audio-cleanup-workspace',dict(profileSha256=self.sha),1,
+                    side_bytes=PROSPECTIVE_BYTES)
+                reference=self.actor.raws.retain(token,None)
+                # No constructor, SDK, callback or other thread can intervene
+                # under this same bank lock. No actual workspace has been used.
+                self.prospective=PROSPECTIVE_BYTES
+                self.workspace=self._workspace=(True,reference)
+                self.guard()
+        except BaseException as error:
+            self.failed=True
+            if self.factory_failure is None:self.factory_failure=(error,error.__traceback__)
+            raise
 
     def require_old_acquisition(self,actor):
         # Run before old observation CAS, SDK dispatch, or a PC operation.

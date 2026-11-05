@@ -94,7 +94,7 @@ class AudioPCActorOriginals:
         self.path=Path(path);self.directory=OriginalDescriptor(self.path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         self.root=ClosedOriginalFile(self.path,0o600,lambda:require_directory(self.directory,self.path.parent))
         raw,stamp=self.root.read();self.disk=json.loads(raw);need(canonical(self.disk)+b'\n'==raw)
-        self.version=self.disk['audioPCActorVersion'];need(type(self.version) is int and self.version in (1,2,3))
+        self.version=self.disk['audioPCActorVersion'];need(type(self.version) is int and self.version in (1,2,3,4))
         self.history=ChatSourceChunks(PrivateFeatureState(self.path),self.disk['scope']);self.frames=self.history.load(self.disk['chunks'])
         self.state=unpack(self.disk['payload'])[0];self.raws=None
         if self.version>=2:self.raws=AudioPCRawOriginals(self.path.with_name('audio-recipe-pc-raw.json'))
@@ -105,10 +105,16 @@ class AudioPCActorOriginals:
         if self.version>=2:
             if 'observationBundleRaw' in frame:
                 from feature_journeys.contract import json_document
-                need(self.version==3 and type(self.disk['scope'].get('audioObservationBundleVersion')) is int
+                need(self.version in (3,4) and type(self.disk['scope'].get('audioObservationBundleVersion')) is int
                     and self.disk['scope']['audioObservationBundleVersion']==1)
                 frame['bundle']=json_document(self.raws.literal(frame.pop('observationBundleRaw')))
                 for name in ('native','settings','pages'):frame[name]=decode(frame['bundle'][name+'Raw'])
+            if 'packetsRaw' in frame:
+                need(self.version==4 and type(self.disk['scope'].get('audioPreviewSourceBatchVersion')) is int
+                    and self.disk['scope']['audioPreviewSourceBatchVersion']==2)
+                raw=self.raws.literal(frame.pop('packetsRaw'));batch=decode(raw.decode('utf-8') if type(raw) is bytes else raw)
+                from adapters.pico4.audio_pc_batch import packets as original_packets
+                frame['packets']={row['captureId']:row for row in original_packets(batch)}
             for name in ('native','settings','pages','packet'):
                 key=name+'Raw'
                 if key in frame:

@@ -43,7 +43,7 @@ class PicoAudioCleanupOwner1:
         need(type(coordinator) is PicoAudioPCStartCoordinator and type(budget) is AudioCleanupBudget1
              and coordinator.actor is budget.actor and coordinator.recipe is budget.recipe
              and phase_source is coordinator.recipe.source and callable(monotonic))
-        budget.guard();need(not budget.failed and getattr(budget,'cleanup_owner',None) is None)
+        budget.require_cleanup_workspace();need(not budget.failed and getattr(budget,'cleanup_owner',None) is None)
         budget.cleanup_owner=self
         self.failed=False;self.failure=None;self.io=self.physical=None
         try:

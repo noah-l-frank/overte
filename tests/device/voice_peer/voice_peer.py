@@ -84,6 +84,9 @@ def parser() -> argparse.ArgumentParser:
         query = commands.add_parser(name)
         query.add_argument("--capture-id", required=True)
         query.add_argument("--request-id", required=True)
+    batch=commands.add_parser('preview-source-batch',help='read up to nine original recorder sources without changing a capture')
+    batch.add_argument('--capture-ids',required=True)
+    batch.add_argument('--request-id',required=True)
     position = commands.add_parser("position", help="place the muted PC avatar at the device's test location")
     for axis in ("x", "y", "z"):
         position.add_argument("--" + axis, type=float, required=True)
@@ -177,7 +180,7 @@ def main() -> int:
             result = analyze(args.wav, args.challenge, args.expect)
         else:
             request = {"action": args.action}
-            for field in ("challenge", "seconds", "expect", "capture_id", "request_id", "source_request_id"):
+            for field in ("challenge", "seconds", "expect", "capture_id", "request_id", "source_request_id", "capture_ids"):
                 if hasattr(args, field):
                     request[field] = getattr(args, field)
             if args.action == "domain-check":

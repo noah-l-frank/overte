@@ -303,3 +303,45 @@ The finite source/file tests and one full normal flow are separate suite groups.
 They do not advertise a complete Audio feature. Public catalog routing, the
 combined original G0/G1 cleanup window, independent authenticated Actor process
 and full device qualification remain open.
+
+
+### Cold Profile3 original PC source groups
+
+Only the explicitly selected cleanup Profile3 with the original bundle uses
+Actor4. Default unbundled Actor2 and bundled Actor3 remain unchanged. A new
+read-only `preview-source-batch` transport carries at most nine original source
+queries; every query still uses the original provider, kernel process/route
+checks, fresh nonce and advancing sequence. Unfinished captures keep their
+original bounded completion wait. Completed sources are freshly queried together
+before the next arm and all retired sources are freshly queried per quiet poll.
+One carrier and Actor journal transaction replace repeated full journal work.
+No Future or acknowledged command is effect authority. A missing original
+source preserves the first error/traceback, fences further acquisition and
+prevents a new capture. No fallback or input replay exists.
+
+Carrier2 serializes six common authority fields once only after all measured
+originals return and their exact equality is checked. Each capture retains its
+own request, sequence, clocks and source. The Host and passive Actor4 reader
+reconstruct the original full source packets from the retained wire. The
+actual nine-source CLI fixture used 3,144 bytes versus 11,226 expanded bytes;
+this saves actual stored bytes, without changing the 1 MiB receive declaration,
+16 MiB/512 aggregate, Native/Host declarations or original clocks.
+
+Cleanup Profile3 books the complete 655,360-byte serial cleanup workspace in
+the same original bank after the fourteen normal actions, before constructing
+cleanup IO or owners. Early constructors refuse. Profiles1/2 keep their full
+original reservation from birth. The workspace marker remains an original raw
+receipt and is re-read at cleanup constructor entry.
+
+The Common source wrapper includes real provider/kernel/file and authenticated
+loopback CLI tests, plus cold workspace guards. Native, OS and media primitives
+remain declared models. A prototype complete normal14 Common flow reached the
+actual Stop/Launch boundary. Its next Native proof read refused the original
+aggregate: 13,080,471 current + 3,489,130 raw + 262,144 receive + 196,608 reserve
+= 17,028,353 bytes, above 16 MiB. Direct new-process proof decode custody is
+outside the existing old-sampler seal and remains held. No declaration, retained
+original or limit was discarded. Full same-Journey cleanup, public routing,
+independent Actor process, Native/global retirement, acoustics and devices
+remain unqualified; source-complete stays 3/14. These prototypes are attributed
+to their Actor3 private source epochs; the versioned Actor4 port requires its
+own repository checks and does not inherit a full-flow qualification.

@@ -23,7 +23,7 @@ class PicoAudioCleanupIO1:
     def __init__(self,adapter,target,budget,*,monotonic=time.monotonic,sleep=time.sleep):
         need(type(budget) is AudioCleanupBudget1 and budget.actor is not None
              and callable(monotonic) and callable(sleep))
-        budget.guard();need(not budget.failed and getattr(budget,'restart_io',None) is None)
+        budget.require_cleanup_workspace();need(not budget.failed and getattr(budget,'restart_io',None) is None)
         self.budget=budget;budget.restart_io=self
         self.adapter,self.target,self.monotonic,self.sleep=adapter,target,monotonic,sleep
         self.transport=None;self.pending=None;self.failed=False;self.acquired=[];self.references=[]

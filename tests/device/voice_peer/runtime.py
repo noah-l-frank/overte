@@ -357,6 +357,26 @@ class Peer:
 
     def run(self, request: dict) -> dict:
         action = request.get("action")
+        if action=='preview-source-batch':
+            # One read-only transport call; every capture still runs the exact
+            # original provider/worker/route query with its own fresh nonce.
+            if set(request)!={'action','capture_ids','request_id'}:raise ValueError('Closed PC source batch required')
+            text=request['capture_ids'];nonce=request['request_id']
+            if type(text) is not str or len(text)>296 or type(nonce) is not str or re.fullmatch('[0-9a-f]{32}',nonce) is None:
+                raise ValueError('Original PC source batch identity is unavailable')
+            captures=text.split(',')
+            if not 1<=len(captures)<=9 or len(set(captures))!=len(captures) or any(re.fullmatch('[0-9a-f]{32}',item) is None for item in captures):
+                raise ValueError('Original PC source batch captures are unavailable')
+            began=time.monotonic();sources=self.preview_sources();packets=[]
+            for capture in captures:
+                packets.append(sources.query(capture,secrets.token_hex(16),used=capture in self.preview_used))
+            if not 0<=time.monotonic()-began<=1.5:raise InfrastructureError('Original PC source batch expired')
+            common=('audioPreviewSourceVersion','producerSha256','instance','provider','clientProcess','physicalAudioHardwareTested')
+            authority={key:packets[0][key] for key in common}
+            if any(any(packet[key]!=authority[key] for key in common) for packet in packets):
+                raise InfrastructureError('Original PC source batch authority changed')
+            rows=[{key:value for key,value in packet.items() if key not in common} for packet in packets]
+            return dict(audioPreviewSourceBatchVersion=2,requestId=nonce,authority=authority,packets=rows)
         if action in ('preview-source','preview-source-retire'):
             if set(request)!={'action','capture_id','request_id'}:raise ValueError('Closed PC preview source query required')
             if any(type(request[key]) is not str or re.fullmatch('[0-9a-f]{32}',request[key]) is None for key in ('capture_id','request_id')):
