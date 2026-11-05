@@ -89,6 +89,11 @@ class Boundary(PreviewBoundary):
             self.sequence+=1
     def scroll(self,*args,**options):super().scroll(*args,**options);self.sequence+=1
     def started(self):return self.record_starts.get(self.cycle,self.epoch())
+    def publish(self,*args,**kwargs):
+        super().publish(*args,**kwargs)
+        # This source model's events occur at publication, including after
+        # later Common observations have advanced beyond the capture start.
+        self.events[-1]['publishedEpochMs']=max(self.events[-1]['publishedEpochMs'],self.epoch())
     def evidence_send(self,command):
         super().evidence_send(command)
         if self.preview_value and 'capturedEpochMs' in self.preview_value:

@@ -38,6 +38,12 @@ class AudioCaptureOwnerTests(unittest.TestCase):
         ticket=uuid.uuid4().hex;self.journal.activate(self.parent.run,ticket,verb,{} if inputs is None else inputs);return ticket
     def start(self):self.owner.prepare();return self.owner.start()
     def cancel(self):self.activate('record-cancel');return self.owner.cancel()
+    def test_delayed_cancel_uses_current_original_publication_epoch(self):
+        self.start();self.native.sleep(.75);fence=self.native.epoch()
+        result=self.cancel()
+        self.assertEqual('cancelled',result['state']['phase'])
+        self.assertGreaterEqual(self.native.events[-1]['publishedEpochMs'],fence)
+        self.assertEqual(2,self.native.actions.count('audio.record'))
     def test_normal_cancel_and_original_pcm_are_retained_with_original_start_ticket(self):
         self.assertEqual('capturing',self.start()['phase']);actual=self.cancel();self.assertEqual('cancelled',actual['state']['phase'])
         actual=self.owner.retain_originals();self.assertEqual('retained',actual['phase']);self.assertEqual(self.start_ticket,actual['sourceTicket'])

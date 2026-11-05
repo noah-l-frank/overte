@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -50,6 +51,42 @@ class AudioBundleAcquisitionTests(unittest.TestCase):
         with patch.object(base,'PicoAudioPCActor',side_effect=selected_actor):self.fixture.setUp()
         self.actor=self.fixture.actor;self.fixture.owner.prepare()
         self.before_commands=len(self.model.commands);self.before_reads=self.model.reads
+
+    def rename_during_scan(self,temporary,destination):
+        original=os.scandir;root=self.actor.store.path.parent
+        class Scan:
+            def __init__(self,path):self.owner=original(path)
+            def __enter__(self):self.owner.__enter__();return self
+            def __exit__(self,*args):return self.owner.__exit__(*args)
+            def __iter__(self):
+                for entry in self.owner:
+                    if Path(entry.path)==temporary:os.replace(temporary,destination)
+                    yield entry
+        return patch.object(os,'scandir',side_effect=lambda path:Scan(path) if Path(path)==root else original(path))
+
+    def test_atomic_writer_rename_preserves_actual_retained_file_charge(self):
+        root=self.actor.store.path.parent;destination=root/'retained-bill-counter.json';temporary=root/'feature-input.owned-bill-counter'
+        destination.write_bytes(b'owned original');before=self.actor.raw_bill();temporary.write_bytes(b'owned original')
+        with self.rename_during_scan(temporary,destination):actual=self.actor.raw_bill()
+        self.assertEqual(before,actual);self.assertFalse(temporary.exists())
+        self.assertEqual(b'owned original',destination.read_bytes())
+
+    def test_disappearing_regular_file_still_refuses_actual_bill(self):
+        root=self.actor.store.path.parent;destination=root/'retained-bill-counter.json';temporary=root/'ordinary-bill-counter.json'
+        destination.write_bytes(b'owned original');temporary.write_bytes(b'owned original')
+        with self.rename_during_scan(temporary,destination),self.assertRaises(FileNotFoundError):self.actor.raw_bill()
+
+    def test_temporary_prefix_directory_contents_remain_charged(self):
+        before=self.actor.raw_bill();directory=self.actor.store.path.parent/'feature-input.owned-directory'
+        directory.mkdir();(directory/'retained.bin').write_bytes(b'owned original')
+        actual=self.actor.raw_bill()
+        self.assertEqual(before['storedBytes']+len(b'owned original'),actual['storedBytes'])
+        self.assertEqual(before['decodedBytes']+len(b'owned original'),actual['decodedBytes'])
+
+    def test_temporary_prefix_symlink_still_refuses(self):
+        root=self.actor.store.path.parent;destination=root/'retained-bill-counter.json';destination.write_bytes(b'owned original')
+        (root/'feature-input.owned-link').symlink_to(destination.name)
+        with self.assertRaises(NativeUIError):self.actor.raw_bill()
 
     def test_selected_actor_uses_one_original_bundle_and_passive_reader_reconstructs_sources(self):
         before=self.actor.raws.state['reads'];frame=self.actor.observe()

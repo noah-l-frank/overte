@@ -172,12 +172,15 @@ class PicoAudioPCActor:
             with os.scandir(directory) as entries:
                 for entry in entries:
                     path=Path(entry.path)
+                    # Owned atomic writers can rename these already-excluded
+                    # temporaries after enumeration, before the stat below.
                     if path==peer_root:continue
+                    if entry.name.startswith('feature-input.') and entry.is_file(follow_symlinks=False):continue
                     info=entry.stat(follow_symlinks=False);need(not stat.S_ISLNK(info.st_mode))
                     if stat.S_ISDIR(info.st_mode):stack.append(path)
                     else:
                         need(stat.S_ISREG(info.st_mode))
-                        if not entry.name.startswith(('audio-recipe-pc-raw.json','feature-input.')):paths[path]=info.st_size
+                        if not entry.name.startswith('audio-recipe-pc-raw.json'):paths[path]=info.st_size
         # Live temporary PCM/WAV is already guaranteed by the issued receive
         # reservation; all actually retained PC originals are fresh-stat charged.
         with os.scandir(peer_root) as entries:
