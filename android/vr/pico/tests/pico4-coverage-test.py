@@ -12,7 +12,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 443
+EXPECTED_CATALOG_CASES = 445
 
 
 def catalog_entries() -> list[str]:
@@ -33,6 +33,17 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_audio_common_wrappers_keep_finite_sources_separate_from_one_full_flow(self):
+        expected={
+            'test_audio_common_sources.py':('self_tests.test_pico_audio_common_primary.PrimaryTests','self_tests.test_pico_audio_common_files.FileTests','self_tests.test_pico_audio_common_flow.FlowTests'),
+            'test_audio_common_fourteen.py':('self_tests.test_pico_audio_common_fourteen.CommonFourteenTests.test_actual_fourteen_common_phases_original_wavs_and_later_actor',),
+        }
+        for leaf,names in expected.items():
+            tree=ast.parse((TEST_DIR/'device'/leaf).read_text())
+            actual=ast.literal_eval(next(n.value for n in tree.body if isinstance(n,ast.Assign)
+                and any(isinstance(t,ast.Name) and t.id=='CASE_NAMES' for t in n.targets)))
+            self.assertEqual(names,actual)
+
     def test_current_ime_source_wrapper_is_six_source_plus_five_probe_contracts(self):
         root=TEST_DIR.parents[3]
         wrapper=ast.parse((TEST_DIR/'device/test_world_current_ime_source.py').read_text())

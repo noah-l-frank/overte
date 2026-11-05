@@ -430,6 +430,8 @@ TESTS = (
     test('audio-pc-start', "interaction", PYTHON, "device/test_audio_pc_start.py"),
     test('audio-pc-start-fences', "interaction", PYTHON, "device/test_audio_pc_start_fences.py"),
     test('audio-pc-start-quiet', "interaction", PYTHON, "device/test_audio_pc_start_quiet.py"),
+    test("audio-common-sources", "audio", PYTHON, "device/test_audio_common_sources.py"),
+    test("audio-common-fourteen", "audio", PYTHON, "device/test_audio_common_fourteen.py"),
     test('create-operation-host', "interaction", PYTHON, "device/test_create_operation_host.py"),
     test("create-operation-owner", "interaction", PYTHON, "device/test_create_operation_owner.py"),
     test("create-operation-cli", "interaction", PYTHON, "device/test_create_operation_cli.py"),

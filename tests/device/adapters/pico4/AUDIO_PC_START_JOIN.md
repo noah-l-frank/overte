@@ -279,3 +279,27 @@ compiled and exercised with an exact-class Linux carrier/path shim in five
 owned processes, including actual kernel EINTR refusals. Qt/Pico compilation,
 target kernel support, full Common composition and acoustic/device evidence
 remain unverified. No complete Audio capability is advertised.
+
+
+## Original Common observations and exported evidence
+
+The internal Common flow composes the existing fourteen normal actions with a
+separately acquired primary bundle, later independent Actor publications, and
+original Native/PC WAV artifacts. The modeled journal transport uses separate primary/Actor credentials;
+the primary Native nonce differs from the later Actor nonce. Source wires enter the
+existing Audio raw bank before parsing. The full normal host test consumes all
+fourteen scenario actions and fifteen Common phases, including delayed callback
+retirement during Close. Native, media and OS seams remain declared models.
+
+OriginalAudioFiles reuses the platform-neutral file implementation from frozen
+Phone commit 5e8ff8aa19571f5718b982dc47a165b8f22e0dc0, with the full eight-field
+writer signature added in format 2. Pico file reads retain the existing paired
+original-descriptor checks. Retirement archives the exact verified WAV chunks
+in the same original raw bank before deleting the named export. Repeated
+retirement checks original archive bytes and current absence; a foreign inode,
+recreated name or capacity refusal cannot become successful cleanup.
+
+The finite source/file tests and one full normal flow are separate suite groups.
+They do not advertise a complete Audio feature. Public catalog routing, the
+combined original G0/G1 cleanup window, independent authenticated Actor process
+and full device qualification remain open.
