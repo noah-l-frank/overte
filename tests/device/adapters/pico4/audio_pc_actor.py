@@ -5,7 +5,7 @@ owner never invokes a normal Pico input or uses its Parent's observed facts.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor,Future,wait
 from contextlib import ExitStack
 from copy import deepcopy
 from pathlib import Path
@@ -99,7 +99,7 @@ class PicoAudioPCActor:
         if observation_bundle is not None:self.scope['audioObservationBundleVersion']=1
         self.scope_sha=json_digest(self.scope)
         self.history=ChatSourceChunks(self.store,self.scope);self.frames=[];self.frames_sha=json_digest([])
-        self.disk=self.pin=None;self.jobs={};self.executor=None;self.state=None;self.raw_hooks={}
+        self.disk=self.pin=None;self.jobs={};self.executor=None;self.state=None;self.raw_hooks={};self.completion_failure=None
         with self.held():
             need(all(path==self.lock.path or path.name.startswith('audio-recipe-pc-raw.json') or path.name=='audio-recipe-pc-raw.lock' for path in recipe.store.path.parent.glob('audio-recipe-pc-*')))
             self.header.write(deepcopy(self.scope),None);self.header_ref=original(self.header)
@@ -341,10 +341,15 @@ class PicoAudioPCActor:
         value=deepcopy(self.state);row=next(row for row in value['jobs'] if row['ticket']==ticket);row['last']=index
         value['pending']=None;self._save(value);self.bound();return packet
 
-    def arm(self,ticket,seconds):
+    def arm(self,ticket,seconds,*,wait_ready=True):
+        need(type(wait_ready) is bool and (wait_ready or self.observation_bundle is not None))
         self.unlocked()
         # Serialize prior complete operations without holding either source lock.
-        for other,future in tuple(self.jobs.items()):
+        prior=tuple(self.jobs.items())
+        if self.observation_bundle is not None:
+            need(all(type(future) is Future for _,future in prior))
+            prior=sorted(prior,key=lambda item:item[1].done())
+        for other,future in prior:
             if other!=ticket:
                 self.wait_saved(other)
                 try:future.result(timeout=15)
@@ -366,6 +371,9 @@ class PicoAudioPCActor:
             self.unlocked()
             if self.executor is None:self.executor=ThreadPoolExecutor(max_workers=1,thread_name_prefix='owned-pico-pc-preview')
             self.jobs[ticket]=self.executor.submit(self.peer().receive_owned,self.recipe.run,ticket,seconds,request)
+        # Post-action silence capture needs completed ORIGINAL bytes, never
+        # an armed token authorizing a later normal Pico Record input.
+        if not wait_ready:return None
         started=self.monotonic()
         for attempt in range(51):
             with self.held():
@@ -393,7 +401,34 @@ class PicoAudioPCActor:
         need(require_original(reference)==value and require_original(value['admission'])==admission and require_original(self.header_ref)==header)
         return packet
 
+    def _wait_saved_notification(self,ticket):
+        # A Future notification is only a reason to query the ORIGINAL source,
+        # never proof of capture, bytes, process exit or a successful response.
+        need(self.completion_failure is None and not self.raws.stopped)
+        try:
+            self.unlocked();need(ticket in self.jobs)
+            future=self.jobs[ticket];need(type(future) is Future)
+            started=self.monotonic()
+            for attempt in range(151):
+                need(self.jobs[ticket] is future)
+                if future.done():break
+                remaining=15-(self.monotonic()-started)
+                need(remaining>0 and attempt<150)
+                # No source lock, SDK call or history frame during this wait.
+                wait((future,),timeout=min(.1,remaining))
+                if not future.done():self.sleep(min(.1,remaining))
+            need(0<=self.monotonic()-started<15)
+            with self.held():
+                packet=self._source(ticket);source=packet['source']
+                need(source is not None and source['state']=='completed')
+                return packet
+        except BaseException as error:
+            if self.completion_failure is None:self.completion_failure=(error,error.__traceback__)
+            self.raws.stopped=True
+            raise
+
     def wait_saved(self,ticket):
+        if self.observation_bundle is not None:return self._wait_saved_notification(ticket)
         self.unlocked();started=self.monotonic()
         for attempt in range(151):
             with self.held():

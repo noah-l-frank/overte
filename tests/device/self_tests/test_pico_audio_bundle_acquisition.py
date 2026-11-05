@@ -4,6 +4,7 @@
 from copy import deepcopy
 import json
 import os
+import uuid
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -124,5 +125,80 @@ class AudioBundleAcquisitionTests(unittest.TestCase):
         self.assertEqual(self.before_commands,len(self.model.commands));self.assertEqual(self.before_reads,self.model.reads)
         self.assertIsNotNone(self.actor.state['pending'])
 
+
+    def test_real_worker_exit_is_followed_by_one_original_completed_source(self):
+        ticket = uuid.uuid4().hex
+        self.actor.arm(ticket, 3.25)
+        before = sum((row['kind'] == 'pc-source' for row in self.actor.frames))
+        result = self.actor.wait_saved(ticket)
+        self.assertEqual('completed', result['source']['state'])
+        self.assertTrue(self.actor.jobs[ticket].done())
+        self.assertEqual(before + 1, sum((row['kind'] == 'pc-source' for row in self.actor.frames)))
+        self.assertEqual(0, self.fixture.f.native.actions.count('audio.record'))
+
+    def test_lost_completed_receive_return_resolves_only_from_original_source(self):
+        self.fixture.pc.lose_reply_once = True
+        ticket = uuid.uuid4().hex
+        self.actor.arm(ticket, 3.25)
+        packet = self.actor.wait_saved(ticket)
+        self.assertEqual('completed', packet['source']['state'])
+        self.assertIsNotNone(self.actor.jobs[ticket].exception())
+        self.assertEqual(1, self.fixture.pc.lost_returns)
+
+    def test_ignored_receive_ack_does_not_become_completion_or_normal_record(self):
+        self.fixture.pc.ignore_receive = True
+        with self.assertRaises(NativeUIError):
+            self.actor.arm(uuid.uuid4().hex, 3.25)
+        self.assertEqual(0, self.fixture.f.native.actions.count('audio.record'))
+
+    def test_original_deadline_failure_is_sticky_before_another_source_query(self):
+        ticket = uuid.uuid4().hex
+        self.actor.arm(ticket, 3.25)
+        before = sum((row['kind'] == 'pc-source' for row in self.actor.frames))
+        advance = self.fixture.pc.advance
+        self.actor.sleep = lambda _seconds: advance(16)
+        with self.assertRaises(NativeUIError):
+            self.actor.wait_saved(ticket)
+        self.assertTrue(self.actor.raws.stopped)
+        first = self.actor.completion_failure
+        self.assertIsNotNone(first)
+        with self.assertRaises(NativeUIError):
+            self.actor.wait_saved(ticket)
+        self.assertIs(first, self.actor.completion_failure)
+        self.assertEqual(before, sum((row['kind'] == 'pc-source' for row in self.actor.frames)))
+
+    def test_post_action_capture_returns_no_record_readiness_authority(self):
+        ticket = uuid.uuid4().hex
+        self.assertIsNone(self.actor.arm(ticket, 3.25, wait_ready=False))
+        self.assertIsNone(self.actor.job(ticket)['ready'])
+        packet = self.actor.wait_saved(ticket)
+        self.assertEqual('completed', packet['source']['state'])
+        self.assertIsNone(self.actor.job(ticket)['ready'])
+        self.assertEqual(0, self.fixture.f.native.actions.count('audio.record'))
+
+    def test_completion_only_ignored_ack_still_cannot_become_original_capture(self):
+        self.fixture.pc.ignore_receive = True
+        ticket = uuid.uuid4().hex
+        self.assertIsNone(self.actor.arm(ticket, 3.25, wait_ready=False))
+        with self.assertRaises(NativeUIError):
+            self.actor.wait_saved(ticket)
+        self.assertIsNone(self.actor.job(ticket)['ready'])
+        self.assertTrue(self.actor.raws.stopped)
+        self.assertEqual(0, self.fixture.f.native.actions.count('audio.record'))
+
+    def test_unfinished_capture_settles_before_old_source_queries_under_actual_capacity(self):
+        first, second, third = (uuid.uuid4().hex for _ in range(3))
+        self.actor.arm(first, 3.25, wait_ready=False)
+        self.actor.wait_saved(first)
+        with (self.fixture.f.path / 'owned-overlap-capacity.bin').open('wb') as stream:
+            stream.truncate(4 * 1024 * 1024)
+        self.actor.arm(second, 3.25, wait_ready=False)
+        with patch.object(self.actor, '_source', wraps=self.actor._source) as source:
+            self.actor.arm(third, 3.25, wait_ready=False)
+            self.assertEqual(second, source.call_args_list[0].args[0])
+            self.assertEqual(first, source.call_args_list[1].args[0])
+        self.assertEqual('completed', self.actor.wait_saved(third)['source']['state'])
+        self.assertFalse(self.actor.raws.stopped)
+        self.assertTrue(all((future.done() for future in self.actor.jobs.values())))
 
 if __name__=='__main__':unittest.main()
