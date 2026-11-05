@@ -12,7 +12,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 442
+EXPECTED_CATALOG_CASES = 443
 
 
 def catalog_entries() -> list[str]:
@@ -33,6 +33,19 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_current_ime_source_wrapper_is_six_source_plus_five_probe_contracts(self):
+        root=TEST_DIR.parents[3]
+        wrapper=ast.parse((TEST_DIR/'device/test_world_current_ime_source.py').read_text())
+        names=ast.literal_eval(next(n.value for n in wrapper.body if isinstance(n,ast.Assign)
+            and any(isinstance(t,ast.Name) and t.id=='CASE_NAMES' for t in n.targets)))
+        source=ast.parse((root/'tests/device/self_tests/test_pico_world_current_ime_source.py').read_text())
+        expected={'self_tests.test_pico_world_current_ime_source.'+c.name+'.'+m.name
+            for c in source.body if isinstance(c,ast.ClassDef) for m in c.body
+            if isinstance(m,ast.FunctionDef) and m.name.startswith('test_')}
+        self.assertEqual(7,len(names));self.assertEqual(7,len(set(names)));self.assertEqual(expected,set(names))
+        self.assertEqual(6,sum('.SourceJoins.' in n for n in names))
+        self.assertEqual(1,sum('.ProbeContract.' in n for n in names))
+
     def test_world_host_dom_wrapper_is_exact_finite_partition(self):
         root=TEST_DIR.parents[3]
         wrapper=ast.parse((TEST_DIR/'device/test_world_host_dom.py').read_text())

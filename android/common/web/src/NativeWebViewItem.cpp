@@ -14,6 +14,7 @@
 #include "../../../../tests/device/native/PicoWorldWebText.h"
 #include "../../../../tests/device/native/PicoWorldCurrentDocumentBridge.h"
 #include "../../../../tests/device/native/PicoWorldCurrentInputBridge.h"
+#include "../../../../tests/device/native/PicoWorldCurrentImeBridge.h"
 #include "../../../../tests/device/native/PicoWorldCurrentConsumptionBridge.h"
 #include "../../../../tests/device/native/PicoWorldCurrentKeyboardBridge.h"
 #endif
@@ -118,6 +119,10 @@ void registerType() {
             return NativeWebViewItem::featurePicoWorldCurrentInput(command,std::move(anchor));
         }};
         QCoreApplication::instance()->setProperty(overte::e2e::picoCurrentInputProperty(),QVariant::fromValue(currentInput));
+        overte::e2e::PicoCurrentImeProvider currentIme{[](const QVariantMap& command,overte::e2e::PicoCurrentAnchor anchor) {
+            return NativeWebViewItem::featurePicoWorldCurrentIme(command,std::move(anchor));
+        }};
+        QCoreApplication::instance()->setProperty(overte::e2e::picoCurrentImeProperty(),QVariant::fromValue(currentIme));
         overte::e2e::PicoCurrentConsumptionProvider consumption{[](const QVariantMap& command,overte::e2e::PicoCurrentAnchor anchor) {
             return NativeWebViewItem::featurePicoWorldCurrentConsumption(command,std::move(anchor));
         }};
@@ -1176,5 +1181,6 @@ extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeResu
 #include "PicoWorldCurrentDocumentE2E.inc"
 
 #include "PicoWorldCurrentInputE2E.inc"
+#include "PicoWorldCurrentImeE2E.inc"
 #include "PicoWorldCurrentConsumptionE2E.inc"
 #include "PicoWorldCurrentKeyboardE2E.inc"

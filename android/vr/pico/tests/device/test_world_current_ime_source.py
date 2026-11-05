@@ -1,0 +1,7 @@
+"""Six source contracts plus five actual extracted-JS probe boundary checks."""
+from pathlib import Path
+import sys,unittest
+sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
+CASE_NAMES=('self_tests.test_pico_world_current_ime_source.SourceJoins.test_product_editor_and_readonly_source_bodies_are_exact_originals', 'self_tests.test_pico_world_current_ime_source.SourceJoins.test_exact_string_and_numeric_admission_precedes_qjson_and_nonce', 'self_tests.test_pico_world_current_ime_source.SourceJoins.test_once_outcome_and_focus_ownership_precede_existing_provider', 'self_tests.test_pico_world_current_ime_source.SourceJoins.test_current_doc_weak_lifetime_image_and_original_age_are_rechecked', 'self_tests.test_pico_world_current_ime_source.SourceJoins.test_distinct_tsi_queue_and_provider_use_prequeue_original_anchor', 'self_tests.test_pico_world_current_ime_source.SourceJoins.test_original_readonly_probe_branch_is_unchanged', 'self_tests.test_pico_world_current_ime_source.ProbeContract.test_actual_probe_five_boundaries')
+def load_tests(loader,_tests,_pattern):return loader.loadTestsFromNames(CASE_NAMES)
+if __name__=='__main__':unittest.main()

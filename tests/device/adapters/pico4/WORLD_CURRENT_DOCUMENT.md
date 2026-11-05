@@ -373,3 +373,30 @@ Earlier Root inode, credit, late-focus and capacity proofs remain separate;
 this wrapper does not replay old 63-case/normal-prefix/whole scopes. A failed
 call keeps its original error, traceback, pending work and original bytes.
 Default and public source-complete/capability declarations are unchanged.
+
+
+## Separate E2E CurrentIme1 command source
+
+The Pico test-build-only CurrentIme bridge preserves the existing readonly
+CurrentInput/Document channel. Exact typed11-field commands reference their
+original distinct document/focus nonce and current owner; original clocks are
+created before queueing, consumed once per current focus and retained through
+unknown dispatch. The existing WorldWebTextProvider receives actual current
+item/point/text and sends the normal QInputMethodEvent; no focus setter or
+expected HTML text is introduced. The provider reports only issue/Qt acceptance,
+not downstream consumption or effect. Separate original Consumption and NEW
+CurrentDocument remain required. Original finish timestamps are not rewritten.
+
+Pico's new source-only wrapper runs six source-preservation/once/typed/clock
+contracts and five actual extracted-probe JavaScript boundary groups. Original
+readonly method/branch digests are compared to actual current source bytes,
+not a tautological same-file comparison. Node API is explicitly declared;
+missing/lost/foreign response is saved as unknown without another command.
+The existing pico-world-current-ime contract remains version1/reads1.
+
+A separate finite private actual QtCore5.15.13 build/unit executed nine enabled
+header/schema groups on the immutable existing host image. That qualifies
+actual QVariant/QJson/UTF16 command admission and clock/header compilation;
+NativeWebViewItem handler, Android/JNI/Java/provider execution, pointer/stereo,
+device and public Source readiness remain unqualified. This source integration
+does not enable public Feature6 or change source-complete3/14.

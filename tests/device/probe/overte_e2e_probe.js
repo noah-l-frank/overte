@@ -1601,6 +1601,39 @@
             } catch (_currentKeyboardError) {}
             Test.saveObject(currentKeyboardOriginal,"feature-world-current-keyboard.json");return true;
         }
+        if (command && command.action === "pico-world-web" && command.operation === "commit-current-text") {
+            var currentImeOriginal={},currentImeValid=command.schemaVersion === 1;
+            var currentImeStrings=["commandId","action","runId","fixtureUrl","operation","ownerToken","documentNonce","focusNonce","control","text"];
+            for (var currentImeIndex=0;currentImeIndex<currentImeStrings.length;currentImeIndex++) {
+                if (typeof command[currentImeStrings[currentImeIndex]] !== "string") { currentImeValid=false; }
+            }
+            var currentImeKeys=["schemaVersion"].concat(currentImeStrings).sort();
+            if (Array.isArray(command) || Object.keys(command).sort().join("|") !== currentImeKeys.join("|")) { currentImeValid=false; }
+            if (currentImeValid) {
+                var currentImeNonce=/^[0-9a-f]{32}$/;
+                for (var currentImeKeyIndex=0;currentImeKeyIndex<5;currentImeKeyIndex++) {
+                    if (!currentImeNonce.test(command[["commandId","runId","ownerToken","documentNonce","focusNonce"][currentImeKeyIndex]])) { currentImeValid=false; }
+                }
+                if (command.commandId === command.documentNonce || command.commandId === command.focusNonce || command.documentNonce === command.focusNonce
+                        || (command.control !== "text" && command.control !== "foreign") || command.text.length>512
+                        || /[\x00-\x1f\x7f\ue000-\ue05e]/.test(command.text)) { currentImeValid=false; }
+                for (var currentImeUnit=0;currentImeUnit<command.text.length;currentImeUnit++) {
+                    var currentImeCode=command.text.charCodeAt(currentImeUnit);
+                    if (currentImeCode>=0xDC00 && currentImeCode<=0xDFFF) { currentImeValid=false; }
+                    if (currentImeCode>=0xD800 && currentImeCode<=0xDBFF) {
+                        currentImeUnit++;
+                        if (currentImeUnit>=command.text.length || command.text.charCodeAt(currentImeUnit)<0xDC00 || command.text.charCodeAt(currentImeUnit)>0xDFFF) { currentImeValid=false; }
+                    }
+                }
+            }
+            try {
+                if (currentImeValid && typeof Test.featurePicoWorldCurrentIme === "function") {
+                    var currentImePacket=Test.featurePicoWorldCurrentIme(command);
+                    if (currentImePacket && currentImePacket.commandId === command.commandId) { currentImeOriginal=currentImePacket; }
+                }
+            } catch (_currentImeError) {}
+            Test.saveObject(currentImeOriginal,"feature-world-current-ime.json");return true;
+        }
         if (command && command.action === "pico-world-web"
                 && (command.operation === "measure-current-ray" || command.operation === "observe-current-focus")) {
             var currentInputOriginal={};
