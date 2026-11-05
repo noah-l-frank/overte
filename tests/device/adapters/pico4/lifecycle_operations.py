@@ -39,7 +39,18 @@ class LifecycleInputFence(PhaseInputFence):
             or owner is self.owner.source.restore or owner is self.owner.source.restore.joined.back
             or any(owner is child for child in self.owner.children.values()))
 
+    def no_capture_input(self):
+        from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
+        from adapters.pico4.lifecycle_background_state5 import helper_method
+        for child in self.owner.children.values():
+            if type(child) is PicoLifecycleBackground and child.version==5:
+                helper_method(child.state5,'no_capture_input')()
+
+    def host_fresh(self):
+        self.no_capture_input();return super().host_fresh()
+
     def original(self):
+        self.no_capture_input()
         self.owner.bound(saved=True);need(not self.owner.failed and self.owner.state['steps'])
         cleanup=self.owner.state['cleanup']
         if cleanup is not None:

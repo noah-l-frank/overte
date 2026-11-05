@@ -25,6 +25,7 @@ from self_tests.test_pico_lifecycle_pending import LifecyclePendingTests
 
 class LifecyclePending3FamilyTests(unittest.TestCase):
     BACKGROUND_STATE_LAYOUT=None
+    BACKGROUND_QUIET_PERIOD=None
     def test_born_host_controls_advance_real_clock_and_keep_the_existing_exact_reference_contract(self):
         import time
         from adapters.token_chat_ui import same_reference
@@ -69,7 +70,7 @@ class LifecyclePending3FamilyTests(unittest.TestCase):
             self.addCleanup(self.bank.close_host)
             return PicoLifecycleBackground(background.root/'lifecycle-background-owner.json',background.chat.run,
                 background.chat.binding,background.lock,background.status,background.os_input,background.runtime,
-                monotonic=self.context.now,sleep=background.sleep,raw_layout=self.bank,
+                monotonic=self.context.now,sleep=background.sleep,raw_layout=self.bank,quiet_period=self.BACKGROUND_QUIET_PERIOD,
                 **({} if self.BACKGROUND_STATE_LAYOUT is None else dict(state_layout=self.BACKGROUND_STATE_LAYOUT)))
         background.make=make;background.initialize_from_chat(self.chat);self.addCleanup(background.doCleanups)
         background.owner.prepare(background.chat);background.owner.run_owned()

@@ -277,9 +277,9 @@ class LifecycleSourceRaw4(LifecycleBackgroundRaw3):
     def literal_limit(self,role):
         return 32768 if role=='pending' else PENDING_WIRE_LIMIT if role=='pending-wire' else LIMIT
 
-    def hook(self,reader,role):
+    def hook(self,reader,role,*,capture=None):
         # Binary wires enter only through the exact one-time typed transport.
-        need(role in SOURCE_ROLES4);return super().hook(reader,role)
+        need(role in SOURCE_ROLES4);return super().hook(reader,role,**({} if capture is None else dict(capture=capture)))
 
     def bind_pending_transport(self,reader):
         from adapters.pico4.lifecycle_pending_read import PicoLifecyclePendingRead

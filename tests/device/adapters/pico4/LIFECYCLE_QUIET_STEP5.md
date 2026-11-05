@@ -93,3 +93,37 @@ Pending construction has not occurred. The suppressed innermost exception was
 not persisted, so this evidence does not identify its exact failed guard or
 invent a1.5s overrun amount. Original failure files remain retained; no unchanged
 whole retry or complete Lifecycle capability follows.
+
+## Explicit cold capture composition
+
+`quiet_period=.75` now selects the scoped Background5 capture transaction at
+construction. The default `None` keeps the existing quarter-second policy,
+capture path and validation reservations. The explicit policy subtracts actual
+work from its period; the original one-second continuity, three-second quiet,
+1.5-second acquisition and 120-second owning deadlines remain unchanged.
+
+The transaction retains each actual original before parsing and holds its old
+Root/descriptor pair through the original replacement, confirmation and final
+freshness check. Only the actual successful caller return transfers known
+projected rows. Interruptions retain the original transaction and prevent any
+next source request. Semantic validation uses the original validators with a
+prospective reservation selected before allocation. Historical byte copies do
+not grant current file or descriptor authority.
+
+The born-host fixture also selects the exact transport clock callable when
+constructing its Native reader; separately accessing a Python bound method
+does not satisfy the existing identity check. The production check is unchanged.
+
+The actual repository group passes all 13 cases in 41.760 seconds, including
+the complete Background5 return/release and original Pending3 preparation,
+post-commit interruption, changed cold selection and known host closure. Its
+182 loaded sources and all 14202 repository files remain unchanged; two
+SHA/eight-stat inventories match for 186 retained originals. The separate
+21-case default signature/quiet/returned-seed regression group passes in
+47.221 seconds, including its original independently checked child process.
+These are separate original owning scopes, each below 120 seconds.
+
+Both new real-host quiet windows pass without retiming source packets. The
+remaining Pending actions, Source8, eighth normal action, independent Actor,
+stereo and device evidence remain open. This is a source integration and host
+composition result, not complete Lifecycle acceptance.

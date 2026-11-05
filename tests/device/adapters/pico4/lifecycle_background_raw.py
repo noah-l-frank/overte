@@ -205,7 +205,7 @@ class LifecycleBackgroundRaw3:
         world.before_io=before_io;self.world_hook=(world,before_io)
         self.install_writer(world,'world')
 
-    def query_gate(self,reader,role,anchor,command):
+    def query_gate(self,reader,role,anchor,command,*,capture=None):
         need(anchor is not None and not self.failed and not self.frozen)
         started,requested=anchor;now=reader.monotonic()
         need(number(now,started,started+5) and now-started<5 and integer(requested,1))
@@ -214,14 +214,21 @@ class LifecycleBackgroundRaw3:
         # input phase fence. Quiet read-only observations do not invent one.
         fence=getattr(reader,'phase_fence',None)
         if role=='background' and command.get('operation')!='observe' and fence is not None:fence.host_fresh()
+        if capture is not None:
+            from adapters.pico4.lifecycle_capture5 import capture_hook_method
+            capture_hook_method(capture,'before')(command)
         now=reader.monotonic();need(number(now,started,started+5) and now-started<5)
         for outer in (self.outer_anchor,self.world_anchor if role in ('ui','gesture','drive') else None):
             if outer is not None:need(number(now,outer[0],outer[0]+1.5))
 
-    def hook(self,reader,role):
+    def hook(self,reader,role,*,capture=None):
         need(not self.failed and not self.frozen and role in self.roles
             and role not in self.hooks and callable(reader.send) and callable(reader.original)
             and reader.before_io is None)
+        if capture is not None:
+            from adapters.pico4.lifecycle_capture5 import CaptureHook5
+            need(type(capture) is CaptureHook5 and capture.helper.bank is self
+                and capture.reader is reader and capture.role==role)
         send_name='send';original_send=reader.send
         if role=='background':
             from adapters.pico4.lifecycle_background_source import NativeLifecycleBackground
@@ -253,9 +260,12 @@ class LifecycleBackgroundRaw3:
             try:
                 need(not self.failed and not self.frozen and pending is None)
                 json_digest(value);need(type(value) is dict);command=deepcopy(value)
+                if capture is not None:
+                    from adapters.pico4.lifecycle_capture5 import capture_hook_method
+                    capture_hook_method(capture,'before')(command)
                 pending=reserve()
                 self.verify()
-                self.query_gate(reader,role,anchor,command)
+                self.query_gate(reader,role,anchor,command,**({} if capture is None else dict(capture=capture)))
                 return send(value)
             except BaseException:
                 self.failed=True
@@ -267,15 +277,23 @@ class LifecycleBackgroundRaw3:
         def get_original():
             nonlocal pending
             need(not self.failed and not self.frozen and command is not None)
+            if capture is not None:
+                from adapters.pico4.lifecycle_capture5 import capture_hook_method
+                capture_hook_method(capture,'before')(command)
             if pending is None:pending=reserve()
             token=pending
             try:
                 self.verify()
-                self.query_gate(reader,role,anchor,command)
+                self.query_gate(reader,role,anchor,command,**({} if capture is None else dict(capture=capture)))
                 raw=getter()
                 # Do not call reader.guard/native clock here. Death or expiry
                 # after acquisition must not prevent retaining acquired bytes.
                 reference=self.archive.retain(token,raw);pending=None
+                # Raw durability ALWAYS precedes new capture bookkeeping. A
+                # lost post-read clock/last assignment cannot drop these bytes.
+                if capture is not None:
+                    from adapters.pico4.lifecycle_capture5 import capture_hook_method
+                    capture_hook_method(capture,'retained')(command,reference,raw)
                 return raw
             except BaseException:
                 self.failed=True

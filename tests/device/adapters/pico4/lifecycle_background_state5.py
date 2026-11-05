@@ -113,6 +113,15 @@ class LifecycleBackgroundState5:
         self.owner,self.bank=owner,bank
         self._fixed=self._original_fixed=(owner,bank)
         self.quiet=self._quiet=None;self.quiet_request=self._quiet_request=None
+        self.current_capture=self._current_capture=None
+        self.capture_hooks=self._capture_hooks={}
+        self.runtime_api=self._runtime_api=None
+        self.validation_profile=self._validation_profile=None
+        self.validation_proof=self._validation_proof=None
+        self.capture_choice=self._capture_choice=(owner.quiet_period,)
+        self.validation_work=self._validation_work=(0 if owner.quiet_period is None else 5*PART,)
+        self.validation_entry=self._validation_entry=None
+        self.completed_capture=self._completed_capture=None
         self.active=None;self.held=self._held=[];self._held_seal=();self.save_stage=None;self.selection=self._selection=None;self.failed=False
         self.results=self._results=();self._result_seal=self._original_result_seal=(self.results,0,0)
         self.signature_codec=self._original_signature_codec=(marshal.dumps,_result_signature,
@@ -135,12 +144,33 @@ class LifecycleBackgroundState5:
         book=object.__new__(QuietBook5);self.quiet=self._quiet=book
         helper_method(self,'quiet_book')().__init__(self)
         helper_method(self,'preflight')()
+        if self.capture_choice[0] is None:return
+        from adapters.pico4 import lifecycle_capture5 as capture5
+        self.capture_api=self._capture_api=capture5.capture_profile()
+        self.capture_module=self._capture_module=(capture5,tuple((name,capture5.__dict__[name],capture5.__dict__[name].__code__)
+            for name in ('capture_profile','guard_profile','capture_schema','original_owner_capture','capture_method','capture_hook_method','transfer_capture5','api_method','prepare_completed_slot','completed_slot_guard')))
+        from adapters.pico4 import lifecycle_validation_work5 as validation5
+        self.validation_entry=self._validation_entry=(validation5,tuple((name,validation5.__dict__[name],validation5.__dict__[name].__code__)
+            for name in ('profile_proof','require_profile','code_names','decoded_bound')))
+        # Existing actual namespace/bank bill sees the complete permanent
+        # profile reservation BEFORE constructor tables or snapshots allocate.
+        helper_method(self,'preflight')()
+        profile=object.__new__(validation5.OriginalValidatorProfile5)
+        self.validation_profile=self._validation_profile=profile
+        validation5.OriginalValidatorProfile5.__init__(profile,self.owner)
+        need(profile.actual_storage is not None)
+        self.validation_proof=self._validation_proof=validation5.profile_proof(profile)
+        validation5.require_profile(profile,self.validation_proof)
+
 
     def guard(self):
         from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
         need(self._fixed is self._original_fixed and self._fixed[0] is self.owner and self._fixed[1] is self.bank
             and self.owner.state5 is self.owner._state5 is self
             and self.bank.background_state5 is self.bank._background_state5 is self
+            and self.capture_choice is self._capture_choice and type(self.capture_choice) is tuple and len(self.capture_choice)==1
+            and self.capture_choice[0] is self.owner.quiet_period
+            and self.current_capture is self._current_capture
             and self.owner.version==5 and self.owner.originals is self.bank
             and self.owner._state_choice is self.owner._original_state_choice and self.owner._state_choice==(5,)
             and self.methods is self._methods and all(a is b for a,b in zip(self.methods,
@@ -150,6 +180,24 @@ class LifecycleBackgroundState5:
         from adapters.pico4.lifecycle_quiet_step5 import QuietBook5
         need(self.quiet is self._quiet and type(self.quiet) is QuietBook5)
         self.bank.lock.assert_held()
+        namespace=object.__getattribute__(self,'__dict__')
+        if 'capture_module' in namespace:
+            module,functions=self.capture_module
+            need(self.capture_module is self._capture_module and self.capture_api is self._capture_api)
+            for name,function,code in functions:
+                need(type(function) is FunctionType and module.__dict__.get(name) is function and function.__code__ is code)
+            module.guard_profile(self.capture_api)
+            need(self.runtime_api is self._runtime_api)
+            if self.runtime_api is not None:module.api_method(self.runtime_api,'guard')()
+        if self.validation_proof is not None:
+            need(self.validation_proof is self._validation_proof and self.validation_profile is self._validation_profile
+                and self.validation_entry is self._validation_entry)
+            module,functions=self.validation_entry
+            for name,function,code in functions:
+                need(type(function) is FunctionType and module.__dict__.get(name) is function and function.__code__ is code)
+            functions[1][1](self.validation_profile,self.validation_proof)
+        else:need((self.capture_choice[0] is None or self.bank.archive.state['reads']==0) and self.runtime_api is None)
+
 
     def metadata_bytes(self):
         # Resource bill remains available after a business failure. Exact graph
@@ -165,7 +213,15 @@ class LifecycleBackgroundState5:
         need(self.feature_work is self._feature_work and type(self.feature_work) is tuple
             and len(self.feature_work)==1 and type(self.feature_work[0]) is int
             and self.feature_work[0]==6*LIMIT+3*PART)
-        total=1024;work=0
+        need(self.capture_hooks is self._capture_hooks and len(self.capture_hooks)<=5)
+        need(self.validation_work is self._validation_work and type(self.validation_work) is tuple
+            and len(self.validation_work)==1 and type(self.validation_work[0]) is int and self.validation_work[0]==(0 if self.capture_choice[0] is None else 5*PART))
+        fixed_capture=0 if self.capture_choice[0] is None else 4*PART
+        total=1024+fixed_capture;work=0
+        need(self.completed_capture is self._completed_capture)
+        if self.completed_capture is not None:
+            from adapters.pico4.lifecycle_capture5 import completed_slot_guard
+            completed_slot_guard(self.completed_capture,self)
         for value,size,digest,signature in self.results:
             need(type(size) is int and 0<=size<=MAX_RAW and type(digest) is str)
             if signature is not None:
@@ -181,10 +237,10 @@ class LifecycleBackgroundState5:
                 need(canonical_size(value,size)==size and json_digest(value)==digest)
             current=None # Free the candidate before the next warm audit.
             total+=3*size+256+(0 if signature is None else 3*len(signature))
-        need(total==self._result_seal[1]+1024 and work==self._result_seal[2])
+        need(total==self._result_seal[1]+1024+fixed_capture and work==self._result_seal[2])
         # All later audits reserve one largest actual current normalizer/output
         # work window, including before metadata verification allocates it.
-        total+=work+self.feature_work[0]+helper_method(self,'quiet_book')().metadata_bytes()
+        total+=work+self.feature_work[0]+self.validation_work[0]+helper_method(self,'quiet_book')().metadata_bytes()
         need(self.held is self._held and len(self.held)==len(self._held_seal)
             and all(stage is fixed for stage,fixed in zip(self.held,self._held_seal)))
         for stage in self.held:
@@ -207,6 +263,7 @@ class LifecycleBackgroundState5:
         return helper_method(self,'quiet_book')().token()
 
     def quiet_step(self,row,handle,invocation,role):
+        if self.current_capture is not None:return helper_method(self,'quiet_current')(row,handle,invocation,role)
         request=helper_method(self,'quiet_book')().prepare(row,handle,invocation,role)
         try:
             need(self.quiet_request is self._quiet_request is None)
@@ -217,6 +274,160 @@ class LifecycleBackgroundState5:
             return result
         except BaseException:
             helper_method(self,'quiet_book')().fail(request);raise
+
+    def bind_capture_runtime(self,world,observer,native):
+        from adapters.pico4.lifecycle_capture5 import OriginalApi5,api_method
+        helper_method(self,'guard')();need(self.runtime_api is self._runtime_api is None)
+        helper_method(self,'preflight')()
+        api=object.__new__(OriginalApi5);self.runtime_api=self._runtime_api=api
+        try:
+            api_method(api,'__init__')(((self.owner,('__init__','capture','fresh','_save_plain','_validate_plain','run_owned','poll_delay','bound')),
+                (world,('current','acquire','save','originals','attempts','now','fresh_current')),
+                (observer,('read','exchange')),(world.axes,('capture','_capture')),
+                (world.avatar,('capture','_capture')),(world.source,('capture','_capture')),
+                (native,('read',))),self.capture_api)
+        except BaseException:
+            self.failed=self.bank.failed=True
+            from adapters.pico4.lifecycle_background_raw_state import UNRESOLVED
+            if not any(holder is self for _path,holder in UNRESOLVED):UNRESOLVED.append((self.bank.path.parent,self))
+            raise
+
+    def release_completed_capture(self):
+        from adapters.pico4.lifecycle_capture5 import completed_slot_guard
+        helper_method(self,'guard')() # Whole original/no-finalizer proof FIRST.
+        slot=self.completed_capture;need(slot is self._completed_capture)
+        if slot is None:return
+        completed_slot_guard(slot,self)
+        self.completed_capture=self._completed_capture=None
+        # The last actual custom references die on return HERE, under the next
+        # original capture anchor, before any SDK or input. No close is retried.
+
+    def capture_hook(self,reader,role):
+        from adapters.pico4.lifecycle_capture5 import CaptureHook5
+        need(role not in self.capture_hooks and len(self.capture_hooks)<5)
+        hook=CaptureHook5(self,reader,role);self.capture_hooks[role]=hook
+        return hook
+
+    def capture_current(self,invocation,role,*,caller_rows=False):
+        from adapters.pico4.lifecycle_capture5 import CaptureIntent5,original_owner_capture
+        try:
+            helper_method(self,'guard')()
+            need(self.current_capture is self._current_capture is None)
+            need(type(caller_rows) is bool)
+            intent=CaptureIntent5(self,invocation,role,caller_rows)
+            return original_owner_capture(self.owner,self.capture_api)(_current=intent)
+        except BaseException:
+            self.failed=self.bank.failed=True
+            from adapters.pico4.lifecycle_background_raw_state import UNRESOLVED
+            if not any(owner is self for _path,owner in UNRESOLVED):UNRESOLVED.append((self.bank.path.parent,self))
+            raise
+
+    def begin_capture(self,intent,started,requested):
+        from adapters.pico4.lifecycle_capture5 import CaptureAppendPermit5
+        from adapters.pico4.lifecycle_family_gate import LifecycleFamilyGate4
+        helper_method(self,'guard')()
+        need(self.current_capture is self._current_capture is None and self.active is None and self.save_stage is None)
+        gate=self.owner.storage_gate
+        need(type(gate) is LifecycleFamilyGate4 and gate is self.owner._original_storage_gate
+            and gate.role=='background' and gate.root_version==5 and gate.capture is gate._original_capture is None)
+        stage=OriginalGraph5(self,intent,0);stage.reserve_before(0)
+        self.held.append(stage);self._held_seal=(*self._held_seal,stage)
+        permit=object.__new__(CaptureAppendPermit5);stage.graph=permit
+        self.current_capture=self._current_capture=permit;gate.capture=gate._original_capture=permit
+        try:CaptureAppendPermit5.__init__(permit,self,gate,stage,intent,started,requested)
+        except BaseException:
+            self.failed=self.bank.failed=True
+            from adapters.pico4.lifecycle_background_raw_state import UNRESOLVED
+            if not any(owner is self for _path,owner in UNRESOLVED):UNRESOLVED.append((self.bank.path.parent,self))
+            raise
+        return permit
+
+    def capture_background(self,observer,result):
+        from adapters.pico4.lifecycle_capture5 import capture_method
+        permit=self.current_capture;need(permit is self._current_capture and permit is not None)
+        capture_method(permit,'bind_background')(observer,result)
+        permit.stage.result=None
+
+    def capture_world(self,world):
+        from adapters.pico4.lifecycle_capture5 import capture_method
+        permit=self.current_capture;need(permit is self._current_capture and permit is not None)
+        need(permit.phase=='background-retained');permit.phase='world-reading'
+        packets=world.current()
+        # Actual return is held before any later guard/clock can reject it.
+        permit.stage.result=packets
+        capture_method(permit,'bind_drive')(world,packets)
+        permit.phase='native-reading';permit.stage.result=None
+        return packets
+
+    def capture_row(self,row):
+        from adapters.pico4.lifecycle_capture5 import capture_method
+        permit=self.current_capture;need(permit is self._current_capture and permit is not None)
+        capture_method(permit,'bind_row')(row)
+
+    def capture_checkpoint(self,value,*,caller_rows=False):
+        from adapters.pico4.lifecycle_capture5 import capture_method
+        from adapters.pico4.lifecycle_back import frame as actual_frame
+        permit=self.current_capture;need(permit is self._current_capture and permit is not None)
+        need(type(caller_rows) is bool and (not caller_rows or capture_method(permit,'row_selection')() is True))
+        if permit.root_confirmed:
+            # Same invocation's returned seed: its source was already committed.
+            # Preserve the original subsequent quiet checkpoint, without append.
+            capture_method(permit,'seed_checkpoint')(value)
+            helper_method(self,'save')(value)
+            capture_method(permit,'seed_committed')()
+        else:
+            need(type(value) is dict and type(value['sources']) is list and len(value['sources'])==permit.source_index)
+            value['sources'].append(actual_frame(permit.background[1]))
+            capture_method(permit,'authorize')(value)
+            helper_method(self,'save')(value)
+        if permit.drive_consumed:
+            rows,last=(capture_method(permit,'confirmed_rows')(value) if caller_rows else (None,None))
+            capture_method(permit,'prepare_transfer')()
+            if caller_rows:return permit.transfer,rows,last
+            return permit.transfer
+        need(not caller_rows) # Original unconsumed returned seed stays EXACT.
+        return None
+
+    def capture_before_fresh(self):
+        from adapters.pico4.lifecycle_capture5 import capture_method
+        permit=self.current_capture
+        if permit is not None:
+            need(permit is self._current_capture)
+            if permit.transfer is not None:capture_method(permit,'check_transfer')()
+            else:capture_method(permit,'verify_current')()
+
+
+    def quiet_current(self,row,handle,invocation,role):
+        from adapters.pico4.lifecycle_capture5 import capture_method,DRIVE_CANONICAL
+        from adapters.pico4 import lifecycle_drive as original_drive
+        from adapters.pico4.lifecycle_background import feature_original
+        permit=self.current_capture
+        need(permit is self._current_capture and permit is not None and permit.row is row
+            and permit.intent.invocation is invocation and permit.intent.role==role
+            and permit.phase in ('row-bound','root-committed') and json_digest(row)==permit.row_sha)
+        # Fresh full-prefix/source verification, never a cached current verdict.
+        self.bank.verify();helper_method(self,'guard')();capture_method(permit,'verify_current')()
+        value,digest,world,raw,receipt,size=permit.drive
+        need(json_digest(value)==digest and canonical_size(value,DRIVE_CANONICAL)==size
+            and row['world']['drive']['raw']==raw and row['world']['drive']['sha256']==receipt[3]
+            and json_digest(permit.world_row)==permit.world_row_sha and row['world']==permit.world_row)
+        original_drive.validate(value,value,self.owner.pid,value['capturedEpochMs'])
+        feature_original(row['native'],self.owner.pid)
+        request=helper_method(self,'quiet_book')().prepare(row,handle,invocation,role)
+        try:
+            helper_method(self,'quiet_book')().observe(request,dict(drive=value),row['hostMonotonic'])
+            self.bank.verify();helper_method(self,'guard')()
+            helper_method(self,'quiet_book')().confirm(request)
+            result=helper_method(self,'quiet_book')().finish(request)
+            permit.drive_consumed=True
+            permit.phase='quiet-consumed'
+            return result
+        except BaseException:
+            capture_method(permit,'fail')();raise
+
+    def no_capture_input(self):
+        need(self.current_capture is self._current_capture is None)
+
 
     def read_feature_original(self,reader):
         """One original Native read and its SAME durable raw; no second getter."""
@@ -319,6 +530,8 @@ class LifecycleBackgroundState5:
                 if record['kind']=='utf8' and record['role'] in VIEW_ROLES['background']:
                     latest[record['role']]=max(latest.get(record['role'],-1),index)
             expanded=size;literal_bytes=0;view=self.bank.view('background');choices={}
+            maximum_wrapper=0;maximum_literal=0;maximum_decoded_bound=0;binary_bytes=sum(len(raw) for raw in batch.values())
+            decoded_max={role:0 for role in ('background','ui','gesture','drive','feature')}
             def original(item,path):
                 role=self.role_at(kind,path)
                 if set(item)==REFERENCE:
@@ -347,19 +560,49 @@ class LifecycleBackgroundState5:
                 if type(item) is dict:
                     if set(item)==REFERENCE or set(item)=={'raw','sha256'}:
                         index=original(item,path);raw=batch[index].decode('utf-8')
-                        expanded+=canonical_size(frame(raw))-canonical_size(item)
+                        wrapper_size=canonical_size(frame(raw))
+                        expanded+=wrapper_size-canonical_size(item)
+                        maximum_wrapper=max(maximum_wrapper,wrapper_size)
+                        maximum_literal=max(maximum_literal,len(batch[index]))
+                        if kind=='validate' and self.capture_choice[0] is not None:maximum_decoded_bound=max(maximum_decoded_bound,self.validation_entry[1][3][1](batch[index],wrapper_size))
                         literal_bytes+=len(batch[index])
                     else:work.extend((child,(*path,name)) for name,child in item.items())
                 elif type(item) is list:work.extend((child,(*path,index)) for index,child in enumerate(item))
             raw=None;work=None;stage.choices=tuple(sorted(choices.values()))
-            stage.reserve_before(3*size+3*expanded+6*literal_bytes+6*LIMIT+8*PART)
+            if kind=='validate' and self.capture_choice[0] is not None:
+                # Two parsed-document envelopes are guaranteed BEFORE decode;
+                # canonical normalization may expand a short numeric/string
+                # spelling. No decoded<=literal assumption is made.
+                stage.reserve_before(3*size+binary_bytes+2*maximum_decoded_bound+2*maximum_literal+6*LIMIT+9*PART)
+            else:stage.reserve_before(3*size+3*expanded+6*literal_bytes+6*LIMIT+8*PART)
             helper_method(self,'preflight')()
             for digest,role,index,command_sha in stage.choices:
-                packet=json.loads(batch[index]);request=records[index]['command']
+                if kind=='validate' and self.capture_choice[0] is not None:
+                    from adapters.native_feature_observation import decode
+                    packet=decode(batch[index].decode('utf-8'))
+                else:packet=json.loads(batch[index])
+                request=records[index]['command']
                 need(type(packet) is dict and packet.get('processId')==self.owner.pid
                     and packet.get('requestId' if role=='feature' else 'commandId')==request['commandId']
                     and (role=='feature' or packet.get('runId')==self.bank.run))
-            packet=None
+                if kind=='validate' and self.capture_choice[0] is not None:
+                    # Same original strict decoder; not a semantic verdict.
+                    decoded_size=canonical_size(packet)
+                    need(decoded_size<=maximum_decoded_bound)
+                    decoded_max[role]=max(decoded_max[role],decoded_size)
+                packet=None
+            packet=request=None
+            if kind=='validate' and self.capture_choice[0] is not None:
+                # The measurement work is dead. Keep the one reconstruction,
+                # actual binary batch, and largest sequential framing work.
+                semantic_documents=12*sum(decoded_max.values())
+                scalar_work=3*max(maximum_wrapper,*decoded_max.values())
+                reconstruction=expanded+binary_bytes+3*maximum_wrapper
+                semantic=expanded+semantic_documents+scalar_work
+                # ONE original admission covers these consecutive pure phases.
+                # Retain the larger guaranteed reservation until BOTH finish.
+                stage.reserve_before(3*size+max(reconstruction,semantic)+6*LIMIT+8*PART)
+                helper_method(self,'preflight')()
             top=[None];work=[(value,top,0,())]
             while work:
                 item,parent,name,path=work.pop();need(len(path)<=12)
@@ -377,7 +620,14 @@ class LifecycleBackgroundState5:
             stage.graph=top[0];need(canonical_size(stage.graph)==expanded)
             # No local recursive function, work item, container or text alias
             # retains a second complete graph/byte batch across callback return.
-            work=top=target=parent=item=None
+            work=top=target=parent=item=path=name=raw=None
+            if kind=='validate' and self.capture_choice[0] is not None:
+                # Explicitly terminate ALL batch and resolver closure aliases
+                # before invoking the unchanged full semantic validator.
+                original=None;stage.batch=None;batch=records=view=choices=None
+                # No query, input, write, arbitrary callback or new allocation
+                # window intervenes. The actual prebooked MAX above remains
+                # held; no second full audit or verdict reuse is needed here.
             before=json_digest(value);old_state=self.owner.state
             self.owner._plain5=True
             try:
@@ -469,6 +719,14 @@ class LifecycleBackgroundState5:
     def close_host(self):
         if self.failed or self.active is not None or self.save_stage is not None:return False
         try:
+            if self.capture_choice[0] is not None:
+                module,functions=self.capture_module
+                need(self.capture_module is self._capture_module and self.capture_api is self._capture_api)
+                for name,function,code in functions:
+                    need(type(function) is FunctionType and module.__dict__.get(name) is function and function.__code__ is code)
+                module.guard_profile(self.capture_api)
+                need(self.runtime_api is self._runtime_api)
+                if self.runtime_api is not None:module.api_method(self.runtime_api,'guard')()
             known=helper_method(self,'quiet_book')().known_stages()
             need(not any(not any(stage is window for window in known) for stage in self.held))
             helper_method(self,'metadata_bytes')()
@@ -482,8 +740,12 @@ _HELPER_CLASS=LifecycleBackgroundState5
 _HELPER_MRO=type.__getattribute__(_HELPER_CLASS,'__mro__')
 _HELPER_RAW=tuple(type.__getattribute__(_HELPER_CLASS,'__dict__').items())
 _HELPER_METHODS=('__init__','guard','metadata_bytes','quiet_book','begin_quiet_invocation','quiet_step',
-    'read_feature_original','preflight','save','call','selected_reference','close_host')
+    'read_feature_original','preflight','save','call','selected_reference','close_host',
+    'capture_hook','capture_current','begin_capture','capture_background','capture_world','capture_row','capture_checkpoint','quiet_current',
+    'no_capture_input','capture_before_fresh','bind_capture_runtime','release_completed_capture')
 _HELPER_FUNCTIONS=tuple((name,dict(_HELPER_RAW)[name],dict(_HELPER_RAW)[name].__code__) for name in _HELPER_METHODS)
+_HELPER_DEFAULTS=tuple((function,function.__defaults__,function.__kwdefaults__,
+    None if function.__kwdefaults__ is None else tuple(function.__kwdefaults__.items())) for _name,function,_code in _HELPER_FUNCTIONS)
 _HELPER_STATIC=dict(_HELPER_RAW)['role_at'].__func__
 _HELPER_STATIC_CODE=_HELPER_STATIC.__code__
 def helper_method(helper,name):
@@ -497,6 +759,11 @@ def helper_method(helper,name):
         and type(_HELPER_STATIC) is FunctionType and _HELPER_STATIC.__code__ is _HELPER_STATIC_CODE)
     for key,function,code in _HELPER_FUNCTIONS:
         need(type(function) is FunctionType and raw.get(key) is function and function.__code__ is code)
+    for function,defaults,keywords,items in _HELPER_DEFAULTS:
+        need(function.__defaults__ is defaults and function.__kwdefaults__ is keywords)
+        if keywords is not None:
+            need(type(keywords) is dict and len(keywords)==len(items)
+                and all(type(key) is str for key in keywords) and all(keywords.get(key) is value for key,value in items))
     for key,function,code in _HELPER_FUNCTIONS:
         bound=object.__getattribute__(helper,key)
         need(type(bound) is MethodType and bound.__self__ is helper and bound.__func__ is function)

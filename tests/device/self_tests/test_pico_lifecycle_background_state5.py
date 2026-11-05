@@ -31,6 +31,7 @@ def raw_frames(value):
 
 
 class LifecycleBackgroundState5Tests(unittest.TestCase):
+    QUIET_PERIOD=None
     def setUp(self):
         fixture=chat_fixture.LifecycleChatTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
         fixture.owner.open_chat();fixture.owner.focus_chat();fixture.owner.type_chat()
@@ -44,7 +45,7 @@ class LifecycleBackgroundState5Tests(unittest.TestCase):
             self.addCleanup(self.bank.close_host)
             return PicoLifecycleBackground(seams.root/'lifecycle-background-owner.json',RUN,seams.chat.binding,
                 seams.lock,seams.status,seams.os_input,seams.runtime,monotonic=lambda:seams.native.clock,
-                sleep=seams.sleep,raw_layout=self.bank,state_layout=5)
+                sleep=seams.sleep,raw_layout=self.bank,state_layout=5,quiet_period=self.QUIET_PERIOD)
         seams.make=make;seams.initialize_from_chat(fixture);self.owner=seams.owner
         self.assertEqual(0,self.bank.archive.state['reads']);self.assertEqual([],seams.inputs)
 

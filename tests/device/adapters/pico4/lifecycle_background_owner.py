@@ -27,7 +27,7 @@ ARCHIVES=('lifecycle-chat-owner.json','lifecycle-editor-owner.json','lifecycle-x
 
 
 class PicoLifecycleBackground:
-    def __init__(self,path,run,binding,source_lock,os_status,os_input,runtime,*,monotonic=time.monotonic,sleep=time.sleep,raw_layout=None,state_layout=None):
+    def __init__(self,path,run,binding,source_lock,os_status,os_input,runtime,*,monotonic=time.monotonic,sleep=time.sleep,raw_layout=None,state_layout=None,quiet_period=None):
         need(ui.nonce(run) and isinstance(source_lock,ScriptSourceLock)
             and all(callable(f) for f in (os_status,os_input,runtime,monotonic,sleep)))
         self.store,self.run,self.binding=PrivateFeatureState(path),run,deepcopy(context(binding));self.pid,_start=proof.identity(binding)
@@ -37,6 +37,9 @@ class PicoLifecycleBackground:
         need(state_layout is None or type(state_layout) is int and state_layout==5)
         self.state5=self._state5=None;self._plain5=False
         self._state_choice=self._original_state_choice=(state_layout,)
+        need(quiet_period is None or state_layout==5 and type(quiet_period) is float and quiet_period==.75)
+        self.quiet_period=self._quiet_period=quiet_period
+        self._quiet_choice=self._original_quiet_choice=(quiet_period,)
         self.version=VERSION
         with self.lock.held():
             self.disk=self.store.read()
@@ -72,6 +75,9 @@ class PicoLifecycleBackground:
     def bound(self):
         # Host-only: this also runs during normal background and immediately
         # before native/OS input, including inside the source intent callback.
+        need(self._quiet_choice is self._original_quiet_choice and len(self._quiet_choice)==1
+            and self.quiet_period is self._quiet_period is self._quiet_choice[0]
+            and (self.quiet_period is None or self.version==5 and type(self.quiet_period) is float and self.quiet_period==.75))
         self.lock.assert_held();now=self.monotonic();need(number(now,0,1e15) and (self.last_clock is None or now>=self.last_clock)
             and self.store.read()==self.disk);self.last_clock=now
         self.originals.verify()
@@ -233,9 +239,11 @@ class PicoLifecycleBackground:
                 and world.lock is self.lock and observer.source_lock is self.lock and observer.pid==native.pid==self.pid)
             if self.version in (3,4,5):
                 self.originals.bind_world(world)
+                if self.version==5 and self.quiet_period is not None:helper_method(self.state5,'bind_capture_runtime')(world,observer,native)
                 for reader,role in ((world.source,'ui'),(world.axes,'gesture'),(world.avatar,'drive'),
                         (observer,'background'),(native,'feature')):
-                    self.originals.hook(reader,role)
+                    self.originals.hook(reader,role,**({} if self.version!=5 or self.quiet_period is None else
+                        dict(capture=helper_method(self.state5,'capture_hook')(reader,role))))
             observer.intent=self.intent
             fence=getattr(self,'phase_fence',None)
             if fence is not None:
@@ -250,6 +258,7 @@ class PicoLifecycleBackground:
         return self.runtime
 
     def intent(self,request):
+        if self.version==5:helper_method(self.state5,'no_capture_input')()
         self.bound();need(self.state is not None and self.state['phase']==('arm-issued' if request['operation']=='arm' else 'release-issued'))
         from adapters.pico4.lifecycle_operations import phase
         if phase(self) is not None:phase(self).mark()
@@ -259,25 +268,45 @@ class PicoLifecycleBackground:
         state=deepcopy(self.state);state['sources'].append(frame(observer.last_raw));self.save(state)
 
     def fresh(self):
-        world,_observer,native=self.runtime;self.bound();need(native.guard() is not False);epoch=native.clock_ms();now=self.monotonic()
+        world,_observer,native=self.runtime;self.bound();need(native.guard() is not False)
+        if self.version==5:helper_method(self.state5,'capture_before_fresh')()
+        epoch=native.clock_ms();now=self.monotonic()
         start,requested,stamp=self.fresh_anchor
         need(integer(epoch,1) and number(now,0,1e15) and now>=self.last_clock and -250<=epoch-stamp
             and max(epoch-stamp,requested-stamp+(now-start)*1000)<=1500);self.last_clock=now
 
-    def capture(self):
+    def capture(self,*,_current=None):
         world,observer,native=self.live();start=self.bound();requested=native.clock_ms()
         if self.version in (3,4,5):self.originals.begin_outer(start,requested)
+        permit=None
         try:
-            observer.read(self.run);self.remember(observer)
-            packets=world.current();need(len(world.state['attempts'])==1 and world.state['attempts'][0]['phase']=='quiet'
+            if _current is not None:
+                need(self.version==5);permit=helper_method(self.state5,'begin_capture')(_current,start,requested)
+            else:
+                permit=None
+                if self.version==5:need(self.state5.current_capture is self.state5._current_capture is None)
+            if permit is None:
+                observer.read(self.run);self.remember(observer)
+            else:
+                observed=observer.read(self.run)
+                permit.stage.result=observed # Actual successful return before later checks.
+                helper_method(self.state5,'capture_background')(observer,observed)
+                observed=None
+            packets=world.current() if permit is None else helper_method(self.state5,'capture_world')(world);need(len(world.state['attempts'])==1 and world.state['attempts'][0]['phase']=='quiet'
                 and len(world.attempts(world.state,packets['gesture']))==1)
             neutral(packets['gesture']);actual=world.anchor.measure(packets['drive']);need(not actual['heldInputs'] and actual['worldDisplacement']<=.025)
             if self.version==5:value,original=helper_method(self.state5,'read_feature_original')(native)
             else:value=native.read(native.sequence);original=native.original()
             raw=frame(original);need(proof.bytes_packet(raw)==value)
-            row=dict(sourceIndex=len(self.state['sources'])-1,world=deepcopy(world.state['frames'][-1]),native=raw,hostMonotonic=self.bound())
+            row=dict(sourceIndex=len(self.state['sources'])-1 if permit is None else permit.source_index,world=deepcopy(world.state['frames'][-1]),native=raw,hostMonotonic=self.bound())
             stamps=[observer.last['capturedEpochMs'],value['capturedEpochMs'],*(packet['capturedEpochMs'] for packet in packets.values()),packets['gesture']['source']['frameEpochMs']]
+            if permit is not None:helper_method(self.state5,'capture_row')(row)
             self.fresh_anchor=start,requested,min(stamps);self.fresh();return row
+        except BaseException:
+            if permit is not None:
+                from adapters.pico4.lifecycle_capture5 import capture_method
+                capture_method(permit,'fail')()
+            raise
         finally:
             if self.version in (3,4,5):self.originals.end_outer(start,requested)
 
@@ -322,8 +351,16 @@ class PicoLifecycleBackground:
         now=self.monotonic()
         need(number(capture_start,0,1e15) and number(now,capture_start,1e15)
             and (self.last_clock is None or now>=self.last_clock) and self.fresh_anchor[0]==capture_start)
-        remaining=.25-(now-capture_start)
-        if remaining>0:self.sleep(remaining)
+        need(self._quiet_choice is self._original_quiet_choice and len(self._quiet_choice)==1
+            and self.quiet_period is self._quiet_period is self._quiet_choice[0])
+        if self.quiet_period is None:
+            remaining=.25-(now-capture_start)
+            if remaining>0:self.sleep(remaining)
+            return
+        need(self.version==5 and type(self.quiet_period) is float and self.quiet_period==.75)
+        # Explicit cold layout5 scheduling. No source/quiet/Native anchor is
+        # refreshed. Native QTimer250ms and the original1s gap remain separate.
+        self.sleep(max(.025,self.quiet_period-(now-capture_start)))
 
     def run_owned(self):
         try:
@@ -349,6 +386,7 @@ class PicoLifecycleBackground:
                     state=deepcopy(self.state);state.update(phase='home-issued',home=len(state['sources'])-1);self.save(state)
                     self.fresh_anchor=started,requested,min(last['capturedEpochMs'],current['uiCapturedEpochMs']);self.fresh()
                     if phase(self) is not None:phase(self).check()
+                    if self.version==5:helper_method(self.state5,'no_capture_input')()
                     self.os_input('lifecycle.background',deepcopy(self.binding));self.bound()
                 if self.state['phase']=='home-issued':
                     background=self.wait_status(False);proof.status(background,self.binding,False)
@@ -363,18 +401,27 @@ class PicoLifecycleBackground:
                     if phase(self) is not None:phase(self).mark()
                     self.phase('resume-issued')
                     if phase(self) is not None:phase(self).check()
+                    if self.version==5:helper_method(self.state5,'no_capture_input')()
                     self.os_input('app.launch',deepcopy(self.binding));self.bound()
                 if self.state['phase']=='resume-issued':
                     foreground=self.wait_status(True);proof.status(foreground,self.binding,True)
                     state=deepcopy(self.state);state['foreground']=foreground;self.save(state)
-                    row=self.capture();state=deepcopy(self.state);state.update(phase='returned',quiet=[row]);self.save(state);self.fresh()
+                    row=(helper_method(self.state5,'capture_current')(quiet_invocation,'quiet',caller_rows=True) if self.version==5 and self.quiet_period is not None else self.capture())
+                    state=deepcopy(self.state);state.update(phase='returned',quiet=[row])
+                    if self.version==5 and self.quiet_period is not None:
+                        transfer=helper_method(self.state5,'capture_checkpoint')(state)
+                        from adapters.pico4.lifecycle_capture5 import transfer_capture5
+                    else:self.save(state);transfer=None
+                    if self.version==5:state=None # Actual caller graph dies before finalfresh.
+                    self.fresh()
+                    if transfer is not None:transfer_capture5(transfer);transfer=None
                     if self.version==5:returned_seed=(row,self.fresh_anchor)
                 if self.state['phase']=='returned':
                     # A fresh quiet window is required on recovery; historic
                     # host monotonic values cannot bridge a new acquisition.
                     rows=[];window=None
                     for index in range(25):
-                        if returned_seed is None:row=self.capture()
+                        if returned_seed is None:row=(helper_method(self.state5,'capture_current')(quiet_invocation,'quiet',caller_rows=True) if self.version==5 and self.quiet_period is not None else self.capture())
                         else:
                             # Only this invocation's actual returned capture;
                             # recovery begins with no seed or historic window.
@@ -387,7 +434,14 @@ class PicoLifecycleBackground:
                             if window is None:window=drive.AvatarReleaseWindow(drive.AvatarDisplacement(packets['drive']))
                             complete=window.observe(packets['drive'],row['hostMonotonic'])
                         rows.append(row)
-                        state=deepcopy(self.state);state.update(phase='quiet' if complete else 'returned',quiet=deepcopy(rows));self.save(state);self.fresh()
+                        state=deepcopy(self.state);state.update(phase='quiet' if complete else 'returned',quiet=deepcopy(rows))
+                        if self.version==5 and self.state5.current_capture is not None:
+                            transfer,rows,row=helper_method(self.state5,'capture_checkpoint')(state,caller_rows=True)
+                            from adapters.pico4.lifecycle_capture5 import transfer_capture5
+                        else:self.save(state);transfer=None
+                        if self.version==5:state=None # Actual caller graph dies before finalfresh.
+                        self.fresh()
+                        if transfer is not None:transfer_capture5(transfer);transfer=None
                         if complete:break
                         need(index<24);self.poll_delay(capture_start)
                 if self.state['phase']=='quiet':
@@ -396,7 +450,8 @@ class PicoLifecycleBackground:
                 if self.state['phase'] in ('release-issued','released'):
                     self.phase('release-issued');rows=[];window=None
                     for index in range(25):
-                        row=self.capture();capture_start=self.fresh_anchor[0] if self.version in (4,5) else None
+                        row=(helper_method(self.state5,'capture_current')(quiet_invocation,'finalQuiet',caller_rows=True) if self.version==5 and self.quiet_period is not None else self.capture())
+                        capture_start=self.fresh_anchor[0] if self.version in (4,5) else None
                         if self.version==5:complete,window=helper_method(self.state5,'quiet_step')(row,window,quiet_invocation,'finalQuiet')
                         else:
                             packets=self.packet(row)
@@ -404,13 +459,23 @@ class PicoLifecycleBackground:
                             complete=window.observe(packets['drive'],row['hostMonotonic'])
                         rows.append(row)
                         state=deepcopy(self.state);state.update(phase='released' if complete else 'release-issued',finalQuiet=deepcopy(rows),final=row)
-                        self.save(state);self.fresh()
+                        if self.version==5 and self.quiet_period is not None:
+                            transfer,rows,row=helper_method(self.state5,'capture_checkpoint')(state,caller_rows=True)
+                            from adapters.pico4.lifecycle_capture5 import transfer_capture5
+                        else:self.save(state);transfer=None
+                        if self.version==5:state=None # Actual caller graph dies before finalfresh.
+                        self.fresh()
+                        if transfer is not None:transfer_capture5(transfer);transfer=None
                         if complete:break
                         need(index<24);self.poll_delay(capture_start)
                 need(self.state['phase']=='released')
                 result=self.report()
                 self.fresh();return result
-        except Exception:raise NativeUIError('Lifecycle background unresolved; original intents/history retained, none repeated') from None
+        except Exception:
+            if self.version==5 and self.state5.current_capture is not None:
+                from adapters.pico4.lifecycle_capture5 import capture_method
+                capture_method(self.state5.current_capture,'fail')()
+            raise NativeUIError('Lifecycle background unresolved; original intents/history retained, none repeated') from None
 
     def before_ui(self):
         if self.version==5 and not self._plain5:return helper_method(self.state5,'call')(self.state['beforeUi'],'ui')

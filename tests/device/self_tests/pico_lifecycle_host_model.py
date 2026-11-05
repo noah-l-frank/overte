@@ -242,7 +242,7 @@ def bind_pending_reader(context,case,bank):
     def send(request):
         context.guard();return selected(request,original_write)
     native=NativeFeatureObservation(send,lambda:None,context.epoch,context.guard,context.pid,
-        monotonic=context.now,sleep=context.sleep)
+        monotonic=transport.monotonic,sleep=context.sleep)
     transport.bind_native(native,original_write,selected)
     def unavailable():raise AssertionError('The explicit bounded mode cannot query an unbounded getter')
     owner=NativePendingCommitOwner(native.send,unavailable,native.clock_ms,native.guard,native.pid,

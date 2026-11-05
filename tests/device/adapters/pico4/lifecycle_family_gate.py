@@ -63,6 +63,7 @@ class LifecycleFamilyGate4:
         self.raw,self.writer,self.namespace,self.lock=raw,writer,raw.namespace,raw.lock
         self.view=raw.view(role);self.pending=None;self.held=[];self.poisoned=False
         self.receipts=self._receipts=();self._receipt_seal=(self.receipts,2)
+        self.capture=self._original_capture=None
         self._family=self._original_family=(role,self.root_key,self.root_version,raw,writer,self.view)
         writer.storage_gate=writer._original_storage_gate=self
         self.codec=self._original_codec=None
@@ -135,6 +136,10 @@ class LifecycleFamilyGate4:
     def before(self,value):
         permit=FamilyPermit4(self,self.writer,value,prepared={});self.held.append(permit)
         try:
+            need(self.capture is self._original_capture)
+            if self.capture is not None:
+                from adapters.pico4.lifecycle_capture5 import capture_method
+                capture_method(self.capture,'attach_family')(permit)
             self.identity();need(self.pending is None and self.raw.active_family is None
                 and self.view.pending is None and self.raw.pending_view is None and len(self.receipts)<MAX_FRAMES)
             self.raw.phase_writes();size=canonical_size([value]);permit.value_size=size
@@ -209,6 +214,9 @@ class LifecycleFamilyGate4:
             self.view.confirm(self,permit)
             self.pending=None;self.raw.active_family=None;self.held.remove(permit)
             self.raw.published=True;self.raw.verify()
+            if self.capture is not None:
+                from adapters.pico4.lifecycle_capture5 import capture_method
+                capture_method(self.capture,'committed')(permit,receipt)
         except BaseException:self.failed(permit);raise
 
     def create_root(self,permit):
@@ -235,6 +243,7 @@ class LifecycleFamilyGate4:
         if not any(owner is self for _directory,owner in UNRESOLVED):UNRESOLVED.append((self.raw.path.parent,self))
 
     def close_host(self):
+        if self.capture is not self._original_capture or self.capture is not None:return False
         result=True
         if self.codec is not None:
             try:result=self.codec.close_host() is True and result
