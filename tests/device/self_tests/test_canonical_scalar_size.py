@@ -26,6 +26,7 @@ class CanonicalScalarSizeTests(unittest.TestCase):
         for value in values:
             with self.subTest(value=value):self.assertEqual(len(canonical(value)),module.canonical_size(value))
         document={'originalValues':values,'quoted':'\\\"\n Ω \U0001f600','nested':[None,False,-0.]}
+        document['strings']=[chr(index) for index in range(128)]+['printable '*1024,'\"\\'*4096,'\ud800','\udfff','Ω','🌍']
         self.assertEqual(len(canonical(document)),module.canonical_size(document))
 
     def test_same_exact_and_one_byte_short_budget_boundaries_use_unchanged_json_bytes(self):

@@ -47,6 +47,7 @@ def canonical_size(value,limit=MAX_RAW):
     active=set();scalar_ids={id(int),id(float),id(bool),id(type(None))}
     def text(value):
         size=2+len(value)+value.count('"')+value.count('\\')
+        if value.isascii() and value.isprintable():return size
         for match in re.finditer(r'[\x00-\x1f\x7f-\U0010ffff]',value):
             char=match[0];size+=1 if char in '\b\f\n\r\t' else 11 if ord(char)>65535 else 5
         return size
