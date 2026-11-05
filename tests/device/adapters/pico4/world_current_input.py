@@ -117,7 +117,11 @@ class PicoWorldCurrentInput:
     Each read performs both real outer lock exits. An already-held caller must
     delegate outside, preserving its original input intent; no nested publish.
     """
-    def __init__(self,documents,send,read,*,retain=None,capacity=None):
+    def __init__(self,documents,send,read,*,retain=None,capacity=None,resource_provider=None):
+        if resource_provider is not None:
+            from adapters.pico4.world_current_host_stage import WorldRootCurrentParticipant2
+            need(type(resource_provider) is WorldRootCurrentParticipant2)
+        self.resource_provider=resource_provider
         need(type(documents) is document.PicoWorldCurrentDocument and all(callable(fn) for fn in (send,read))
              and (retain is None or callable(retain)) and (capacity is None or callable(capacity)))
         self.documents,self.send,self.read_raw=documents,send,read
@@ -135,6 +139,10 @@ class PicoWorldCurrentInput:
                 fresh(captured,epoch);need(requested-captured+(now-started)*1000<=1500)
 
     def read(self,run,url,owner,operation,control):
+        if self.resource_provider is None:return self._read_original(run,url,owner,operation,control)
+        return self.resource_provider.focus_read(self,run,url,owner,operation,control)
+
+    def _read_original(self,run,url,owner,operation,control):
         need(self.lock._owner is None and self.guard() is not False)
         # Validate the operation before even the readonly document query.
         command(dict(schemaVersion=1,commandId='1'*32,action='pico-world-web',runId=run,fixtureUrl=url,
@@ -187,6 +195,11 @@ class PicoWorldCurrentInput:
         return result
 
     def require_warm(self,original):
+        if self.resource_provider is not None and self.resource_provider.host_selection.operation=='ime':
+            return self.resource_provider.warm_original(self,original)
+        return self._require_warm_original(original)
+
+    def _require_warm_original(self,original):
         from adapters.chat_journey.source_chunks import json_digest
         need(self._warm_anchor is not None)
         started,requested,seal=self._warm_anchor

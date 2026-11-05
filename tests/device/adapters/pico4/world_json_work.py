@@ -16,7 +16,7 @@ import sys
 MAX_WIRE=65536
 LEXICAL_SLOT=64*MAX_WIRE
 NUMBER=re.compile(r'-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\Z')
-ROOT,SOURCE,TRANSACTION,DOM,ECHO_ARRAY,ECHO,OTHER=range(7)
+ROOT,SOURCE,TRANSACTION,DOM,ECHO_ARRAY,ECHO,OTHER,FRAME=range(8)
 
 
 class WorldJsonWorkRefused(ValueError):pass
@@ -47,7 +47,7 @@ class WorldJsonWork1:
 class _Projection:
     def __init__(self):
         self.active=[];self.nodes=0;self.maximum=0;self.depth=0
-        self.streams={'outer':0,'transaction':0,'quoted-dom':0,'dom':0,'echo':0}
+        self.streams={'outer':0,'transaction':0,'quoted-dom':0,'dom':0,'echo':0,'frame':0}
     def observe_depth(self):
         self.depth=max(self.depth,sum(scanner.depth for scanner in self.active))
     def parse(self,raw,kind):
@@ -138,13 +138,15 @@ class _Scanner:
         self.ws()
         if self.i<self.end and self.raw[self.i]=='}':self.i+=1;self.canonical+=1;return
         while True:
-            self.ws();key=self.string(state in (ROOT,SOURCE,TRANSACTION,DOM,ECHO))
+            self.ws();key=self.string(state in (ROOT,SOURCE,TRANSACTION,DOM,ECHO,FRAME))
             self.ws();require(self.i<self.end and self.raw[self.i]==':')
             self.i+=1;self.canonical+=1;self.ws()
             embedded=None;child=OTHER
             if state==ROOT and key=='source':child=SOURCE
-            elif state==SOURCE and key=='domRaw':embedded='transaction'
-            elif state==TRANSACTION and key=='domRaw':embedded='quoted-dom'
+            elif state==SOURCE and key in ('domRaw','focusRaw','geometryRaw'):embedded='transaction'
+            elif state==SOURCE and key=='frame':child=FRAME
+            elif state==FRAME and key=='raw':embedded='frame'
+            elif state==TRANSACTION and key in ('domRaw','geometryRaw'):embedded='quoted-dom'
             elif state==DOM and key=='echoes':child=ECHO_ARRAY
             elif state==ECHO and key=='message':embedded='echo'
             if embedded is not None and self.i<self.end and self.raw[self.i]=='"':

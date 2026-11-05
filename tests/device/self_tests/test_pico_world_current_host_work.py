@@ -59,7 +59,7 @@ class WorkTests(unittest.TestCase):
     def test_original_document_all_actual_nested_streams(self):
         request,value=fixture();raw=json.dumps(value);work=project(raw)
         counts=dict(work.streams)
-        self.assertEqual({'outer':1,'transaction':1,'quoted-dom':1,'dom':1,'echo':0},counts)
+        self.assertEqual({'outer':1,'transaction':1,'quoted-dom':1,'dom':1,'echo':0,'frame':0},counts)
         self.assertGreaterEqual(work.max_canonical,canonical_size(value))
         self.assertGreater(work.total_nodes,100)
         self.assertGreater(work.combined_depth,4)

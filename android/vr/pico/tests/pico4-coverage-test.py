@@ -12,7 +12,7 @@ import unittest
 TEST_DIR = Path(__file__).resolve().parent
 MATRIX = json.loads((TEST_DIR / "pico4-coverage.json").read_text(encoding="utf-8"))
 RUNNER_TREE = ast.parse((TEST_DIR / "pico4-test-suite.py").read_text(encoding="utf-8"))
-EXPECTED_CATALOG_CASES = 441
+EXPECTED_CATALOG_CASES = 442
 
 
 def catalog_entries() -> list[str]:
@@ -33,6 +33,24 @@ def result_exit_code(result: unittest.TestResult) -> int:
 
 
 class CoverageMatrixTests(unittest.TestCase):
+    def test_world_host_dom_wrapper_is_exact_finite_partition(self):
+        root=TEST_DIR.parents[3]
+        wrapper=ast.parse((TEST_DIR/'device/test_world_host_dom.py').read_text())
+        names=ast.literal_eval(next(node.value for node in wrapper.body if isinstance(node,ast.Assign)
+            and any(isinstance(target,ast.Name) and target.id=='CASE_NAMES' for target in node.targets)))
+        module='test_pico_world_host_dom'
+        body=ast.parse((root/'tests/device/self_tests'/(module+'.py')).read_text())
+        expected={'self_tests.'+module+'.'+owner.name+'.'+method.name
+            for owner in body.body if isinstance(owner,ast.ClassDef)
+            for method in owner.body if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')}
+        self.assertEqual(4,len(names));self.assertEqual(4,len(set(names)))
+        self.assertEqual(expected,set(names))
+        selected=[node for node in ast.walk(RUNNER_TREE) if isinstance(node,ast.Call)
+            and isinstance(node.func,ast.Name) and node.func.id=='test' and node.args
+            and isinstance(node.args[0],ast.Constant) and node.args[0].value=='world-host-dom']
+        self.assertEqual(1,len(selected));self.assertEqual('device/test_world_host_dom.py',selected[0].args[3].value)
+        self.assertEqual(('node',),ast.literal_eval(next(k.value for k in selected[0].keywords if k.arg=='requires')))
+
     def test_world_host_resource_wrapper_selects_each_new_finite_case_once(self):
         root=TEST_DIR.parents[3]
         wrapper=ast.parse((TEST_DIR/'device/test_world_current_host_resource.py').read_text())

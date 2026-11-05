@@ -326,3 +326,50 @@ Actor/Common/stereo/export and Parent retirement remain unqualified. In
 particular commit-current-text is still a proposal, not an implemented native
 CurrentInput operation. Source-complete count remains3/14 and public Feature6
 capabilities stay off.
+
+
+## Optional retained HOST focus, IME trace and fresh document component
+
+`WorldCurrentHostSelection1` is an explicit cold test-data selection, not a
+public World feature flag. `resource_selection=None` still takes the original
+factory. Selection defaults remain document / no event handback / no immutable
+string sharing / no product-DOM worker. Typed flags are fixed before owners,
+first SDK acquisition, parser or input; later changed/foreign data refuses.
+
+The optional HOST flow uses the actual cold Parent namespace, same retained
+Root, SourceLock, original raw archive, full-file lineage and paired descriptors.
+It executes original current Document/Focus readers, one IME attempt, original
+Consumption correlator and a NEW original Document after all four trace kinds.
+The child evaluates unchanged `android/common/web/resources/editor.js` against
+an explicitly modeled Input. The same live process owns its initially empty
+editor, actual product `edit`/`beforeinput`/`input` calls and later fresh snapshot.
+Every child response is retained in its own actual original file before parsing.
+PID/start/parent/executable, paired descriptors, all original bytes and current
+same-Root census are rechecked. Source death is sticky; there is no input replay.
+The wrapper requires Node and retains task-owned originals under explicit /tmp.
+This is HOST logic on tmpfs, not persistent-disk/device latency qualification.
+
+The declared source model supplies Native/JNI/Java authority and trace values.
+Neither native Qt execution nor Android Java/Chromium, normal pointer focus,
+stereo, public capability or full Common readiness follows from these tests.
+The NativeWebViewItem Qt route reaches JNI.edit -> Java.edit -> product editor;
+the original correlator requires its JNI/Java dependencies and nonce identity,
+not a total order between Native RAII teardown and Android's UI queue.
+
+All original 1.5s/query, 5s/attempt, 120s/owning, 512 and 16MiB limits remain.
+Raw work remains the full 80 PART; model work remains 44B+524288; child logical
+roots add 2 PART before birth. Complete H/I/M raw metadata representations are
+summed inside the same 80 PART, not a new quota. Closed transient entry/event
+work ends only at a proved true original outer return, after all guards/locks;
+all escaped DTOs, originals, model/current/intent/caller roots remain charged.
+String sharing applies only to the very same immutable object in one bounded
+fresh census, holding strong references and charging every node/reference.
+Equal new strings remain fully charged; capacity/depth uses the old full bill.
+
+Four finite wrapper methods cover the actual positive, cancelable beforeinput
+with empty NEW document/no effect promotion, genuine owned child exit with
+first TB/zero next getter or raw and eight pure identity/extent edge assertions.
+Earlier Root inode, credit, late-focus and capacity proofs remain separate;
+this wrapper does not replay old 63-case/normal-prefix/whole scopes. A failed
+call keeps its original error, traceback, pending work and original bytes.
+Default and public source-complete/capability declarations are unchanged.

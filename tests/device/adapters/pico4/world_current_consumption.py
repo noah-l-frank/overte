@@ -262,9 +262,13 @@ class PicoWorldCurrentConsumption:
     must be supplied by the existing owner. Failure preserves issued ownership;
     this object cannot resend an uncertain query or create a replacement arm.
     """
-    def __init__(self, focus, send, read, retain, *, capacity=None):
+    def __init__(self, focus, send, read, retain, *, capacity=None, resource_provider=None):
         need(type(focus) is PicoWorldCurrentInput and all(callable(f) for f in (send, read, retain))
              and (capacity is None or callable(capacity)))
+        if resource_provider is not None:
+            from adapters.pico4.world_current_host_stage import WorldRootCurrentParticipant2
+            need(type(resource_provider) is WorldRootCurrentParticipant2)
+        self.resource_provider=resource_provider
         self.focus, self.send, self.read_raw, self.retain = focus, send, read, retain
         self.capacity = capacity
         self.lock, self.guard, self.clock_ms, self.pid = focus.lock, focus.guard, focus.clock_ms, focus.pid
@@ -277,6 +281,10 @@ class PicoWorldCurrentConsumption:
         self._sequence = self._available = 0
 
     def arm(self):
+        if self.resource_provider is None:return self._arm_original()
+        return self.resource_provider.trace_arm(self)
+
+    def _arm_original(self):
         need(not self.issued and not self.failed)
         original = deepcopy(self.focus.original()); focus_original(original, self.pid)
         self.focus.require_warm(original)
@@ -295,6 +303,10 @@ class PicoWorldCurrentConsumption:
             raise
 
     def observe(self, after_sequence):
+        if self.resource_provider is None:return self._observe_original(after_sequence)
+        return self.resource_provider.trace_observe(self,after_sequence)
+
+    def _observe_original(self, after_sequence):
         need(self.issued and not self.failed and self.arm_packet is not None
              and integer(after_sequence, 0, 16) and after_sequence == self.cursor)
         call = {k: self.focus_original['request'][k] for k in ('schemaVersion', 'action', 'runId', 'fixtureUrl', 'ownerToken')}
@@ -330,7 +342,11 @@ class PicoWorldCurrentConsumption:
                      and entry['capturedEpochMs'] - 250 <= raw['before']['capturedEpochMs'])
         event[frame['kind']] = (frame['origin'], deepcopy(raw))
 
-    def _query(self, call):
+    def _query(self,call):
+        if self.resource_provider is None:return self._query_original(call)
+        return self.resource_provider.trace_query(self,call)
+
+    def _query_original(self, call):
         command(call)
         need(self.lock._owner is None and self.guard() is not False and self.queries < 4096)
         started, epoch = self.monotonic(), self.clock_ms()
