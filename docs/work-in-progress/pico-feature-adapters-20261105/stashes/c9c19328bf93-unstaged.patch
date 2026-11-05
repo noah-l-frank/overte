@@ -1,0 +1,46 @@
+diff --git a/tests/device/adapters/pico4/world_web_binding.py b/tests/device/adapters/pico4/world_web_binding.py
+index 5cbaf98af4c062bf2e2b16ff903e195d680d77ea..72e63a1c173647260f0a6efdd22790d48527c7c8 100644
+--- a/tests/device/adapters/pico4/world_web_binding.py
++++ b/tests/device/adapters/pico4/world_web_binding.py
+@@ -121,6 +121,16 @@ class PicoWorldWebBinding(PicoScriptJourney):
+         value=click.click(parent.run,parent.url,parent.state['ownerToken'],view,control)
+         parent.input_result(value);parent.input_done();return value
+ 
++    def world_prefix_current_source(self,target,parent):
++        self.check_identity(target,parent);need(parent.lock._owner is None)
++        return self.original._world_current_input_originals(target,source_lock=parent.lock)
++
++    def world_prefix_current_ray(self,target,parent,source,intent):
++        self.check_identity(target,parent);need(parent.lock._owner is None)
++        return self.original._world_current_ray(target,source=source,intent=intent,
++            stream_intent=parent.input_fence().stage_intent,before_publish=parent.input_fence().before_publish,
++            admission=parent.input_fence().check)
++
+     def world_prefix_text(self,target,parent,view,text,*,control='text'):
+         click=self.ray(target,parent)
+         def commit(original):
+diff --git a/tests/device/adapters/pico4/world_web_prefix.py b/tests/device/adapters/pico4/world_web_prefix.py
+index ec06b1d063416b393aac6171a3730228c42614b2..e69150fe123771081448e6fd43425269b1aa4e58 100644
+--- a/tests/device/adapters/pico4/world_web_prefix.py
++++ b/tests/device/adapters/pico4/world_web_prefix.py
+@@ -78,6 +78,8 @@ def validate_owner(value,run,url,*,version=VERSION):
+             packet=anchor[field];phase_packet(packet,run=run,area='world-web',request=packet['requestId'],epoch=packet['capturedEpochMs'])
+             need(packet['activations'][-1]['ticket']==row['ticket'])
+         need(same(anchor['before']['activations'],anchor['packet']['activations']))
++        from adapters.pico4.world_current_focus_parent import FIELD,validate_carrier
++        if FIELD in row['original']:validate_carrier(row['original'],row,value,run,url)
+ 
+ 
+ 
+@@ -190,6 +192,11 @@ class PicoWorldWebPrefix:
+ 
+     def io(self,*,read_only=True):return self.adapter.world_prefix_io(self.target,self,read_only=read_only)
+ 
++    def focus_current(self,call):
++        """Normal next focus/type substage; text/Keyboard and the step stay open."""
++        from adapters.pico4.world_current_focus_parent import begin
++        return begin(self,call)
++
+     def prepare(self):
+         need(self.role=='primary' and self.lock._owner is None)
+         with self.lock.held(),self.adapter.existing_input_session(self.target):

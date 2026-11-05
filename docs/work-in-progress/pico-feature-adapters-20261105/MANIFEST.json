@@ -290,11 +290,52 @@
       "path": "world-web/sources.patch",
       "bytes": 2492802,
       "sha256": "ac7a1b36c0eb3aac8f29482dedc3f5d9473c2d1c3a2cd9702ed273ba7718942d"
+    },
+    {
+      "path": "stashes/15b1e2b0d2b2-unstaged.patch",
+      "bytes": 32961,
+      "sha256": "ac679db2e19368dffc0c7eac99fcd1588d0de86dcfa745781f0ead6c4ae1952e"
+    },
+    {
+      "path": "stashes/15b1e2b0d2b2-untracked.patch",
+      "bytes": 11367,
+      "sha256": "10661b4953b688806543e999c4924be62b813cadc5bfe5ff9cd0ef7f4f44c439"
+    },
+    {
+      "path": "stashes/68ffe33ce617-unstaged.patch",
+      "bytes": 2736,
+      "sha256": "af453570f0378ca6fc09cc83fba9594038494512cecb31326b038f207ff4f3bb"
+    },
+    {
+      "path": "stashes/68ffe33ce617-untracked.patch",
+      "bytes": 11283,
+      "sha256": "e4444991fcffa7e651726c5f204587d791f2f7be127acd239c5ed59250394851"
+    },
+    {
+      "path": "stashes/MANIFEST.json",
+      "bytes": 2483,
+      "sha256": "e733c8f73c10e4f0bddfb7cf489ad2bf1a1a76fa0061921101be86ba3a583bff"
+    },
+    {
+      "path": "stashes/README.md",
+      "bytes": 499,
+      "sha256": "ff55d214b7cb7f58632faeb720cbdd102ff7097b80336354c61854c3c611dbd1"
+    },
+    {
+      "path": "stashes/c9c19328bf93-unstaged.patch",
+      "bytes": 2736,
+      "sha256": "af453570f0378ca6fc09cc83fba9594038494512cecb31326b038f207ff4f3bb"
+    },
+    {
+      "path": "stashes/c9c19328bf93-untracked.patch",
+      "bytes": 11283,
+      "sha256": "e4444991fcffa7e651726c5f204587d791f2f7be127acd239c5ed59250394851"
     }
   ],
   "archiveAttributes": {
     "path": ".gitattributes",
     "sha256": "fef06e7c01b640adffc90c09ad8fc5ceb1c0fe1bd976e493d446319dacf8404d",
     "purpose": "Preserve exact archived source patch bytes; no live source rule changes"
-  }
+  },
+  "olderLocalStashesPreserved": 3
 }

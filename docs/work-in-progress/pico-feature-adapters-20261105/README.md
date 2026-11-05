@@ -49,3 +49,5 @@ cleanup and missing-capability failures explicitly unresolved.
 Archived patches retain their original bytes and existing whitespace. A
 directory-local Git attribute applies only to these patch artifacts; ordinary
 source and documentation checks retain their existing rules.
+
+Older local source stashes are also preserved under `stashes/` before deleting local task material. They remain inactive archival snapshots.

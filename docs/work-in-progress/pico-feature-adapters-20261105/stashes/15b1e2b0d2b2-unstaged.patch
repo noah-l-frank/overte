@@ -1,0 +1,425 @@
+diff --git a/android/common/web/src/NativeWebViewItem.cpp b/android/common/web/src/NativeWebViewItem.cpp
+index 415b87b6ba2c59f355f2213f22c75453c1483c8a..98ecda2a200b33b715cfd820b8d9523c54dcc143 100644
+--- a/android/common/web/src/NativeWebViewItem.cpp
++++ b/android/common/web/src/NativeWebViewItem.cpp
+@@ -10,6 +10,7 @@
+ #include "../../../../tests/device/native/WebDOMObservationBridge.h"
+ #include "../../../../tests/device/native/WebRuntimeBridge.h"
+ #include "../../../../tests/device/native/PicoBrowserFeatureBridge.h"
++#include "../../../../tests/device/native/PicoWorldWebRay.h"
+ #endif
+ #include <QFile>
+ #include <QFocusEvent>
+diff --git a/android/common/web/src/PicoBrowserFeatureE2E.inc b/android/common/web/src/PicoBrowserFeatureE2E.inc
+index 762555ceb415ee56113357010be980d0d237acff..05736a813e9e0ac8ef3dadfe7d2cad20ea46a5e2 100644
+--- a/android/common/web/src/PicoBrowserFeatureE2E.inc
++++ b/android/common/web/src/PicoBrowserFeatureE2E.inc
+@@ -24,7 +24,7 @@ QVariantMap worldWebPacket(const QVariantMap& command,WorldWebScope& scope,const
+     const auto now=QDateTime::currentMSecsSinceEpoch();
+     if (now<=0 || now<scope.epoch || scope.sequence>=9007199254740991ULL || !scope.complete) { return {}; }
+     scope.epoch=now;
+-    QVariantMap packet{{"picoBrowserVersion",2},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
++    QVariantMap packet{{"picoBrowserVersion",command.value("operation")=="measure-ray" ? 3 : 2},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
+         {"ownerToken",scope.token},{"instance",scope.instance},{"sequence",static_cast<qulonglong>(++scope.sequence)},
+         {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",now},{"status",status},{"source",source}};
+     const auto id=command.value("commandId").toString();
+@@ -148,12 +148,12 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
+                 || !scope.originalPackets.contains(nonce)) { return {}; }
+         const auto old=scope.originalPackets.value(nonce);
+         if (old.value("status")!="pending") { return old; }
+-        if ((operation=="input" || operation=="measure") && scope.timer.isValid() && scope.timer.elapsed()>=4000) {
++        if ((operation=="input" || operation=="measure" || operation=="measure-ray") && scope.timer.isValid() && scope.timer.elapsed()>=4000) {
+             if (scope.focusTimer) { scope.focusTimer->stop();scope.focusTimer->deleteLater(); }
+             scope.receipt=worldWebPacket(command,scope,"unavailable");return scope.receipt;
+         }
+     } else if (scope.originalCommands.size()>=4096) { scope.complete=false;return {}; }
+-    if (operation!="input" && operation!="measure" && scope.lastCommand.value("commandId")==command.value("commandId")) {
++    if (operation!="input" && operation!="measure" && operation!="measure-ray" && scope.lastCommand.value("commandId")==command.value("commandId")) {
+         if (scope.lastCommand!=command) { return {}; }
+         if (scope.lastPacket.value("status")=="ready" || scope.lastPacket.value("status")=="unavailable") { return scope.lastPacket; }
+     }
+@@ -199,7 +199,7 @@ QVariantMap NativeWebViewItem::featurePicoBrowser(const QVariantMap& command) {
+         scope.originalPackets.clear();scope.geometryOriginal.clear();scope.retired=true;scope.held.clear();scope.deliveries.clear();scope.documents.clear();scope.requests.clear();scope.replies.clear();scope.inputs.clear();scope.dom.clear();
+         return worldWebPacket(command,scope,"ready",{{"retired",true}});
+     }
+-    if (operation=="input" || operation=="measure") {
++    if (operation=="input" || operation=="measure" || operation=="measure-ray") {
+         if (scope.retired) { return {}; }
+         if (!scope.input.isEmpty() && scope.input.value("commandId")==command.value("commandId")) {
+             if (scope.input!=command) { return {}; }
+@@ -275,7 +275,8 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
+             const auto run=found.key();const auto command=scope.input;
+             const auto valid=[item,grant,page,document,command] {
+                 if (!item || !featureEnabled() || !item->isVisible() || !item->isEnabled()
+-                        || item->_presentation!=Texture || item->_surface!=Tablet || !item->window()
++                        || item->_presentation!=Texture
++                        || item->_surface!=(command.value("operation")=="measure-ray" ? WorldEntity : Tablet) || !item->window()
+                         || QGuiApplication::applicationState()!=Qt::ApplicationActive
+                         || !item->allowsEditorDocument(grant,page,QUrl(document))) { return false; }
+                 QMutexLocker guard(&item->_mutex);
+@@ -299,6 +300,25 @@ void NativeWebViewItem::acceptFeaturePicoBrowserGeometry(qint64 handle,quint64 g
+                 const auto parsed=QJsonDocument::fromJson(quoted.array()[0].toString().toUtf8());
+                 if (parsed.isObject()) { original=parsed.object().toVariantMap(); }
+             }
++            if (command.value("operation")=="measure-ray") {
++                // A passive original, never a pointer/focus/text operation.
++                // Its world geometry is produced by the scene owner from this
++                // exact NativeWebViewItem and its actual QML/window transform.
++                const auto point=overte::e2e::picoBrowserPoint(original,request,run,document,
++                    command.value("control").toString(),QDateTime::currentMSecsSinceEpoch(),QSizeF(item->width(),item->height()));
++                const auto providerValue=qApp->property(overte::e2e::picoWorldWebRayProperty());
++                QVariantMap ray;
++                if (!focused && point && valid() && !scope.tablet && !scope.reference && scope.surface=="world"
++                        && providerValue.userType()==qMetaTypeId<overte::e2e::PicoWorldWebRayProvider>()) {
++                    const auto provider=providerValue.value<overte::e2e::PicoWorldWebRayProvider>();
++                    if (provider) { ray=provider(item,*point); }
++                }
++                const bool okay=!ray.isEmpty() && valid() && scope.timer.elapsed()<4000;
++                scope.receipt=worldWebPacket(command,scope,okay ? "ready" : "unavailable",
++                    okay ? QVariantMap{{"geometryRaw",QString::fromUtf8(result)},{"worldRay",ray},
++                        {"nativeView",QVariantMap{{"handle",QString::number(item->_handle)},{"creation",qulonglong(item->_creationRevision)},
++                            {"grant",qulonglong(grant)},{"page",qulonglong(page)},{"url",document}}}} : QVariantMap());return;
++            }
+             if (command.value("operation")=="measure") {
+                 // Preserve the original read even when the control is offscreen.
+                 // The consumer validates its closed DOM schema independently.
+diff --git a/android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp b/android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp
+index b666c0821c625a36a79ecaa0b8300494a6e87264..4572ef7815c672b13a2511367f45c9cf1953575c 100644
+--- a/android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp
++++ b/android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp
+@@ -6,6 +6,7 @@
+ #if defined(OVERTE_E2E_FEATURE_TESTS)
+ #include "../../../../../../tests/device/native/PendingFieldCommitOwner.h"
+ #include "../../../../../../tests/device/native/PicoBrowserInputBridge.h"
++#include "../../../../../../tests/device/native/PicoWorldWebRay.h"
+ #include "../../../../../../tests/device/native/LifecycleUiObservation.h"
+ #include "../../../../../../tests/device/native/LifecycleBackgroundHistory.h"
+ #include "../../../../../../tests/device/native/AssetsPageObservation.h"
+@@ -24,6 +25,8 @@
+ #include <scripting/HMDScriptingInterface.h>
+ #include <QElapsedTimer>
+ #include <QInputMethodEvent>
++#include <QQmlContext>
++#include <QQmlEngine>
+ #include <QUuid>
+ #endif
+ 
+@@ -414,6 +417,71 @@ void installBrowserInputProvider() {
+     qApp->setProperty(picoBrowserInputProperty(),QVariant::fromValue(provider));
+ }
+ 
++void installWorldWebRayProvider() {
++    using namespace overte::e2e;
++    if (!qApp || QThread::currentThread()!=qApp->thread() || !bridgeEnabled()
++            || !previewDirectory(BRIDGE_DIRECTORY) || qApp->property(picoWorldWebRayProperty()).isValid()) { return; }
++    PicoWorldWebRayProvider provider=[](QQuickItem* item,const QPointF& local) -> QVariantMap {
++        if (!bridgeEnabled() || !previewDirectory(BRIDGE_DIRECTORY) || !item || !effectiveVisible(item)
++                || item->thread()!=qApp->thread() || !item->window() || item->window()->thread()!=qApp->thread()
++                || !qApp->isHMDMode() || QGuiApplication::applicationState()!=Qt::ApplicationActive
++                || !DependencyManager::isSet<EntityScriptingInterface>()
++                || !DependencyManager::isSet<HMDScriptingInterface>() || !DependencyManager::isSet<AvatarManager>()) { return {}; }
++        const auto identity=item->property("sourceIdentity").toString();
++        if (!identity.startsWith("web-entity:")) { return {}; }
++        const QUuid id(identity.mid(11));
++        auto* context=QQmlEngine::contextForObject(item);
++        if (id.isNull() || identity!="web-entity:"+id.toString(QUuid::WithoutBraces)
++                || !context || !context->isValid() || context->contextProperty("nativeWebSourceIdentity").toString()!=identity) { return {}; }
++        const auto properties=DependencyManager::get<EntityScriptingInterface>()->getEntityProperties(id);
++        if (properties.getType()!=EntityTypes::Web || properties.getEntityHostType()!=entity::HostType::LOCAL
++                || properties.getName()!=QStringLiteral("OVERTE_PARITY_WEB_REFERENCE") || !properties.getParentID().isNull()
++                || !properties.getVisible() || properties.getIgnorePickIntersection()
++                || properties.getSourceUrl()!=item->property("url").toString()) { return {}; }
++        const auto dimensions=properties.getDimensions();const auto registration=properties.getRegistrationPoint();
++        const auto dpi=properties.getDpi();
++        if (!std::isfinite(dpi) || dpi<1 || dpi>1024
++                || glm::any(glm::lessThanEqual(dimensions,glm::vec3(0)))
++                || !std::isfinite(dimensions.x) || !std::isfinite(dimensions.y) || !std::isfinite(dimensions.z)
++                || registration!=glm::vec3(.5f)) { return {}; }
++        // Match the actual renderer's window-size cap and RayPick's XY-plane
++        // mapping. Parent-scaled/noncentral geometry remains unavailable until
++        // its existing product projection can be independently qualified.
++        constexpr float pixelsPerInchMeter=39.3701f;
++        const float factor=pixelsPerInchMeter*dpi;
++        glm::vec2 rendered=glm::vec2(dimensions)*factor;
++        const auto longest=std::max(rendered.x,rendered.y);
++        if (longest>4096) { rendered*=4096/longest; }
++        const auto scene=item->mapToScene(local);auto* window=item->window();
++        if (window->width()!=int(rendered.x) || window->height()!=int(rendered.y)
++                || !std::isfinite(scene.x()) || !std::isfinite(scene.y()) || scene.x()<0 || scene.y()<0
++                || scene.x()>=window->width() || scene.y()>=window->height()
++                || !item->contains(local)) { return {}; }
++        const auto rotation=properties.getRotation();const auto position=properties.getPosition();
++        const auto point=position+rotation*glm::vec3(float(scene.x())/factor-registration.x*dimensions.x,
++            (1-registration.y)*dimensions.y-float(scene.y())/factor,0);
++        const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
++        const auto hmd=DependencyManager::get<HMDScriptingInterface>();
++        if (!avatar || !hmd->isHMDMode()) { return {}; }
++        const auto vec=[](const glm::vec3& value){return QVariantList{value.x,value.y,value.z};};
++        const auto point2=[](const QPointF& value){return QVariantList{value.x(),value.y()};};
++        const QVariantList quad{point2(item->mapToScene(QPointF(0,0))),point2(item->mapToScene(QPointF(item->width(),0))),
++            point2(item->mapToScene(QPointF(item->width(),item->height()))),point2(item->mapToScene(QPointF(0,item->height())))};
++        QVariantList matrix;const auto sensor=avatar->getSensorToWorldMatrix();
++        for (int column=0;column<4;++column) { for (int row=0;row<4;++row) { matrix.append(sensor[column][row]); } }
++        return {{"worldWebRayVersion",1},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
++            {"sourceIdentity",identity},{"entityId",id.toString(QUuid::WithoutBraces)},
++            {"entityName",properties.getName()},{"entityType",QStringLiteral("Web")},{"hostType",QStringLiteral("local")},
++            {"sourceUrl",properties.getSourceUrl()},{"visible",properties.getVisible()},
++            {"ignorePickIntersection",properties.getIgnorePickIntersection()},
++            {"position",vec(position)},{"rotation",QVariantList{rotation.x,rotation.y,rotation.z,rotation.w}},
++            {"dimensions",vec(dimensions)},{"registrationPoint",vec(registration)},{"dpi",dpi},
++            {"scenePoint",QVariantList{scene.x(),scene.y()}},{"itemQuad",quad},{"surfaceSize",QVariantList{window->width(),window->height()}},
++            {"worldPoint",vec(point)},{"sensorToWorld",matrix},{"headPosition",vec(hmd->getPosition())}};
++    };
++    qApp->setProperty(picoWorldWebRayProperty(),QVariant::fromValue(provider));
++}
++
+ void installPendingCommitOwner() {
+     using namespace overte::e2e;
+     if (!qApp || QThread::currentThread() != qApp->thread() || !bridgeEnabled()
+@@ -464,6 +532,7 @@ private:
+ #if defined(OVERTE_E2E_FEATURE_TESTS)
+         installPendingCommitOwner();
+         installBrowserInputProvider();
++        installWorldWebRayProvider();
+         installSnapshotCancelProvider();
+ #endif
+         const Observation observation = observeTablet();
+diff --git a/tests/device/adapters/pico4/FEATURE_COVERAGE_20261021.json b/tests/device/adapters/pico4/FEATURE_COVERAGE_20261021.json
+index ac572f9d02ca4fef46b772e2ffbcaee9b9a99628..5226d3e533ccd7e96b62c095b2e912b8cff28ecf 100644
+--- a/tests/device/adapters/pico4/FEATURE_COVERAGE_20261021.json
++++ b/tests/device/adapters/pico4/FEATURE_COVERAGE_20261021.json
+@@ -785,7 +785,7 @@
+         "open"
+       ],
+       "missingOperationsOrEvidence": [
+-        "Newest whole process case at e75cf9e34f remains red at unchanged120s: all26 actions/28phases, normal Close91.762s, cleanup wait114.148s, Actor export21parts/666originals ready; no return transport, capture/archive/host completion. Both roles sequence138/40images preserved. A subsequent immutable historical VM/graph guard passes eight owning return cases32.924s and preserves original wire digest/full physical reads, but no new whole success is claimed.",
++        "Latest complete process case at d2095e7c96 remains red at unchanged120s after immutable historical graph fix: all26actions/28phases, Close87.079s, cleanup wait108.594s, Actor export21parts and return transport ready1part; no Parent consumption/remote receipt/capture/archive/host completion. Originals tmpfjfxzruf retained. No whole success is claimed.",
+         "The actual short common-cleanup/typed independent-process return/capture prefix now completes original immutable archive and actual host-pair closure (two cases76.242s); lost initial intent and late final sentry-unlink counters pass75.589s. These prefixes preserve sequenceSucceeded=false and cannot qualify finalization. Complete successful common execution and the public coordinator remain unverified.",
+         "Product/GPU/Qt/DOM/Java/OS/native clock endpoints remain explicit analytical host seams. Whole APK/HMD qualification remains unavailable."
+       ],
+@@ -800,7 +800,7 @@
+         "Revoke leases and retire callback/grant authority",
+         "Observe actual source destruction and closed quiet baseline"
+       ],
+-      "nextExecutableStep": "Verify the same single complete26-action/28-phase process Journey with the immutable historical VM/graph guard, then actual typed return, all-capture retirement, immutable archive and host closure within unchanged120s. Only after true complete original common success may the public coordinator be enabled. Every original file/read/quiet interval remains; latest whole failure is retained.",
++      "nextExecutableStep": "Profile actual independent Parent cold admission of the ready666-original graph before another whole retry; preserve all original bytes/physical checks/phase windows and120s. The subsequent standalone image/opener measurements show only0.039s/0.00052s per call, so no speculative cache/transport changes are made. Enclosing source/archive/host short prefixes are verified, full common+return+archive under deadline remains open; continue other authorized feature sources meanwhile.",
+       "nativeCompilation": "Selected native backend translation unit and original Pico pointer/provider bodies host-compiled; full application unverified",
+       "deviceQualification": "untested"
+     },
+diff --git a/tests/device/adapters/pico4/FEATURE_HANDOFF_20261021.md b/tests/device/adapters/pico4/FEATURE_HANDOFF_20261021.md
+index 79c4d3ecd8ff0f2ca8a53137e22d171550a61eff..6614b2b6c45ba8d599d0ace97972b3397facbe44 100644
+--- a/tests/device/adapters/pico4/FEATURE_HANDOFF_20261021.md
++++ b/tests/device/adapters/pico4/FEATURE_HANDOFF_20261021.md
+@@ -2565,3 +2565,16 @@ pre-input baseline25.539s, default return-image27.092s and return fences33.509s.
+ Each selector retains its unchanged120s bound. Agent's existing full
+ false-common/Stop2/kernel-return/seal/catalog case passes40.928s with v3/guard;
+ false remainsfalse and no enclosing archive or whole result is inferred.
++
++## Latest whole Browser result after immutable graph admission
++
++One complete case atd2095e7c96 remains red at unchanged120s. All26actions and
++28phases were reached: normal Close87.079s, cleanup wait108.594s, original
++Actor export21parts and actual return transport1part ready. Parent nonce,
++remote receipt, capture/archive/host completion were not reached. Originals
++remain in the private tmpfjfxzruf archive with the1085-file frozen manifest.
++No whole green follows from the short prefixes. Pure historical image-cost
++measurement(~0.039s/call) and opener setup(~0.00052s/call) led to no speculative
++cache/transport change. Actual independent Parent cold graph admission remains
++the next profiling boundary; Root moves to the missing normal world-Web ray
++source while the other agents advance Navigation/Assets/Chat.
+diff --git a/tests/device/adapters/pico4/VERIFICATION_20261021.json b/tests/device/adapters/pico4/VERIFICATION_20261021.json
+index dc38eb5bd6b6bfdcc6b1bc328ba6ac805be0c37b..577f8c848f88912e4552153b9f66a944b998d641 100644
+--- a/tests/device/adapters/pico4/VERIFICATION_20261021.json
++++ b/tests/device/adapters/pico4/VERIFICATION_20261021.json
+@@ -3596,5 +3596,20 @@
+     "settingsRestored": false,
+     "fullFeatureRecipe": false,
+     "deviceAcceptance": false
++  },
++  "browserWholeImmutableGraph20261023": {
++    "sourceHead": "d2095e7c96aba506c5792c4a893dcdae190ab004",
++    "sourceManifestFiles": 1085,
++    "status": "failed-unchanged-120s",
++    "exitCode": 124,
++    "phases": 28,
++    "normalCloseSeconds": 87.079,
++    "cleanupWaitSeconds": 108.594,
++    "actorExportParts": 21,
++    "returnTransportParts": 1,
++    "parentConsumption": false,
++    "originalsRetained": true,
++    "archiveHostComplete": false,
++    "deviceAcceptance": false
+   }
+ }
+diff --git a/tests/device/adapters/pico4/binding.py b/tests/device/adapters/pico4/binding.py
+index 49afbe0e43949ba158ce997cbe34ba12b9d430a1..f071a45b40f768a866eee0464e175dfced3e8db3 100644
+--- a/tests/device/adapters/pico4/binding.py
++++ b/tests/device/adapters/pico4/binding.py
+@@ -2183,12 +2183,13 @@ def create_adapter(args, base_class):
+         def _browser_originals(self,target,*,source_lock,tablet=True,read_only=True):
+             from adapters.pico4.browser_source import PicoBrowserIO,FILE
+             from adapters.pico4.tablet_browser_source import PicoTabletBrowserIO
++            from adapters.pico4.world_browser_ray import PicoWorldBrowserIO
+             source_lock=self._script_journey()._lock(target,source_lock)
+             _need(type(tablet) is bool and type(read_only) is bool)
+             native=self._native_feature_observer(target)
+             def guard():
+                 source_lock.assert_held();native.guard();return True
+-            return (PicoTabletBrowserIO if tablet else PicoBrowserIO)(native.send,
++            return (PicoTabletBrowserIO if tablet else PicoWorldBrowserIO)(native.send,
+                 lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1),
+                 native.clock_ms,guard,native.pid,source_lock=source_lock,read_only=read_only,
+                 monotonic=native.monotonic,sleep=native.sleep)
+diff --git a/tests/device/adapters/pico4/browser_source.py b/tests/device/adapters/pico4/browser_source.py
+index aef07a2068aeab57aa6f62accae391ec22fe6e6b..90f48b08146ff0a3605e4ca3cba8bed8b4e2d06e 100644
+--- a/tests/device/adapters/pico4/browser_source.py
++++ b/tests/device/adapters/pico4/browser_source.py
+@@ -21,6 +21,7 @@ from feature_journeys.contract import identifier
+ 
+ FILE='feature-pico-browser.json'
+ VERSION=2
++WORLD_RAY_VERSION=3
+ CONTROLS={'text','bridge','reference','second','recovery','back','reload','foreign','navigate','scroll-up','scroll-down'}
+ IDENTITY={'handle','creation','grant','page','url'}
+ 
+@@ -36,19 +37,20 @@ def fixture(run,url):
+ def command(value):
+     need(type(value) is dict);op=value.get('operation');fields={'schemaVersion','commandId','action','runId','fixtureUrl','operation','ownerToken'}
+     reference=value.get('action')=='pico-web-reference'
+-    exact(value,fields|({'surface'} if reference else set())|({'handle','creation','grant','page','control'} if op in ('input','measure') else set())|({'text'} if op=='input' else set()))
++    exact(value,fields|({'surface'} if reference else set())|({'handle','creation','grant','page','control'} if op in ('input','measure','measure-ray') else set())|({'text'} if op=='input' else set()))
+     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['action'] in ('pico-world-web','pico-tablet-web','pico-web-reference')
+-        and op in ('reserve','observe','measure','input','retire','arm-held','deliver-held','cancel-held')
++        and op in ('reserve','observe','measure','measure-ray','input','retire','arm-held','deliver-held','cancel-held')
++        and (op!='measure-ray' or value['action']=='pico-world-web')
+         and (op not in ('arm-held','deliver-held','cancel-held') or value['action']=='pico-tablet-web'))
+     identifier(value['commandId']);identifier(value['ownerToken'])
+     if reference:
+         fixture(value['runId'],value['fixtureUrl'])
+         need(value['surface'] in ('world','tablet'))
+     else:fixture(value['runId'],value['fixtureUrl'])
+-    if op in ('input','measure'):
++    if op in ('input','measure','measure-ray'):
+         need(type(value['handle']) is str and re.fullmatch('[1-9][0-9]{0,18}',value['handle'])
+             and all(integer(value[k],1) for k in ('creation','grant','page')) and value['control'] in ({'play','pause','seekStart','seek'} if reference else CONTROLS)
+-            and (op=='measure' or type(value['text']) is str and len(value['text'].encode('utf-16-le'))//2<=512
++            and (op in ('measure','measure-ray') or type(value['text']) is str and len(value['text'].encode('utf-16-le'))//2<=512
+             and not any(ord(c)<32 or ord(c)==127 or 0xE000<=ord(c)<=0xE05E for c in value['text'])
+             and (value['control'] in ('text','foreign') or not value['text'])))
+     return value
+@@ -64,7 +66,8 @@ def identity(row):
+ def validate(value,request,pid,epoch):
+     command(request)
+     exact(value,{'picoBrowserVersion','commandId','runId','ownerToken','instance','sequence','processId','capturedEpochMs','status','source'})
+-    need(type(value['picoBrowserVersion']) is int and value['picoBrowserVersion'] in (1,VERSION)
++    need(type(value['picoBrowserVersion']) is int
++        and (value['picoBrowserVersion']==WORLD_RAY_VERSION if request['operation']=='measure-ray' else value['picoBrowserVersion'] in (1,VERSION))
+         and value['commandId']==request['commandId'] and value['runId']==request['runId'] and value['ownerToken']==request['ownerToken']
+         and integer(value['processId'],1) and value['processId']==pid and integer(value['sequence'],1)
+         and value['status'] in ('pending','ready','unavailable'))
+@@ -72,11 +75,15 @@ def validate(value,request,pid,epoch):
+     source=value['source']
+     if value['status']!='ready':exact(source,set());return value
+     op=request['operation']
+-    if op=='measure':
+-        need(value['picoBrowserVersion']==2);exact(source,{'geometryRaw','nativeView'})
++    if op in ('measure','measure-ray'):
++        need(value['picoBrowserVersion']==(WORLD_RAY_VERSION if op=='measure-ray' else VERSION))
++        exact(source,{'geometryRaw','nativeView'}|({'worldRay'} if op=='measure-ray' else set()))
+         view=source['nativeView'];exact(view,IDENTITY);identity(view)
+         need(all(view[k]==request[k] for k in ('handle','creation','grant','page')))
+         geometry_original(source['geometryRaw'],request,view['url'],value['capturedEpochMs'],visible=False)
++        if op=='measure-ray':
++            from adapters.pico4.world_browser_ray import validate as validate_ray
++            validate_ray(value,request)
+         return value
+     if op!='observe':
+         field={'reserve':'reserved','input':'delivered','retire':'retired','arm-held':'armed','deliver-held':'delivered','cancel-held':'cancelled'}[op]
+@@ -262,9 +269,9 @@ class PicoBrowserIO:
+         request=command(dict(schemaVersion=1,commandId=uuid.uuid4().hex,action=self.action if reference_surface is None else 'pico-web-reference',runId=run,
+             fixtureUrl=url,ownerToken=owner,operation=operation,**({'surface':reference_surface} if reference_surface is not None else {}),**fields))
+         try:
+-            self.lock.assert_held();need(not self.read_only or operation in ('observe','measure'))
++            self.lock.assert_held();need(not self.read_only or operation in ('observe','measure','measure-ray'))
+             start=previous=self.monotonic();requested=self.clock_ms();need(number(start,0,1e15) and integer(requested,1) and self.guard() is not False)
+-            if operation not in ('observe','measure') and self.before_send is not None:
++            if operation not in ('observe','measure','measure-ray') and self.before_send is not None:
+                 need(callable(self.before_send));self.before_send(deepcopy(request))
+             self.send(request)
+             for attempt in range(51):
+@@ -273,7 +280,8 @@ class PicoBrowserIO:
+                 except json.JSONDecodeError:value=None
+                 now=self.monotonic();need(number(now,previous,start+5));previous=now
+                 if type(value) is dict and value.get('commandId')==request['commandId']:
+-                    epoch=self.clock_ms();validate(value,request,self.pid,epoch);need(value['picoBrowserVersion']==VERSION)
++                    epoch=self.clock_ms();validate(value,request,self.pid,epoch)
++                    need(value['picoBrowserVersion']==(WORLD_RAY_VERSION if operation=='measure-ray' else VERSION))
+                     need(value['capturedEpochMs']>=requested and value['status']!='unavailable')
+                     if value['status']=='ready':
+                         continuity(self.last,value);need(self.guard() is not False)
+@@ -290,7 +298,7 @@ class PicoBrowserIO:
+                             and max(final-value['capturedEpochMs'],requested-value['capturedEpochMs']+math.ceil((finished-start)*1000))<=1500)
+                         if operation=='observe' and reference_surface is None and value['source']['current']:
+                             fresh(value['source']['current']['source']['dom']['capturedEpochMs'],final)
+-                        if operation=='measure':
++                        if operation in ('measure','measure-ray'):
+                             geometry_original(value['source']['geometryRaw'],request,value['source']['nativeView']['url'],final,visible=False)
+                         self.last=retained;return returned
+                 need(attempt<50 and now-start<5);self.sleep(.1)
+diff --git a/tests/device/contract-versions.json b/tests/device/contract-versions.json
+index 2b1474b61e823daea26036f56716663fa7bb49e0..ff7cf8f178ddb1990bda473c83993f801b152ad2 100644
+--- a/tests/device/contract-versions.json
++++ b/tests/device/contract-versions.json
+@@ -41,7 +41,8 @@
+     "pico-avatar-favorites-owner": {"current": 1, "reads": [1]},
+     "pico-avatar-favorite-effect": {"current": 1, "reads": [1]},
+     "native-model-load-history": {"current": 1, "reads": [1]},
+-    "pico-browser-originals": {"current": 2, "reads": [1, 2]},
++    "pico-browser-originals": {"current": 3, "reads": [1, 2, 3]},
++    "pico-world-web-ray": {"current": 1, "reads": [1]},
+     "pico-browser-geometry": {"current": 1, "reads": [1]},
+     "pico-browser-app-controls": {"current": 1, "reads": [1]},
+     "pico-emote-scene-source": {"current": 1, "reads": [1]},
+diff --git a/tests/device/native/PicoBrowserFeatureBridge.h b/tests/device/native/PicoBrowserFeatureBridge.h
+index 25f268e0425bf264ee90ddcbeeff95a12e9dc0df..c8e2b05d3db1882600acbc3b81f80dfcd51a210e 100644
+--- a/tests/device/native/PicoBrowserFeatureBridge.h
++++ b/tests/device/native/PicoBrowserFeatureBridge.h
+@@ -14,19 +14,20 @@ inline bool picoBrowserCommand(const QVariantMap& input) {
+     const auto operation=object.value("operation").toString();
+     QSet<QString> keys{"schemaVersion","commandId","action","runId","fixtureUrl","operation","ownerToken"};
+     if (reference) { keys.insert("surface"); }
+-    if (operation=="input" || operation=="measure") { keys.unite({"handle","creation","grant","page","control"}); }
++    if (operation=="input" || operation=="measure" || operation=="measure-ray") { keys.unite({"handle","creation","grant","page","control"}); }
+     if (operation=="input") { keys.insert("text"); }
+     const auto actual=object.keys();
+     if (QSet<QString>(actual.begin(),actual.end())!=keys || (object.value("action")!=QJsonValue("pico-world-web") && !reference && !tablet)
+             || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(object.value("ownerToken").toString()).hasMatch()
+-            || !QStringList{"reserve","observe","measure","input","retire","arm-held","deliver-held","cancel-held"}.contains(operation)) { return false; }
++            || !QStringList{"reserve","observe","measure","measure-ray","input","retire","arm-held","deliver-held","cancel-held"}.contains(operation)) { return false; }
++    if (operation=="measure-ray" && (tablet || reference)) { return false; }
+     if (!tablet && QStringList{"arm-held","deliver-held","cancel-held"}.contains(operation)) { return false; }
+     if (reference && !QStringList{"world","tablet"}.contains(object.value("surface").toString())) { return false; }
+     auto base=input;base.remove("surface");
+     for (const auto& key:QStringList{"operation","ownerToken","handle","creation","grant","page","control","text"}) { base.remove(key); }
+     base.insert("action","feature-web-runtime-observe");
+     if (!webRuntimeCommand(base)) { return false; }
+-    if (operation!="input" && operation!="measure") { return true; }
++    if (operation!="input" && operation!="measure" && operation!="measure-ray") { return true; }
+     if (!QRegularExpression("\\A[1-9][0-9]{0,18}\\z").match(object.value("handle").toString()).hasMatch()
+             || !QStringList{"text","bridge","reference","second","recovery","back","reload","foreign","navigate","play","pause","seekStart","seek","scroll-up","scroll-down"}.contains(object.value("control").toString())
+             || (operation=="input" && (!object.value("text").isString() || object.value("text").toString().size()>512))) { return false; }
+diff --git a/tests/device/validate_contract_versions.py b/tests/device/validate_contract_versions.py
+index 747adb73ec3d9ec9b81fa7e808ece020050b14ac..1e78c47564ff1f9d268f6c1f57c7b546ab37b6b5 100644
+--- a/tests/device/validate_contract_versions.py
++++ b/tests/device/validate_contract_versions.py
+@@ -48,7 +48,8 @@ REQUIRED = {
+     "pico-avatar-favorites-owner": 1,
+     "pico-avatar-favorite-effect": 1,
+     "native-model-load-history": 1,
+-    "pico-browser-originals": 2,
++    "pico-browser-originals": 3,
++    "pico-world-web-ray": 1,
+     "pico-browser-geometry": 1,
+     "pico-browser-app-controls": 1,
+     "feature-cleanup-consumption": 1,

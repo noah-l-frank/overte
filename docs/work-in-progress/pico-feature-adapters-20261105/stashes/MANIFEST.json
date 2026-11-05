@@ -1,0 +1,63 @@
+{
+  "formatVersion": 1,
+  "patchesAreNotApplied": true,
+  "stashes": [
+    {
+      "stashCommit": "68ffe33ce6171f6ed44cbb560ca9b879113fcd4c",
+      "baseCommit": "439cbf00645c465dec954702f3cdd5df620435d0",
+      "indexCommit": "899a5a9f03f841c6a2a087c7f862bab05eca628f",
+      "untrackedCommit": "14a08fd777ad20e70c7643855e17885fc4b5d3ae",
+      "subject": "On test/android-pico/world-current-document-agent-20261024: Preserve World parent focus source work before publisher review followups",
+      "patches": [
+        {
+          "path": "68ffe33ce617-unstaged.patch",
+          "appliesToTree": "899a5a9f03f841c6a2a087c7f862bab05eca628f",
+          "syntaxCheckPassed": true
+        },
+        {
+          "path": "68ffe33ce617-untracked.patch",
+          "appliesToTree": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+          "syntaxCheckPassed": true
+        }
+      ]
+    },
+    {
+      "stashCommit": "c9c19328bf93b789299450e0b6a79dc01f6c91bb",
+      "baseCommit": "117d6aded4818f383655e1267661e4f73e1bf1bc",
+      "indexCommit": "d38d74d41e231d0d10e638e9a83a3518f630c169",
+      "untrackedCommit": "ca35ae5acc75ff68cc7dc96d5d8676cbdd606f34",
+      "subject": "On test/android-pico/world-current-document-agent-20261024: Preserve unfinished World parent current-focus composition",
+      "patches": [
+        {
+          "path": "c9c19328bf93-unstaged.patch",
+          "appliesToTree": "d38d74d41e231d0d10e638e9a83a3518f630c169",
+          "syntaxCheckPassed": true
+        },
+        {
+          "path": "c9c19328bf93-untracked.patch",
+          "appliesToTree": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+          "syntaxCheckPassed": true
+        }
+      ]
+    },
+    {
+      "stashCommit": "15b1e2b0d2b2aca4cae02062b9dcae5f00d283ce",
+      "baseCommit": "222b53646b46b71373ecbd930297dcdb938c0865",
+      "indexCommit": "d40b962c5e6561ef84b5270431225990b4acd56c",
+      "untrackedCommit": "00aa140904c27efdaaecd160b0da6b17a025b80a",
+      "subject": "On test/android-pico/feature-adapters-parallel-20261021: root-world-passive-ray-before-reviewed-agent-integration-20261024",
+      "patches": [
+        {
+          "path": "15b1e2b0d2b2-unstaged.patch",
+          "appliesToTree": "d40b962c5e6561ef84b5270431225990b4acd56c",
+          "syntaxCheckPassed": true
+        },
+        {
+          "path": "15b1e2b0d2b2-untracked.patch",
+          "appliesToTree": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+          "syntaxCheckPassed": true
+        }
+      ]
+    }
+  ]
+}
