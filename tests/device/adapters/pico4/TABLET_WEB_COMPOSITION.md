@@ -5,6 +5,13 @@ is advertised. It uses the canonical original Script source lock, normal Script
 manager and Home/app controls, original geometry plus normal pointer/wheel/IME,
 and separately acquired native/Java/HTTP/DOM/VM/stereo sources.
 
+The normal Script manager binds the exact client URL from its already validated
+live owner to the existing navigation transport before URL input. This supplies
+the same immutable authority as the World prefix; a different valid feature
+URL still fails the original guard before replacement. The two portable manager
+URL tests cover that handoff and refusal. They do not qualify the full journey,
+Native input, a physical device or a new public capability.
+
 ## Durable original role and publication histories
 
 `PicoBrowserHistory1` now retains every acquired primary/actor sample in the

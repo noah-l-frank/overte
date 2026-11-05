@@ -333,4 +333,47 @@ class PicoTabletWebFeatureTests(unittest.TestCase):
         self.assertEqual(before,len(self.original.commands));self.assertEqual([],self.publications)
 
 
+class TabletWebManagerUrlTests(unittest.TestCase):
+    """Original manager URL handoff; runtime factory/IO are declared seams."""
+    def setUp(self):
+        import time
+        from adapters.pico4.navigation import PicoNavigation
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        root=Path(temporary.name);root.chmod(0o700)
+        navigation=object.__new__(PicoNavigation)
+        navigation._feature_client_url=navigation._feature_client_sha=None
+        ui=SimpleNamespace(io=SimpleNamespace(navigation=navigation),sleep=time.sleep)
+        binding=dict(sourceRevision='a'*40,artifactSha256='b'*64,processIdentity='31:456',
+            sessionId='owned-manager',generation=0,targetFingerprint='c'*64)
+        store=PrivateFeatureState(root/'manager.json')
+        class Factory(PicoTabletWebBinding):
+            def _normal(inner,target,flow):
+                self.assertEqual('owned',target)
+                self.assertEqual(binding,flow.live_owner['binding'])
+                return ui,None,binding
+            def tablet_web_manager_store(inner,target):
+                self.assertEqual('owned',target);return store
+        self.factory=object.__new__(Factory)
+        self.flow=SimpleNamespace(live_owner=dict(binding=binding,scriptUrl=URL+'tickets/'+TICKET+'/client.js'),
+            source=SimpleNamespace(monotonic=time.monotonic))
+        self.navigation,self.store=navigation,store
+
+    def test_original_navigation_accepts_exact_owned_client_after_tablet_manager_factory(self):
+        manager=self.factory._tablet_web_manager('owned',self.flow)
+        self.assertTrue(self.navigation.require_feature_client_url(self.flow.live_owner['scriptUrl']))
+        self.assertEqual('feature-tablet-web',manager.source_kind)
+        self.assertIsNone(self.store.read())
+
+    def test_factory_cannot_rebind_existing_navigation_to_another_valid_feature_origin(self):
+        from adapters.pico4.navigation import NavigationError
+        self.factory._tablet_web_manager('owned',self.flow)
+        original=self.flow.live_owner['scriptUrl']
+        foreign=original.replace('controlled.invalid','foreign.invalid')
+        with self.assertRaises(NavigationError):self.navigation.require_feature_client_url(foreign)
+        self.flow.live_owner['scriptUrl']=foreign
+        with self.assertRaises(NavigationError):self.factory._tablet_web_manager('owned',self.flow)
+        self.assertTrue(self.navigation.require_feature_client_url(original))
+        self.assertIsNone(self.store.read())
+
+
 if __name__=='__main__':unittest.main()

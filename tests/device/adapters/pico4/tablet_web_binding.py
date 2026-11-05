@@ -107,6 +107,7 @@ class PicoTabletWebBinding(PicoScriptJourney):
 
     def _tablet_web_manager(self,target,flow):
         ui,observe,binding=self._normal(target,flow)
+        ui.io.navigation.bind_feature_client_url(flow.live_owner['scriptUrl'])
         return NormalScriptManager(ui,observe,self.tablet_web_manager_store(target),binding,source_kind='feature-tablet-web',
             monotonic=flow.source.monotonic,sleep=ui.sleep)
 
