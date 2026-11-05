@@ -47,6 +47,7 @@ REQUIRED = {
     "pico-world-host-ime-model": 1,
     "pico-world-live-string-extent": 1,
     "pico-world-host-product-dom": 1,
+    "pico-world-controller-host-focus": 1,
     "pico-world-current-host-model": 1,
     "pico-world-current-json-work": 1,
     "pico-world-web-stereo-join": 1,

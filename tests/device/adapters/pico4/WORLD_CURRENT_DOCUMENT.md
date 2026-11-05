@@ -400,3 +400,34 @@ actual QVariant/QJson/UTF16 command admission and clock/header compilation;
 NativeWebViewItem handler, Android/JNI/Java/provider execution, pointer/stereo,
 device and public Source readiness remain unqualified. This source integration
 does not enable public Feature6 or change source-complete3/14.
+
+
+### Controller focus before the HOST IME join
+
+The explicit cold `controller_focus=False` selection preserves the default.
+Its opt-in HOST component reuses the original CurrentGesture binder, real
+PicoOpenXrAdapterSession envelope/transport algorithm and original ray grammar.
+A declared pointer consumer starts unfocused; only its normal pointer-event
+behavior can supply a new independently read focus original before one IME
+commit. The existing correlator then consumes all four original trace kinds,
+and a new current document observes the text from the same live owned Node.
+A publication receipt is never a focus/effect witness. No-effect and foreign
+scene cases refuse before IME, preserve the first error/traceback and forbid
+replay. These are retained HOST/model results, not controller, Qt provider,
+Chromium, stereo, device or public feature qualification.
+
+All prior document/focus/calibration/raw/file roots stay in the same 16 MiB
+archive bill and 512-record limit. The original 1.5 s query, 5 s attempt and
+120 s owning cap remain. Serial source/decoder work exits only after its real
+return; only the additional copy domain excludes proven unvisited old roots.
+Consumption's narrower validation stack has a separate conservative metadata
+allowance; the original full warm/IME admission is unchanged. The producer's
+closed document bound counts three nested JSON quote layers plus direct DOM
+text at 20 bytes per UTF-16 unit, verified against 24 actual formatter cases.
+The original 65,536-byte wire limit and authoritative decoder are unchanged.
+
+The retained HOST wrapper uses the same short `pico-world-ime-` temporary
+namespace as the qualified component. Namespace paths are fully charged: the
+longer `pico-world-controller-` port refused the original initial-focus
+admission by 4,142 bytes. That refusal remains valid; no allowance or validator
+is changed to fit an arbitrary longer path.

@@ -35,9 +35,9 @@ class WorldProductDom1:
     setattr(self,'_'+name,owner)
     stream.close()  # Newly created builtin FD; only paired owners survive birth.
    c=self.scope
-   self.ready=self.query(dict(operation='init',commandId=uuid.uuid4().hex,runId=c.run,ownerToken=c.owner,domInstance=c.dom,responseId=c.response,url=c.url,cancelBeforeInput=stage.host_selection.cancel_dom_beforeinput))
-   exact(self.ready,{'ready','editor'});need(self.ready['ready'] is True and self.ready['editor']['active'] is True
-    and self.ready['editor']['text']=='' and self.ready['editor']['cursor']==self.ready['editor']['anchor']==0)
+   self.ready=self.query(dict(operation='init',commandId=uuid.uuid4().hex,runId=c.run,ownerToken=c.owner,domInstance=c.dom,responseId=c.response,url=c.url,cancelBeforeInput=stage.host_selection.cancel_dom_beforeinput,controllerFocus=stage.host_selection.controller_focus,ignorePointer=stage.host_selection.controller_no_effect,entityId=c.entity))
+   exact(self.ready,{'ready','editor'});need(self.ready['ready'] is True and self.ready['editor']['active'] is (not stage.host_selection.controller_focus)
+    and (stage.host_selection.controller_focus or (self.ready['editor']['text']=='' and self.ready['editor']['cursor']==self.ready['editor']['anchor']==0)))
   except BaseException as error:self.fail(error);raise
  def fail(self,error):
   if self.failure is None:self.failure=(error,error.__traceback__)
@@ -136,5 +136,14 @@ class WorldProductDom1:
    owner=row['owner']
    if owner is not None and hasattr(owner,'parent'):results.append(owner.close_host())
   self.closed=all(results);return results
+
+ def pointer(self,envelope,pointer):
+  need(self.stage.host_selection.controller_focus and type(envelope) is dict
+   and self.stage.controller is not None and envelope==self.stage.controller.stream)
+  c=self.scope
+  with self.stage.lock.held():
+   result=self.query(dict(operation='controller-pointer',commandId=uuid.uuid4().hex,runId=c.run,ownerToken=c.owner,pointer=pointer,sessionRef=dict(sessionNonce=envelope['sessionNonce'],sequence=envelope['sequence'],inputId=envelope['commands'][0]['id'])))
+  need(result['pointerDispatched'] is True)
+  return result
 
 VERSION=1

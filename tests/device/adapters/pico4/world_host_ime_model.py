@@ -113,7 +113,36 @@ class WorldHostImeModel1:
             processId=model.pid,requestedEpochMs=epoch,requestedMonotonicMs=mono,capturedEpochMs=self.stage.native_epoch_ms(),
             capturedMonotonicMs=self.stage.native_monotonic_ms(),status='ready',source=source)
         raw=canonical(packet)+b'\n';need(len(raw)<=65536)
+        if self.stage.host_selection.controller_focus:need(len(raw)<=self.wire_bound())
         model.file.write(packet,model.packet);model.packet=packet;model.request=dict(call)
         self.stage.event_published(self);return None
 
-VERSION=1
+    def wire_bound(self):
+        # Existing frame() constructs canonical ensure_ascii JSON and limits
+        # each raw scalar to8192. Outer quoting costs at most2*8192+2. All
+        # remaining closed header/refs/lifetime/native+finish fields are below
+        #24576+8*quoted(url)+16*maxQuotedId, independently of the actual reply.
+        from adapters.native_feature_observation import exact
+        c=self.original.context;c.validate();need(type(self.frames) is list and len(self.frames)<=4)
+        need(type(self.instance) is str and len(self.instance)==32
+            and all(ch in '0123456789abcdef' for ch in self.instance))
+        focus=self.stage.focus.last;doc=self.original.document_packet
+        need(type(focus) is dict and type(doc) is dict and focus['instance']==c.item and doc['instance']==c.instance)
+        for value in (focus,doc):
+            for key in ('commandId','instance'):
+                item=value[key];need(type(item) is str and len(item)==32 and all(ch in '0123456789abcdef' for ch in item))
+            need(type(value['sequence']) is int and 0<value['sequence']<(1<<64))
+
+        for frame in self.frames:
+            exact(frame,{'sequence','eventId','kind','origin','epochMs','monotonicMs','raw'})
+            need(type(frame['raw']) is str and frame['raw'].isascii() and len(frame['raw'])<=8192
+                and all(32<=ord(ch)<=126 for ch in frame['raw'])
+                and type(frame['eventId']) is str and len(frame['eventId'])==32
+                and all(ch in '0123456789abcdef' for ch in frame['eventId'])
+                and type(frame['kind']) is str and type(frame['origin']) is str
+                and frame['kind'] in ('jni-command','native-input','java-entry','java-consume')
+                and frame['origin']=='qt-ime')
+            for key in ('sequence','epochMs','monotonicMs'):
+                need(type(frame[key]) is int and 0<frame[key]<(1<<64))
+        q=max(quoted_bytes(getattr(c,k)) for k in ('run','owner','instance','item','dom','response','entity','ticket'))
+        return min(65536,24576+8*quoted_bytes(c.url)+16*q)

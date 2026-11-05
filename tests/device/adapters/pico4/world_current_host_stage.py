@@ -39,6 +39,9 @@ class WorldCurrentHostSelection1:
     live_string_aliases:bool=False
     product_dom:bool=False
     cancel_dom_beforeinput:bool=False
+    controller_focus:bool=False
+    controller_no_effect:bool=False
+    controller_foreign_scene:bool=False
 
 
 class WorldDocumentModelAdapter1:
@@ -61,6 +64,9 @@ class WorldDocumentModelAdapter1:
 
 class WorldRootCurrentParticipant2(WorldRootParticipant1):
     def __init__(self,selection):
+        need(type(selection) is WorldCurrentHostSelection1 and all(type(v) is bool for v in (selection.controller_focus,selection.controller_no_effect,selection.controller_foreign_scene))
+            and (selection.controller_focus or not (selection.controller_no_effect or selection.controller_foreign_scene))
+            and (not selection.controller_focus or selection.product_dom))
         need(type(selection) is WorldCurrentHostSelection1 and type(selection.context) is WorldDocumentModelContext1)
         need(type(selection.operation) is str and selection.operation in ('document','focus','ime')
             and type(selection.focus_get_delay) is float and 0.0<=selection.focus_get_delay<=2.0
@@ -74,16 +80,20 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
             and type(selection.cancel_dom_beforeinput) is bool and (not selection.cancel_dom_beforeinput or selection.product_dom))
         selection.context.validate()
         super().__init__(selection.base)
-        self.host_selection=self._host_selection=selection;self._operation=selection.operation;self._focus_get_delay=selection.focus_get_delay;self._event_return_handback=selection.event_return_handback;self._live_string_aliases=selection.live_string_aliases;self._product_dom=selection.product_dom;self._cancel_dom_beforeinput=selection.cancel_dom_beforeinput
+        self.host_selection=self._host_selection=selection;self._operation=selection.operation;self._focus_get_delay=selection.focus_get_delay;self._event_return_handback=selection.event_return_handback;self._live_string_aliases=selection.live_string_aliases;self._product_dom=selection.product_dom;self._cancel_dom_beforeinput=selection.cancel_dom_beforeinput;self._controller_flags=(selection.controller_focus,selection.controller_no_effect,selection.controller_foreign_scene)
         self.original=None;self.raw=self.model=self.reader=self.focus=None
         self.ready=False;self.closed=False;self.constructing=True
         self.model_credit=selection.context.model_work();self._model_credit=self.model_credit
         self.inventory_credit=4112;self.current=None;self.completed=[]
-        self.birth=None;self.compound=None;self.focus_call=None;self.warm_work=0;self.warm_originals=[];self.event_credit=0;self.event_owner=None;self.trace_reader=None;self.event_model=None;self.event_rows=[];self.event_active=None;self.event_parse=False;self.intent=None;self.closed_event_calls=0;self.node=self._node=None;self.node_credit=2*PART if selection.product_dom else 0;self.post_work=0;self.post_documents=[]
+        self.controller=self._controller=None;self.controller_work=0;self.old_groups=[];self.birth=None;self.compound=None;self.focus_call=None;self.warm_work=0;self.warm_originals=[];self.event_credit=0;self.event_owner=None;self.trace_reader=None;self.event_model=None;self.event_rows=[];self.event_active=None;self.event_parse=False;self.intent=None;self.closed_event_calls=0;self.node=self._node=None;self.node_credit=2*PART if selection.product_dom else 0;self.post_work=0;self.post_documents=[]
         # Fund ALL constructors/startup before directory/archive/model work.
         need(PRECOUNT+WINDOW+4096+self.inventory_credit+self.model_credit+self.node_credit+RAW_WORK+max(LEXICAL_SLOT+COMMAND_WORK,COMPOUND_START if selection.operation in ('focus','ime') else 0)+MODEL_STORED<=LIMIT)
 
     def check_data(self):
+        need(all(type(v) is bool for v in (self.host_selection.controller_focus,self.host_selection.controller_no_effect,self.host_selection.controller_foreign_scene))
+            and (self.host_selection.controller_focus or not (self.host_selection.controller_no_effect or self.host_selection.controller_foreign_scene))
+            and (not self.host_selection.controller_focus or self.host_selection.product_dom)
+            and self._controller_flags==(self.host_selection.controller_focus,self.host_selection.controller_no_effect,self.host_selection.controller_foreign_scene))
         super().check_data()
         need(self.host_selection is self._host_selection and self.host_selection.base is self.config
             and type(self.host_selection) is WorldCurrentHostSelection1 and not self.closed
@@ -97,6 +107,18 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
             and self.host_selection.product_dom is self._product_dom
             and type(self.host_selection.cancel_dom_beforeinput) is bool
             and self.host_selection.cancel_dom_beforeinput is self._cancel_dom_beforeinput)
+        need(type(self.controller_work) is int and 0<=self.controller_work<=32*PART)
+        if self.controller is not None:
+            from adapters.pico4.world_controller_focus import WorldControllerFocus1,ControllerTransport,ControllerSession
+            need(self.controller is self._controller and type(self.controller) is WorldControllerFocus1
+                and self.controller.stage is self)
+            for name in ('physical_bill','live_size','perform','_perform','capture','check_current','consume','admission','before_publish'):
+                fn=getattr(self.controller,name);need(fn.__self__ is self.controller and fn.__func__ is getattr(WorldControllerFocus1,name))
+            if self.controller.transport is not None:
+                t=self.controller.transport;need(type(t) is ControllerTransport and t.owner is self.controller)
+            if self.controller.session is not None:
+                need(type(self.controller.session) is ControllerSession and self.controller.session.originals is self.controller
+                    and self.controller.session.transport is self.controller.transport)
         need(type(self.closed_event_calls) is int and 0<=self.closed_event_calls<=4096)
         need(type(self.model_credit) is int and self.model_credit is self._model_credit
             and type(self.node_credit) is int and self.node_credit==(2*PART if self._product_dom else 0))
@@ -168,7 +190,7 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
                     and not self.records and not self.entry_claims and not self.metadata_claims
                     and not self.snapshots and self.counter_candidate is None)
                 entry=0
-            return self.model_credit+self.node_credit+RAW_WORK+(group['work'] if group is not None else COMPOUND_START)+entry+max(self.warm_work,self.event_credit,self.post_work)
+            return self.controller_work+self.model_credit+self.node_credit+RAW_WORK+(group['work'] if group is not None else COMPOUND_START)+entry+max(self.warm_work,self.event_credit,self.post_work)
         return self.model_credit+RAW_WORK+max(LEXICAL_SLOT+COMMAND_WORK,
             sum(call['work']+call['entry'] for call in calls))
 
@@ -187,7 +209,7 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
             if type(item) is tuple:return sum(dto(v) for v in item)+64+8*len(item)
             # Canonical keys AND values plus their exact typed live-node meta.
             return 4*canonical_size(item,LIMIT)+256*nodes(item)
-        value+=dto(self.host_selection.operation)+dto(self.host_selection.focus_get_delay)+dto(self.host_selection.event_return_handback)+dto(self.host_selection.live_string_aliases)+dto(self.host_selection.product_dom)+dto(self.host_selection.cancel_dom_beforeinput)
+        value+=dto(self._controller_flags)+dto(self.controller_work)+dto(self.host_selection.operation)+dto(self.host_selection.focus_get_delay)+dto(self.host_selection.event_return_handback)+dto(self.host_selection.live_string_aliases)+dto(self.host_selection.product_dom)+dto(self.host_selection.cancel_dom_beforeinput)
         for name in ('run','fixture_url','owner','instance','item','dom','response','entity','ticket'):
             value+=dto(getattr(self.host_selection.context,name))
         if self.raw is not None and hasattr(self.raw,'state'):
@@ -215,6 +237,10 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
         if self.compound is not None:
             value+=4096+dto(self.compound['result'])
         calls=[*self.completed,*([self.current] if self.current is not None else [])]
+        for group in self.old_groups:
+            value+=4096+dto(group['compound']['result'])
+            calls.extend(group['completed']);calls.append(group['focus_call'])
+        if self.controller is not None:value+=self.controller.live_size(dto)
         if self.focus_call is not None:calls.append(self.focus_call)
         for call in calls:
             value+=1024  # call dict keys/control/container/reader references
@@ -375,8 +401,10 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
             return self._bill(stored,self.live_size(),logical,n)
 
     def _bill(self,stored,live,logical,n):
-        pending=MODEL_STORED+3*PART+65536+(3*PART if self._operation=='ime' else 0)+(3*PART if self._product_dom else 0)
+        pending=(2*PART if self.host_selection.controller_focus else 0)+MODEL_STORED+3*PART+65536+(3*PART if self._operation=='ime' else 0)+(3*PART if self._product_dom else 0)
         fixed=PRECOUNT+WINDOW+4096+self.inventory_credit
+        if self.controller is not None:
+            extra,count=self.controller.physical_bill();stored+=extra;n+=count
         decoded=fixed+stored+logical+live+self.work()
         disk=fixed+stored+pending
         need(all(type(v) is int and v>=0 for v in (stored,live,logical,n,decoded,disk))
@@ -429,7 +457,7 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
             retainer=None,result=None,tokens=[])
         try:
             c=self.host_selection.context;need((run,url,owner)==(c.run,c.fixture_url,c.owner))
-            before=self.census();self.current['entry']=before['P'];self.census()
+            before=self.census();self.current['entry']=self.source_entry_copy_extent(before['P']);self.census()
             result=reader._read_original(run,url,owner)
         except BaseException as error:self.fail(error);raise
         # No callback/IO/clock/opaque release after original final checks. Full
@@ -512,10 +540,14 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
                 and value['raw'] is self.current['raw'] and self.current['raw_ref'] is not None)
             observed=self.raw.literal(self.current['raw_ref']);need(observed==value['raw'])
             plan=project(value['raw'])
-            self.current['work']=max(self.current['work'],plan.call_work)
+            post=self.host_selection.controller_focus and self.current.get('post_current_document') is True
+            actual_work=12*PART+max(52*plan.utf8_bytes,plan.decoded_data+plan.decoded_metadata)+8*4096 if post else plan.call_work
+            # Plan returns only integer bounds; scalar scan frames have really
+            # returned before the original authoritative DTO decode begins.
+            self.current['work']=actual_work if post else max(self.current['work'],actual_work)
             self.current['plan']=plan
             if self._product_dom and self.compound is not None and self.compound['done']:
-                self.post_work=max(self.post_work,plan.call_work)
+                self.post_work=actual_work if post else max(self.post_work,plan.call_work)
             elif self._operation in ('focus','ime'):self.update_compound()
             self.census()  # Actual literal+all copy/meta admitted BEFORE decode.
         except BaseException as error:self.fail(error);raise
@@ -537,10 +569,10 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
         need(self._operation in ('focus','ime') and self.compound is None and self.current is None
             and not self.completed and self.focus_call is None and focus is self.focus
             and all(type(v) is str for v in (run,url,owner,operation,control))
-            and operation=='observe-current-focus' and control=='text')
+            and operation in (('measure-current-ray','observe-current-focus') if self.host_selection.controller_focus else ('observe-current-focus',)) and control=='text')
         self.compound=dict(work=COMPOUND_START,entry=0,result=None,done=False,entries_closed=False)
         try:
-            before=self.census();self.compound['entry']=before['P'];self.census()
+            before=self.census();self.compound['entry']=self.source_entry_copy_extent(before['P']);self.census()
             result=focus._read_original(run,url,owner,operation,control)
             if self._operation=='ime':
                 # This PURE data check follows the true original return; no
@@ -613,7 +645,7 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
                 need(self.focus_call is None)
                 self.focus_call=dict(work=0,entry=0,request=value['request'],raw=None,raw_ref=None,
                     retainer=value,result=None,tokens=[],documentOriginal=value['documentOriginal'])
-                before=self.census();self.focus_call['entry']=before['P'];self.census();return
+                before=self.census();self.focus_call['entry']=self.source_entry_copy_extent(before['P']);self.census();return
             need(kind=='world-current-input-raw' and self.focus_call is not None
                 and value['request']==self.focus_call['request'] and value['raw'] is self.focus_call['raw']
                 and self.focus_call['raw_ref'] is not None)
@@ -628,6 +660,17 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
         from adapters.pico4.world_host_ime_model import WorldHostImeModel1
         need(self._operation=='ime' and self.compound is not None and self.compound['done']
             and self.event_owner is self.event_model is self.trace_reader is None)
+        if self.host_selection.controller_focus:
+            try:
+                # Phase history is NOT the effect witness: require this exact
+                # NEW original focused packet too. Existing arm/IME warm/fresh
+                # guards independently revalidate again before input.
+                need(self.controller is self._controller and self.controller.done is True
+                    and self.focus.last_request['operation']=='observe-current-focus'
+                    and self.focus.last_request['commandId']==self.controller.focus_nonce
+                    and self.focus.last['status']=='ready'
+                    and self.focus.last['source']['nativeEditor']['focused'] is True)
+            except BaseException as error:self.fail(error);raise
         # Control-only constructors; no event/writer/query/parse occurs here.
         self.event_credit=max(LEXICAL_SLOT+COMMAND_WORK,self.warm_bound())
         self.census()
@@ -652,7 +695,7 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
         owner.entry_text=text  # Actual caller scalar, before callback/first copy.
         # Same controlled response/Raw/decoder work as Doc/Focus. All model,
         # actual saved originals/entries/Root/80P remain separately charged.
-        self.event_credit=max(self.event_credit,LEXICAL_SLOT+COMMAND_WORK)
+        self.begin_event_work()
         self.census()
 
     def event_before_produce(self,model,request):
@@ -690,7 +733,7 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
                 need(self.event_active is None and not self.event_parse)
                 # A genuine next query starts after the preceding original
                 # call exit; the enclosing controlled vertical owns release.
-                self.event_credit=max(self.event_credit,LEXICAL_SLOT+COMMAND_WORK)
+                self.event_credit=max(self.event_credit,self.event_lexical_work())
                 row=dict(request=value['request'],raw=None,raw_ref=None,retainer=value,tokens=[],controlReturn=None)
                 self.event_rows.append(row);self.event_active=row;self.census()
                 if kind=='ime-request':
@@ -705,15 +748,26 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
             actual=self.raw.literal(self.event_active['raw_ref']);need(actual==value['raw'])
             plan=project(value['raw']);dp=self.completed[0]['plan'];fp=self.focus_call['plan']
             warm_meta=11*256*(fp.total_nodes+1)+dp.decoded_metadata+1024*(fp.combined_depth+1)+4096
-            demand=12*PART+max(52*PART,80*plan.max_canonical+40*fp.max_canonical+52*dp.max_canonical
+            if self.host_selection.controller_focus and kind=='raw':
+                # Consumption.validate uses focus_original/validate, NOT the
+                # full require_warm method. Its actual closed decoded/pairs/
+                # memo/semantic/control domains are bounded by six per FP+DP.
+                # Actual require_warm retains the original warm_bound unchanged.
+                warm_meta=6*256*(fp.total_nodes+dp.total_nodes+2)+1024*(fp.combined_depth+dp.combined_depth+2)+8192
+
+            floor=52*plan.utf8_bytes if self.host_selection.controller_focus else 52*PART
+            demand=12*PART+max(floor,80*plan.max_canonical+40*fp.max_canonical+52*dp.max_canonical
                 +16*256*(plan.total_nodes+1)+warm_meta+1024*(plan.combined_depth+1)+4096)+COMMAND_WORK
-            self.event_credit=max(self.event_credit,demand);self.census();self.event_parse=True
+            # Scalar projection really returned; its unescaped strings and
+            # scanner frames no longer exist. Retain all actual raw/DTO roots.
+            self.event_credit=demand if self.host_selection.controller_focus else max(self.event_credit,demand)
+            self.census();self.event_parse=True
         except BaseException as error:self.fail(error);raise
 
     def trace_arm(self,reader):
         need(reader is self.trace_reader and self.event_active is None and not self.event_parse)
         try:
-            self.event_credit=max(self.event_credit,LEXICAL_SLOT+COMMAND_WORK,self.warm_bound())
+            self.begin_event_work()
             self.census()  # BEFORE the original arm's focus deepcopy/parser.
             result=reader._arm_original()
             self.event_owner_returned(reader)
@@ -723,7 +777,7 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
     def trace_observe(self,reader,sequence):
         need(reader is self.trace_reader and type(sequence) is int)
         try:
-            self.event_credit=max(self.event_credit,LEXICAL_SLOT+COMMAND_WORK,self.warm_bound())
+            self.begin_event_work()
             self.census()  # BEFORE outer command/copy/query/correlate/finish.
             result=reader._observe_original(sequence)
             self.event_owner_returned(reader)
@@ -785,7 +839,7 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
             and self.node is not None and self.failure is None
             and all(type(v) is str for v in (run,url,owner))
             and (run,url,owner)==(self.host_selection.context.run,self.host_selection.context.fixture_url,self.host_selection.context.owner))
-        self.post_work=LEXICAL_SLOT+COMMAND_WORK
+        self.post_work=64*self.model.document_wire_bound()+COMMAND_WORK if self.host_selection.controller_focus else LEXICAL_SLOT+COMMAND_WORK
         self.current=dict(work=self.post_work,entry=0,request=None,raw=None,raw_ref=None,retainer=None,result=None,tokens=[],controlReturn=None,post_current_document=True)
         try:
             self.census()
@@ -802,6 +856,7 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
     def close_host(self):
         self.closed=True
         results=[]
+        if self.controller is not None:results.extend(self.controller.close_host())
         if self.node is not None and hasattr(self.node,'process'):results.extend(self.node.close_host())
         if self.intent is not None and hasattr(self.intent,'parent'):results.append(self.intent.close_host())
         if self.raw is not None and hasattr(self.raw,'directory'):results.append(self.raw.close_host())
@@ -809,3 +864,52 @@ class WorldRootCurrentParticipant2(WorldRootParticipant1):
         # Base close is physical-only; it does not consult poisoned business data.
         results.append(super().close_host())
         return results
+
+    def archive_controller_calibration(self):
+        # Only after the REAL original compound read/gesture outer return.
+        need(self.host_selection.controller_focus and not self.old_groups
+            and self.compound is not None and self.compound['done'] and self.compound['entries_closed']
+            and self.focus_call['request']['operation']=='measure-current-ray'
+            and self.current is None and self.failure is None and self.lock._owner is None
+            and not self.raw.state['pending'] and not self.raw.issued_reservations
+            and not self.raw.unconfirmed_returns and not self.raw.uncertain)
+        self.old_groups.append(dict(compound=self.compound,completed=self.completed,focus_call=self.focus_call))
+        self.compound=None;self.completed=[];self.focus_call=None
+
+
+    def source_entry_copy_extent(self,original_p):
+        need(type(original_p) is int and original_p>=0)
+        if not self.host_selection.controller_focus or not self.old_groups:return original_p
+        # This is only the extra COPY domain of a second exact source call;
+        # no retained P/S/A or the original source/model/Raw work is changed.
+        need(len(self.old_groups)==1 and self.controller is self._controller
+            and self.controller.receipt is not None and self.controller.gesture.issued
+            and not self.controller.gesture.failed and self.controller_work==0
+            and self.parent.state is self.parent.disk is self.parent.history is self.parent.vm is None
+            and not self.records and not self.entry_claims and not self.metadata_claims
+            and not self.snapshots and self.counter_candidate is None)
+        c=self.host_selection.context
+        # The only old caller values copied by original read/query bodies are
+        # fixed command/context scalars. New decoded Doc/Focus graphs remain
+        # in original project plan/52B compound work; old CAS is in44B model.
+        context=4*(256+sum(quoted_bytes(getattr(c,name)) for name in
+            ('run','fixture_url','owner','instance','item','dom','response','entity','ticket')))+40*256+4096
+        need(context<=COMMAND_WORK)
+        return COMMAND_WORK
+
+    def event_lexical_work(self):
+        if not self.host_selection.controller_focus:return LEXICAL_SLOT+COMMAND_WORK
+        from adapters.pico4.world_host_ime_model import WorldHostImeModel1
+        need(type(self.event_model) is WorldHostImeModel1 and self.event_model.stage is self
+            and self.event_model.original is self.model)
+        # Closed actual HOST source format, no use of an observed short reply,
+        # cached verdict, new clock, Native query or reduced Raw receive limit.
+        return 64*self.event_model.wire_bound()+COMMAND_WORK
+
+    def begin_event_work(self):
+        need(self.event_active is None and not self.event_parse and self.failure is None
+            and self.lock._owner is None)
+        needed=max(self.event_lexical_work(),self.warm_bound())
+        # Each prior original constructor/arm/commit/observe has really returned;
+        # no active work or opaque result holder is released by this assignment.
+        self.event_credit=needed if self.host_selection.controller_focus else max(self.event_credit,needed)

@@ -11,7 +11,7 @@ from feature_journeys.witness import Client
 
 
 class Fixture:
-    def __init__(self,artifacts,*,delay=0.0,large_paths=False,cancel=False):
+    def __init__(self,artifacts,*,delay=0.0,large_paths=False,cancel=False,controller=False,no_effect=False,foreign=False):
         self.parent=self.resources=self.io=None;self.closes=[];self.failure=None
         self.base=artifacts/'namespace';self.base.mkdir(mode=0o700)
         if large_paths:
@@ -38,7 +38,7 @@ class Fixture:
         self.previous={k:os.environ.get(k) for k in self.config};os.environ.update(self.config)
         self.binding=PicoWorldWebBinding(self.adapter)
         self.source=PhaseFixtureReader(Client(service,'n'*32),run,'world-web')
-        self.selection=WorldCurrentHostSelection1(self.context,operation='ime',focus_get_delay=delay,event_return_handback=True,live_string_aliases=True,product_dom=True,cancel_dom_beforeinput=cancel)
+        self.selection=WorldCurrentHostSelection1(self.context,operation='ime',focus_get_delay=delay,event_return_handback=True,live_string_aliases=True,product_dom=True,cancel_dom_beforeinput=cancel,controller_focus=controller,controller_no_effect=no_effect,controller_foreign_scene=foreign)
     def construct(self):
         try:
             self.parent=self.binding.prefix('namespace-target',self.source,'https://foreign.invalid/feature-fixture/v1',resource_selection=self.selection)

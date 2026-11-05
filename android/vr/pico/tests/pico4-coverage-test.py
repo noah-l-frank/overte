@@ -62,12 +62,13 @@ class CoverageMatrixTests(unittest.TestCase):
         wrapper=ast.parse((TEST_DIR/'device/test_world_host_dom.py').read_text())
         names=ast.literal_eval(next(node.value for node in wrapper.body if isinstance(node,ast.Assign)
             and any(isinstance(target,ast.Name) and target.id=='CASE_NAMES' for target in node.targets)))
-        module='test_pico_world_host_dom'
-        body=ast.parse((root/'tests/device/self_tests'/(module+'.py')).read_text())
-        expected={'self_tests.'+module+'.'+owner.name+'.'+method.name
-            for owner in body.body if isinstance(owner,ast.ClassDef)
-            for method in owner.body if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')}
-        self.assertEqual(4,len(names));self.assertEqual(4,len(set(names)))
+        expected=set()
+        for module in ('test_pico_world_host_dom','test_pico_world_controller_focus'):
+            body=ast.parse((root/'tests/device/self_tests'/(module+'.py')).read_text())
+            expected.update('self_tests.'+module+'.'+owner.name+'.'+method.name
+                for owner in body.body if isinstance(owner,ast.ClassDef)
+                for method in owner.body if isinstance(method,ast.FunctionDef) and method.name.startswith('test_'))
+        self.assertEqual(8,len(names));self.assertEqual(8,len(set(names)))
         self.assertEqual(expected,set(names))
         selected=[node for node in ast.walk(RUNNER_TREE) if isinstance(node,ast.Call)
             and isinstance(node.func,ast.Name) and node.func.id=='test' and node.args
