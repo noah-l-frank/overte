@@ -94,15 +94,21 @@ class AudioPCActorOriginals:
         self.path=Path(path);self.directory=OriginalDescriptor(self.path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
         self.root=ClosedOriginalFile(self.path,0o600,lambda:require_directory(self.directory,self.path.parent))
         raw,stamp=self.root.read();self.disk=json.loads(raw);need(canonical(self.disk)+b'\n'==raw)
-        self.version=self.disk['audioPCActorVersion'];need(type(self.version) is int and self.version in (1,2))
+        self.version=self.disk['audioPCActorVersion'];need(type(self.version) is int and self.version in (1,2,3))
         self.history=ChatSourceChunks(PrivateFeatureState(self.path),self.disk['scope']);self.frames=self.history.load(self.disk['chunks'])
         self.state=unpack(self.disk['payload'])[0];self.raws=None
-        if self.version==2:self.raws=AudioPCRawOriginals(self.path.with_name('audio-recipe-pc-raw.json'))
+        if self.version>=2:self.raws=AudioPCRawOriginals(self.path.with_name('audio-recipe-pc-raw.json'))
     def original(self,index):
         from copy import deepcopy
         from adapters.native_feature_observation import decode
         need(integer(index,0,len(self.frames)-1));self.history.verify();frame=deepcopy(self.frames[index])
-        if self.version==2:
+        if self.version>=2:
+            if 'observationBundleRaw' in frame:
+                from feature_journeys.contract import json_document
+                need(self.version==3 and type(self.disk['scope'].get('audioObservationBundleVersion')) is int
+                    and self.disk['scope']['audioObservationBundleVersion']==1)
+                frame['bundle']=json_document(self.raws.literal(frame.pop('observationBundleRaw')))
+                for name in ('native','settings','pages'):frame[name]=decode(frame['bundle'][name+'Raw'])
             for name in ('native','settings','pages','packet'):
                 key=name+'Raw'
                 if key in frame:

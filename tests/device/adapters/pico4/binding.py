@@ -2237,12 +2237,13 @@ def create_adapter(args, base_class):
                 lambda owned:facade._graphics_lifecycle_status(target,owned),monotonic=phase_source.monotonic)
 
         @_private
-        def _audio_pc_start_coordinator(self,target,run,primary_phase,actor_phase,peer_configuration,*,source_lock=None,cleanup_budget=None):
+        def _audio_pc_start_coordinator(self,target,run,primary_phase,actor_phase,peer_configuration,*,source_lock=None,cleanup_budget=None,bundle_observation=False):
             from adapters.feature_fixture_access import AdapterFixtureClient
             from feature_journeys.phase_fixture import PhaseFixtureReader
             from adapters.pico4.audio_peer import PicoAudioPeer,configuration
             from adapters.pico4.audio_pc_actor import PicoAudioPCActor
             from adapters.pico4.audio_pc_start import PicoAudioPCStartCoordinator
+            _need(type(bundle_observation) is bool)
             _need(isinstance(primary_phase,PhaseFixtureReader) and isinstance(actor_phase,PhaseFixtureReader)
                 and primary_phase.run==actor_phase.run==run and primary_phase.area==actor_phase.area=='audio'
                 and primary_phase.fixture_url==actor_phase.fixture_url
@@ -2268,10 +2269,17 @@ def create_adapter(args, base_class):
             settings=self._audio_settings_source(target,source_lock=source_lock)
             pages=self._audio_pages_source(target,source_lock=source_lock)
             _need(recipe.lock is source_lock and native.pid==settings.pid==pages.pid==int(identity.split(':')[0]))
+            observation_bundle=None
+            if bundle_observation:
+                from adapters.pico4.audio_bundle_acquisition import AudioBundleTransport1
+                from adapters.pico4.audio_observation_bundle import FILE
+                # Capture the actual fixed transport before Actor source hooks.
+                observation_bundle=AudioBundleTransport1(native.send,
+                    lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+FILE,attempts=1))
             try:
                 actor=PicoAudioPCActor(recipe,actor_phase,lambda:PicoAudioPeer(config,None,guard),
                     native,settings,pages,recipe.os_status,monotonic=native.monotonic,sleep=native.sleep,
-                    cleanup_budget=cleanup_budget)
+                    cleanup_budget=cleanup_budget,observation_bundle=observation_bundle)
             except BaseException as error:
                 if cleanup_budget is not None:
                     cleanup_budget.failed=True

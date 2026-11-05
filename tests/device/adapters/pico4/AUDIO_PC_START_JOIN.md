@@ -263,11 +263,18 @@ The host validator preserves each source clock, provenance and history and
 rejects cross-source mute/cycle disagreement. Seven host/Node boundary tests
 cover missing, stale, foreign, malformed and contradictory packets.
 
-This protocol is not yet selected by the PC Actor or the canonical factory.
-Before selecting it, the caller must book its additional 4 MiB native declaration
-and host parse/retained work in the existing aggregate family before IO, retain
-the actual returned wire durably, and include the final guards in original ages.
-The declaration is not an admission token. Shared descriptor checked-close was
+The PC Actor and fixed factory select this protocol only with the cold
+`bundle_observation=True` option. Its Actor format is version 3; the default
+remains version 2, and passive readers retain versions 1/2/3. The same original
+raw bank charges the additional 4 MiB native declaration and 2 MiB host overlap
+before the first bundle command/getter. It retains every actual wire before
+parsing, including pending and invalid packets. The original acquisition clock
+includes the final guards. A declaration alone is not an admission token.
+Four actual Actor/archive tests cover normal reconstruction, pending reads with
+one command, unusable retained originals without retry, and capacity refusal
+before IO. Three fixed-factory tests cover default behavior, strict selection
+and the original SDK command/file endpoint. Native/Qt packets are declared models;
+the full fourteen-action Common journey with this option remains unverified. Shared descriptor checked-close was
 compiled and exercised with an exact-class Linux carrier/path shim in five
 owned processes, including actual kernel EINTR refusals. Qt/Pico compilation,
 target kernel support, full Common composition and acoustic/device evidence

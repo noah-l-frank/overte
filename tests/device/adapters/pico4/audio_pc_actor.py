@@ -33,7 +33,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader
 from feature_journeys.witness import projection
 from voice_peer.preview_source import producer_sha256
 
-VERSION=2
+VERSION=3
 
 
 def original(store):
@@ -48,7 +48,7 @@ def require_original(reference):
 
 
 class PicoAudioPCActor:
-    def __init__(self,recipe,phase_source,peer_factory,native,settings,pages,os_status,*,monotonic=time.monotonic,sleep=time.sleep,cleanup_budget=None):
+    def __init__(self,recipe,phase_source,peer_factory,native,settings,pages,os_status,*,monotonic=time.monotonic,sleep=time.sleep,cleanup_budget=None,observation_bundle=None):
         from adapters.pico4.audio_recipe import PicoAudioRecipe
         need(type(recipe) is PicoAudioRecipe and isinstance(phase_source,PhaseFixtureReader)
             and phase_source.run==recipe.run and phase_source.area=='audio' and phase_source.fixture_url==recipe.source.fixture_url
@@ -57,6 +57,12 @@ class PicoAudioPCActor:
         need(native.pid==settings.pid==pages.pid==int(recipe.binding['processIdentity'].split(':')[0])
             and settings.source_lock is pages.source_lock is recipe.lock and pages.bridge==recipe.binding['sessionId']
             and native.instance is None and native.sequence==0 and settings.previous is pages.previous is None)
+        from adapters.pico4.audio_bundle_acquisition import AudioBundleTransport1,DECLARATION
+        need(observation_bundle is None or type(observation_bundle) is AudioBundleTransport1
+            and observation_bundle.actor is None and not observation_bundle.failed and not observation_bundle.issued)
+        self.version=self._version=2 if observation_bundle is None else VERSION
+        self.observation_bundle=self._observation_bundle=observation_bundle
+        self.bundle_declaration=self._bundle_declaration=0 if observation_bundle is None else DECLARATION
         self.recipe,self.source,self.native,self.settings,self.pages=recipe,phase_source,native,settings,pages
         self._phase_source,self._phase_client=phase_source,phase_source.client
         self.peer_factory,self.os_status,self.monotonic,self.sleep=peer_factory,os_status,monotonic,sleep
@@ -75,8 +81,9 @@ class PicoAudioPCActor:
         self.config=configuration(self.peer_template.config);self.session=self.peer_template.session_hash
         self.session_original=original(PrivateFeatureState(Path(self.config['peerState'])/'session.json'))
         self.producer_sha=producer_sha256()
-        self.raw_scope=dict(audioPCActorVersion=VERSION,runId=recipe.run,binding=deepcopy(recipe.binding),
+        self.raw_scope=dict(audioPCActorVersion=self.version,runId=recipe.run,binding=deepcopy(recipe.binding),
             fixtureUrl=recipe.source.fixture_url,actorCredentialSha256=hashlib.sha256(phase_source.client.token.encode()).hexdigest(),hostProcessIdentity=self.host)
+        if observation_bundle is not None:self.raw_scope['audioObservationBundleVersion']=1
         self.raw_scope_sha=json_digest(self.raw_scope);self.raws=None;self.raw_getters={}
         self.disk=self.pin=self.state=None;self.frames=[];self.frames_sha=json_digest([])
         from adapters.pico4.audio_raw_archive import AudioRawArchive,AudioRawSourceLock
@@ -85,10 +92,11 @@ class PicoAudioPCActor:
             self.raw_identity,self.raw_bill,monotonic)
         self.peer_template.bind_literal_source(self.literal_source())
         self.pc_baseline=self.peer_template.status();need(self.pc_baseline['client'].get('muted') is True)
-        self.scope=dict(audioPCActorVersion=VERSION,runId=recipe.run,binding=deepcopy(recipe.binding),fixtureUrl=recipe.source.fixture_url,
+        self.scope=dict(audioPCActorVersion=self.version,runId=recipe.run,binding=deepcopy(recipe.binding),fixtureUrl=recipe.source.fixture_url,
             recipe=str(recipe.store.path),hostProcessIdentity=self.host,configuration=self.config,peerSessionHash=self.session,
             peerSessionOriginal=deepcopy(self.session_original),producerSha256=self.producer_sha,peerBaseline=deepcopy(self.pc_baseline),
             actorCredentialSha256=hashlib.sha256(phase_source.client.token.encode()).hexdigest())
+        if observation_bundle is not None:self.scope['audioObservationBundleVersion']=1
         self.scope_sha=json_digest(self.scope)
         self.history=ChatSourceChunks(self.store,self.scope);self.frames=[];self.frames_sha=json_digest([])
         self.disk=self.pin=None;self.jobs={};self.executor=None;self.state=None;self.raw_hooks={}
@@ -100,6 +108,7 @@ class PicoAudioPCActor:
                 lambda:require_directory(self.raws.directory,self.store.path.parent))
             self.header_bytes()
             self._save(dict(jobs=[],pending=None,sequence=0,lastObservation=None,publication=None,quiet=None,quietWindows=[]),chunks=[])
+        if observation_bundle is not None:observation_bundle.bind(self)
         for label,reader,attribute in (('native',native,'original'),('settings',settings,'original'),('pages',pages,'read')):
             need(not hasattr(reader,'_pico_audio_pc_actor'));reader._pico_audio_pc_actor=self
             callback=getattr(reader,attribute)
@@ -181,7 +190,7 @@ class PicoAudioPCActor:
         # Encoded source fields/native/PCM copies remain in their original
         # owners; actual retained artifact bytes are charged conservatively too.
         extra=0 if self.cleanup_budget is None else self.cleanup_budget.current_bytes(self)
-        return dict(parts=parts,decodedBytes=decoded+stored+extra,storedBytes=stored)
+        return dict(parts=parts,decodedBytes=decoded+stored+extra+self.bundle_declaration,storedBytes=stored)
 
     def literal_source(self):
         actor=self
@@ -202,6 +211,14 @@ class PicoAudioPCActor:
         # Source literals are the sole history original. Typed reconstruction
         # uses their exact decoder and cannot generate an expected observation.
         result=deepcopy(value)
+        if self.observation_bundle is not None and value.get('kind')=='observation':
+            from feature_journeys.contract import json_document
+            refs=[row['rawReference'] for row in result['raws'] if row['label']=='audio-bundle'];need(refs)
+            reference=refs[-1];raw=self.raws.literal(reference);packet=json_document(raw)
+            for key in ('native','settings','pages'):
+                need(json_digest(json_document(packet[key+'Raw']))==json_digest(result.pop(key)))
+            need(result.pop('bundle')==packet)
+            result['observationBundleRaw']=deepcopy(reference)
         for key,label in (('native','native'),('settings','settings'),('pages','pages')):
             if key in result:
                 refs=[row['rawReference'] for row in result['raws'] if row['label']==label];need(refs)
@@ -236,6 +253,10 @@ class PicoAudioPCActor:
         """Exact durable role authority, safe under the Primary source lock."""
         need(not self.raws.stopped)
         self.recipe.lock.assert_held()
+        need(type(self.version) is int and self.version==self._version==(2 if self.observation_bundle is None else VERSION))
+        need(self.observation_bundle is self._observation_bundle
+            and type(self.bundle_declaration) is int and self.bundle_declaration==self._bundle_declaration)
+        if self.observation_bundle is not None:self.observation_bundle.guard()
         self.header_bytes()
         need(host_identity()==self.host and json_digest(self.scope)==self.scope_sha
             and self.store.read()==self.disk and (self.pin is None or original(self.store)==self.pin)
@@ -257,7 +278,7 @@ class PicoAudioPCActor:
     def _save(self,value,*,chunks=None,phase=None):
         self.lock.assert_held();self.recipe.lock.assert_held()
         need(self.store.read()==self.disk and (self.pin is None or original(self.store)==self.pin))
-        body=dict(audioPCActorVersion=VERSION,scope=deepcopy(self.scope),phase=phase or ('reading' if value['pending'] is not None else 'ready'),
+        body=dict(audioPCActorVersion=self.version,scope=deepcopy(self.scope),phase=phase or ('reading' if value['pending'] is not None else 'ready'),
             chunks=chunks if chunks is not None else self.disk['chunks'],payload=pack([value]))
         self.store.write(body,self.disk);self.disk=deepcopy(body);self.pin=original(self.store)
         self.state=deepcopy(value);self.state_sha=json_digest(self.state)
@@ -381,8 +402,18 @@ class PicoAudioPCActor:
 
     def _observe_native(self):
         self._begin('native-observation',None);started=self.state['pending']['started']
-        before=self.source.status();native=self.native.read(self.native.sequence,require_recorded_history=True)
-        settings=self.settings.capture(self.recipe.run);pages=self.pages.capture();after=self.source.status(before)
+        before=self.source.status()
+        bundle=None
+        if self.observation_bundle is None:
+            native=self.native.read(self.native.sequence,require_recorded_history=True)
+            settings=self.settings.capture(self.recipe.run);pages=self.pages.capture()
+        else:
+            previous=self.state['lastObservation']
+            old=None if previous is None else self.frames[previous]
+            prior=None if old is None else dict(envelope=old['bundle'],native=old['native'],settings=old['settings'],pages=old['pages'])
+            observed=self.observation_bundle.capture(prior)
+            native,settings,pages,bundle=(observed[key] for key in ('native','settings','pages','envelope'))
+        after=self.source.status(before)
         need(before['activations']==after['activations'] and before['active'] and after['active']
             and settings['source']['native']['muted']==native['audio']['muted']
             and settings['source']['native']['previewCycle']==native['audio']['recordedVoice']['cycle'])
@@ -395,6 +426,7 @@ class PicoAudioPCActor:
             *(settings['source'][key] for key in CLOCKS))
         frame=dict(kind='observation',before=before,after=after,native=native,settings=settings,pages=pages,actual=actual,
             capturedEpochMs=captured,raws=deepcopy(self.state['pending']['raws']),startedMonotonic=started,hostMonotonic=self.monotonic())
+        if bundle is not None:frame['bundle']=bundle
         index=self._append(frame);value=deepcopy(self.state);value.update(pending=None,lastObservation=index,sequence=value['sequence']+1);self._save(value)
         self.native.guard();self.settings.guard();self.pages.guard();fresh(captured,self.native.clock_ms())
         need(0<=self.monotonic()-started<=1.5);self.bound();return deepcopy(frame)

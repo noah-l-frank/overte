@@ -492,7 +492,7 @@
     "pico-audio-cleanup-actor-context": {"current": 1, "reads": [1]},
     "pico-audio-cleanup-role-quiet": {"current": 2, "reads": [1, 2]},
     "pico-audio-cleanup-derived-pair": {"current": 1, "reads": [1]},
-    "pico-audio-pc-actor": {"current": 2, "reads": [1, 2]},
+    "pico-audio-pc-actor": {"current": 3, "reads": [1, 2, 3]},
     "pico-audio-pc-start-coordinator": {"current": 1, "reads": [1]},
     "audio-preview-source": {"current": 1, "reads": [1]},
     "pico-audio-raw-journal": {"current": 1, "reads": [1]},

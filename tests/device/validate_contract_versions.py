@@ -553,7 +553,7 @@ REQUIRED = {
     "pico-audio-cleanup-actor-context": 1,
     "pico-audio-cleanup-role-quiet": 2,
     "pico-audio-cleanup-derived-pair": 1,
-    "pico-audio-pc-actor": 2,
+    "pico-audio-pc-actor": 3,
     "pico-audio-pc-start-coordinator": 1,
     "audio-preview-source": 1,
     "pico-audio-raw-journal": 1,
