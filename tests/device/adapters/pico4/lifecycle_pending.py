@@ -37,9 +37,12 @@ def current_return(method):
     def call(owner,*args,**kwargs):
         started=owner.world.monotonic();need(number(started,0,1e15))
         previous=owner.deadline
+        depth=owner._return_depth;need(type(depth) is int and depth>=0)
+        if depth:owner.lock.assert_held()
+        owner._return_depth=depth+1
         owner.deadline=started+20 if previous is None else previous
         try:
-            if owner.version==3:
+            if owner.version==3 and depth==0:
                 with owner.lock.held():
                     owner.close_return_pins()
                     result=method(owner,*args,**kwargs)
@@ -47,20 +50,26 @@ def current_return(method):
             else:result=method(owner,*args,**kwargs)
             owner.released_fresh()
             return result
-        finally:owner.deadline=previous
+        finally:
+            need(owner._return_depth==depth+1)
+            owner._return_depth=depth;owner.deadline=previous
     return call
 
 
 class PicoLifecyclePending:
-    def __init__(self,background,world,route,pending,path,*,raw_layout=None):
+    def __init__(self,background,world,route,pending,path,*,raw_layout=None,session_receipts=False):
         need(type(background) is PicoLifecycleBackground and type(world) is PicoLifecycleWorld
             and type(route) is TokenScriptUI and type(pending) is NativePendingCommitOwner
             and background.lock is world.lock and background.run==world.run and background.binding==world.binding
             and pending.pid==world.pid and pending.intent is None)
+        need(type(session_receipts) is bool and (not session_receipts or raw_layout is not None and background.quiet_period==.75))
+        self.session_receipts=self._session_receipts=session_receipts
+        self.session_transitions=self._session_transitions=[]
         self.background,self.world,self.route,self.pending=background,world,route,pending
         self.run,self.binding,self.pid,self.lock=world.run,deepcopy(world.binding),world.pid,world.lock
         self.store=PrivateFeatureState(path);need(self.store.path==world.store.path.with_name('lifecycle-pending-owner.json'))
         self.disk=self.state=self.last_clock=self.anchor=self.deadline=None
+        self._return_depth=0
         self.layout=self._layout=2 if raw_layout is None else 3
         self.storage_gate=self._original_storage_gate=None;self.return_pins=self._original_return_pins=None
         if raw_layout is not None:
@@ -90,6 +99,8 @@ class PicoLifecyclePending:
             self.load()
 
     def bound(self,*,host_only=False):
+        need(type(self.session_receipts) is bool and self.session_receipts is self._session_receipts
+            and self.session_transitions is self._session_transitions)
         self.lock.assert_held();now=self.world.monotonic()
         need(number(now,0,1e15) and (self.last_clock is None or now>=self.last_clock))
         need(self.deadline is None or now<=self.deadline)
@@ -214,7 +225,8 @@ class PicoLifecyclePending:
         self.original_state()
         need(self.anchor is not None and self.world.guard() is not False and self.pending.guard() is not False)
         if self.layout==3:
-            self.return_pins_guard();self.return_pins.verify_data()
+            if self.return_pins is None:self.lock.assert_held() # Same actual outer call still owns the live Raw/root guards.
+            else:self.return_pins_guard();self.return_pins.verify_data()
         start,requested,oldest=self.anchor;epochs=(self.world.axes.clock_ms(),self.pending.clock_ms())
         completed=self.world.monotonic()
         need(number(completed,0,1e15) and completed>=self.last_clock
@@ -505,7 +517,16 @@ class PicoLifecyclePending:
                 need(value==self.state['backs'][-1]['envelope']);self.fresh(host_only=True)
                 if input_phase(self) is not None:input_phase(self).host_fresh()
             if input_phase(self) is not None:input_phase(self).check()
-            self.world.session.stage(self.binding['processIdentity'],'controller.button',deepcopy(BUTTON),intent=intent,before_publish=before_publish)
+            transition=None
+            if self.session_receipts:
+                from adapters.pico4.lifecycle_session_transition import SessionTransition1
+                transition=SessionTransition1(self)
+            try:
+                self.world.session.stage(self.binding['processIdentity'],'controller.button',deepcopy(BUTTON),intent=intent,before_publish=before_publish)
+                if transition is not None:transition.confirm()
+            except BaseException as error:
+                if transition is not None:transition.fail(error)
+                raise
             return self.reconcile()
 
     @current_return

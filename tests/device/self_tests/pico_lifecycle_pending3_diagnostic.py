@@ -26,6 +26,7 @@ from self_tests.test_pico_lifecycle_pending import LifecyclePendingTests
 class LifecyclePending3FamilyTests(unittest.TestCase):
     BACKGROUND_STATE_LAYOUT=None
     BACKGROUND_QUIET_PERIOD=None
+    PENDING_SESSION_RECEIPTS=False
     def test_born_host_controls_advance_real_clock_and_keep_the_existing_exact_reference_contract(self):
         import time
         from adapters.token_chat_ui import same_reference
@@ -74,7 +75,7 @@ class LifecyclePending3FamilyTests(unittest.TestCase):
                 **({} if self.BACKGROUND_STATE_LAYOUT is None else dict(state_layout=self.BACKGROUND_STATE_LAYOUT)))
         background.make=make;background.initialize_from_chat(self.chat);self.addCleanup(background.doCleanups)
         background.owner.prepare(background.chat);background.owner.run_owned()
-        self.pending=LifecyclePendingTests();self.pending.initialize_from_background(background);self.addCleanup(self.pending.doCleanups)
+        self.pending=LifecyclePendingTests();self.pending.session_receipts=self.PENDING_SESSION_RECEIPTS;self.pending.initialize_from_background(background);self.addCleanup(self.pending.doCleanups)
         self.owner=self.pending.owner
         self.assertIs(type(self.owner),PicoLifecyclePending);self.assertEqual(3,self.owner.version)
         self.assertEqual(self.context.process_identity,self.owner.binding['processIdentity'])

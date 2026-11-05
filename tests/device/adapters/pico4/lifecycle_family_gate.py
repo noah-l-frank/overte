@@ -64,6 +64,7 @@ class LifecycleFamilyGate4:
         self.view=raw.view(role);self.pending=None;self.held=[];self.poisoned=False
         self.receipts=self._receipts=();self._receipt_seal=(self.receipts,2)
         self.capture=self._original_capture=None
+        self.session_choice=self._session_choice=(role=='pending' and writer.session_receipts,)
         self._family=self._original_family=(role,self.root_key,self.root_version,raw,writer,self.view)
         writer.storage_gate=writer._original_storage_gate=self
         self.codec=self._original_codec=None
@@ -118,7 +119,13 @@ class LifecycleFamilyGate4:
         need(self._codec_seal is self._original_codec_seal and self.codec is self._original_codec is self._codec_seal[0])
         # The conservative reservation also covers incomplete/failed profiles;
         # business failure must not hide already held codec/file resources.
-        return self._receipt_seal[1]+sum(canonical_size(permit.value) for permit in self.held)+self._codec_seal[1]
+        need(self.session_choice is self._session_choice and type(self.session_choice) is tuple and len(self.session_choice)==1
+            and type(self.session_choice[0]) is bool)
+        if self.role=='pending':need(self.writer.session_receipts is self.writer._session_receipts is self.session_choice[0])
+        if self.session_choice[0]:
+            from adapters.pico4.lifecycle_session_transition import metadata_guard
+            metadata_guard(self.writer)
+        return self._receipt_seal[1]+sum(canonical_size(permit.value) for permit in self.held)+self._codec_seal[1]+(3*PART if self.session_choice[0] else 0)
 
     def finish_bytes(self,permit):
         need(permit in self.held and permit.gate is self)

@@ -100,6 +100,17 @@ class OriginalGraph5:
         self.reserve=value;self.reserve_seal=(self,value)
 
 
+
+def report_reference(value,path):
+    if path in (('beforeUi',),('beforeNative',)):return True
+    if len(path)==2 and path[0]=='sources':
+        return path[1] in (value['home'],value['quiet'][-1]['sourceIndex'],value['final']['sourceIndex'])
+    if path and path[0]=='quiet':
+        return path[1]==len(value['quiet'])-1 and (path[2:]==('native',) or path[2:]==('world','ui'))
+    if path and path[0]=='finalQuiet':return path[1] in (0,len(value['finalQuiet'])-1)
+    return False
+_REPORT_REFERENCE=(report_reference,report_reference.__code__)
+
 class LifecycleBackgroundState5:
     def __init__(self,owner,bank):
         from adapters.pico4.lifecycle_background_owner import PicoLifecycleBackground
@@ -530,6 +541,9 @@ class LifecycleBackgroundState5:
                 if record['kind']=='utf8' and record['role'] in VIEW_ROLES['background']:
                     latest[record['role']]=max(latest.get(record['role'],-1),index)
             expanded=size;literal_bytes=0;view=self.bank.view('background');choices={}
+            selective_report=kind=='report' and self.capture_choice[0] is not None
+            need(type(report_reference) is FunctionType and report_reference is _REPORT_REFERENCE[0]
+                and report_reference.__code__ is _REPORT_REFERENCE[1])
             maximum_wrapper=0;maximum_literal=0;maximum_decoded_bound=0;binary_bytes=sum(len(raw) for raw in batch.values())
             decoded_max={role:0 for role in ('background','ui','gesture','drive','feature')}
             def original(item,path):
@@ -559,6 +573,7 @@ class LifecycleBackgroundState5:
                 item,path=work.pop();need(len(path)<=12)
                 if type(item) is dict:
                     if set(item)==REFERENCE or set(item)=={'raw','sha256'}:
+                        if selective_report and not report_reference(value,path):continue
                         index=original(item,path);raw=batch[index].decode('utf-8')
                         wrapper_size=canonical_size(frame(raw))
                         expanded+=wrapper_size-canonical_size(item)
@@ -574,7 +589,7 @@ class LifecycleBackgroundState5:
                 # canonical normalization may expand a short numeric/string
                 # spelling. No decoded<=literal assumption is made.
                 stage.reserve_before(3*size+binary_bytes+2*maximum_decoded_bound+2*maximum_literal+6*LIMIT+9*PART)
-            else:stage.reserve_before(3*size+3*expanded+6*literal_bytes+6*LIMIT+8*PART)
+            else:stage.reserve_before(3*size+3*expanded+6*literal_bytes+(binary_bytes if selective_report else 0)+6*LIMIT+8*PART)
             helper_method(self,'preflight')()
             for digest,role,index,command_sha in stage.choices:
                 if kind=='validate' and self.capture_choice[0] is not None:
@@ -608,7 +623,8 @@ class LifecycleBackgroundState5:
                 item,parent,name,path=work.pop();need(len(path)<=12)
                 if type(item) is dict:
                     if set(item)==REFERENCE or set(item)=={'raw','sha256'}:
-                        parent[name]=frame(batch[original(item,path)].decode('utf-8'))
+                        parent[name]=(deepcopy(item) if selective_report and not report_reference(value,path)
+                            else frame(batch[original(item,path)].decode('utf-8')))
                     else:
                         target={};parent[name]=target
                         work.extend((child,target,key,(*path,key)) for key,child in item.items())

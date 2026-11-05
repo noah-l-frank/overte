@@ -127,3 +127,43 @@ Both new real-host quiet windows pass without retiming source packets. The
 remaining Pending actions, Source8, eighth normal action, independent Actor,
 stereo and device evidence remain open. This is a source integration and host
 composition result, not complete Lifecycle acceptance.
+
+## Cold original Session replacement and first X
+
+The explicit Pending3 `session_receipts=True` option requires the existing
+Raw4 profile and cold Background5 period. It retains the actual Session file
+and original descriptor before the existing controller stage. After the
+original stage returns successfully, it verifies unchanged process/nonce,
+exactly one sequence increment, the new inode and unchanged old unlinked
+bytes. Both original descriptor pairs must close through the existing pinned
+implementation. Only then can that one namespace pin advance. The Session
+writer and native publication paths are unchanged. Lost delivery/return keeps
+the original transaction and first traceback, poisons admission and refuses
+another input. The existing family gate permanently reserves three parts for
+the two bounded transactions; its birth mode and acquired byte bounds remain
+checked during resource accounting.
+
+Return pins belong to the actual outer decorated invocation. Nested calls keep
+the same original lock, raw/root verification, final clocks and twenty-second
+deadline. A separate invocation depth distinguishes nesting from a deadline
+already provided by the primary operations owner. Outside the held lock, the
+existing original return-pin verification remains mandatory.
+
+Cold report reconstruction now restores only the original references consumed
+by the unchanged `_report_plain`. All original bytes, full projected state,
+namespace guards and complete materialized batch remain retained and charged.
+Four historical full-versus-selected report comparisons produce identical
+results without granting current source authority.
+
+The integrated 15-case group passes in 82.553 seconds. After the explicit
+external-deadline correction, the two actual first-X/lost-return cases pass in
+42.378 seconds; the unchanged 17 Pending cases pass in 97.045 seconds, and
+the 22 return-pin/family cases pass in 22.314 seconds. These are separate
+original owning scopes below 120 seconds, with stable source hashes/eight-stat
+identities and equal retained-original inventories. The new first-X tests are
+part of the existing background-state5 group; no new catalog group is added.
+
+The remaining real-host Pending continuation is still open: a private earlier
+full attempt reached `focus-issued`, then refused at the original 1.5-second
+freshness check after reply persistence. It does not qualify the remaining
+input/event sequence, Source8, independent Actor or full Lifecycle cleanup.

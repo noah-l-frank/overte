@@ -109,7 +109,8 @@ class LifecyclePendingTests(unittest.TestCase):
                 monotonic=lambda:self.native.clock,sleep=self.native.sleep)
             return PicoLifecyclePending(self.background,self.world,route,pending,self.path)
         pending=self.model_context.pending_reader(self,self.background.originals)
-        return PicoLifecyclePending(self.background,self.world,route,pending,self.path,raw_layout=self.background.originals)
+        return PicoLifecyclePending(self.background,self.world,route,pending,self.path,raw_layout=self.background.originals,
+            session_receipts=getattr(self,'session_receipts',False))
 
     def through_hold(self):
         self.owner.back();self.owner.open_scripts();self.owner.mutate('focus');self.owner.mutate('type');return self.owner.mutate('hold')
