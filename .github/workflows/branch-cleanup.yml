@@ -106,7 +106,7 @@ jobs:
             /tools/branch-policy/check.py
             /.github/branch-cleanup.json
             /.github/branch-policy.json
-            /.github/repository-checks.json
+            /.github/rulesets/permanent-branches.json
 
       - name: Check current closed-PR hints after an authenticated completion
         id: retry
@@ -181,7 +181,7 @@ jobs:
             /tools/branch-policy/check.py
             /.github/branch-cleanup.json
             /.github/branch-policy.json
-            /.github/repository-checks.json
+            /.github/rulesets/permanent-branches.json
 
       - name: Plan from current GitHub state
         id: plan

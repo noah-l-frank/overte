@@ -223,13 +223,26 @@ class Writer:
         require(all(rule["parameters"].get("strict_required_status_checks_policy") is True
                     and rule["parameters"].get("required_status_checks") for rule in checks),
                 "adoption_target_checks_not_strict")
-        configuration = json.loads((self.root / ".github/repository-checks.json").read_text())
-        require(configuration.get("repository") == cleanup.REPOSITORY
-                and configuration.get("repository_id") == cleanup.REPOSITORY_ID,
+        # The trusted ruleset manifest owns current branch protection. The old
+        # repository-checks configuration is still consumed by legacy CI paths.
+        configuration = json.loads((self.root / ".github/rulesets/permanent-branches.json").read_text())
+        refs = configuration["conditions"]["ref_name"]
+        require(configuration.get("target") == "branch" and configuration.get("enforcement") == "active"
+                and configuration.get("bypass_actors") == []
+                and row["base"] in cleanup.PERMANENT
+                and "refs/heads/" + row["base"] in refs["include"] and refs["exclude"] == [],
                 "adoption_required_checks_policy_mismatch")
-        expected = set(configuration["required_contexts"])
-        actual = {item["context"] for rule in checks for item in rule["parameters"]["required_status_checks"]
-                  if item.get("integration_id") == 15368}
+        configured = [rule["parameters"] for rule in configuration["rules"]
+                      if rule["type"] == "required_status_checks"]
+        require(configured and all(rule.get("strict_required_status_checks_policy") is True
+                                   and rule.get("required_status_checks") for rule in configured),
+                "adoption_required_checks_policy_mismatch")
+        expected = {(item["context"], item["integration_id"])
+                    for rule in configured for item in rule["required_status_checks"]}
+        require(all(isinstance(context, str) and context and app == 15368 for context, app in expected),
+                "adoption_required_checks_policy_mismatch")
+        actual = {(item["context"], item.get("integration_id"))
+                  for rule in checks for item in rule["parameters"]["required_status_checks"]}
         require(expected and expected <= actual, "adoption_required_check_missing")
         for ruleset in {rule["ruleset_id"] for rule in rules}:
             metadata = self.github.get("rulesets/" + str(int(ruleset)))
