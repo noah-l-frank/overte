@@ -279,9 +279,10 @@ normal ancestry checks and verified backup sequence, without archive tags.
 History PRs run the normal required GitHub checks. Later cleanup wake-ups merge
 them only when GitHub reports them mergeable and all required protections remain
 active and strict. The minimum required check names and GitHub App bindings come
-from `.github/rulesets/permanent-branches.json` in the trusted `main` checkout,
-currently `source-policy` and `required-ci`. Both workflow checkouts include this
-manifest. The legacy `.github/repository-checks.json` configuration does not
+from `.github/rulesets/permanent-branches.json` in the trusted `main` commit,
+currently `source-policy` and `required-ci`. The manifest is read as a Git blob
+from the verified checkout's `HEAD`, so it remains available when sparse checkout
+omits the file. The legacy `.github/repository-checks.json` configuration does not
 define this protection check. Additional live target requirements, including
 child topology checks, remain mandatory. Missing manifest checks or mismatched
 App bindings stop adoption; no fallback to the legacy check list is allowed.

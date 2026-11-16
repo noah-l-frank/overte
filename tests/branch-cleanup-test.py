@@ -1711,13 +1711,18 @@ class AdoptedHistoryTests(unittest.TestCase):
         self.github.get.side_effect = self.guard_responses
         manifest = json.loads((ROOT / ".github/rulesets/permanent-branches.json").read_text())
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            fixture = LocalGitFixture(Path(directory))
+            root = fixture.seed
             path = root / ".github/rulesets/permanent-branches.json"
             path.parent.mkdir(parents=True)
+            def commit_manifest():
+                fixture.git(root, "add", "-A")
+                fixture.git(root, "commit", "-q", "-m", "manifest fixture")
             writer = self.adoption.Writer(self.github, root, "token", "overte-test")
             # No repository-checks.json exists here: adoption must use only the
             # current trusted protection manifest, never the legacy CI list.
             path.write_text(json.dumps(manifest))
+            commit_manifest()
             writer.guard(self.row, self.policy)
             invalid = [dict(manifest, target="tag"), dict(manifest, enforcement="disabled"),
                        dict(manifest, bypass_actors=[dict(actor_id=1, actor_type="Integration")]),
@@ -1738,20 +1743,54 @@ class AdoptedHistoryTests(unittest.TestCase):
             for candidate in invalid:
                 with self.subTest(manifest=candidate):
                     path.write_text(json.dumps(candidate))
+                    commit_manifest()
                     with self.assertRaisesRegex(self.module.CleanupError, "^adoption_required_checks_policy_mismatch$"):
                         writer.guard(self.row, self.policy)
             candidate = copy.deepcopy(manifest)
             next(rule for rule in candidate["rules"] if rule["type"] == "required_status_checks")[
                 "parameters"]["required_status_checks"].append(dict(context="Future required check", integration_id=15368))
             path.write_text(json.dumps(candidate))
+            commit_manifest()
             with self.assertRaisesRegex(self.module.CleanupError, "^adoption_required_check_missing$"):
                 writer.guard(self.row, self.policy)
             path.write_text("{")
+            commit_manifest()
             with self.assertRaises(ValueError):
                 writer.guard(self.row, self.policy)
             path.unlink()
-            with self.assertRaises(FileNotFoundError):
+            commit_manifest()
+            with self.assertRaisesRegex(self.module.CleanupError, "^git_failed_exit_"):
                 writer.guard(self.row, self.policy)
+
+    def test_guard_reads_committed_manifest_with_both_workflow_sparse_checkouts(self):
+        import yaml
+        source = (ROOT / ".github/workflows/branch-cleanup.yml").read_text()
+        steps = yaml.safe_load(source)["jobs"]["cleanup"]["steps"]
+        checkouts = [step["with"] for step in steps if step.get("uses", "").startswith("actions/checkout@")]
+        self.assertEqual(len(checkouts), 2)
+        self.github.get.side_effect = self.guard_responses
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = LocalGitFixture(Path(directory))
+            relative = ".github/rulesets/permanent-branches.json"
+            path = fixture.seed / relative
+            path.parent.mkdir(parents=True)
+            path.write_bytes((ROOT / relative).read_bytes())
+            fixture.git(fixture.seed, "add", relative)
+            fixture.git(fixture.seed, "commit", "-q", "-m", "trusted manifest")
+            writer = self.adoption.Writer(self.github, fixture.seed, "token", "overte-test")
+            # Uncommitted file contents must not replace the trusted Git object.
+            path.write_text("{}")
+            writer.guard(self.row, self.policy)
+            fixture.git(fixture.seed, "restore", relative)
+            for checkout in checkouts:
+                with self.subTest(checkout=checkout):
+                    self.assertEqual(checkout["repository"], FORK)
+                    self.assertEqual(checkout["ref"], "main")
+                    self.assertFalse(checkout["sparse-checkout-cone-mode"])
+                    fixture.git(fixture.seed, "sparse-checkout", "set", "--no-cone",
+                                *checkout["sparse-checkout"].splitlines())
+                    self.assertFalse(path.exists())
+                    writer.guard(self.row, self.policy)
 
     def test_conflicts_and_changed_trees_are_the_only_cacheable_verdicts(self):
         self.assertEqual(self.adoption.NEGATIVE, {"merge_conflict", "tree_changes", "issue_closing_reference"})
@@ -3250,18 +3289,6 @@ class WorkflowSafetyTests(unittest.TestCase):
         self.assertIn("persist-credentials: false", self.source)
         checkout = self.source.split("- name: Plan from current GitHub state", 1)[0]
         self.assertNotIn("github.event.pull_request.head.sha", checkout)
-
-    def test_initial_and_refreshed_checkouts_include_the_required_ruleset_manifest(self):
-        import yaml
-        steps = yaml.safe_load(self.source)["jobs"]["cleanup"]["steps"]
-        checkouts = [step["with"] for step in steps if step.get("uses", "").startswith("actions/checkout@")]
-        self.assertEqual(len(checkouts), 2)
-        for checkout in checkouts:
-            with self.subTest(checkout=checkout):
-                self.assertEqual(checkout["repository"], FORK)
-                self.assertEqual(checkout["ref"], "main")
-                self.assertFalse(checkout["sparse-checkout-cone-mode"])
-                self.assertIn("/.github/rulesets/permanent-branches.json", checkout["sparse-checkout"].splitlines())
 
     def test_fork_identity_and_serial_execution_are_explicit(self):
         self.assertIn("github.repository == 'noah-l-frank/overte'", self.source)

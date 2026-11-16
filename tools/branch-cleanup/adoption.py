@@ -223,9 +223,11 @@ class Writer:
         require(all(rule["parameters"].get("strict_required_status_checks_policy") is True
                     and rule["parameters"].get("required_status_checks") for rule in checks),
                 "adoption_target_checks_not_strict")
-        # The trusted ruleset manifest owns current branch protection. The old
-        # repository-checks configuration is still consumed by legacy CI paths.
-        configuration = json.loads((self.root / ".github/rulesets/permanent-branches.json").read_text())
+        # Read the manifest from the authenticated checkout's commit, including
+        # when sparse checkout omits it. Legacy CI still consumes the old list.
+        configuration = json.loads(cleanup.run([
+            "git", "-C", str(self.root), "cat-file", "blob",
+            "HEAD:.github/rulesets/permanent-branches.json"]).stdout)
         refs = configuration["conditions"]["ref_name"]
         require(configuration.get("target") == "branch" and configuration.get("enforcement") == "active"
                 and configuration.get("bypass_actors") == []
