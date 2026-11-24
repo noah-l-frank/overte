@@ -1071,6 +1071,19 @@ def verify_checkout(root, source_sha):
     require(actual == source_sha, "trusted_checkout_is_stale")
 
 
+def read_uploaded_backup(github, artifact_id):
+    """Allow a newly uploaded backup to become visible in the Actions API."""
+    endpoint = f"actions/artifacts/{artifact_id}"
+    for delay in (2, 5, 10):
+        try:
+            return github.get(endpoint)
+        except CleanupError as error:
+            if str(error) != "github_api_get_actions_artifacts_http_404_not_found":
+                raise
+        time.sleep(delay)
+    return github.get(endpoint)
+
+
 def defer_main_change(github, previous, observed, reason):
     """A mismatch is quiet only when both snapshots are retained by current main."""
     require(previous != observed and all(isinstance(sha, str) and SHA.fullmatch(sha)
@@ -1636,7 +1649,7 @@ def main():
             bundle = args.backup_dir / "recovery.bundle"
             require(digest(bundle) == manifest.get("sha256"), "backup_digest_mismatch")
             require(args.backup_artifact_id > 0, "invalid_backup_artifact")
-            artifact = github.get("actions/artifacts/" + str(args.backup_artifact_id))
+            artifact = read_uploaded_backup(github, args.backup_artifact_id)
             artifact_digest = args.backup_artifact_digest.removeprefix("sha256:")
             require(re.fullmatch(r"[a-f0-9]{64}", artifact_digest), "invalid_artifact_digest")
             run_id, attempt = int(os.environ["GITHUB_RUN_ID"]), os.environ["GITHUB_RUN_ATTEMPT"]
