@@ -1640,15 +1640,54 @@ class AdoptedHistoryTests(unittest.TestCase):
     def guard_responses(self, suffix, **kwargs):
         if suffix == "pulls/123":
             return self.pr
-        if suffix == "rules/branches/main":
+        if suffix == "rules/branches/" + self.row["base"]:
             return [dict(type=kind, ruleset_id=5, parameters=dict(
                 strict_required_status_checks_policy=True,
                 required_status_checks=[dict(context=context, integration_id=15368) for context in
-                                        ("repository-checks", "branch-policy", "sync-test-reuse", "dependency-release-policy")]))
+                                        ("source-policy", "required-ci")]))
                 for kind in ("deletion", "non_fast_forward", "pull_request", "required_status_checks")]
         if suffix == "rulesets/5":
             return dict(bypass_actors=[])
         raise AssertionError(suffix)
+
+    def test_guard_accepts_current_checks_on_every_permanent_target_and_retains_extra_checks(self):
+        writer = self.adoption.Writer(self.github, ROOT, "token", "overte-test")
+        for target in sorted(PERMANENT):
+            with self.subTest(target=target):
+                self.row["base"] = self.pr["base"]["ref"] = target
+                rules = self.guard_responses("rules/branches/" + target)
+                checks = next(rule for rule in rules if rule["type"] == "required_status_checks")
+                extra = dict(context="Additional target check", integration_id=15368)
+                checks["parameters"]["required_status_checks"].append(extra)
+                self.github.get.side_effect = lambda suffix, **kw: (
+                    rules if suffix.startswith("rules/branches/") else self.guard_responses(suffix, **kw))
+                required = writer.guard(self.row, self.policy)
+                self.assertEqual({item["context"] for item in required},
+                                 {"source-policy", "required-ci", extra["context"]})
+
+    def test_guard_rejects_legacy_only_missing_wrong_app_and_non_strict_checks(self):
+        writer = self.adoption.Writer(self.github, ROOT, "token", "overte-test")
+        current = [dict(context=name, integration_id=15368) for name in ("source-policy", "required-ci")]
+        legacy = [dict(context=name, integration_id=15368) for name in
+                  ("repository-checks", "branch-policy", "sync-test-reuse", "dependency-release-policy")]
+        cases = [(legacy, True, "adoption_required_check_missing")]
+        for index in range(len(current)):
+            cases.append((current[:index] + current[index + 1:], True, "adoption_required_check_missing"))
+            for app in (None, 1):
+                wrong_app = copy.deepcopy(current)
+                wrong_app[index]["integration_id"] = app
+                cases.append((wrong_app, True, "adoption_required_check_missing"))
+        cases.append((current, False, "adoption_target_checks_not_strict"))
+        for entries, strict, error in cases:
+            with self.subTest(entries=entries, strict=strict):
+                rules = self.guard_responses("rules/branches/main")
+                checks = next(rule for rule in rules if rule["type"] == "required_status_checks")
+                checks["parameters"].update(required_status_checks=entries,
+                                           strict_required_status_checks_policy=strict)
+                self.github.get.side_effect = lambda suffix, **kw: (
+                    rules if suffix == "rules/branches/main" else self.guard_responses(suffix, **kw))
+                with self.assertRaisesRegex(self.module.CleanupError, "^" + error + "$"):
+                    writer.guard(self.row, self.policy)
 
     def test_guard_requires_current_heads_completion_holds_and_strict_rules_without_bypass(self):
         writer = self.adoption.Writer(self.github, ROOT, "token", "overte-test")
@@ -1667,6 +1706,91 @@ class AdoptedHistoryTests(unittest.TestCase):
             self.github.get.side_effect = lambda suffix, **kw: changed if suffix == "rulesets/5" else original(suffix, **kw)
             with self.assertRaises(self.module.CleanupError):
                 writer.guard(self.row, self.policy)
+
+    def test_guard_uses_trusted_manifest_and_rejects_invalid_or_missing_policy(self):
+        self.github.get.side_effect = self.guard_responses
+        manifest = json.loads((ROOT / ".github/rulesets/permanent-branches.json").read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = LocalGitFixture(Path(directory))
+            root = fixture.seed
+            path = root / ".github/rulesets/permanent-branches.json"
+            path.parent.mkdir(parents=True)
+            def commit_manifest():
+                fixture.git(root, "add", "-A")
+                fixture.git(root, "commit", "-q", "-m", "manifest fixture")
+            writer = self.adoption.Writer(self.github, root, "token", "overte-test")
+            # No repository-checks.json exists here: adoption must use only the
+            # current trusted protection manifest, never the legacy CI list.
+            path.write_text(json.dumps(manifest))
+            commit_manifest()
+            writer.guard(self.row, self.policy)
+            invalid = [dict(manifest, target="tag"), dict(manifest, enforcement="disabled"),
+                       dict(manifest, bypass_actors=[dict(actor_id=1, actor_type="Integration")]),
+                       dict(manifest, conditions={"ref_name": {"include": [], "exclude": []}}),
+                       dict(manifest, conditions={"ref_name": {"include": ["refs/heads/main"],
+                                                              "exclude": ["refs/heads/main"]}}),
+                       dict(manifest, rules=[])]
+            for field, value in (("required_status_checks", []), ("strict_required_status_checks_policy", False)):
+                candidate = copy.deepcopy(manifest)
+                next(rule for rule in candidate["rules"] if rule["type"] == "required_status_checks")[
+                    "parameters"][field] = value
+                invalid.append(candidate)
+            for context, app in (("", 15368), ("required-ci", None), ("required-ci", 1)):
+                candidate = copy.deepcopy(manifest)
+                next(rule for rule in candidate["rules"] if rule["type"] == "required_status_checks")[
+                    "parameters"]["required_status_checks"] = [dict(context=context, integration_id=app)]
+                invalid.append(candidate)
+            for candidate in invalid:
+                with self.subTest(manifest=candidate):
+                    path.write_text(json.dumps(candidate))
+                    commit_manifest()
+                    with self.assertRaisesRegex(self.module.CleanupError, "^adoption_required_checks_policy_mismatch$"):
+                        writer.guard(self.row, self.policy)
+            candidate = copy.deepcopy(manifest)
+            next(rule for rule in candidate["rules"] if rule["type"] == "required_status_checks")[
+                "parameters"]["required_status_checks"].append(dict(context="Future required check", integration_id=15368))
+            path.write_text(json.dumps(candidate))
+            commit_manifest()
+            with self.assertRaisesRegex(self.module.CleanupError, "^adoption_required_check_missing$"):
+                writer.guard(self.row, self.policy)
+            path.write_text("{")
+            commit_manifest()
+            with self.assertRaises(ValueError):
+                writer.guard(self.row, self.policy)
+            path.unlink()
+            commit_manifest()
+            with self.assertRaisesRegex(self.module.CleanupError, "^git_failed_exit_"):
+                writer.guard(self.row, self.policy)
+
+    def test_guard_reads_committed_manifest_with_both_workflow_sparse_checkouts(self):
+        import yaml
+        source = (ROOT / ".github/workflows/branch-cleanup.yml").read_text()
+        steps = yaml.safe_load(source)["jobs"]["cleanup"]["steps"]
+        checkouts = [step["with"] for step in steps if step.get("uses", "").startswith("actions/checkout@")]
+        self.assertEqual(len(checkouts), 2)
+        self.github.get.side_effect = self.guard_responses
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = LocalGitFixture(Path(directory))
+            relative = ".github/rulesets/permanent-branches.json"
+            path = fixture.seed / relative
+            path.parent.mkdir(parents=True)
+            path.write_bytes((ROOT / relative).read_bytes())
+            fixture.git(fixture.seed, "add", relative)
+            fixture.git(fixture.seed, "commit", "-q", "-m", "trusted manifest")
+            writer = self.adoption.Writer(self.github, fixture.seed, "token", "overte-test")
+            # Uncommitted file contents must not replace the trusted Git object.
+            path.write_text("{}")
+            writer.guard(self.row, self.policy)
+            fixture.git(fixture.seed, "restore", relative)
+            for checkout in checkouts:
+                with self.subTest(checkout=checkout):
+                    self.assertEqual(checkout["repository"], FORK)
+                    self.assertEqual(checkout["ref"], "main")
+                    self.assertFalse(checkout["sparse-checkout-cone-mode"])
+                    fixture.git(fixture.seed, "sparse-checkout", "set", "--no-cone",
+                                *checkout["sparse-checkout"].splitlines())
+                    self.assertFalse(path.exists())
+                    writer.guard(self.row, self.policy)
 
     def test_conflicts_and_changed_trees_are_the_only_cacheable_verdicts(self):
         self.assertEqual(self.adoption.NEGATIVE, {"merge_conflict", "tree_changes", "issue_closing_reference"})
@@ -1796,9 +1920,9 @@ class AdoptedHistoryTests(unittest.TestCase):
 
     def test_independent_readiness_requires_the_latest_check_on_the_exact_head_and_app(self):
         writer = self.adoption.Writer(self.github, ROOT, "token", "overte-test")
-        required = [{"context": "repository-checks", "integration_id": 15368}]
+        required = [{"context": "required-ci", "integration_id": 15368}]
         pr = {**self.pr, "state": "open"}
-        good = dict(id=10, name="repository-checks", app={"id": 15368}, head_sha=self.row["sha"],
+        good = dict(id=10, name="required-ci", app={"id": 15368}, head_sha=self.row["sha"],
                     status="completed", conclusion="success")
         state = dict(headRefOid=self.row["sha"], baseRefOid=self.row["base_sha"], baseRefName="main",
                      mergeStateStatus="CLEAN", reviewDecision=None, closingIssuesReferences={"totalCount": 0})
@@ -1831,6 +1955,25 @@ class AdoptedHistoryTests(unittest.TestCase):
         with mock.patch.object(self.module, "run", return_value=output({**state, "headRefOid": "c" * 40})):
             with self.assertRaises(self.module.CleanupError):
                 writer.ready(self.pr, self.row, [])
+
+    def test_readiness_requires_both_current_gates_and_additional_live_checks(self):
+        writer = self.adoption.Writer(self.github, ROOT, "token", "overte-test")
+        required = [dict(context=name, integration_id=15368) for name in
+                    ("source-policy", "required-ci", "Enforce Android parent sync path")]
+        runs = [dict(id=index + 1, name=check["context"], app={"id": 15368}, head_sha=self.row["sha"],
+                     status="completed", conclusion="success") for index, check in enumerate(required)]
+        state = dict(headRefOid=self.row["sha"], baseRefOid=self.row["base_sha"], baseRefName="main",
+                     mergeStateStatus="CLEAN", reviewDecision=None, closingIssuesReferences={"totalCount": 0})
+        result = subprocess.CompletedProcess([], 0, stdout=json.dumps({"data": {"repository": {
+            "nameWithOwner": FORK, "pullRequest": state}}}), stderr="")
+        with mock.patch.object(self.module, "run", return_value=result):
+            self.github.get.return_value = {"total_count": len(runs), "check_runs": runs}
+            self.assertTrue(writer.ready(self.pr, self.row, required))
+            for index in range(len(runs)):
+                with self.subTest(missing=required[index]["context"]):
+                    incomplete = runs[:index] + runs[index + 1:]
+                    self.github.get.return_value = {"total_count": len(incomplete), "check_runs": incomplete}
+                    self.assertFalse(writer.ready(self.pr, self.row, required))
 
 
 class AdoptedHistoryPullRequestTests(unittest.TestCase):
