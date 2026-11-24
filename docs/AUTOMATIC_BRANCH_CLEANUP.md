@@ -250,8 +250,10 @@ integrated commits remain reachable through their protected permanent target.
 Existing historical tags are unchanged. The downloadable bundle artifact is
 retained for 30 days; reports are retained for 14 days. The plan and manifest
 identify the original branches and commits. A backup upload failure prevents
-deletion. Download the recovery artifact during its retention period if you need
-to retain the branch-name mapping for longer.
+deletion. After a successful upload, cleanup retries a metadata HTTP 404 after
+2, 5 and 10 seconds. The uploaded backup must pass the same verification before
+cleanup can delete a branch. Download the recovery artifact during its retention
+period if you need to retain the branch-name mapping for longer.
 
 ## Work adopted through another history
 
@@ -292,7 +294,10 @@ decision, without relying on the writing App's privileges. The standard PR merge
 API enforces the server-side rules; the automation grants no approvals, writes no check results,
 and bypasses no checks. A fresh tree proof and activity/consumer checks precede
 merging, with exact head matching. A target advance is handled by a fast-forward
-refresh of the history branch followed by fresh CI. Closing an automated PR or
+refresh of the history branch followed by fresh CI. Before pushing the refresh,
+cleanup resaves the same target branch if GitHub's PR snapshot still names an
+older base commit. It reads back the current base commit before the push so the
+new CI event starts with the current protected base. Closing an automated PR or
 adding `keep-branch` stops its automatic integration. At most one history PR is
 created, refreshed or merged per cleanup run. Introduced commit messages with
 issue-closing references and PRs with GitHub-reported closing issue links are
