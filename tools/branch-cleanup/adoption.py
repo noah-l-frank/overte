@@ -296,6 +296,16 @@ class Writer:
                 == [row["base_sha"], previous or row["sha"]], "adoption_commit_readback_mismatch")
         return value["sha"]
 
+    def open_history_pr(self, number, row, branch, head, policy):
+        pr = self.github.get(f"pulls/{number}")
+        require(own_pr(pr) and pr.get("number") == number
+                and pr["head"]["sha"] == head and pr["state"] == "open"
+                and pr["head"]["ref"] == branch and pr["base"]["ref"] == row["base"]
+                and not pr.get("draft") and pr.get("user", {}).get("login") == self.slug + "[bot]"
+                and policy["keep_label"] not in {label["name"] for label in pr.get("labels", [])},
+                "adoption_pr_changed")
+        return pr
+
     def reconcile(self, row, tree, graph, policy):
         branch = maintenance_branch(row)
         head = urllib.parse.quote("noah-l-frank:" + branch, safe="")
@@ -311,6 +321,7 @@ class Writer:
                 return "adoption_pr_held", False, False
             current = pr["head"]["sha"]
         else:
+            pr = None
             current = next((item["sha"] for item in self.github.branches() if item["name"] == branch), None)
         if current:
             graph.fetch({branch: current})
@@ -326,6 +337,15 @@ class Writer:
             saved_ref = self.github.get("git/ref/heads/" + urllib.parse.quote(branch, safe=""))
             require(saved_ref.get("object", {}).get("sha") == current, "adoption_ref_readback_mismatch")
         elif graph.git("show", "-s", "--format=%P", current).split()[0] != row["base_sha"]:
+            if pr is not None:
+                number = int(pr["number"])
+                pr = self.open_history_pr(number, row, branch, current, policy)
+                if pr["base"].get("sha") != row["base_sha"]:
+                    # Refresh GitHub's PR snapshot before pushing the commit
+                    # that triggers CI on the current protected target.
+                    self.write(f"pulls/{number}", "PATCH", {"base": row["base"]})
+                    pr = self.open_history_pr(number, row, branch, current, policy)
+                    require(pr["base"].get("sha") == row["base_sha"], "adoption_pr_base_not_refreshed")
             updated = self.record(row, tree, current)
             ref = self.write("git/refs/heads/" + urllib.parse.quote(branch, safe=""), "PATCH",
                              {"sha": updated, "force": False})
@@ -352,12 +372,7 @@ class Writer:
             labels = self.github.get(f"issues/{saved['number']}/labels")
             require("type: task" in {label["name"] for label in labels}, "adoption_pr_label_not_saved")
             return "created_waiting_for_checks", False, True
-        pr = self.github.get("pulls/" + str(int(pr["number"])))
-        require(own_pr(pr) and pr["head"]["sha"] == current and pr["state"] == "open"
-                and pr["head"]["ref"] == branch and pr["base"]["ref"] == row["base"]
-                and not pr.get("draft") and pr.get("user", {}).get("login") == self.slug + "[bot]"
-                and policy["keep_label"] not in {label["name"] for label in pr.get("labels", [])},
-                "adoption_pr_changed")
+        pr = self.open_history_pr(int(pr["number"]), row, branch, current, policy)
         if pr.get("mergeable_state") != "clean" or pr.get("mergeable") is not True:
             return "waiting_for_required_checks", False, False
         # A final fresh merge proof and hold check precede the normal PR merge API.

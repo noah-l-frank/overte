@@ -1316,7 +1316,9 @@ class ApplyRecoveryTests(unittest.TestCase):
         self.artifact = dict(workflow_run={"id": 123}, name="branch-cleanup-backup-123-1",
                              expired=False, size_in_bytes=100, digest="sha256:" + "c" * 64)
 
-    def apply(self, artifact=None, plans=None, main=None):
+    def apply(self, artifact=None, plans=None, main=None, artifact_errors=()):
+        errors = iter(artifact_errors)
+
         def get(endpoint):
             if main is not None and endpoint == "git/ref/heads/main":
                 return {"object": {"sha": main}}
@@ -1328,6 +1330,9 @@ class ApplyRecoveryTests(unittest.TestCase):
                         "merge_base_commit": {"sha": revision if ancestor else self.fixture.initial}}
             self.assertEqual(endpoint, "actions/artifacts/456")
             self.events.append(("verify_artifact",))
+            error = next(errors, None)
+            if error is not None:
+                raise self.module.CleanupError(error)
             return self.artifact if artifact is None else artifact
 
         self.github.get = get
@@ -1363,6 +1368,39 @@ class ApplyRecoveryTests(unittest.TestCase):
         self.bundle.unlink()
         result, _ = self.apply()
         self.assertEqual(result, 1)
+        self.assertFalse(self.pushes())
+        self.assert_branch_exists()
+
+    def test_backup_metadata_can_appear_after_upload(self):
+        self.prepare_apply()
+        missing = "github_api_get_actions_artifacts_http_404_not_found"
+        with mock.patch.object(self.module.time, "sleep") as pause:
+            result, report = self.apply(artifact_errors=[missing, missing])
+        self.assertEqual(pause.call_args_list, [mock.call(2), mock.call(5)])
+        self.assertEqual(self.events.count(("verify_artifact",)), 3)
+        self.assertEqual(result, 0)
+        self.assertEqual(report["deleted"], [self.fixture.merged_branch])
+
+    def test_unavailable_metadata_blocks_deletion_after_bounded_retries(self):
+        self.prepare_apply()
+        missing = "github_api_get_actions_artifacts_http_404_not_found"
+        with mock.patch.object(self.module.time, "sleep") as pause:
+            result, report = self.apply(artifact_errors=[missing] * 4)
+        self.assertEqual(pause.call_args_list, [mock.call(2), mock.call(5), mock.call(10)])
+        self.assertEqual(self.events.count(("verify_artifact",)), 4)
+        self.assertEqual(result, 1)
+        self.assertEqual(report["error"], missing)
+        self.assertFalse(self.pushes())
+        self.assert_branch_exists()
+
+    def test_backup_metadata_permission_failure_does_not_retry(self):
+        self.prepare_apply()
+        forbidden = "github_api_get_actions_artifacts_http_403_forbidden"
+        with mock.patch.object(self.module.time, "sleep") as pause:
+            result, report = self.apply(artifact_errors=[forbidden])
+        pause.assert_not_called()
+        self.assertEqual(result, 1)
+        self.assertEqual(report["error"], forbidden)
         self.assertFalse(self.pushes())
         self.assert_branch_exists()
 
@@ -1991,6 +2029,7 @@ class AdoptedHistoryPullRequestTests(unittest.TestCase):
                            "head": {**self.pr["head"], "ref": self.branch, "sha": self.head},
                            "mergeable": True, "mergeable_state": "clean"}
         self.saved_pr = self.history_pr
+        self.base_after_patch = self.row["base_sha"]
         self.prs = [self.history_pr]
         self.writes = []
         self.recorded = None
@@ -2025,6 +2064,9 @@ class AdoptedHistoryPullRequestTests(unittest.TestCase):
             return {"ref": payload.get("ref", "refs/heads/" + self.branch), "object": {"sha": payload["sha"]}}
         if suffix == "pulls":
             return {"number": 321}
+        if suffix == "pulls/321":
+            self.saved_pr = {**self.saved_pr, "base": {**self.saved_pr["base"], "sha": self.base_after_patch}}
+            return self.saved_pr
         if suffix == "issues/321/labels":
             return [{"name": "type: task"}]
         if suffix == "pulls/321/merge":
@@ -2090,6 +2132,27 @@ class AdoptedHistoryPullRequestTests(unittest.TestCase):
                          ["git/commits", "git/refs/heads/" + self.branch.replace("/", "%2F")])
         self.assertIs(self.writes[-1][2]["force"], False)
         self.assertEqual(self.writes[0][2]["parents"], [self.row["base_sha"], self.head])
+
+    def test_stale_pr_base_is_refreshed_before_the_history_push(self):
+        stale = "e" * 40
+        self.graph.git.return_value = stale + " " + self.row["sha"]
+        self.saved_pr = {**self.history_pr, "base": {**self.history_pr["base"], "sha": stale}}
+        self.assertEqual(self.reconcile(), ("refreshed_waiting_for_checks", False, True))
+        self.assertEqual([item[:2] for item in self.writes], [
+            ("pulls/321", "PATCH"), ("git/commits", "POST"),
+            ("git/refs/heads/" + self.branch.replace("/", "%2F"), "PATCH")])
+        self.assertEqual(self.writes[0][2], {"base": "main"})
+        self.assertEqual(self.writes[1][2]["parents"], [self.row["base_sha"], self.head])
+        self.assertFalse(self.writes[-1][2]["force"])
+
+    def test_unconfirmed_pr_base_refresh_stops_before_pushing_the_history(self):
+        stale = "e" * 40
+        self.graph.git.return_value = stale + " " + self.row["sha"]
+        self.saved_pr = {**self.history_pr, "base": {**self.history_pr["base"], "sha": stale}}
+        self.base_after_patch = stale
+        with self.assertRaisesRegex(self.module.CleanupError, "^adoption_pr_base_not_refreshed$"):
+            self.reconcile()
+        self.assertEqual(self.writes, [("pulls/321", "PATCH", {"base": "main"})])
 
 
 class AdoptedHistoryGitTests(unittest.TestCase):
